@@ -1,0 +1,162 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WOWTHREADINFO</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/km.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="21016" -->
+<h1>WOWTHREADINFO </h1>
+<p>The <span class="struct">WOWTHREADINFO</span> (formally <span class="struct">
+tagWOWTHREADINFO</span>) is one of two structures that are the primary modelling of what in many ways 
+appears to be a 16-bit process but is in fact the simulation of one by a single 
+thread. The specific concern of the <span class="struct">WOWTHREADINFO</span> is 
+the coordination of the one 16-bit process with the execution of all others. </p>
+<p>The only known way that WIN32K creates a <span class="struct">WOWTHREADINFO</span> 
+is when an attempt is made to create a process from a 16-bit Windows application. 
+A notification gets to the user-mode WINSRV.DLL in the CSRSS.EXE process and ever 
+since version 4.0 is passed through to WIN32K in kernel mode. There never will be 
+a 16-bit process. There is, however, a true process that will host the 16-bit “task” 
+as one of the host’s threads. There is also what may be intended as a unique identifier 
+for the task. If no <span class="struct">WOWTHREADINFO</span> yet exists for the 
+task ID, one gets created. The uncertainty about uniqueness is that it is not an 
+error to repeat a task ID: a <span class="struct">WOWTHREADINFO</span> that exists 
+for the same task ID gets reused. </p>
+<p>Multiple processes can each host multiple 16-bit tasks. If the
+<span class="member">idTask</span> is meant to be unique, it is meant to be unique 
+across all hosts. All <span class="struct">WOWTHREADINFO</span> structures that 
+WIN32K ever creates go into one list, linked through the <span class="member">pwtiNext</span> 
+member. Indeed, WIN32K does very little for the process-creation notification except 
+to ensure that this list has a <span class="struct">WOWTHREADINFO</span> for the 
+supposed new task. A newly created <span class="struct">WOWTHREADINFO</span> does 
+not get linked to any other WIN32K structures until the task is initialised. It 
+then gets pointed to from a <span class="struct"><a href="tdb.htm">TDB</a></span>.
+</p>
+<table>
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">WOWTHREADINFO *pwtiNext;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">ULONG idTask;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">ULONG_PTR idWaitObject;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">ULONG idParentProcess;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x10 </td>
+    <td rowspan="2">0x20 </td>
+    <td>
+    <pre class="source">HANDLE hIdleEvent;</pre>
+    </td>
+    <td>3.51 only </td>
+    <td>previously in <span class="struct">TDB</span> </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">KEVENT *pIdleEvent;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>0x28 </td>
+    <td>unknown <span class="type">BOOL</span> </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>That <span class="member">pIdleEvent</span> had a different prefix when introduced 
+as a handle in the user-mode <span class="struct">WOWTHREADINFO</span> is mere speculation. 
+Though the event has been accessed by a pointer ever since the move to kernel mode, 
+logic developed for version 3.51 is retained such that <span class="member">pIdleEvent</span> 
+can be the address of an event object else <span class="constant">NULL</span> as 
+would ordinarily be expected, but can alternatively be <span class="constant">INVALID_HANDLE_VALUE</span>.
+</p>
+<p>Microsoft’s name for the addition in version 6.2 may never be known, but
+<span class="member">bInitialized</span> would fit both the established notation 
+and what seems to be the purpose. The new member looks like it was introduced to 
+deal with problems from reusing a <span class="struct">WOWTHREADINFO</span> for 
+a repeated task ID. The boolean is zero in a newly created <span class="struct">
+WOWTHREADINFO</span>. It gets set to 1 when later initialisation of the task retrieves 
+the <span class="struct">WOWTHREADINFO</span> for the task ID and links it to a 
+newly created <span class="struct">TDB</span>. If the boolean somehow is not still 
+0, then initialisation fails. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 12th
+  <a href="../../../../../new/17/08.htm">August 2017</a> and was last modified on 
+  13th August 2017. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c17.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="47327" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,160 @@
+﻿<html>
+
+<head>
+<meta name="GENERATOR" content="Microsoft FrontPage 12.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>QISearch</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js">
+</script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>QISearch </h1>
+<p>This function gives consistency to implementations of the
+<span class="method">QueryInterface</span> method by standardising a lookup 
+table of the supported interfaces. </p>
+<h2>Declaration </h2>
+<pre class="source">HRESULT
+QISearch (
+    VOID *that,
+    LPCQITAB pqit,
+    REFIID riid,
+    VOID **ppv);</pre>
+<p>Since the <span class="struct">QITAB</span> structure is apparently used only 
+for this function, its format is as well given here. </p>
+<pre class="source">typedef struct {
+    const IID *piid;
+    int dwOffset;
+} QITAB, *LPQITAB, const *LPCQITAB; </pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">that</span> argument provides the address of an 
+object that supports one or more interfaces. </p>
+<p>The <span class="argument">pqit</span> argument provides the address of an 
+array of <span class="struct">QITAB</span> structures that describe the 
+supported interfaces. The array ends with the first <span class="struct">QITAB</span> 
+structure whose
+<span class="member">piid</span> member is NULL. A <span class="struct">QITAB</span> 
+structure for the <span class="interface">IUnknown</span> interface is 
+unnecessary.
+</p>
+<p>The <span class="argument">riid</span> argument is a reference to an IID for 
+the requested interface. </p>
+<p>The <span class="argument">ppv</span> argument addresses a variable that is 
+to receive the interface pointer, i.e., an address for use of the given object 
+through the requested interface. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../_include/hresult.htm" TAG="BODY" startspan -->
+
+<p>The function returns zero for success, else an error code. </p>
+
+<!--webbot bot="Include" i-checksum="1551" endspan -->
+<h2>Behaviour </h2>
+<p>If the <span class="argument">ppv</span> argument is NULL, no interface 
+pointer can be returned whether the requested interface is supported or not, and 
+the function returns <span class="constant">E_POINTER</span>. </p>
+<p>If the requested interface is not supported, the function returns
+<span class="constant">E_NOINTERFACE</span> and stores NULL as the interface 
+pointer.
+</p>
+<p>The requested interface is recognised as supported if the
+<span class="argument">riid</span> matches the <span class="member">piid</span> 
+member for some <span class="struct">QITAB</span> in the array or if the
+<span class="argument">riid</span> is for <span class="interface">IUnknown</span>. 
+If the requested interface is represented in a <span class="struct">QITAB</span>, 
+then the corresponding <span class="member">dwOffset</span> member measures the 
+bytes from the start of the object to the object’s pointer to the virtual 
+function table for the requested interface. If the interface is <span class="interface">
+IUnknown</span>, then the function takes the <span class="member">dwOffset</span> 
+from the first
+<span class="struct">QITAB</span>. </p>
+<p>Success implies a call to the <span class="method">AddRef</span> method of 
+the requested interface. </p>
+<h3>Example </h3>
+<p>A call to <span class="function">QISearch</span>, along with a properly 
+defined Query Interface Table (<span class="struct">QITAB</span> array), 
+typically suffices for a complete implementation of a <span class="method">
+QueryInterface</span> method. Consider the following example of a class <span class="class">
+CTest</span> that offers the interfaces <span class="interface">ITest1</span> 
+and
+<span class="interface">ITest2</span>. If we allow the following macro to help 
+generate the <span class="member">dwOffset</span> members </p>
+<pre class="source">#define VTABLE_OFFSET(cls,iface)    ((PCHAR)(iface *)(cls *) 1 - (PCHAR) 1)</pre>
+<p>then a complete implementation of the <span class="method">QueryInterface</span> 
+method for class <span class="class">CTest</span> is given by </p>
+<pre class="source">STDMETHODIMP CTest :: QueryInterface (REFIID riid, PVOID *ppv)
+{
+    static const QITAB qit [] = {
+        {&amp;IID_ITest1, VTABLE_OFFSET (CTest, ITest1)},
+        {&amp;IID_ITest2, VTABLE_OFFSET (CTest, ITest2)),
+        {NULL, 0}
+    };
+
+    return QISearch (this, qit, riid, ppv);
+}</pre>
+<p>For a project with many classes that each implement multiple interfaces, use 
+of <span class="function">QISearch</span> could easily save appreciable space, 
+as well as help with tidiness and consistency. </p>
+<h2>Availability </h2>
+<p>The <span class="function">QISearch</span> function is exported from 
+SHLWAPI.DLL as ordinal 219 in version 5.00 and higher. </p>
+<!--webbot bot="Include" U-Include="../_include/undoc500.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 1999, it was still not 
+documented by Microsoft in the MSDN Library at least as late as the CD edition 
+dated January 2004. </p>
+
+<!--webbot bot="Include" i-checksum="43429" endspan -->
+<p>Consultation of the MSDN on-line has shown that the function has got 
+documented meanwhile, apparently some time during 2004. The names <span class="function">
+QISearch</span> 
+and <span class="struct">QITAB</span> had been known from readily available 
+symbol files for various releases of SHLWAPI, but all names in this article now 
+follow Microsoft’s documentation. </p>
+<p>Microsoft’s documentation is marked by an insistence that a “significantly 
+better” helper is provided by the Active Template Library (ATL). True, a 
+programmer who is anyway working within the framework provided by the ATL would 
+be mad to use <span class="function">QISearch</span> 
+instead of the corresponding ATL helper. But it is at least equally true that a 
+programmer who sees no other benefit to the ATL would be mad to buy into its 
+(substantial) overhead just for its help with <span class="method">
+QueryInterface</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 16th August 2004 and was last 
+  modified on 27th April 2007. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0407.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2004-2007. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="54855" endspan -->
+</div>
+
+</body>
+
+</html>

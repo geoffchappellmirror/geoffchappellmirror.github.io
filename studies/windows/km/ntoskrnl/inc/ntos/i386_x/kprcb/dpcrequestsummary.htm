@@ -1,0 +1,172 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DpcRequestSummary in the KPRCB</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<h1>DpcRequestSummary in the KPRCB </h1>
+<p>A Deferred Procedure Call (DPC) is a routine that is scheduled while the processor 
+executes briefly at a high Interrupt Request Level (IRQL) so that larger work can 
+get under way when this or another processor runs at some lower IRQL, even though 
+this lower IRQL is typically the still demanding <span class="constant">DISPATCH_LEVEL</span>. 
+The scheduling and execution is mostly managed through the <span class="struct">
+<a href="../../kprcb.htm">KPRCB</a></span> for the target processor. </p>
+<p>Version 6.1 introduced a set of bit flags in two words, one word each for normal 
+and thread DPCs. The whole 32 bits of flags are accessible as the one
+<span class="member">DpcRequestSummary</span>. It is in union with the words, which 
+are together as the <span class="member">DpcRequestSlot</span> array and individually 
+as <span class="member">NormalDpcState</span> and <span class="member">ThreadDpcState</span>. 
+Version 6.1 labels one bit and squeezes it into the structure of words: </p>
+<pre class="source">struct {
+    SHORT NormalDpcState;
+    union {
+        USHORT volatile DpcThreadActive : 1;
+        SHORT ThreadDpcState;
+    };
+};</pre>
+<p>The separation is cleaner in version 6.2 and higher. The words are their own 
+structure in the union. The bits become another branch of the union</p>
+<pre class="source">struct {
+    SHORT NormalDpcState;
+    SHORT ThreadDpcState;
+};
+struct {
+    /*  bit fields, see below  */
+};</pre>
+<p>This reorganisation preserves <span class="member">DpcThreadActive</span> as 
+the first bit of the second word. </p>
+<table class="Bits">
+  <tr>
+    <th>Mask </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00000001 </td>
+    <td>
+    <pre class="source">ULONG DpcNormalProcessingActive : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000002 </td>
+    <td>
+    <pre class="source">ULONG DpcNormalProcessingRequested : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td>
+    <pre class="source">ULONG DpcNormalThreadSignal : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000008 </td>
+    <td>
+    <pre class="source">ULONG DpcNormalTimerExpiration : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000010 </td>
+    <td>
+    <pre class="source">ULONG DpcNormalDpcPresent : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000020 </td>
+    <td>
+    <pre class="source">ULONG DpcNormalLocalInterrupt : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG DpcNormalSpare : 10;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00010000 </td>
+    <td>
+    <pre class="source">ULONG DpcThreadActive : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td><span class="type">USHORT volatile</span> bit at same location in 6.1;
+    <br>
+    <span class="type">BOOLEAN volatile</span> in <span class="struct">KPRCB</span> 
+    in 5.2 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>0x00020000 </td>
+    <td>
+    <pre class="source">ULONG DpcThreadRequested : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td><span class="type">BOOLEAN volatile</span> in <span class="struct">KPRCB</span> 
+    in 5.2 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG DpcThreadSpare : 14;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 8th January 2020 from material first 
+  published on 14th <a href="../../../../../../../../new/16/11.htm">November 2016</a>.
+  </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1620.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14218" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,281 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RtlUnicodeStringToInteger</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>RtlUnicodeStringToInteger </h1>
+<p>The <span class="function">RtlUnicodeStringToInteger</span> function parses a 
+32-bit integer from a string. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+RtlUnicodeStringToInteger (
+    UNICODE_STRING const *String, 
+    ULONG Base, 
+    ULONG *Value);</pre>
+<h3>Parameters </h3>
+<p>The required <span class="argument">String</span> argument indirectly provides 
+the size and address of an array of Unicode characters. These input characters are 
+as many at <span class="member">Buffer</span> as fit within <span class="member">
+Length</span> bytes, up to but not including the first null. Only the
+<span class="member">Length</span> and <span class="member">Buffer</span> in the 
+input structure matter: the <span class="member">MaximumLength</span> is ignored. 
+The characters are treated as read-only. </p>
+<p>The optional <span class="argument">Base</span> argument is the numerical base 
+to use for parsing characters as digits. The supported bases are 2, 8, 10 and 16. 
+This argument can be zero to direct that the base be inferred from a prefix in the 
+string else be defaulted to 10. </p>
+<p>The required <span class="argument">Value</span> argument is the address of a 
+variable that is to receive the integer that the characters evaluate to. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+<h2>Availability </h2>
+<p>The <span class="function">RtlUnicodeStringToInteger</span> function is exported 
+by name from the kernel in version 3.51 and higher. It is present in version 3.10 
+but only as an internal routine. </p>
+<p>In user-mode, the <span class="function">RtlUnicodeStringToInteger</span> is 
+exported by name from NTDLL.DLL in all known versions, i.e., 3.10 and higher.
+</p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">RtlUnicodeStringToInteger</span> function is documented 
+in all known editions of the Device Driver Kit (DDK) or Windows Driver Kit (WDK) 
+since at least the DDK for Windows NT 3.51. Though this documentation is of the 
+kernel-mode function as an export from the kernel, it is mostly applicable to the 
+user-mode implementation too, both being plausibly compiled from the same source 
+file. </p>
+<p>Only relatively recently can documentation of <span class="function">RtlUnicodeStringToInteger</span> 
+be fairly described as accurate. This seems a little strange for what might otherwise 
+be thought a simple function. It might understandably have been thought to be worth 
+only a little trouble. Against this is the notion that utility functions such as 
+this are supposed to be favoured by programmers, over writing their own routines, 
+one argument being that the operating system’s manufacturer presumably does them 
+better. Microsoft sometimes laments what trouble it is put to because programmers 
+don’t paint between the lines, but if Microsoft accepted a matching responsibility 
+to draw the lines accurately, then this article on an apparently straightforward 
+utility function could not possibly have so long a section on Documentation Errors 
+(see below). </p>
+<h2>Behaviour </h2>
+<p>The function examines the Unicode characters described by
+<span class="argument">String</span>, interprets them mostly as digits relative 
+to some <span class="argument">Base</span>, and writes its evaluation to the address 
+given by <span class="argument">Value</span>. The parsing allows for the following 
+elements in sequence, each being optional: </p>
+<ul>
+  <li>white space, which is ignored; </li>
+  <li>a single-character sign indicator; </li>
+  <li>if <span class="argument">Base</span> is zero, a two-character base indicator;
+  </li>
+  <li>valid digits for the base; </li>
+  <li>anything else, which is ignored. </li>
+</ul>
+<p>Failure to parse into these elements is not failure for the function, but just 
+means the string evaluates as zero. </p>
+<h3>Implementation Details </h3>
+<p>In version 6.0 and higher, if the <span class="member">Length</span> member of 
+the given <span class="argument">String</span> is zero or is odd, the function returns
+<span class="constant">STATUS_INVALID_PARAMETER</span> (but see below about Exception 
+Handling). Earlier versions accept an odd <span class="member">Length</span>, simply 
+ignoring the excess byte. In these versions, the function ordinarily succeeds trivially 
+if <span class="member">Length</span> is zero or one but is liable to faulty behaviour 
+(see below among the Coding Errors). </p>
+<p>The function skips leading white space, meaning specifically characters that 
+are numerically less than 0x0020. </p>
+<p>There may then be a plus sign (0x002B) or minus sign (0x002D). If it is a plus 
+sign, it is ignored, but a minus sign here has the effect of negating whatever evaluation 
+results from subsequent characters. </p>
+<p>If <span class="argument">Base</span> is anything other than 0, 2, 8, 10 or 16, 
+the function returns <span class="constant">STATUS_INVALID_PARAMETER</span> (but, 
+again, see below). If <span class="argument">Base</span> is 0, the next two characters 
+can be a valid case-sensitive base specifier: '0' (0x0030) and then one of 'b' (0x0062) 
+for 2, 'o' (0x006F) for 8, or 'x' (0x0078) for 16. Without a base specifier, the 
+base defaults to 10. </p>
+<p>Subsequent characters, if any, are parsed as case-insensitive digits relative 
+to the given or inferred base. Characters '0' (0x0030) to '9' (0x0030) count as 
+0 to 9. Characters 'A' (0x0041) to 'F' (0x0046) and 'a' (0x0061) to 'f' (0x0066) 
+count as 10 to 15. Evaluation starts as zero and accumulates as an unsigned 32-bit 
+integer for as many characters as are valid digits for the base, including none. 
+There is no defence against overflow: the evaluation is modulo 4G. </p>
+<h4>Exception Handling </h4>
+<p>While writing the evaluation to the variable whose address is given as
+<span class="argument">Value</span>, occurrence of an exception is failure for the 
+function, which returns the exception code, e.g., <span class="constant">STATUS_ACCESS_VIOLATION</span>.
+</p>
+<p>In version 6.0 and higher, even the failing function writes its evaluation (which 
+will be zero). An exception then returns the exception code, not
+<span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<h3>Documentation Errors </h3>
+<p>Though the function’s only significant change of code was for Windows Vista, 
+it has been through two significant changes of documentation: first, for Windows 
+Vista, but evidently not to describe the changed code; and then for Windows 8. There 
+is also for Windows 7 the usual revision in which ancient functions, such as this, 
+are said to be “Available in Windows 2000 and later versions of Windows.” </p>
+<p>That the function fails if <span class="member">Length</span> is zero dates from 
+Windows Vista, and is not just a bug fix but is arguably the most noticeable change 
+of behaviour in the function’s history. Yet it did not make it to the documentation 
+until Windows 8. The documentation then changes to read as if “the string is empty” 
+is the only cause of failure. A closely related failure which is also new for Windows 
+Vista is that an odd <span class="member">Length</span> is similarly rejected as 
+an invalid parameter: this is not noted in any known edition of the documentation.
+</p>
+<p>Though skipping white space at the beginning is ancient behaviour, Microsoft 
+somehow managed not to document it for nearly two decades (again for Windows 8).
+</p>
+<p>No known documentation from Microsoft says explicitly that
+<span class="argument">Base</span> is restricted. It lists 2, 8, 10 and 16 as the 
+only possibilities for the inferred base when <span class="argument">Base</span> 
+is given as zero, but it leaves open what <span class="argument">Base</span> is 
+allowed when given as non-zero. This is specially remarkable because an invalid
+<span class="argument">Base</span> is originally the only failure case that the 
+function tests for itself (as opposed to failing from a handled exception). </p>
+<p>The prefix that the function looks for when <span class="argument">Base</span> 
+is zero also was problematic for Microsoft to convey. Documentation before Windows 
+Vista has it that the function “checks for a leading character” rather than for 
+two, omitting the need for introduction by a '0'. Correcting this looks to be the 
+main reason the documentation was revised for Windows Vista. </p>
+<p>On the plus side, documentation for Windows 8 not only discovered the white space, 
+so that it finally covers all elements of the expected syntax, but presents a helpful 
+table of examples. Curiously, no example shows a sequence of digits whose evaluation 
+overflows 32 bits. To this day, 12th March 2019, Microsoft’s online documentation 
+still does not tell programmers what evaluation to expect from overflow. </p>
+<p>From the DDK for Windows NT 3.51 through to the WDK for Windows 7, the documentation 
+says of failure that “the <span class="argument">Value</span> is set to 0,” and 
+the function “returns STATUS_INVALID_PARAMETER.” Presumably, this means that Microsoft 
+intended from the beginning that callers can rely on the function to produce zero 
+as its evaluation even when failing. The fact, however, is that the function does 
+not actually do this until Windows Vista. Documentation for Windows 8 removes all 
+talk of setting the <span class="argument">Value</span> on failure, even though 
+the contemporaneous implementation does always try. </p>
+<h3>Coding Errors </h3>
+<p>Although version 3.10 understands well enough that it is reading Unicode characters 
+from a <span class="struct">UNICODE_STRING</span>, it interprets only the low byte 
+of each as if it had read only a single-byte character. Who’s ever to know how that 
+happened, but it is represented below as if Microsoft used its
+<span class="type">TCHAR</span> type (which helps the same source code work for 
+either Unicode or ANSI characters, depending on conditional compilation) without 
+having defined the <span class="macro">UNICODE</span> macro. </p>
+<h4>Empty Input </h4>
+<p>That Microsoft waited until Windows 8 to document that the function ignores leading 
+white space is specially remarkable because Microsoft will by then have known for 
+a few years that the loop for this undocumented skipping of white space had coding 
+errors. In all versions, the loop for skipping white space at the start of the string 
+is something like </p>
+<pre class="source">PCWSTR p = String -&gt; Buffer;
+ULONG count = String -&gt; Length / sizeof (WCHAR);
+TCHAR first;
+while (count -- != 0) {
+    first = (TCHAR) *p ++;
+    if (first &gt; _T (' ')) break;
+    if (count == 0) {
+        first = _T ('\0');
+        break;
+    }
+}</pre>
+<p>Here, <span class="variable">count</span> is my name for the function’s count 
+of characters that remain for it to examine. The <span class="variable">first</span> 
+character that is not white space is not only the first to examine on exit from 
+the loop but is remembered to the function’s end in case it is a minus sign. There 
+are two problems if the <span class="member">Length</span> is 0 or 1 when entering 
+the loop: <span class="variable">count</span> underflows; and (before version 10.0)
+<span class="variable">first</span> is uninitialised. Both these problems are immaterial 
+in version 6.0 and higher because 0 and 1 are rejected before the loop. </p>
+<p>Before Windows Vista, a <span class="member">Length</span> of 0 or 1 can crash 
+the function. The undefended underflow of <span class="variable">count</span> means 
+the function will proceed in the mistaken belief that the <span class="variable">
+Buffer</span> continues for billions of more characters. Whether the function tries 
+to read any depends on what it believes is the <span class="variable">first</span>. 
+If this is on the stack, then for being uninitialised it can retain an essentially 
+arbitrary value from prior execution. If this happens (or is contrived) to be a 
+plus sign, minus sign, a valid digit for the given <span class="argument">Base</span>, 
+or '0' if <span class="argument">Base</span> is zero, then the function will attempt 
+to read at least one character from <span class="member">Buffer</span> even though 
+the <span class="member">Length</span> of 0 or 1 gives it no entitlement. </p>
+<p>When <span class="member">Length</span> is 0, <span class="member">Buffer</span> 
+can legitimately be <span class="constant">NULL</span> and the function’s unentitled 
+attempt to read from <span class="member">Buffer</span> will fault. </p>
+<p>It must be stressed, though, that aside from this case, there ordinarily will 
+be no harm. When <span class="member">Length</span> is 0 or 1,
+<span class="member">Buffer</span> can also legitimately be not
+<span class="constant">NULL</span>, the general idea being that it addresses
+<span class="member">MaximumLength</span> bytes of which <span class="member">Length</span> 
+bytes are currently a Unicode string, not counting any null terminator, which the
+<span class="struct">UNICODE_STRING</span> documentation explicitly allows need 
+not be present. But in ordinary practice, and certainly in what kernel-mode programmers 
+have learnt is the safest practice for working with <span class="struct">UNICODE_STRING</span> 
+structures, the <span class="member">Buffer</span> will have been prepared from 
+a null-terminated string, e.g., by feeding it to <span class="function">
+<a href="../string/initunicodestring.htm">RtlInitUnicodeString</a></span>, and a 
+null terminator will be present (unless, before version 5.2, the string is very 
+long). Though the function’s reading of this null is technically out-of-bounds, 
+it causes no harm and the function succeeds with zero as its valuation. </p>
+<p>But ordinary practice is not all practice. Whatever the <span class="member">
+Length</span> in a <span class="struct">UNICODE_STRING</span>, what the
+<span class="member">Buffer</span> contains beyond its first
+<span class="member">Length</span> bytes is essentially arbitrary, e.g., for being 
+retained from previous use of the <span class="member">Buffer</span> for some other 
+string. When <span class="member">Length</span> is 0 or 1 and the
+<span class="member">Buffer</span> happens to be filled with valid digits, the function 
+will continue reading them beyond the buffer’s end, where there is not certainly 
+any more memory to read. This too will fault. </p>
+<p>Both ways to crash <span class="function">RtlUnicodeStringToInteger</span> before 
+Windows Vista by giving zero for <span class="member">Length</span> and contriving 
+what’s on the stack and in the <span class="member">Buffer</span> are reproduced 
+easily enough within a test program using the NTDLL implementation. Whether these 
+input cases can be arranged for a call to the function as made by a separate process 
+or in kernel mode is not known. </p>
+<h3>IRQL </h3>
+<p>Only one reason is known that the kernel’s implementation of
+<span class="function">RtlUnicodeStringToInteger</span> cannot safely execute at 
+high IRQL if the <span class="argument">String</span> and its
+<span class="member">Buffer</span> and the <span class="argument">Value</span> too 
+are all in non-paged memory: all versions that export the function implement it 
+in paged memory. The <span class="function">RtlUnicodeStringToInteger</span> function 
+must therefore be called only at <span class="constant">PASSIVE_LEVEL</span>, which 
+Microsoft has always documented. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 6th
+  <a href="../../../../../../../new/19/03.htm">March 2019</a> and was last modified 
+  on 6th November 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1920.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5277" -->
+</div>
+
+</body>
+
+</html>

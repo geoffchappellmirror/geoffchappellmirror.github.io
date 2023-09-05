@@ -1,0 +1,245 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MMPTE</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<h1>MMPTE </h1>
+<p>The <span class="struct">MMPTE</span> structure is everything the Memory Manager 
+puts in any sort of Page Table Entry (PTE). At its essence, a PTE is the processor-defined 
+structure that an operating system must provide in the right way at the right place 
+for the processor to translate a page’s linear address to a physical address. But 
+for managing this translation the Memory Manager also has structures of its own 
+which are more or less compatible with the processor’s. The <span class="struct">
+MMPTE</span> is a container for all of them. </p>
+<p>The size of a PTE depends on which translation algorithm is in use. Versions 
+5.0 to 6.1 of 32-bit Windows each supply separate kernels that use different translation 
+algorithms. One kernel, named NTOSKRNL.EXE or NTKRNLMP.EXE, has the processor translate 
+32-bit linear addresses to 32-bit physical addresses using 32-bit page table entries. 
+This is all that’s available before version 5.0. This kernel is denoted below as
+<span class="definition">x86</span>. The other build of kernel uses Physical Address 
+Extension (PAE) so that the translation algorithm is of 32-bit linear addresses 
+to a wider physical address space using 64-bit page table entries. This kernel is 
+denoted below as <span class="definition">PAE</span>. In the versions that are supplied 
+with both kernels, the PAE kernel is named NTKRNLPA.EXE or NTKRPAMP.EXE. Version 
+6.2 discontinues the supply of the x86 kernel, such that NTOSKRNL.EXE is in fact 
+a PAE kernel. For 64-bit Windows, the translation is of 48-bit linear addresses 
+to 52-bit physical addresses using 64-bit page table entries. (Note that although 
+Intel provides for 52 bits in a physical address, the Memory Manager’s structures 
+for the translation allow no more than 48.) </p>
+<h2>Layout </h2>
+<p>Formally, the <span class="struct">MMPTE</span> has one immediate member
+<span class="member">u</span> which is itself an unnamed union. The first few members 
+ease access to the whole PTE as either one integer or two: </p>
+<table class="Union">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00 </td>
+    <td>
+    <pre class="source">ULONG Long;</pre>
+    </td>
+    <td>all (x86) </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONGLONG Long;</pre>
+    </td>
+    <td>all (PAE and x64) </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00 </td>
+    <td>
+    <pre class="source">ULONG volatile VolatileLong;</pre>
+    </td>
+    <td>6.0 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONGLONG volatile VolatileLong;</pre>
+    </td>
+    <td>6.0 and higher (PAE and x64) </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">MMPTE_HIGHLOW HighLow;</pre>
+    </td>
+    <td>all (PAE) </td>
+  </tr>
+</table>
+<p>The remaining members of the union are the various types of PTE: </p>
+<table class="Union">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source"><a href="hardware.htm">MMPTE_HARDWARE</a> Hard;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">MMPTE_HARDWARE_LARGEPAGE HardLarge;</pre>
+    </td>
+    <td>late 5.2 to 6.0 (x64) </td>
+  </tr>
+  <tr>
+    <td rowspan="4">0x00 </td>
+    <td>
+    <pre class="source"><a href="../hardware_pte.htm">HARDWARE_PTE</a> Flush;</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">HARDWARE_PTE_X86 Flush;</pre>
+    </td>
+    <td>5.0 to early 5.1 (x86) </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">HARDWARE_PTE_X86PAE Flush;</pre>
+    </td>
+    <td>5.0 to early 5.1 (PAE) </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">HARDWARE_PTE Flush;</pre>
+    </td>
+    <td>late 5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">MMPTE_PROTOTYPE Proto;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">MMPTE_SOFTWARE Soft;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">MMPTE_TIMESTAMP TimeStamp;</pre>
+    </td>
+    <td>late 6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">MMPTE_TRANSITION Trans;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">MMPTE_SUBSECTION Subsect;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">MMPTE_LIST List;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+</table>
+<p>All names and types are from public symbol files for the kernel, starting with 
+Windows 2000 SP3. What Microsoft defined for earlier versions is something of a 
+guess, though the name <span class="struct">HARDWARE_PTE</span> for one of the types 
+is well established from debugger extensions that Microsoft included in the Device 
+Driver Kit (DDK) for Windows NT 4.0. </p>
+<p>In version 5.0 and in version 5.1 before Windows XP SP1, the
+<span class="struct">HARDWARE_PTE</span> goes by separate names,
+<span class="union">HARDWARE_PTE_X86PAE</span> and <span class="struct">HARDWARE_PTE_X86</span>, 
+for the 32-bit kernels that do and don’t use PAE. </p>
+<h3>MMPTE_HIGHLOW </h3>
+<p>For 32-bit Windows with PAE, each PTE is eight bytes but the kernel has only 
+32-bit registers for working with the bits. The <span class="struct">MMPTE_HIGHLOW</span> 
+is then defined as a simple structure for accessing the high and low dwords: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset (PAE) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ULONG LowPart;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">ULONG HighPart;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 16th July 2016 but was not published 
+  until 13th <a href="../../../../../../../../new/19/10.htm">October 2019</a>. 
+  It was last modified on 19th October 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="2272" -->
+</div>
+
+</body>
+
+</html>

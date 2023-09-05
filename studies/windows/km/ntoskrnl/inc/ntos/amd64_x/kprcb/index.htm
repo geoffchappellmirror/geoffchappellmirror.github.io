@@ -1,0 +1,6295 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KPRCB (amd64)</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<h1>KPRCB (amd64) </h1>
+<p>The name <span class="struct"><a href="../../kprcb.htm">KPRCB</a></span> stands for 
+(Kernel) Processor Control Block. The kernel keeps one <span class="struct">KPRCB</span> 
+(formally a <span class="struct">_KPRCB</span>) 
+for each logical processor as the <span class="member">Prcb</span> member of the same processor’s
+<span class="struct"><a href="../../kpcr.htm">KPCR</a></span>. The
+<span class="struct">KPRCB</span> holds most of what the kernel needs ready access 
+to while managing a processor and while managing resources that are themselves managed 
+more simply (and quickly) per processor. Neither of these structures is formally 
+documented. Both are highly specific to the processor architecture. This page concerns 
+itself only with the <span class="struct">KPRCB</span> in 64-bit Windows for the 
+processor architecture that’s variously named amd64 or x64. The
+<a href="../../i386_x/kprcb/index.htm">x86 <span class="struct">KPRCB</span></a> is presented separately.
+</p>
+<h2>Access </h2>
+<p>Kernel-mode code can easily find the <span class="struct">KPRCB</span> for whichever 
+processor it’s executing on, by finding the current <span class="struct">KPCR</span> 
+first. The latter is well-known to be accessible through the
+<span class="register">gs</span> register. Its <span class="member">CurrentPrcb</span> 
+member points to the <span class="struct">KPRCB</span> without depending on it to 
+be embedded in the <span class="struct">KPCR</span>. Given a C-language definition 
+of the <span class="struct">KPCR</span>, getting the current processor’s
+<span class="struct">KPRCB</span> can be conveniently wrapped into one inline function:
+</p>
+<pre class="source">FORCEINLINE
+KPRCB *KeGetCurrentPrcb (VOID)
+{
+    return (KPRCB *) __readgsqword (FIELD_OFFSET (KPCR, CurrentPrcb));
+}</pre>
+<p>which, less some dressing, is mostly how Microsoft’s own programmers have been 
+doing it, apparently all along, as confirmed by the NTOSP.H that Microsoft 
+published (possibly by oversight) in early editions of the Windows Driver Kit (WDK) 
+for Windows 10. </p>
+<p>The part of the <span class="struct">KPCR</span> that’s ahead of the embedded
+<span class="struct">KPRCB</span> is highly stable. Of particular importance is 
+that the offset of the <span class="member">CurrentPrcb</span> member is reliable over 
+all Windows versions. The <span class="struct">KPRCB</span> that it points to is 
+the <span class="member">Prcb</span> member, and its offset too is stable over 
+all versions. Members of the <span class="struct">KPRCB</span> are sometimes accessed 
+through offsets from the <span class="struct">KPCR</span>. For some members, 
+this is even the most usual access. Notably, the
+<span class="function">KeGetCurrentThread</span> function is implemented very like
+</p>
+<pre class="source"><a href="../../ke/kthread/index.htm">KTHREAD</a> *KeGetCurrentThread (VOID)
+{
+    return (KTHREAD *) __readgsqword (FIELD_OFFSET (KPCR, Prcb.CurrentThread));
+}</pre>
+<p>both as exported and when inlined throughout the kernel. Of course, the 
+computation shown here would require definition of the whole
+<span class="struct">KPCR</span> and at least some of <span class="struct">KPRCB</span>. 
+As explained later, Microsoft has so far avoided both. Microsoft’s definition of
+<span class="function">KeGetCurrentThread</span> in WDM.H doesn’t compute the 
+offset symbolically, as above, but 
+hard-codes it (to 0x0188). For all practical effect, this means that this offset 
+with the <span class="struct">KPRCB</span> and the offset of the
+<span class="struct">KPRCB</span> within the <span class="struct">KPCR</span> 
+are fixed in stone, if not forever, then for as long as old code that may have 
+used the WDM.H definition is to run on new Windows versions. For other
+<span class="struct">KPRCB</span> members, offsets may be less stable, but 
+accessing them relative to the containing <span class="struct">KPCR</span> is formalised in Microsoft’s assembly-language header KSAMD64.INC through such definitions as
+<span class="constant">PcCurrentThread</span> for this same offset that’s 
+computed above. </p>
+<h3>Processor Switching </h3>
+<p>In many cases, including <span class="function">KeGetCurrentThread</span>, 
+kernel-mode code that must access a <span class="struct">KPRCB</span> member 
+does better to use the <span class="register">gs</span> register and an offset from the
+<span class="struct">KPCR</span>. This is because the address that some such routine 
+as <span class="routine">KeGetCurrentPrcb</span> obtains is merely the address of 
+the <span class="struct">KPRCB</span> for the processor that the current thread 
+was being run on at the time. It remains the address of the current
+<span class="struct">KPRCB</span> only while the thread can ensure it is not switched 
+to another processor. Often the circumstances are such that it can’t be 
+switched. But often is not always, even for the kernel’s own use. How much 
+trouble has been caused by unsynchronised access to a <span class="struct">KPRCB</span> for some processor 
+that the thread is no longer running on may be impossible to assess even roughly 
+but I doubt it’s negligible. 
+</p>
+<h3>Other Processors </h3>
+<p>Finding the <span class="struct">KPRCB</span> for an arbitrary processor is easy 
+too in 64-bit Windows. Its kernel exports a function, named
+<span class="function">KeQueryPrcbAddress</span>, that returns the address of the
+<span class="struct">KPRCB</span> for the processor that is represented by a given 
+processor index. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="struct">KPRCB</span> is not documented. Microsoft’s first 
+known disclosure of a C-language definition of the <span class="struct">KPRCB</span> 
+for the x64 is in the NTOSP.H from early editions of the WDK for Windows 10. Publication 
+of this header was possibly an oversight—Microsoft did not repeat it for the 
+1607 edition—and, anyway, its definition 
+is incomplete. Comments at the start and end explain that what’s defined is just an 
+“architecturally defined section” that “may be directly addressed by vendor/platform 
+specific HAL code and will not change from version to version of NT.” </p>
+<p>The practical equivalent of a C-language definition of the whole structure is 
+available as type information in public symbol files for the kernel. Starting with Windows 8, these also tell that the type information 
+came from compiling AMD64_X.H. Some symbol files, e.g., those for the HAL in Windows 
+7 and higher, have type information for only the architecturally defined section 
+at the structure’s start. From these it is known that the incomplete definition 
+is not only in NTOSP.H but also in NTHAL.H. </p>
+<h2>Layout </h2>
+<p>The <span class="struct">KPRCB</span> is highly variable. The layout changes 
+not just from one version to another but even between builds. To save space and 
+tedium, this article’s presentation of the variations refers to early and late 
+builds of some versions, as defined in the following table of the structure’s 
+varying size: </p>
+<table class="Sizes">
+  <colgroup>
+    <col class="Version"><col class="Size" span="3">
+  </colgroup>
+  <tr>
+    <th>Version </th>
+    <th>Whole Structure </th>
+    <th>Architecturally Defined Section </th>
+    <th>NTHAL.H and NTOSP.H Definition </th>
+  </tr>
+  <tr>
+    <td>5.2 (starts from SP1) </td>
+    <td>0x2480 </td>
+    <td rowspan="7">0x0670 </td>
+    <td rowspan="7">&nbsp;</td>
+  </tr>
+  <tr>
+    <td>early 6.0 (before SP1) </td>
+    <td>0x3A20 </td>
+  </tr>
+  <tr>
+    <td>late 6.0 </td>
+    <td>0x3B20 </td>
+  </tr>
+  <tr>
+    <td>6.1 </td>
+    <td>0x4D00 </td>
+  </tr>
+  <tr>
+    <td>6.2 </td>
+    <td>0x5B80 </td>
+  </tr>
+  <tr>
+    <td>6.3 </td>
+    <td>0x5BC0 </td>
+  </tr>
+  <tr>
+    <td>10.0 to 1607 </td>
+    <td>0x6900 </td>
+  </tr>
+  <tr>
+    <td>1703 </td>
+    <td>0x6A40 </td>
+    <td rowspan="5">0x06F0 </td>
+    <td>0x06F0 </td>
+  </tr>
+  <tr>
+    <td>1709 </td>
+    <td>0x6980 </td>
+    <td rowspan="4">0x0700 </td>
+  </tr>
+  <tr>
+    <td>1803 to 1809 </td>
+    <td>0x7EC0 </td>
+  </tr>
+  <tr>
+    <td>1903 </td>
+    <td>0x8F00 </td>
+  </tr>
+  <tr>
+    <td>2004 </td>
+    <td>0xAF00 </td>
+  </tr>
+</table>
+<p>These sizes, and the names, types and offsets below, are mostly from Microsoft’s 
+public symbols for the kernel. A few come instead from public symbols for other 
+modules. These are needed for the incomplete definitions that some modules pick 
+up from NTHAL.H or NTOSP.H. Before the 1709 release of Windows 10, these truly 
+are just of the architecturally defined section. Later releases present two 
+complications. First, although they have no members that reach beyond the 
+architecturally defined section, they have unnamed alignment padding that does. 
+Second, they do not have all the same members even within the architecturally 
+defined section. </p>
+<p>Please bear in mind that the <span class="struct">KPRCB</span> is among the largest 
+of kernel-mode structures, not just in terms of size but of member count. There 
+have been frequent rearrangements such that finding a good presentation can only ever be a work in progress.
+</p>
+<h3>Architecturally Defined Section </h3>
+<p>The very start of the 64-bit <span class="struct">KPRCB</span> is relatively 
+stable. It has long been subject to compatibility constraints because offsets for 
+members have been published in the NTDDK.H file. When the processor
+<span class="member">Number</span> was widened in place for Windows Vista, the
+<span class="member">NestingLevel</span> moved further on. When
+<span class="member">Number</span> was widened even further for Windows 7, it too 
+moved further on, and the space it occupied was renamed, presumably so that it is 
+never reassigned. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ULONG MxCsr;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x04 </td>
+    <td>
+    <pre class="source">UCHAR Number;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">USHORT Number;</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>next at offset 0x24 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR LegacyNumber;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x05 </td>
+    <td>
+    <pre class="source">UCHAR NestingLevel;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at offset 0x20 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR ReservedMustBeZero;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x06 </td>
+    <td>
+    <pre class="source">BOOLEAN InterruptRequest;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x07 </td>
+    <td>
+    <pre class="source">BOOLEAN IdleHalt;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">KTHREAD *CurrentThread;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">KTHREAD *NextThread;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">KTHREAD *IdleThread;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Shifting the processor <span class="member">Number</span> from offset 0x04 to 
+widen it to 32 bits had special implications for compatibility because of the vast 
+amounts of kernel-mode code, written not only by Microsoft, that accesses the 8-bit
+<span class="member">Number</span> through the inline function
+<span class="function">KeGetCurrentProcessorNumber</span> as defined for seemingly 
+general use in the NTDDK.H from driver kits for versions before Windows 7 (and still 
+defined if targetting those versions). This routine gets <span class="member">Number</span> 
+via the <span class="register">gs</span> register, relying not only on its offset 
+within the <span class="struct">KPRCB</span> but the offset of the
+<span class="struct">KPRCB</span> within the <span class="struct">KPCR</span>, the 
+sum (0x0184) being hard-coded in the definition. Its replacement,
+<span class="function">KeGetCurrentProcessorIndex</span>, is similarly hard-coded 
+but to access the 32-bit <span class="member">Number</span> at its new location. 
+The kernel must maintain the <span class="member">LegacyNumber</span> for as long 
+as the old routine remains in use by drivers that might ever get loaded. </p>
+<p>The other inline function that is declared in NTDDK.H for general use and which 
+has a hard-coded offset from <span class="register">gs</span> to a
+<span class="struct">KPRCB</span> member is <span class="function">KeGetCurrentThread</span>. 
+It, of course, reads <span class="member">CurrentThread</span>. </p>
+<p>There the hard constraints on moving members seem to end. The very next member 
+even got moved out of the <span class="struct">KPRCB</span>. Of the space that was 
+left by moving the 8-byte <span class="member">UserRsp</span> to the
+<span class="struct">KPCR</span> in Windows Vista, only two bytes were 
+immediately reused. The rest was left as padding that got reassigned little by 
+little. The byte at offset 0x21 even got reused, unused and re-reused. 
+The last byte of padding went away in Windows 10. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x20 (5.2) </td>
+    <td>
+    <pre class="source">ULONG64 UserRsp;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x10 in <span class="struct">KPCR</span> </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">UCHAR NestingLevel;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously at 0x05 </td>
+  </tr>
+  <tr>
+    <td>0x21 (6.0) </td>
+    <td>
+    <pre class="source">UCHAR Group;</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>next as <span class="type">USHORT</span> at 0x0658 </td>
+  </tr>
+  <tr>
+    <td>0x21 </td>
+    <td>
+    <pre class="source">BOOLEAN ClockOwner;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x22 </td>
+    <td>
+    <pre class="source">UCHAR PendingTick;</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    UCHAR PendingTickFlags;
+    struct {
+        UCHAR PendingTick : 1;          // 0x01
+        UCHAR PendingBackupTick : 1;    // 0x02
+    };
+};</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="4">0x22 (6.0); <br>
+    0x21 (6.1); <br>
+    0x23 </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad00 [6];</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad00 [3];</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad00 [1];</pre>
+    </td>
+    <td>6.2 to 6.3 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR IdleState;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>
+    <pre class="source">ULONG Number;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously <span class="type">USHORT</span> at 0x04 </td>
+  </tr>
+</table>
+<p>Much of the rest of the architecturally defined section is very nearly 
+stable until Version 1703 moves the <span class="member">ProcessorState</span> 
+to the end of the architecturally defined section. This relocation of course 
+shifts all members that followed, but they would have shifted anyway because the
+<span class="struct"><a href="../kprocessor_state.htm">KPROCESSOR_STATE</a></span> 
+grew in this version—not from any internal change but just from rounding its 
+size up to the next whole multiple of 0x40, presumably for cache alignment. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>
+    <pre class="source">ULONG64 RspBase;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td>
+    <pre class="source">KSPIN_LOCK PrcbLock;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x38 </td>
+    <td>
+    <pre class="source">KAFFINITY SetMember;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>next as <span class="member">GroupSetMember</span> at 0x0660 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad01;</pre>
+    </td>
+    <td>6.1 to 6.2 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">CHAR *PriorityState;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x40 (5.2 to 1607) </td>
+    <td>
+    <pre class="source">KPROCESSOR_STATE ProcessorState;</pre>
+    </td>
+    <td>5.2 to 1607 </td>
+    <td>next at 0x0100 </td>
+  </tr>
+  <tr>
+    <td>0x05F0 (5.2 to 1607); <br>
+    0x40 </td>
+    <td>
+    <pre class="source">CHAR CpuType;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x05F1 (5.2 to 1607); <br>
+    0x41 </td>
+    <td>
+    <pre class="source">CHAR CpuID;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x05F2 (5.2 to 1607); <br>
+    0x42 </td>
+    <td>
+    <pre class="source">USHORT CpuStep;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    USHORT CpuStep;
+    struct {
+        UCHAR CpuStepping;
+        UCHAR CpuModel;
+    };
+};</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x05F4 (5.2 to 1607); <br>
+    0x44 </td>
+    <td>
+    <pre class="source">ULONG MHz;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x05F8 (5.2 to 1607); <br>
+    0x48 </td>
+    <td>
+    <pre class="source">ULONG64 HalReserved [8];</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0638 (5.2 to 1607); <br>
+    0x88 </td>
+    <td>
+    <pre class="source">USHORT MinorVersion;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x063A (5.2 to 1607); <br>
+    0x8A </td>
+    <td>
+    <pre class="source">USHORT MajorVersion;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x063C (5.2 to 1607); <br>
+    0x8C </td>
+    <td>
+    <pre class="source">UCHAR BuildType;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x063D (5.2 to 1607); <br>
+    0x8D </td>
+    <td>
+    <pre class="source">UCHAR CpuVendor;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x063E (5.2 to 1607); <br>
+    0x8E </td>
+    <td>
+    <pre class="source">UCHAR InitialApicId;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next as <span class="type">ULONG</span> at 0x0650 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR CoresPerPhysicalProcessor;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x063F (5.2 to 1607); <br>
+    0x8F </td>
+    <td>
+    <pre class="source">UCHAR LogicalProcessorsPerPhysicalProcessor;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR LogicalProcessorsPerCore;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  </table>
+<p>The <span class="member">CpuType</span> is what the processor manuals refer 
+to as the family. In <a href="../../../../../cpu/cpuid/00000001h/eax.htm">
+<span class="register">eax</span> from <span class="instruction">cpuid</span> leaf 
+1</a>, bits 8 to 11 inclusive make 
+a 4-bit family. If all four bits are set, then an 8-bit family is formed by adding 
+the 4-bit family, i.e., 15, to the 8-bit extended family from bits 20 to 27. 
+Though this complexity is defined by Intel, it is of course inherited from the 
+early history of Windows on the x86 processor. </p>
+<p>The <span class="member">CpuID</span> is a boolean for whether the
+<span class="instruction">
+<a href="../../../../../cpu/cpuid/index.htm">cpuid</a></span> instruction is available. It is necessarily
+<span class="constant">TRUE</span> for x64 processors. </p>
+<p>The <span class="member">CpuStepping</span> and <span class="member">CpuModel</span> 
+are named straightforwardly from Intel’s manuals. The <span class="member">CpuStepping</span> 
+is bits 0 to 3 inclusive of <span class="register">eax</span> from <span class="instruction">cpuid</span> leaf 
+1. The <span class="member">CpuModel</span> is bits 4 to 7 inclusive, except for 
+two cases in which four high bits of the 8-bit <span class="member">CpuModel</span> come from an extended model in bits 16 to 19. 
+This use of the extended model is indicated if: the 4-bit family is 15; or it is 
+6 and the vendor is either GenuineIntel or, in version 6.2 and higher, CentaurHauls.
+</p>
+<p>Vendor identification is from the vendor string that is produced by what the
+<span class="instruction">cpuid</span> instruction’s leaf 0 returns in
+<span class="register">ebx</span>, <span class="register">edx</span> and
+<span class="register">ecx</span>. This string is retained as the
+<span class="member">VendorString</span> much further into the
+<span class="struct">KPRCB</span>. The <span class="member">CpuVendor</span> is 
+a convenient interpretation. It takes its values from the <span class="enum">
+<a href="../cpu_vendors.htm">CPU_VENDORS</a></span> 
+enumeration. </p>
+<p>Insertion of explicit padding (<span class="member">PrcbPad04</span>, below) when 
+Version 1703 moved the <span class="member">ProcessorState</span> suggests that 
+what had been the last 0x30 bytes of the architecturally defined section had 
+been intended to be cache-aligned, for their own purpose, not just for 
+positioning the <span class="member">LockQueue</span> that starts the 
+non-architectural section. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x90 </td>
+    <td>
+    <pre class="source">ULONG64 TscFrequency;</pre>
+    </td>
+    <td>1903 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x90 (1703 to 1809); <br>
+    0x98 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad04 [6];</pre>
+    </td>
+    <td>1703 to 1809 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad04 [5];</pre>
+    </td>
+    <td>1903 and higher </td>
+  </tr>
+</table>
+<p>Until moving the <span class="member">ProcessorState</span> required the 
+architecturally defined section to grow, some trouble seems to have been taken 
+to keep the remainder to 0x30 bytes even when reworking it heavily for Windows 8.1. An initially 8-bit <span class="member">CFlushSize</span> was followed 
+by padding (<span class="member">PrcbPad0x</span>) that accounts explicitly for the next member’s alignment. 
+This padding went away when <span class="member">CFlushSize</span> was widened in-place. 
+An initial 32 bytes of padding (as <span class="member">PrcbPad00</span>) completed 
+the architecturally defined section in a way that satisfies the peculiar 
+cache-alignment requirement of the <span class="member">LockQueue</span>. As some of 
+this padding was brought into use, it shifted 
+and shrank (as <span class="member">PrcbPad01</span>), until by version 6.1 it was 
+no longer needed—given 8-byte alignment of whatever follows. Therein lay a 
+problem. Placement of the small <span class="member">Group</span> and <span class="member">GroupIndex</span> 
+on 8-byte boundaries 
+left 13 bytes of unused alignment space.
+This had to be reorganised for Windows 8.1 to squeeze in <span class="member">ParentNode</span> 
+from (much) further into the structure. Bringing in <span class="member">ScbOffset</span> from further 
+into the structure for Windows 10 then seems to have prompted a reordering of
+<span class="member">ApicMask</span>, <span class="member">CFlushSize</span>,
+<span class="member">AcpiReserved</span> and <span class="member">InitialApicId</span>.
+The four bytes of alignment space that this left unused was labelled explicitly 
+as padding (<span class="member">PrcbPad10</span>) until Version 1709 found a 
+use for it. 
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x0640 (6.3 to 1607); <br>
+    0xC0 </td>
+    <td>
+    <pre class="source">KNODE *ParentNode;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>cache-aligned; <br>
+    previously at 0x5338 </td>
+  </tr>
+  <tr>
+    <td>0x0648 (6.3 to 1607); <br>
+    0xC8 </td>
+    <td>
+    <pre class="source">KAFFINITY GroupSetMember;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>previously at 0x0660 </td>
+  </tr>
+  <tr>
+    <td>0x0650 (6.3 to 1607); <br>
+    0xD0 </td>
+    <td>
+    <pre class="source">UCHAR Group;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>previously <span class="type">USHORT</span> at 0x0658 </td>
+  </tr>
+  <tr>
+    <td>0x0651 (6.3 to 1607); <br>
+    0xD1 </td>
+    <td>
+    <pre class="source">UCHAR GroupIndex;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>previously at 0x0668 </td>
+  </tr>
+  <tr>
+    <td>0x0652 (6.3 to 1607); <br>
+    0xD2 </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad05 [2];</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0654 (10.0 to 1607); <br>
+    0xD4 </td>
+    <td>
+    <pre class="source">ULONG InitialApicId;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>previously at 0x0668 </td>
+  </tr>
+  <tr>
+    <td>0x0658 (10.0 to 1607); <br>
+    0xD8 </td>
+    <td>
+    <pre class="source">ULONG ScbOffset;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>previously at 0x0531C </td>
+  </tr>
+  <tr>
+    <td>0x0640 (5.2 to 6.2); <br>
+    0x0654 (6.3); <br>
+    0x065C (10.0 to 1607); <br>
+    0xDC </td>
+    <td>
+    <pre class="source">ULONG ApicMask;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0644 (5.2 to 6.2); <br>
+    0x0658 (6.3) </td>
+    <td>
+    <pre class="source">UCHAR CFlushSize;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG CFlushSize;</pre>
+    </td>
+    <td>6.0 to 6.3 </td>
+    <td>next at 0x0668 </td>
+  </tr>
+  <tr>
+    <td>0x0645 (5.2) </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad0x [3];</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0648 (5.2 to 6.2); <br>
+    0x0660 (6.3 to 1607); <br>
+    0xE0 </td>
+    <td>
+    <pre class="source">PVOID AcpiReserved;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0650 (6.0 to 6.2); <br>
+    0x0668 (6.3) </td>
+    <td>
+    <pre class="source">ULONG InitialApicId;</pre>
+    </td>
+    <td>6.0 to 6.3 </td>
+    <td>previously <span class="type">UCHAR</span> at 0x063E; <br>
+    next at 0x0654 </td>
+  </tr>
+  <tr>
+    <td>0x0654 (6.0 to 6.2) </td>
+    <td>
+    <pre class="source">ULONG Stride;</pre>
+    </td>
+    <td>6.0 to 6.2 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0650 (5.2); <br>
+    0x0658 (6.0) </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad00 [4];</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad01 [3];</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0658 (6.1 to 6.2) </td>
+    <td>
+    <pre class="source">USHORT Group;</pre>
+    </td>
+    <td>6.1 to 6.2 </td>
+    <td>previously <span class="type">UCHAR</span> at 0x21; <br>
+    next as <span class="type">UCHAR</span> at 0x0650 </td>
+  </tr>
+  <tr>
+    <td>0x0660 (6.1 to 6.2) </td>
+    <td>
+    <pre class="source">KAFFINITY GroupSetMember;</pre>
+    </td>
+    <td>6.1 to 6.2 </td>
+    <td>previously as <span class="member">SetMember</span> at 0x38; <br>
+    next at 0x0648 </td>
+  </tr>
+  <tr>
+    <td>0x0668 (6.1 to 6.2) </td>
+    <td>
+    <pre class="source">UCHAR GroupIndex;</pre>
+    </td>
+    <td>6.1 to 6.2 </td>
+    <td>next at 0x0651 </td>
+  </tr>
+  <tr>
+    <td>0x0668 (10.0 to 1607); <br>
+    0xE8 </td>
+    <td>
+    <pre class="source">ULONG CFlushSize;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>previously at 0x0658 </td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x066C (10.0 to 1607); <br>
+    0xEC </td>
+    <td>
+    <pre class="source">ULONG PrcbPad10;</pre>
+    </td>
+    <td>10.0 to 1703 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    LONG volatile BamFlags;
+    struct {
+        ULONG BamQosLevel : 2;          // 0x00000003
+        ULONG PendingQosUpdate : 2;     // 0x0000000C
+        ULONG BamFlagsReserved : 28;
+    };
+};</pre>
+    </td>
+    <td>1709 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source"><a href="../../ntosdef/kprcbflag.htm">KPRCBFLAG</a> PrcbFlags;</pre>
+    </td>
+    <td>1803 and higher (full) </td>
+    <td>&nbsp;</td>
+  </tr>
+  </table>
+<p>The reordering for Windows 10 seems to have troubled someone at Microsoft. The mostly 
+unpublished NTOSP.H 
+has a
+<span class="macro">C_ASSERT</span> to enforce at compile-time that
+<span class="member">AcpiReserved</span> is at offset 0x0660, specifically, and 
+then the comment “Do not move field”. That’s for Windows 10. Was the offset changed for Windows 8.1 despite 
+some earlier comment (for the old offset) or was the comment added after? Now that the offset has changed yet 
+again, have the assertion and comment changed too? </p>
+<p>The <span class="member">BamFlags</span> in the last four bytes only appear 
+to be short-lived. They survive in the <span class="member">PrcbFlags</span>. 
+The Background Activity Moderator (BAM) is new to both 32-bit and 64-bit Windows 
+in the 1709 release, but only the 64-bit implementation has these flags at 
+first. Formalising the bit fields into their own type also moved their 
+definition in a separate header (ntosdef.h) that is independent of the processor 
+architecture, but there may be more to this than mere tidiness. Notably, the new
+<span class="member">PrcbFlags</span> are excluded from the NTHAL.H and NTOSP.H 
+definitions. In these, the <span class="member">PrcbFlags</span> are just unnamed alignment 
+space. </p>
+<p>Moving the <span class="member">ProcessorState</span> for explicit cache-line 
+alignment in Version 1703 created another 0x10 bytes of alignment space 
+immediately before the new position. This is defined explicitly as
+<span class="member">PrcbPad11</span>, below, even after Version 1803 starts 
+using it. The reduced <span class="struct">KPRCB</span> definition in NTHAL.H 
+and NTOSP.H sees nothing of this new use, just the padding. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0xF0 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad11 [2];</pre>
+    </td>
+    <td>1703 to 1709; <br>
+    1803 and higher (reduced) </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    struct {
+        /*  changing members, follow link  */
+    };
+    ULONG64 <a href="prcbpad11.htm">PrcbPad11</a> [2];
+};</pre>
+    </td>
+    <td>1803 and higher (full) </td>
+  </tr>
+</table>
+<p>Relocating the <span class="member">ProcessorState</span> to what was then 
+the end of the architecturally defined section also created 0x30 bytes of 
+padding to satisfy the peculiar alignment requirement for the
+<span class="member">LockQueue</span> at the start of the non-architectural 
+section. This too is defined explicitly (as <span class="member">PrcbPad12</span>, 
+below). As parts of it have been brought into use, there is again a difference 
+between the two <span class="struct">KPRCB</span> definitions. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x0100 </td>
+    <td>
+    <pre class="source">KPROCESSOR_STATE ProcessorState;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>cache-aligned; <br>
+    previously at 0x40&nbsp; </td>
+  </tr>
+  <tr>
+    <td>0x06C0 </td>
+    <td>
+    <pre class="source">XSAVE_AREA_HEADER *ExtendedSupervisorState;</pre>
+    </td>
+    <td>1803 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x06C8 </td>
+    <td>
+    <pre class="source">ULONG ProcessorSignature;</pre>
+    </td>
+    <td>1803 only (reduced); <br>
+    1809 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x06CC </td>
+    <td>
+    <pre class="source">ULONG PrcbPad11a;</pre>
+    </td>
+    <td>1803 only (reduced) </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG ProcessorFlags;</pre>
+    </td>
+    <td>1809 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x06D0 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad12a;</pre>
+    </td>
+    <td>1809 and higher (reduced) </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    struct {
+        /*  changing members, follow link  */
+    };
+    ULONG64 <a href="prcbpad12a.htm">PrcbPad12a</a>;
+};</pre>
+    </td>
+    <td>1809 and higher (full) </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="4">0x06C0 (1703 to 1709); <br>
+    0x06C8 (1803, full); <br>
+    0x06D0 (1803, reduced);&nbsp;<br>
+    0x06D8 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad12 [6];</pre>
+    </td>
+    <td>1703 to 1709 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad12 [5];</pre>
+    </td>
+    <td>1803 only (full) </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad12 [4];</pre>
+    </td>
+    <td>1803 only (reduced) </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad12 [3];</pre>
+    </td>
+    <td>1809 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>For reasons not yet understood, the reduced definition has
+<span class="member">ProcessorSignature</span> 
+before it was yet in the full definition. No use is yet known of it in the 1803 
+release: evidently, more study is required!
+</p>
+<h3>Non-Achitectural </h3>
+<p>From here onwards, the <span class="struct">KPRCB</span> does indeed seem to 
+be private to the kernel. In contrast to 32-bit Windows, not even the HAL is known 
+to use anything beyond the architecturally defined section. </p>
+<h4>Spin Lock Queues </h4>
+<p>Functions such as <span class="function">KeAcquireQueuedSpinLock</span> that 
+operate on the per-processor spin lock queues are exported from the HAL (originally) 
+in 32-bit Windows but have always been kernel exports in 64-bit Windows. Another 
+difference from 32-bit Windows is that the <span class="member">LockQueue</span> 
+is outside the architecturally defined section: the kernel itself accesses the
+<span class="member">LockQueue</span> via the <span class="member">LockArray</span> 
+pointer in the <span class="struct">KPCR</span>. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="3">0x0670 (5.2 to 1607); <br>
+    0x06F0 </td>
+    <td>
+    <pre class="source">KSPIN_LOCK_QUEUE LockQueue [0x21];</pre>
+    </td>
+    <td>5.2 to early 6.0 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">KSPIN_LOCK_QUEUE LockQueue [0x31];</pre>
+    </td>
+    <td>late 6.0 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">KSPIN_LOCK_QUEUE LockQueue [0x11];</pre>
+    </td>
+    <td>6.1 and higher </td>
+  </tr>
+</table>
+<p>The <span class="member">LockQueue</span> array is indexed by members of the enumeration <span class="enum">
+<a href="../../../api/ntkeapi_x/kspin_lock_queue_number.htm">KSPIN_LOCK_QUEUE_NUMBER</a></span>, which 
+is defined first in NTDDK.H and then in WDM.H (starting with the WDK for Windows 
+Vista). As with 32-bit Windows, the array is positioned 
+such that its <span class="emphasis">second</span> element is cache-aligned. This 
+is plainly by design. Caching is important to the 64-bit implementation, whose
+<span class="function">KeReleaseQueuedSpinLock</span> has always prefetched its 
+selected element. Why the first element should be in a separate cache line from 
+the second is not known.
+</p>
+<h4>Lookaside Lists </h4>
+<p>Broadly speaking, there are two separate types of per-processor
+<a href="../../../../api/ex/lookasid/index.htm">lookaside lists</a>. First come the system 
+lookaside lists. Each caches a different fixed-size structure that has a very 
+specific purpose represented by the list’s index, which takes it values from the 
+undocumented <span class="enum">
+<a href="../../ex/pp_npaged_lookaside_number.htm">PP_NPAGED_LOOKASIDE_NUMBER</a></span> 
+enumeration. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x0880 (5.2 to early 6.0); <br>
+    0x0980 (late 6.0); <br>
+    0x0780 (6.1 to 1607); <br>
+    0x0800 </td>
+    <td>
+    <pre class="source">PP_LOOKASIDE_LIST PPLookasideList [0x10];</pre>
+    </td>
+    <td>all </td>
+  </tr>
+</table>
+<p>The undocumented <span class="struct">PP_LOOKASIDE_LIST</span> structure is a 
+pair of pointers, <span class="member">P</span> and <span class="member">L</span>, 
+to the actual lookaside lists. Ideally, they point to separate lists: the first 
+just for the processor; the second shared. Allocations are sought first from the 
+per-processor list, for speed, else from the shared. Allocations are freed to the 
+per-processor list for easy re-allocation, except that if that list has reached 
+its capacity the allocation is instead freed to the shared list. </p>
+<p>The remaining arrays help with the efficiency of small allocations from various 
+types of pool (<span class="constant">NonPagedPool</span>,
+<span class="constant">PagedPool</span> and, in version 6.2 and higher,
+<span class="constant">NonPagedPoolNx</span>). The purpose of the allocation is 
+arbitrary. What matters is just the size: successive lists in the array are for 
+successively larger sizes of allocation, from 0x10 to 0x0200, in increments of 0x10.
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x0880 (6.2 to 1607); <br>
+    0x0900 </td>
+    <td>
+    <pre class="source">GENERAL_LOOKASIDE_POOL PPNxPagedLookasideList [0x20];</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0980 (5.2 to early 6.0); <br>
+    0x0A80 (late 6.0); <br>
+    0x0880 (6.1); <br>
+    0x1480 (6.2 to 1607); <br>
+    0x1500 </td>
+    <td>
+    <pre class="source">PP_LOOKASIDE_LIST PPNPagedLookasideList [0x20];</pre>
+    </td>
+    <td>5.2 only </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">GENERAL_LOOKASIDE_POOL PPNPagedLookasideList [0x20];</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0B80 (5.2); <br>
+    0x1580 (early 6.0); <br>
+    0x1680 (late 6.0); <br>
+    0x1480 (6.1); <br>
+    0x2080 (6.2 to 1607); <br>
+    0x2100 <br>
+    </td>
+    <td>
+    <pre class="source">PP_LOOKASIDE_LIST PPPagedLookasideList [0x20];</pre>
+    </td>
+    <td>5.2 only </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">GENERAL_LOOKASIDE_POOL PPPagedLookasideList [0x20];</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+</table>
+<h4>Mostly Counters </h4>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td rowspan="3">0x0D80 (5.2); <br>
+    0x2180 (early 6.0); <br>
+    0x2280 (late 6.0); <br>
+    0x2080 (6.1); <br>
+    0x2C80 (6.2 to 1607); <br>
+    0x2D00 </td>
+    <td>
+    <pre class="source">ULONG64 volatile PacketBarrier;</pre>
+    </td>
+    <td>5.2 to 6.1 </td>
+    <td>next as <span class="type">LONG volatile</span> at 0x2D00 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad20;</pre>
+    </td>
+    <td>6.2 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 MsrIa32TsxCtrl;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0D88 (5.2); <br>
+    0x2188 (early 6.0); <br>
+    0x2288 (late 6.0); <br>
+    0x2088 (6.1); <br>
+    0x2C88 (6.2 to 1607); <br>
+    0x2D08 </td>
+    <td>
+    <pre class="source">SINGLE_LIST_ENTRY DeferredReadyListHead;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0D90 (5.2); <br>
+    0x2190 (early 6.0); <br>
+    0x2290 (late 6.0); <br>
+    0x2090 (6.1); <br>
+    0x2C90 (6.2 to 1607); <br>
+    0x2D10 </td>
+    <td>
+    <pre class="source">LONG volatile MmPageFaultCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0D94 (5.2); <br>
+    0x2194 (early 6.0); <br>
+    0x2294 (late 6.0); <br>
+    0x2094 (6.1); <br>
+    0x2C94 (6.2 to 1607); <br>
+    0x2D14 </td>
+    <td>
+    <pre class="source">LONG volatile MmCopyOnWriteCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0D98 (5.2); <br>
+    0x2198 (early 6.0); <br>
+    0x2298 (late 6.0); <br>
+    0x2098 (6.1); <br>
+    0x2C98 (6.2 to 1607); <br>
+    0x2D18 </td>
+    <td>
+    <pre class="source">LONG volatile MmTransitionCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0D9C (5.2) </td>
+    <td>
+    <pre class="source">LONG volatile MmCacheTransitionCount;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next as <span class="type">ULONG</span> at 0x3768 </td>
+  </tr>
+  <tr>
+    <td>0x0DA0 (5.2); <br>
+    0x219C (early 6.0); <br>
+    0x229C (late 6.0); <br>
+    0x209C (6.1); <br>
+    0x2C9C (6.2 to 1607); <br>
+    0x2D1C </td>
+    <td>
+    <pre class="source">LONG volatile MmDemandZeroCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DA4 (5.2); <br>
+    0x21A0 (early 6.0); <br>
+    0x22A0 (late 6.0); <br>
+    0x20A0 (6.1); <br>
+    0x2CA0 (6.2 to 1607); <br>
+    0x02D20 </td>
+    <td>
+    <pre class="source">LONG volatile MmPageReadCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DA8 (5.2); <br>
+    0x21A4 (early 6.0); <br>
+    0x22A4 (late 6.0); <br>
+    0x20A4 (6.1); <br>
+    0x2CA4 (6.2 to 1607); <br>
+    0x2D24 </td>
+    <td>
+    <pre class="source">LONG volatile MmPageReadIoCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DAC (5.2) </td>
+    <td>
+    <pre class="source">LONG volatile MmCacheReadCount;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next as <span class="type">ULONG</span> at 0x376C </td>
+  </tr>
+  <tr>
+    <td>0x0DB0 (5.2) </td>
+    <td>
+    <pre class="source">LONG volatile MmCacheIoCount;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next as <span class="type">ULONG</span> at 0x3770 </td>
+  </tr>
+  <tr>
+    <td>0x0DB4 (5.2); <br>
+    0x21A8 (early 6.0); <br>
+    0x22A8 (late 6.0); <br>
+    0x20A8(6.1); <br>
+    0x2CA8&nbsp;(6.2 to 1607); <br>
+    0x2D28 </td>
+    <td>
+    <pre class="source">LONG volatile MmDirtyPagesWriteCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DB8 (5.2); <br>
+    0x21AC (early 6.0); <br>
+    0x22AC (late 6.0); <br>
+    0x20AC (6.1); <br>
+    0x2CAC (6.2 to 1607); <br>
+    0x2D2C </td>
+    <td>
+    <pre class="source">LONG volatile MmDirtyWriteIoCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DBC (5.2); <br>
+    0x21B0 (early 6.0); <br>
+    0x22B0 (late 6.0); <br>
+    0x20B0 (6.1); <br>
+    0x2CB0 (6.2 to 1607); <br>
+    0x2D30 </td>
+    <td>
+    <pre class="source">LONG volatile MmMappedPagesWriteCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DC0 (5.2); <br>
+    0x21B4 (early 6.0); <br>
+    0x22B4 (late 6.0); <br>
+    0x20B4 (6.1); <br>
+    0x2CB4 (6.2 to 1607); <br>
+    0x2D34 </td>
+    <td>
+    <pre class="source">LONG volatile MmMappedWriteIoCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DC4 (5.2) </td>
+    <td>
+    <pre class="source">LONG LookasideIrpFloat;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x21D8 </td>
+  </tr>
+  <tr>
+    <td>0x0DC8 (5.2); <br>
+    0x21B8 (early 6.0); <br>
+    0x22B8 (late 6.0); <br>
+    0x20B8 (6.1); <br>
+    0x2CB8 (6.2 to 1607); <br>
+    0x2D38 </td>
+    <td>
+    <pre class="source">ULONG KeSystemCalls;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x21BC (early 6.0); <br>
+    0x22BC (late 6.0); <br>
+    0x20BC (6.1); <br>
+    0x2CBC (6.2 to 1607); <br>
+    0x2D3C </td>
+    <td>
+    <pre class="source">ULONG KeContextSwitches;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously at 0x0DF0 </td>
+  </tr>
+  <tr>
+    <td>0x2CC0 (6.3 to 1607) </td>
+    <td>
+    <pre class="source">USHORT LdtSelector;</pre>
+    </td>
+    <td>6.3 to 1607 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x2CC2 (6.3 to 1607); <br>
+    0x2D40 </td>
+    <td>
+    <pre class="source">USHORT PrcbPad40;</pre>
+    </td>
+    <td>6.3 to 1607 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad40;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x21C0 (early 6.0); <br>
+    0x22C0 (late 6.0); <br>
+    0x20C0 (6.1); <br>
+    0x2CC0 (6.2); <br>
+    0x2CC4 (6.3 to 1607); <br>
+    0x2D44 </td>
+    <td>
+    <pre class="source">ULONG CcFastReadNoWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously at 0x2280 </td>
+  </tr>
+  <tr>
+    <td>0x21C4 (early 6.0); <br>
+    0x22C4 (late 6.0); <br>
+    0x20C4 (6.1); <br>
+    0x2CC4 (6.2); <br>
+    0x2CC8 (6.3 to 1607); <br>
+    0x2D48 </td>
+    <td>
+    <pre class="source">ULONG CcFastReadWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously at 0x2284 </td>
+  </tr>
+  <tr>
+    <td>0x21C8 (early 6.0); <br>
+    0x22C8 (late 6.0); <br>
+    0x20C8 (6.1); <br>
+    0x2CC8 (6.2); <br>
+    0x2CCC (6.3 to 1607); <br>
+    0x2D4C </td>
+    <td>
+    <pre class="source">ULONG CcFastReadNotPossible;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously at 0x2288 </td>
+  </tr>
+  <tr>
+    <td>0x21CC (early 6.0); <br>
+    0x22CC (late 6.0); <br>
+    0x20CC (6.1); <br>
+    0x2CCC (6.2); <br>
+    0x2CD0 (6.3 to 1607); <br>
+    0x2D50 </td>
+    <td>
+    <pre class="source">ULONG CcCopyReadNoWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously at 0x228C </td>
+  </tr>
+  <tr>
+    <td>0x21D0 (early 6.0); <br>
+    0x22D0 (late 6.0); <br>
+    0x20D0 (6.1); <br>
+    0x2CD0 (6.2); <br>
+    0x2CD4 (6.3 to 1607); <br>
+    0x2D54 </td>
+    <td>
+    <pre class="source">ULONG CcCopyReadWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously at 0x2290 </td>
+  </tr>
+  <tr>
+    <td>0x21D4 (early 6.0); <br>
+    0x22D4 (late 6.0); <br>
+    0x20D4 (6.1); <br>
+    0x2CD4 (6.2); <br>
+    0x2CD8 (6.3 to 1607); <br>
+    0x2D58 </td>
+    <td>
+    <pre class="source">ULONG CcCopyReadNoWaitMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously at 0x2294 </td>
+  </tr>
+  <tr>
+    <td>0x21D8 (early 6.0); <br>
+    0x22D8 (late 6.0); <br>
+    0x20D8 (6.1); <br>
+    0x2CD8 (6.2) </td>
+    <td>
+    <pre class="source">LONG LookasideIrpFloat;</pre>
+    </td>
+    <td>6.0 to 6.2 </td>
+    <td>previously at 0x0DC4; <br>
+    next at 0x2D1C </td>
+  </tr>
+  <tr>
+    <td>0x0DCC (5.2); <br>
+    0x21DC (early 6.0); <br>
+    0x22DC (late 6.0); <br>
+    0x20DC (6.1); <br>
+    0x2CDC (6.2 to 1607); <br>
+    0x2D5C </td>
+    <td>
+    <pre class="source">LONG volatile IoReadOperationCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DD0 (5.2); <br>
+    0x21E0 (early 6.0); <br>
+    0x22E0 (late 6.0); <br>
+    0x20E0 (6.1); <br>
+    0x2CE0 (6.2 to 1607); <br>
+    0x2D60 </td>
+    <td>
+    <pre class="source">LONG volatile IoWriteOperationCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DD4 (5.2); <br>
+    0x21E4 (early 6.0); <br>
+    0x22E4 (late 6.0); <br>
+    0x20E4 (6.1); <br>
+    0x2CE4 (6.2 to 1607); <br>
+    0x2D64 </td>
+    <td>
+    <pre class="source">LONG volatile IoOtherOperationCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DD8 (5.2); <br>
+    0x21E8 (early 6.0); <br>
+    0x22E8 (late 6.0); <br>
+    0x20E8 (6.1); <br>
+    0x2CE8 (6.2 to 1607); <br>
+    0x2D68 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER IoReadTransferCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DE0 (5.2); <br>
+    0x21F0 (early 6.0); <br>
+    0x22F0 (late 6.0); <br>
+    0x20F0 (6.1); <br>
+    0x2CF0 (6.2 to 1607); <br>
+    0x2D70 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER IoWriteTransferCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DE8 (5.2); <br>
+    0x21F8 (early 6.0); <br>
+    0x22F8 (late 6.0); <br>
+    0x20F8 (6.1); <br>
+    0x2CF8 (6.2 to 1607); <br>
+    0x2D78 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER IoOtherTransferCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0DF0 (5.2) </td>
+    <td>
+    <pre class="source">ULONG KeContextSwitches;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x21BC </td>
+  </tr>
+  <tr>
+    <td>0x0DF4 (5.2) </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad2 [0x0C];</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Cache-alignment again seeems deliberate, at least in version 5.2. </p>
+<h4>Inter-Processor Interrupts </h4>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x2D00 (6.2 to 1607); <br>
+    0x2D80 </td>
+    <td>
+    <pre class="source">LONG volatile PacketBarrier;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>cache-aligned; <br>
+    previously <span class="type">ULONG64 volatile</span> at 0x2080 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0E00 (5.2); <br>
+    0x2200 (early 6.0); <br>
+    0x2300 (late 6.0); <br>
+    0x2100 (6.1); <br>
+    0x2D04 (6.2 to 1607); <br>
+    0x2D84 </td>
+    <td>
+    <pre class="source">ULONG64 volatile TargetSet;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">LONG volatile TargetCount;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0E08 (5.2); <br>
+    0x2208 (early 6.0); <br>
+    0x2308 (late 6.0); <br>
+    0x2104 (6.1); <br>
+    0x2D08 (6.2 to 1607); <br>
+    0x2D88 </td>
+    <td>
+    <pre class="source">ULONG volatile IpiFrozen;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0E0C (5.2); <br>
+    0x220C (early 6.0); <br>
+    0x230C (late 6.0) </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad3 [0x74];</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  </table>
+<p>Note the substantial padding in the early versions, not just to the next cache line but 
+to the one after (perhaps anticipating 128-byte cache lines). These versions have a <span class="struct">REQUEST_MAILBOX</span> for each of 
+the 64 possible processors. For Windows 7 to support more, the array was moved to the 
+very end of the <span class="struct">KPRCB</span>. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x0E80 (5.2); <br>
+    0x2280 (early 6.0); <br>
+    0x2380 (late 6.0) </td>
+    <td>
+    <pre class="source">REQUEST_MAILBOX RequestMailbox [0x40];</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>cache-aligned; <br>
+    next at 0x4C80 </td>
+  </tr>
+  <tr>
+    <td>0x1E80 (5.2); <br>
+    0x3280 (early 6.0); <br>
+    0x3380 (late 6.0) </td>
+    <td>
+    <pre class="source">ULONG64 volatile SenderSummary;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x1E88 (5.2); <br>
+    0x3288 (early 6.0); <br>
+    0x3388 (late 6.0) </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad4 [0x78];</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<h4>&nbsp;Deferred Procedure Calls And Timing </h4>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x2D0C (6.2) </td>
+    <td>
+    <pre class="source">ULONG PrcbPad40 [0x1D];</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2D8C </td>
+    <td>
+    <pre class="source">ULONG PrcbPad30;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2D10 (6.3 to 1607); <br>
+    0x2D90 </td>
+    <td>
+    <pre class="source">PVOID IsrDpcStats;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2D18 (6.3 to 1607); <br>
+    0x2D98 </td>
+    <td>
+    <pre class="source">ULONG DeviceInterrupts;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2D1C (6.3 to 1607); <br>
+    0x2D9C </td>
+    <td>
+    <pre class="source">LONG LookasideIrpFloat;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>previously at 0x2CD8 </td>
+  </tr>
+  <tr>
+    <td>0x2D20 (6.3 to 1607); <br>
+    0x2DA0 </td>
+    <td>
+    <pre class="source">ULONG InterruptLastCount;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>previously at 0x2DF8 </td>
+  </tr>
+  <tr>
+    <td>0x2D24 (6.3 to 1607); <br>
+    0x2DA4 </td>
+    <td>
+    <pre class="source">ULONG InterruptRate;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>previously at 0x2DFC </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x2D28 (1607); <br>
+    0x2DA8 </td>
+    <td>
+    <pre class="source">ULONG64 LastNonHrTimerExpiration;</pre>
+    </td>
+    <td>1607 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad31;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2DB0 </td>
+    <td>
+    <pre class="source">KPRCB *PairPrcb;</pre>
+    </td>
+    <td>1809 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2DB8 </td>
+    <td>
+    <pre class="source">KSTATIC_AFFINITY_BLOCK StaticAffinity;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x2DB0 (1709 to 1803); <br>
+    0x2DB8 (1809 to 1903); <br>
+    0x3058 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad35 [2];</pre>
+    </td>
+    <td>1709 to 1803 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad35 [1];</pre>
+    </td>
+    <td>1809 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad35 [5];</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2DC0 (1709 to 1903); <br>
+    0x3080 </td>
+    <td>
+    <pre class="source">SLIST_HEADER InterruptObjectPool;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>cache-aligned; <br>
+    previously at 0x60E0 </td>
+  </tr>
+  <tr>
+    <td>0x3090 </td>
+    <td>
+    <pre class="source">RTL_HASH_TABLE *DpcRuntimeHistoryHashTable;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3098 </td>
+    <td>
+    <pre class="source">KPDC *DpcRuntimeHistoryHashTableCleanupDpc;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x30A0 </td>
+    <td>
+    <pre class="source">KDEFERRED_ROUTINE *CurrentDpcRoutine;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x30A8 </td>
+    <td>
+    <pre class="source">ULONG64 CurrentDpcRuntimeHistoryCached;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x30B0 </td>
+    <td>
+    <pre class="source">ULONG64 CurrentDpcStartTime;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="4">0x2D28 (6.3 to 1511); <br>
+    0x2D30 (1607); <br>
+    0x2DB0 (1703); <br>
+    0x2DD0 (1709 to 1903); <br>
+    0x30B8 </td>
+    <td>
+    <pre class="source">ULONG PrcbPad41 [0x16];</pre>
+    </td>
+    <td>6.3 to 1511 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad41 [0x14];</pre>
+    </td>
+    <td>1607 to 1703 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad41 [6];</pre>
+    </td>
+    <td>1709 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad41 [1];</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F00 (5.2); <br>
+    0x3300 (early 6.0); <br>
+    0x3400 (late 6.0); <br>
+    0x2180 (6.1); <br>
+    0x2D80 (6.2 to 1607); <br>
+    0x2E00 
+    (1703 to 1903); <br>
+    0x30C0 </td>
+    <td>
+    <pre class="source"><a href="../../../../api/ke/dpcobj/kdpc_data.htm">KDPC_DATA</a> DpcData [2];</pre>
+    </td>
+    <td>all </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x1F40 (5.2); <br>
+    0x3340 (early 6.0); <br>
+    0x3440 (late 6.0); <br>
+    0x21C0 (6.1); <br>
+    0x2DC0 (6.2); <br>
+    0x2DD0 (6.3 to 1607); <br>
+    0x2E50 
+    (1703 to 1903); <br>
+    0x3110 </td>
+    <td>
+    <pre class="source">PVOID DpcStack;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x1F48 (5.2); <br>
+    0x3348 (early 6.0); <br>
+    0x3448 (late 6.0) </td>
+    <td>
+    <pre class="source">PVOID SavedRsp;</pre>
+    </td>
+    <td>5.2 to early 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">PVOID SparePtr0;</pre>
+    </td>
+    <td>late 6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F50 (5.2); <br>
+    0x3350 (early 6.0); <br>
+    0x3450 (late 6.0); <br>
+    0x21C8 (6.1); <br>
+    0x2DC8 (6.2); <br>
+    0x2DD8 (6.3 to 1607); <br>
+    0x2E58 (1703 to 1903); <br>
+    0x3118 </td>
+    <td>
+    <pre class="source">LONG MaximumDpcQueueDepth;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F54 (5.2); <br>
+    0x3354 (early 6.0); <br>
+    0x3454 (late 6.0); <br>
+    0x21CC (6.1); <br>
+    0x2DCC (6.2); <br>
+    0x2DDC (6.3 to 1607); <br>
+    0x2E5C (1703 to 1903); <br>
+    0x311C </td>
+    <td>
+    <pre class="source">ULONG DpcRequestRate;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F58 (5.2); <br>
+    0x3358 (early 6.0); <br>
+    0x3458 (late 6.0); <br>
+    0x21D0 (6.1); <br>
+    0x2DD0 (6.2); <br>
+    0x2DE0 (6.3 to 1607); <br>
+    0x2E60 (1703 to 1903); <br>
+    0x3120 </td>
+    <td>
+    <pre class="source">ULONG MinimumDpcRate;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F5C (5.2); <br>
+    0x335C (early 6.0); <br>
+    0x345C (late 6.0) </td>
+    <td>
+    <pre class="source">BOOLEAN volatile DpcInterruptRequested;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F5D (5.2); <br>
+    0x335D (early 6.0); <br>
+    0x345D (late 6.0) </td>
+    <td>
+    <pre class="source">BOOLEAN volatile DpcThreadRequested;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F5E (5.2); <br>
+    0x335E (early 6.0); <br>
+    0x345E (late 6.0) </td>
+    <td>
+    <pre class="source">BOOLEAN volatile DpcRoutineActive;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>next at 0x21DA </td>
+  </tr>
+  <tr>
+    <td>0x1F5F (5.2); <br>
+    0x335F (early 6.0); <br>
+    0x345F (late 6.0) </td>
+    <td>
+    <pre class="source">BOOLEAN volatile DpcThreadActive;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>next as bit at 0x21DC </td>
+  </tr>
+  <tr>
+    <td>0x1F60 (5.2); <br>
+    0x3360 (early 6.0); <br>
+    0x3460 (late 6.0) </td>
+    <td>
+    <pre class="source">union {
+    ULONG64 volatile TimerHand;
+    ULONG64 volatile TimerRequest;
+};</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>next as <span class="type">ULONG volatile</span> at 0x21E0 </td>
+  </tr>
+  <tr>
+    <td>0x1F68 (5.2); <br>
+    0x3368 (early 6.0); <br>
+    0x3468 (late 6.0) </td>
+    <td>
+    <pre class="source">LONG TickOffset;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>next as <span class="type">ULONG64</span> at 0x4470 </td>
+  </tr>
+  <tr>
+    <td>0x1F6C (5.2); <br>
+    0x336C (early 6.0); <br>
+    0x346C (late 6.0) </td>
+    <td>
+    <pre class="source">LONG MasterOffset;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>next at 0x21E4 </td>
+  </tr>
+  <tr>
+    <td>0x1F70 (5.2); <br>
+    0x3370 (early 6.0); <br>
+    0x3470 (late 6.0); <br>
+    0x21D4 (6.1); <br>
+    0x2DD4 (6.2); <br>
+    0x2DE4 (6.3 to 1607); <br>
+    0x2E64 (1703 to 1903); <br>
+    0x3124 </td>
+    <td>
+    <pre class="source">ULONG DpcLastCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F74 (5.2); <br>
+    0x3374 (early 6.0); <br>
+    0x3474 (late 6.0); <br>
+    0x21D8 (6.1); <br>
+    0x2DD8 (6.2); <br>
+    0x2DE8 (6.3 to 1607); <br>
+    0x2E68 (1703 to 1903); <br>
+    0x3128 </td>
+    <td>
+    <pre class="source">BOOLEAN ThreadDpcEnable;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F75 (5.2); <br>
+    0x3375 (early 6.0); <br>
+    0x3475 (late 6.0); <br>
+    0x21D9 (6.1); <br>
+    0x2DD9 (6.2); <br>
+    0x2DE9 (6.3 to 1607); <br>
+    0x2E69 (1703 to 1903); <br>
+    0x3129 </td>
+    <td>
+    <pre class="source">BOOLEAN volatile QuantumEnd;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x1F76 (5.2); <br>
+    0x3376 (early 6.0); <br>
+    0x3476 (late 6.0); <br>
+    0x21DA (6.1); <br>
+    0x2DDA (6.2); <br>
+    0x2DEA (6.3 to 1607); <br>
+    0x2E6A (1703 to 1903); <br>
+    0x312A </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad50;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">BOOLEAN volatile DpcRoutineActive;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x345E </td>
+  </tr>
+  <tr>
+    <td>0x1F77 (5.2); <br>
+    0x3377 (early 6.0); <br>
+    0x3477 (late 6.0); <br>
+    0x21DB (6.1); <br>
+    0x2DDB (6.2); <br>
+    0x2DEB (6.3 to 1607); <br>
+    0x2E6B (1703 to 1903); <br>
+    0x312B </td>
+    <td>
+    <pre class="source">BOOLEAN volatile IdleSchedule;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x1F78 (5.2); <br>
+    0x3378 (early 6.0); <br>
+    0x3478 (late 6.0); <br>
+    0x21DC (6.1); <br>
+    0x2DDC (6.2); <br>
+    0x2DEC (6.3 to 1607); <br>
+    0x2E6C (1703 to 1903); <br>
+    0x312C </td>
+    <td>
+    <pre class="source">LONG DpcSetEventRequest;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    LONG volatile <a href="../../i386_x/kprcb/dpcrequestsummary.htm">DpcRequestSummary</a>;
+    SHORT DpcRequestSlot [2];
+    /*  changing members, follow link  */
+};</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<h4>Miscellany </h4>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td rowspan="5">0x1F7C (5.2); <br>
+    0x337C (early 6.0); <br>
+    0x347C (late 6.0); <br>
+    0x21E0 (6.1); <br>
+    0x2DE0 (6.2); <br>
+    0x2DF0 (6.3 to 1607); <br>
+    0x2E70 (1703 to 1903); <br>
+    0x3130 </td>
+    <td>
+    <pre class="source">LONG PrcbPad40;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG KeExceptionDispatchCount;</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>previously at 0x22A0; <br>
+    next at 0x4734 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG volatile TimerHand;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>previously <span class="type">ULONG64 volatile</span> in union at 0x3460
+    </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG LastTimerHand;</pre>
+    </td>
+    <td>6.2 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad93;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1F80 (5.2) </td>
+    <td>
+    <pre class="source">PVOID DpcThread;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x1F88 (5.2); <br>
+    0x3380 (early 6.0); <br>
+    0x3480 (late 6.0); <br>
+    0x21E4 (6.1) </td>
+    <td>
+    <pre class="source">KEVENT DpcEvent;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">LONG MasterOffset;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>previously at 0x346C </td>
+  </tr>
+  <tr>
+    <td>0x21E8 (6.1); <br>
+    0x2DE4 (6.2); <br>
+    0x2DF4 (6.3 to 1607); <br>
+    0x2E74 (1703 to 1903); <br>
+    0x3134 </td>
+    <td>
+    <pre class="source">ULONG LastTick;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x21EC (6.1) </td>
+    <td>
+    <pre class="source">ULONG UnusedPad;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2DE8 (6.2); <br>
+    0x2DF8 (6.3 to 1607); <br>
+    0x2E78 (1703 to 1903); <br>
+    0x3138 </td>
+    <td>
+    <pre class="source">ULONG ClockInterrupts;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2DEC (6.2); <br>
+    0x2DFC (6.3 to 1607); <br>
+    0x2E7C (1703 to 1903); <br>
+    0x313C </td>
+    <td>
+    <pre class="source">ULONG ReadyScanTick;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2DF0 (6.2) </td>
+    <td>
+    <pre class="source">UCHAR BalanceState;</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x21F0 (6.1); <br>
+    0x2DF1 (6.2) </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad50 [2];</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad50 [7];</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2DF8 (6.2) </td>
+    <td>
+    <pre class="source">ULONG InterruptLastCount;</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>next at 0x2D20 </td>
+  </tr>
+  <tr>
+    <td>0x2DFC (6.2) </td>
+    <td>
+    <pre class="source">ULONG InterruptRate;</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>next at 0x2D24 </td>
+  </tr>
+  <tr>
+    <td>0x2E00 (10.0 to 1607); <br>
+    0x2E80 (1703 to 1903); <br>
+    0x3140 </td>
+    <td>
+    <pre class="source">PVOID InterruptObject [0x0100];</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x2200 (6.1); <br>
+    0x2E00 (6.2 to 6.3); <br>
+    0x3600 (10.0 to 1607); <br>
+    0x3680 (1703 to 1903); <br>
+    0x3940 </td>
+    <td>
+    <pre class="source">KTIMER_TABLE TimerTable;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x7B58 </td>
+    <td>
+    <pre class="source">ULONG PrcbPad92 [10];</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4400 (6.1); <br>
+    0x5000 (6.2 to 6.3); <br>
+    0x5800 (10.0 to 1607); <br>
+    0x5880 
+    (1703 to 1903); <br>
+    0x7B80 </td>
+    <td>
+    <pre class="source">KGATE DpcGate;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x3398 (early 6.0); <br>
+    0x3498 (late 6.0); <br>
+    0x4418 (6.1); <br>
+    0x5018 (6.2 to 6.3); <br>
+    0x5818 (10.0 to 1607); <br>
+    0x5898 (1703 to 1903); <br>
+    0x7B98 </td>
+    <td>
+    <pre class="source">PVOID PrcbPad51;</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">PVOID PrcbPad52;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1FA0 (5.2); <br>
+    0x33A0 (early 6.0); <br>
+    0x34A0 (late 6.0); <br>
+    0x4420 (6.1); <br>
+    0x5020 (6.2 to 6.3); <br>
+    0x5820 (10.0 to 1607); <br>
+    0x58A0 (1703 to 1903); <br>
+    0x7BA0 </td>
+    <td>
+    <pre class="source">KDPC CallDpc;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x33E0 (early 6.0); <br>
+    0x34E0 (late 6.0); <br>
+    0x4460 (6.1); <br>
+    0x5060 (6.2 to 6.3); <br>
+    0x5860 (10.0 to 1607); <br>
+    0x58E0 (1703 to 1903); <br>
+    0x7BE0 </td>
+    <td>
+    <pre class="source">LONG ClockKeepAlive;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x33E4 (early 6.0); <br>
+    0x34E4 (late 6.0); <br>
+    0x4464 (6.1) <br>
+    </td>
+    <td>
+    <pre class="source">UCHAR ClockCheckSlot;</pre>
+    </td>
+    <td>6.0 to 6.1 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x33E5 (early 6.0); <br>
+    0x34E5 (late 6.0); <br>
+    0x4465 (6.0 to 6.1) </td>
+    <td>
+    <pre class="source">UCHAR ClockPollCycle;</pre>
+    </td>
+    <td>6.0 to 6.1 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x33E6 (early 6.0); <br>
+    0x34E6 (late 6.0) <br>
+    </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad6 [2];</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5064 (6.2 to 6.3); <br>
+    0x5864 (10.0 to 1607); <br>
+    0x58E4 (1703 to 1903); <br>
+    0x7BE4 </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad60 [2];</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x4466 (6.1); <br>
+    0x5066 (6.2 to 6.3); <br>
+    0x5866 (10.0 to 1607); <br>
+    0x58E6 (1703 to 1903); <br>
+    0x7BE6 </td>
+    <td>
+    <pre class="source">USHORT NmiActive;</pre>
+    </td>
+    <td>6.1 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    struct {
+        UCHAR NmiActive;
+        UCHAR MceActive;
+    };
+    USHORT CombinedNmiMceActive;
+};</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x33E8 (early 6.0); <br>
+    0x34E8 (late 6.0); <br>
+    0x4468 (6.1); <br>
+    0x5068 (6.2 to 6.3); <br>
+    0x5868 (10.0 to 1607); <br>
+    0x58E8 (1703 to 1903); <br>
+    0x7BE8 </td>
+    <td>
+    <pre class="source">LONG DpcWatchdogPeriod;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x33EC (early 6.0); <br>
+    0x34EC (late 6.0); <br>
+    0x446C (6.1); <br>
+    0x506C (6.2 to 6.3); <br>
+    0x586C (10.0 to 1607); <br>
+    0x58EC (1703 to 1903); <br>
+    0x7BEC </td>
+    <td>
+    <pre class="source">LONG DpcWatchdogCount;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4470 (6.0) </td>
+    <td>
+    <pre class="source">ULONG64 TickOffset;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>previously <span class="type">LONG</span> at 0x3468 </td>
+  </tr>
+  <tr>
+    <td>0x4478 (6.1); <br>
+    0x5070 (6.2 to 6.3); <br>
+    0x5870 (10.0 to 1607); <br>
+    0x58F0 (1703 to 1903); <br>
+    0x7BF0 </td>
+    <td>
+    <pre class="source">LONG volatile KeSpinLockOrdering;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x58F4 (1703 to 1903); <br>
+    0x7BF4 </td>
+    <td>
+    <pre class="source">ULONG DpcWatchdogProfileCumulativeDpcThreshold;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5078 (6.2 to 6.3); <br>
+    0x5878 (10.0 to 1607); <br>
+    0x58F8 (1703 to 1903); <br>
+    0x7BF8 </td>
+    <td>
+    <pre class="source">PVOID CachedPtes;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="4">0x1FE0 (5.2); <br>
+    0x33F0 (early 6.0); <br>
+    0x34F0 (late 6.0); <br>
+    0x447C (6.1); <br>
+    0x5074 (6.2 to 6.3); <br>
+    0x5874 (10.0 to 1607) </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad7 [4];</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad70 [2];</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad70;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad70 [1];</pre>
+    </td>
+    <td>6.2 to 1607 </td>
+    <td>&nbsp;</td>
+  </tr>
+  </table>
+<h4>Scheduling </h4>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x2000 (5.2); <br>
+    0x3400 (early 6.0); <br>
+    0x3500 (late 6.0); <br>
+    0x4480 (6.1); <br>
+    0x5080 (6.2 to 6.3); <br>
+    0x5880 (10.0 to 1607); <br>
+    0x5900 (1703 to 1903); <br>
+    0x7C00 </td>
+    <td>
+    <pre class="source">LIST_ENTRY WaitListHead;</pre>
+    </td>
+    <td>all </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x3410 (early 6.0); <br>
+    0x3510 (late 6.0); <br>
+    0x4490 (6.1); <br>
+    0x5090 (6.2 to 6.3); <br>
+    0x5890 (10.0 to 1607); <br>
+    0x5910 (1703 to 1903); <br>
+    0x7C10 </td>
+    <td>
+    <pre class="source">KSPIN_LOCK WaitLock;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2010 (5.2); <br>
+    0x3418 (early 6.0); <br>
+    0x3518 (late 6.0); <br>
+    0x4498 (6.1); <br>
+    0x5098 (6.2 to 6.3); <br>
+    0x5898 (10.0 to 1607); <br>
+    0x5918 (1703 to 1903); <br>
+    0x7C18 </td>
+    <td>
+    <pre class="source">ULONG ReadySummary;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x509C (6.3); <br>
+    0x589C (10.0 to 1607); <br>
+    0x591C (1703 to 1903); <br>
+    0x7C1C </td>
+    <td>
+    <pre class="source">LONG AffinitizedSelectionMask;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2014 (5.2); <br>
+    0x341C (early 6.0); <br>
+    0x351C (late 6.0); <br>
+    0x449C (6.1); <br>
+    0x509C (6.2); <br>
+    0x50A0 (6.3); <br>
+    0x58A0 (10.0 to 1607); <br>
+    0x5920 (1703 to 1903); <br>
+    0x7C20 </td>
+    <td>
+    <pre class="source">ULONG QueueIndex;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x50A0 (6.2) </td>
+    <td>
+    <pre class="source">ULONG ReadyQueueWeight;</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x50A4 (6.3); <br>
+    0x58A4 (10.0 to 1607); <br>
+    0x5924 (1703 to 1903); <br>
+    0x7C24 </td>
+    <td>
+    <pre class="source">ULONG PrcbPad75;</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad75 [3];</pre>
+    </td>
+    <td>6.3 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad75 [2];</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x7C2C </td>
+    <td>
+    <pre class="source">ULONG DpcWatchdogSequenceNumber;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x44A0 (6.1); <br>
+    0x50A8 (6.2); <br>
+    0x50B0 (6.3); <br>
+    0x58B0 (10.0 to 1607); <br>
+    0x5930 (1703 to 1903); <br>
+    0x7C30 </td>
+    <td>
+    <pre class="source">KDPC TimerExpirationDpc;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x50E8 (6.2) </td>
+    <td>
+    <pre class="source">KPRCB *BuddyPrcb;</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x50F0 (6.2 to 6.3); <br>
+    0x58F0 (10.0 to 1607); <br>
+    0x5970 (1703 to 1903); <br>
+    0x7C70 </td>
+    <td>
+    <pre class="source">RTL_RB_TREE ScbQueue;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x3420 (early 6.0); <br>
+    0x3520 (late 6.0); <br>
+    0x44E0 (6.1) <br>
+    </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad71 [0x0C];</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad72 [4];</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2018 (5.2); <br>
+    0x3480 (early 6.0); <br>
+    0x3580 (late 6.0); <br>
+    0x4500 (6.1); <br>
+    0x5100 (6.2 to 6.3); <br>
+    0x5900 (10.0 to 1607); <br>
+    0x5980 (1703 to 1903); <br>
+    0x7C80 </td>
+    <td>
+    <pre class="source">LIST_ENTRY DispatcherReadyListHead [0x20];</pre>
+    </td>
+    <td>all </td>
+    <td>cache-aligned in 6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x2218 (5.2); <br>
+    0x3680 (early 6.0); <br>
+    0x3780 (late 6.0); <br>
+    0x4700 (6.1); <br>
+    0x5300 (6.2 to 6.3); <br>
+    0x5B00 (10.0 to 1607); <br>
+    0x5B80 (1703 to 1903); <br>
+    0x7E80 </td>
+    <td>
+    <pre class="source">ULONG InterruptCount;</pre>
+    </td>
+    <td>all </td>
+    <td>cache-aligned in 6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x221C (5.2); <br>
+    0x3684 (early 6.0); <br>
+    0x3784 (late 6.0); <br>
+    0x4704 (6.1); <br>
+    0x5304 (6.2 to 6.3); <br>
+    0x5B04 (10.0 to 1607); <br>
+    0x5B84 (1703 to 1903); <br>
+    0x7E84 </td>
+    <td>
+    <pre class="source">ULONG KernelTime;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2220 (5.2); <br>
+    0x3688 (early 6.0); <br>
+    0x3788 (late 6.0); <br>
+    0x4708 (6.1); <br>
+    0x5308 (6.2 to 6.3); <br>
+    0x5B08 (10.0 to 1607); <br>
+    0x5B88 (1703 to 1903); <br>
+    0x7E88 </td>
+    <td>
+    <pre class="source">ULONG UserTime;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2224 (5.2); <br>
+    0x368C (early 6.0); <br>
+    0x378C (late 6.0); <br>
+    0x470C (6.1); <br>
+    0x530C (6.2 to 6.3); <br>
+    0x5B0C (10.0 to 1607); <br>
+    0x5B8C (1703 to 1903); <br>
+    0x7E8C </td>
+    <td>
+    <pre class="source">ULONG DpcTime;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2228 (5.2); <br>
+    0x3690 (early 6.0); <br>
+    0x3790 (late 6.0); <br>
+    0x4710 (6.1); <br>
+    0x5310 (6.2 to 6.3); <br>
+    0x5B10 (10.0 to 1607); <br>
+    0x5B90 (1703 to 1903); <br>
+    0x7E90 </td>
+    <td>
+    <pre class="source">ULONG InterruptTime;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x222C (5.2); <br>
+    0x3694 (early 6.0); <br>
+    0x3794 (late 6.0); <br>
+    0x4714 (6.1); <br>
+    0x5314 (6.2 to 6.3); <br>
+    0x5B14 (10.0 to 1607); <br>
+    0x5B94 (1703 to 1903); <br>
+    0x7E94 </td>
+    <td>
+    <pre class="source">ULONG AdjustDpcThreshold;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2230 (5.2); <br>
+    0x3698 (early 6.0); <br>
+    0x3798 (late 6.0) </td>
+    <td>
+    <pre class="source">UCHAR SkipTick;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2231 (5.2); <br>
+    0x3699 (early 6.0); <br>
+    0x3799 (late 6.0); <br>
+    0x4718 (6.1); <br>
+    0x5318 (6.2 to 6.3); <br>
+    0x5B18 (10.0 to 1607); <br>
+    0x5B98 (1703 to 1903); <br>
+    0x7E98 </td>
+    <td>
+    <pre class="source">UCHAR DebuggerSavedIRQL;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2232 (5.2); <br>
+    0x369A (early 6.0); <br>
+    0x379A (late 6.0) </td>
+    <td>
+    <pre class="source">UCHAR PollSlot;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5319 (6.2 to 6.3); <br>
+    0x5B19 (10.0 to 1607); <br>
+    0x5B99 (1703 to 1903); <br>
+    0x7E99 </td>
+    <td>
+    <pre class="source">BOOLEAN GroupSchedulingOverQuota;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x531A (6.2 to 6.3); <br>
+    0x5B1A (10.0 to 1607); <br>
+    0x5B9A (1703 to 1903); <br>
+    0x7E9A </td>
+    <td>
+    <pre class="source">BOOLEAN volatile DeepSleep;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="6">0x2233 (5.2); <br>
+    0x369B (early 6.0); <br>
+    0x379B (late 6.0); <br>
+    0x4719 (6.1); <br>
+    0x531B (6.2 to 6.3); <br>
+    0x5B1B (10.0 to 1607); <br>
+    0x5B9B (1703 to 1903); <br>
+    0x7E9B
+    </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad8 [0x0D];</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad80 [5];</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad80 [7];</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad80 [1];</pre>
+    </td>
+    <td>6.2 to 6.3 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad80 [5];</pre>
+    </td>
+    <td>10.0 to 1703 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad80;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x531C (6.2 to 6.3) </td>
+    <td>
+    <pre class="source">ULONG ScbOffset;</pre>
+    </td>
+    <td>6.2 to 6.3 </td>
+    <td>next at 0x0658 </td>
+  </tr>
+  <tr>
+    <td>0x36A0 (early 6.0); <br>
+    0x37A0 (late 6.0); <br>
+    0x4720 (6.1); <br>
+    0x5320 (6.2 to 6.3); <br>
+    0x5B20 (10.0 to 1607); <br>
+    0x5BA0 (1703); <br>
+    0x5B9C (1709 to 1903); <br>
+    0x7E9C </td>
+    <td>
+    <pre class="source">ULONG DpcTimeCount;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x36A4 (early 6.0); <br>
+    0x37A4 (late 6.0); <br>
+    0x4724 (6.1); <br>
+    0x5324 (6.2 to 6.3); <br>
+    0x5B24 (10.0 to 1607); <br>
+    0x5BA4 (1703); <br>
+    0x5BA0 (1709 to 1903); <br>
+    0x7EA0 </td>
+    <td>
+    <pre class="source">ULONG DpcTimeLimit;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x36A8 (early 6.0); <br>
+    0x37A8 (late 6.0); <br>
+    0x4728 (6.1); <br>
+    0x5328 (6.2 to 6.3); <br>
+    0x5B28 (10.0 to 1607); <br>
+    0x5BA8 (1703); <br>
+    0x5BA4 (1709 to 1903); <br>
+    0x7EA4 </td>
+    <td>
+    <pre class="source">ULONG PeriodicCount;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x36AC (early 6.0); <br>
+    0x37AC (late 6.0); <br>
+    0x472C (6.1); <br>
+    0x532C (6.2 to 6.3); <br>
+    0x5B2C (10.0 to 1607); <br>
+    0x5BAC (1703); <br>
+    0x5BA8 (1709 to 1903); <br>
+    0x7EA8 </td>
+    <td>
+    <pre class="source">ULONG PeriodicBias;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4730 (6.1); <br>
+    0x5330 (6.2 to 6.3); <br>
+    0x5B30 (10.0 to 1607); <br>
+    0x5BB0 (1703); <br>
+    0x5BAC (1709 to 1903); <br>
+    0x7EAC </td>
+    <td>
+    <pre class="source">ULONG AvailableTime;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4734 (6.1); <br>
+    0x5334 (6.2 to 6.3); <br>
+    0x5B34 (10.0 to 1607); <br>
+    0x5BB4 (1703); <br>
+    0x5BB0 (1709 to 1903); <br>
+    0x7EB0 </td>
+    <td>
+    <pre class="source">ULONG KeExceptionDispatchCount;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x347C </td>
+  </tr>
+  <tr>
+    <td>0x5BB8 (1703); <br>
+    0x5BB4 (1709 to 1903); <br>
+    0x7EB4 </td>
+    <td>
+    <pre class="source">ULONG ReadyThreadCount;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5BB8 (1709 to 1903); <br>
+    0x7EB8 </td>
+    <td>
+    <pre class="source">ULONG64 ReadyQueueExpectedRunTime;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>previously at 0x5C00 </td>
+  </tr>
+  <tr>
+    <td>0x36B0 (early 6.0); <br>
+    0x37B0 (late 6.0) 
+    </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad81 [2];</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2240 (5.2); <br>
+    0x36C0 (early 6.0); <br>
+    0x37C0 (late 6.0); <br>
+    0x4738 (6.1); <br>
+    0x5338 (6.2) </td>
+    <td>
+    <pre class="source">KNODE *ParentNode;</pre>
+    </td>
+    <td>5.2 to 6.2 </td>
+    <td>cache-aligned; <br>
+    next at 0x0640 </td>
+  </tr>
+  <tr>
+    <td>0x2248 (5.2); <br>
+    0x36C8 (early 6.0); <br>
+    0x37C8 (late 6.0) </td>
+    <td>
+    <pre class="source">KAFFINITY MultiThreadProcesserSet;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2250 (5.2); <br>
+    0x36D0 (early 6.0); <br>
+    0x37D0 (late 6.0) </td>
+    <td>
+    <pre class="source">KPRCB *MultiThreadSetMaster;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2258 (5.2) <br>
+    </td>
+    <td>
+    <pre class="source">LONG Sleeping;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x36F4 </td>
+  </tr>
+  <tr>
+    <td>0x36D8 (early 6.0); <br>
+    0x37D8 (late 6.0); <br>
+    0x4740 (6.1); <br>
+    0x5340 (6.2); <br>
+    0x5338 (6.3); <br>
+    0x5B38 (10.0 to 1607); <br>
+    0x5BC0 (1703 to 1903); <br>
+    0x7EC0 </td>
+    <td>
+    <pre class="source">ULONG64 StartCycles;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5B40 (10.0 to 1607); <br>
+    0x5BC8 (1703 to 1903); <br>
+    0x7EC8 </td>
+    <td>
+    <pre class="source">ULONG64 TaggedCyclesStart;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x5B48 (10.0 to 1607); <br>
+    0x5BD0 (1703 to 1903); <br>
+    0x7ED0 </td>
+    <td>
+    <pre class="source">ULONG64 TaggedCycles [2];</pre>
+    </td>
+    <td>10.0 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 TaggedCycles [3];</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5348 (6.2); <br>
+    0x5340 (6.3); <br>
+    0x5B58 (10.0 to 1607); <br>
+    0x5BE0 (1703 to 1903) </td>
+    <td>
+    <pre class="source">ULONG64 GenerationTarget;</pre>
+    </td>
+    <td>6.2 to 1903 </td>
+    <td>next at 0x8358 </td>
+  </tr>
+  <tr>
+    <td>0x5350 (6.2); <br>
+    0x5348 (6.3); <br>
+    0x5B60 (10.0 to 1607); <br>
+    0x5BE8 (1703 to 1903); <br>
+    0x7EE8 </td>
+    <td>
+    <pre class="source">ULONG64 AffinitizedCycles;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5BF0 (1703 to 1903); <br>
+    0x7EF0 </td>
+    <td>
+    <pre class="source">ULONG64 ImportantCycles;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5BF8 (1703 to 1903); <br>
+    0x7EF8 </td>
+    <td>
+    <pre class="source">ULONG64 UnimportantCycles;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C00 (1703) </td>
+    <td>
+    <pre class="source">ULONG64 ReadyQueueExpectedRunTime;</pre>
+    </td>
+    <td>1703 only </td>
+    <td>next at 0x5BB8 </td>
+  </tr>
+  <tr>
+    <td rowspan="5">0x4748 (6.1); <br>
+    0x5358 (6.2); <br>
+    0x5350 (6.3); <br>
+    0x5B68 (10.0 to 1607); <br>
+    0x5C08 (1703) 
+    </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad82 [3];</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad81;</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad81 [2];</pre>
+    </td>
+    <td>6.3 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad81 [0x1D];</pre>
+    </td>
+    <td>10.0 to 1607 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad81 [0x15];</pre>
+    </td>
+    <td>1703 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C5C (1703); <br>
+    0x5C00 (1709 to 1903); <br>
+    0x7F00 </td>
+    <td>
+    <pre class="source">ULONG DpcWatchdogProfileSingleDpcThreshold;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x36E0 (early 6.0); <br>
+    0x37E0 (late 6.0); <br>
+    0x4760 (6.1); <br>
+    0x5360 (6.2 to 6.3); <br>
+    0x5BDC (10.0 to 1607); <br>
+    0x5C60 (1703); <br>
+    0x5C04 (1703 to 1903); <br>
+    0x7F04 </td>
+    <td>
+    <pre class="source">LONG volatile MmSpinLockOrdering;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C08 (1703 to 1903); <br>
+    0x7F08 </td>
+    <td>
+    <pre class="source">PVOID volatile CachedStack;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x225C (5.2) </td>
+    <td>
+    <pre class="source">ULONG PrcbPad90 [1];</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2260 (5.2) <br>
+    </td>
+    <td>
+    <pre class="source">ULONG DebugDpcTime;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2264 (5.2); <br>
+    0x36E4 (early 6.0); <br>
+    0x37E4 (late 6.0); <br>
+    0x4764 (6.1); <br>
+    0x5364 (6.2 to 6.3); <br>
+    0x5BE0 (10.0 to 1607); <br>
+    0x5C64 (1703); <br>
+    0x5C10 (1703 to 1903); <br>
+    0x7F10 </td>
+    <td>
+    <pre class="source">ULONG PageColor;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2268 (5.2); <br>
+    0x36E8 (early 6.0); <br>
+    0x37E8 (late 6.0); <br>
+    0x4768 (6.1); <br>
+    0x5368 (6.2 to 6.3); <br>
+    0x5BE4 (10.0 to 1607); <br>
+    0x5C68 (1703); <br>
+    0x5C14 (1703 to 1903); <br>
+    0x7F14 </td>
+    <td>
+    <pre class="source">ULONG NodeColor;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x226C (5.2); <br>
+    0x36EC (early 6.0); <br>
+    0x37EC (late 6.0); <br>
+    0x476C (6.1); <br>
+    0x536C (6.2 to 6.3); <br>
+    0x5BE8 (10.0 to 1607); <br>
+    0x5C6C (1703); <br>
+    0x5C18 (1703 to 1903); <br>
+    0x7F18 </td>
+    <td>
+    <pre class="source">ULONG NodeShiftedColor;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2270 (5.2); <br>
+    0x36F0 (early 6.0); <br>
+    0x37F0 (late 6.0); <br>
+    0x4770 (6.1); <br>
+    0x5370 (6.2 to 6.3); <br>
+    0x5BEC (10.0 to 1607); <br>
+    0x5C70 (1703); <br>
+    0x5C1C (1703 to 1903); <br>
+    0x7F1C </td>
+    <td>
+    <pre class="source">ULONG SecondaryColorMask;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x36F4 (early 6.0); <br>
+    0x37F4 (late 6.0) </td>
+    <td>
+    <pre class="source">LONG Sleeping;</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>previously at 0x2258 </td>
+  </tr>
+  <tr>
+    <td rowspan="4">0x4774 (6.1); <br>
+    0x5374 (6.2 to 6.3); <br>
+    0x5BF0 (10.0 to 1607); <br>
+    0x5C74 (1703); <br>
+    0x5C20 (1703 to 1903); <br>
+    0x7F20 </td>
+    <td>
+    <pre class="source">ULONG PrcbPad83;</pre>
+    </td>
+    <td>6.1 to 1703 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad81 [3];</pre>
+    </td>
+    <td>1709 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad81 [7];</pre>
+    </td>
+    <td>1803 to 1809 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PrcbPad81 [6];</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C26 (1903); <br>
+    0x7F26 </td>
+    <td>
+    <pre class="source">BOOLEAN ExceptionStackActive;</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C27 (1803 to 1903); <br>
+    0x7F27 </td>
+    <td>
+    <pre class="source">UCHAR TbFlushListActive;</pre>
+    </td>
+    <td>1803 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C28 (1903); <br>
+    0x7F28 </td>
+    <td>
+    <pre class="source">PVOID ExceptionStack;</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x5C28 (1803 to 1809); <br>
+    0x5C30 (1903); <br>
+    0x7F30 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad82 [2];</pre>
+    </td>
+    <td>1803 to 1809 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad82 [1];</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x36F8 (early 6.0); <br>
+    0x37F8 (late 6.0); <br>
+    0x4778 (6.1); <br>
+    0x5378 (6.2 to 6.3); <br>
+    0x5BF8 (10.0 to 1607); <br>
+    0x5C78 (1703); <br>
+    0x5C38 (1709 to 1903); <br>
+    0x7F38 </td>
+    <td>
+    <pre class="source">ULONG64 CycleTime;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C80 (1703); <br>
+    0x5C40 (1709 to 1903); <br>
+    0x7F40 </td>
+    <td>
+    <pre class="source">ULONG64 Cycles [4][2];</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C40 (10.0 to 1607); <br>
+    0x5CC0 (1703) </td>
+    <td>
+    <pre class="source">ULONG PrcbPad84 [0x10];</pre>
+    </td>
+    <td>10.0 to 1703 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2274 (5.2) 
+    </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad9 [0x0C];</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<h4>Counters </h4>
+<p>Windows Vista added numerous counters, mostly to do with caching by the file 
+system, to an original handful. For some reason, the originals were moved to another 
+area of counters nearer the start. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x2280 (5.2) <br>
+    </td>
+    <td>
+    <pre class="source">ULONG CcFastReadNoWait;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>cache-aligned; <br>
+    next at 0x21C0 </td>
+  </tr>
+  <tr>
+    <td>0x2284 (5.2) <br>
+    </td>
+    <td>
+    <pre class="source">ULONG CcFastReadWait;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x21C4 </td>
+  </tr>
+  <tr>
+    <td>0x2288 (5.2) <br>
+    </td>
+    <td>
+    <pre class="source">ULONG CcFastReadNotPossible;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x21C8 </td>
+  </tr>
+  <tr>
+    <td>0x228C (5.2) <br>
+    </td>
+    <td>
+    <pre class="source">ULONG CcCopyReadNoWait;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x21CC </td>
+  </tr>
+  <tr>
+    <td>0x2290 (5.2) <br>
+    </td>
+    <td>
+    <pre class="source">ULONG CcCopyReadWait;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x21D0 </td>
+  </tr>
+  <tr>
+    <td>0x2294 (5.2) <br>
+    </td>
+    <td>
+    <pre class="source">ULONG CcCopyReadNoWaitMiss;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x21D4 </td>
+  </tr>
+  <tr>
+    <td>0x3700 (early 6.0); <br>
+    0x3800 (late 6.0); <br>
+    0x4780 (6.1); <br>
+    0x5380 (6.2 to 6.3); <br>
+    0x5C80 (10.0 to 1607); <br>
+    0x5D00 (1703); <br>
+    0x5C80 (1709 to 1903); <br>
+    0x7F80 </td>
+    <td>
+    <pre class="source">ULONG CcFastMdlReadNoWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x3704 (early 6.0); <br>
+    0x3804 (late 6.0); <br>
+    0x4784 (6.1); <br>
+    0x5384 (6.2 to 6.3); <br>
+    0x5C84 (10.0 to 1607); <br>
+    0x5D04 (1703); <br>
+    0x5C84 (1709 to 1903); <br>
+    0x7F84 </td>
+    <td>
+    <pre class="source">ULONG CcFastMdlReadWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3708 (early 6.0); <br>
+    0x3808 (late 6.0); <br>
+    0x4788 (6.1); <br>
+    0x5388 (6.2 to 6.3); <br>
+    0x5C88 (10.0 to 1607); <br>
+    0x5D08 (1703); <br>
+    0x5C88 (1709 to 1903); <br>
+    0x7F88 </td>
+    <td>
+    <pre class="source">ULONG CcFastMdlReadNotPossible;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x370C (early 6.0); <br>
+    0x380C (late 6.0); <br>
+    0x478C (6.1); <br>
+    0x538C (6.2 to 6.3); <br>
+    0x5C8C (10.0 to 1607); <br>
+    0x5D0C (1703); <br>
+    0x5C8C (1709 to 1903); <br>
+    0x7F8C </td>
+    <td>
+    <pre class="source">ULONG CcMapDataNoWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3710 (early 6.0); <br>
+    0x3810 (late 6.0); <br>
+    0x4790 (6.1); <br>
+    0x5390 (6.2 to 6.3); <br>
+    0x5C90 (10.0 to 1607); <br>
+    0x5D10 (1703); <br>
+    0x5C90 (1709 to 1903); <br>
+    0x7F90 </td>
+    <td>
+    <pre class="source">ULONG CcMapDataWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3714 (early 6.0); <br>
+    0x3814 (late 6.0); <br>
+    0x4794 (6.1); <br>
+    0x5394 (6.2 to 6.3); <br>
+    0x5C94 (10.0 to 1607); <br>
+    0x5D14 (1703); <br>
+    0x5C94 (1709 to 1903); <br>
+    0x7F94 </td>
+    <td>
+    <pre class="source">ULONG CcPinMappedDataCount;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3718 (early 6.0); <br>
+    0x3818 (late 6.0); <br>
+    0x4798 (6.1); <br>
+    0x5398 (6.2 to 6.3); <br>
+    0x5C98 (10.0 to 1607); <br>
+    0x5D18 (1703); <br>
+    0x5C98 (1709 to 1903); <br>
+    0x7F98 </td>
+    <td>
+    <pre class="source">ULONG CcPinReadNoWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x371C (early 6.0); <br>
+    0x381C (late 6.0); <br>
+    0x479C (6.1); <br>
+    0x539C (6.2 to 6.3); <br>
+    0x5C9C (10.0 to 1607); <br>
+    0x5D1C (1703); <br>
+    0x5C9C (1709 to 1903); <br>
+    0x7F9C </td>
+    <td>
+    <pre class="source">ULONG CcPinReadWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3720 (early 6.0); <br>
+    0x3820 (late 6.0); <br>
+    0x47A0 (6.1); <br>
+    0x53A0 (6.2 to 6.3); <br>
+    0x5CA0 (10.0 to 1607); <br>
+    0x5D20 (1703); <br>
+    0x5CA0 (1709 to 1903); <br>
+    0x7FA0 </td>
+    <td>
+    <pre class="source">ULONG CcMdlReadNoWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3724 (early 6.0); <br>
+    0x3824 (late 6.0); <br>
+    0x47A4 (6.1); <br>
+    0x53A4 (6.2 to 6.3); <br>
+    0x5CA4 (10.0 to 1607); <br>
+    0x5D24 (1703); <br>
+    0x5CA4 (1709 to 1903); <br>
+    0x7FA4 </td>
+    <td>
+    <pre class="source">ULONG CcMdlReadWait;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3728 (early 6.0); <br>
+    0x3828 (late 6.0); <br>
+    0x47A8 (6.1); <br>
+    0x53A8 (6.2 to 6.3); <br>
+    0x5CA8 (10.0 to 1607); <br>
+    0x5D28 (1703); <br>
+    0x5CA8 (1709 to 1903); <br>
+    0x7FA8 </td>
+    <td>
+    <pre class="source">ULONG CcLazyWriteHotSpots;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x372C (early 6.0); <br>
+    0x382C (late 6.0); <br>
+    0x47AC (6.1); <br>
+    0x53AC (6.2 to 6.3); <br>
+    0x5CAC (10.0 to 1607); <br>
+    0x5D2C (1703); <br>
+    0x5CAC (1709 to 1903); <br>
+    0x7FAC </td>
+    <td>
+    <pre class="source">ULONG CcLazyWriteIos;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3730 (early 6.0); <br>
+    0x3830 (late 6.0); <br>
+    0x47B0 (6.1); <br>
+    0x53B0 (6.2 to 6.3); <br>
+    0x5CB0 (10.0 to 1607); <br>
+    0x5D30 (1703); <br>
+    0x5CB0 (1709 to 1903); <br>
+    0x7FB0 </td>
+    <td>
+    <pre class="source">ULONG CcLazyWritePages;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3734 (early 6.0); <br>
+    0x3834 (late 6.0); <br>
+    0x47B4 (6.1); <br>
+    0x53B4 (6.2 to 6.3); <br>
+    0x5CB4 (10.0 to 1607); <br>
+    0x5D34 (1703); <br>
+    0x5CB4 (1709 to 1903); <br>
+    0x7FB4 </td>
+    <td>
+    <pre class="source">ULONG CcDataFlushes;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3738 (early 6.0); <br>
+    0x3838 (late 6.0); <br>
+    0x47B8 (6.1); <br>
+    0x53B8 (6.2 to 6.3); <br>
+    0x5CB8 (10.0 to 1607); <br>
+    0x5D38 (1703); <br>
+    0x5CB8 (1709 to 1903); <br>
+    0x7FB8 </td>
+    <td>
+    <pre class="source">ULONG CcDataPages;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x373C (early 6.0); <br>
+    0x383C (late 6.0); <br>
+    0x47BC (6.1); <br>
+    0x53BC (6.2 to 6.3); <br>
+    0x5CBC (10.0 to 1607); <br>
+    0x5D3C (1703); <br>
+    0x5CBC (1709 to 1903); <br>
+    0x7FBC </td>
+    <td>
+    <pre class="source">ULONG CcLostDelayedWrites;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3740 (early 6.0); <br>
+    0x3840 (late 6.0); <br>
+    0x47C0 (6.1); <br>
+    0x53C0 (6.2 to 6.3); <br>
+    0x5CC0 (10.0 to 1607); <br>
+    0x5D40 (1703); <br>
+    0x5CC0 (1709 to 1903); <br>
+    0x7FC0 </td>
+    <td>
+    <pre class="source">ULONG CcFastReadResourceMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3744 (early 6.0); <br>
+    0x3844 (late 6.0); <br>
+    0x47C4 (6.1); <br>
+    0x53C4 (6.2 to 6.3); <br>
+    0x5CC4 (10.0 to 1607); <br>
+    0x5D44 (1703); <br>
+    0x5CC4 (1709 to 1903); <br>
+    0x7FC4 </td>
+    <td>
+    <pre class="source">ULONG CcCopyReadWaitMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3748 (early 6.0); <br>
+    0x3848 (late 6.0); <br>
+    0x47C8 (6.1); <br>
+    0x53C8 (6.2 to 6.3); <br>
+    0x5CC8 (10.0 to 1607); <br>
+    0x5D48 (1703); <br>
+    0x5CC8 (1709 to 1903); <br>
+    0x7FC8 </td>
+    <td>
+    <pre class="source">ULONG CcFastMdlReadResourceMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x374C (early 6.0); <br>
+    0x384C (late 6.0); <br>
+    0x47CC (6.1); <br>
+    0x53CC (6.2 to 6.3); <br>
+    0x5CCC (10.0 to 1607); <br>
+    0x5D4C (1703); <br>
+    0x5CCC (1709 to 1903); <br>
+    0x7FCC </td>
+    <td>
+    <pre class="source">ULONG CcMapDataNoWaitMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3750 (early 6.0); <br>
+    0x3850 (late 6.0); <br>
+    0x47D0 (6.1); <br>
+    0x53D0 (6.2 to 6.3); <br>
+    0x5CD0 (10.0 to 1607); <br>
+    0x5D50 (1703); <br>
+    0x5CD0 (1709 to 1903); <br>
+    0x7FD0 </td>
+    <td>
+    <pre class="source">ULONG CcMapDataWaitMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3754 (early 6.0); <br>
+    0x3854 (late 6.0); <br>
+    0x47D4 (6.1); <br>
+    0x53D4 (6.2 to 6.3); <br>
+    0x5CD4 (10.0 to 1607); <br>
+    0x5D54 (1703); <br>
+    0x5CD4 (1709 to 1903); <br>
+    0x7FD4 </td>
+    <td>
+    <pre class="source">ULONG CcPinReadNoWaitMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3758 (early 6.0); <br>
+    0x3858 (late 6.0); <br>
+    0x47D8 (6.1); <br>
+    0x53D8 (6.2 to 6.3); <br>
+    0x5CD8 (10.0 to 1607); <br>
+    0x5D58 (1703); <br>
+    0x5CD8 (1709 to 1903); <br>
+    0x7FD8 </td>
+    <td>
+    <pre class="source">ULONG CcPinReadWaitMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x375C (early 6.0); <br>
+    0x385C (late 6.0); <br>
+    0x47DC (6.1); <br>
+    0x53DC (6.2 to 6.3); <br>
+    0x5CDC (10.0 to 1607); <br>
+    0x5D5C (1703); <br>
+    0x5CDC (1709 to 1903); <br>
+    0x7FDC </td>
+    <td>
+    <pre class="source">ULONG CcMdlReadNoWaitMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3760 (early 6.0); <br>
+    0x3860 (late 6.0); <br>
+    0x47E0 (6.1); <br>
+    0x53E0 (6.2 to 6.3); <br>
+    0x5CE0 (10.0 to 1607); <br>
+    0x5D60 (1703); <br>
+    0x5CE0 (1709 to 1903); <br>
+    0x7FE0 </td>
+    <td>
+    <pre class="source">ULONG CcMdlReadWaitMiss;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3764 (early 6.0); <br>
+    0x3864 (late 6.0); <br>
+    0x47E4 (6.1); <br>
+    0x53E4 (6.2 to 6.3); <br>
+    0x5CE4 (10.0 to 1607); <br>
+    0x5D64 (1703); <br>
+    0x5CE4 (1709 to 1903); <br>
+    0x7FE4 </td>
+    <td>
+    <pre class="source">ULONG CcReadAheadIos;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3768 (early 6.0); <br>
+    0x3868 (late 6.0); <br>
+    0x47E8 (6.1); <br>
+    0x53E8 (6.2 to 6.3); <br>
+    0x5CE8 (10.0 to 1607); <br>
+    0x5D68 (1703); <br>
+    0x5CE8 (1709 to 1903); <br>
+    0x7FE8 </td>
+    <td>
+    <pre class="source">ULONG MmCacheTransitionCount;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously <span class="type">LONG volatile</span> at 0x0D9C </td>
+  </tr>
+  <tr>
+    <td>0x376C (early 6.0); <br>
+    0x386C (late 6.0); <br>
+    0x47EC (6.1); <br>
+    0x53EC (6.2 to 6.3); <br>
+    0x5CEC (10.0 to 1607); <br>
+    0x5D6C (1703); <br>
+    0x5CEC (1709 to 1903); <br>
+    0x7FEC </td>
+    <td>
+    <pre class="source">ULONG MmCacheReadCount;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously <span class="type">LONG volatile</span> at 0x0DAC </td>
+  </tr>
+  <tr>
+    <td>0x3770 (early 6.0); <br>
+    0x3870 (late 6.0); <br>
+    0x47F0 (6.1); <br>
+    0x53F0 (6.2 to 6.3); <br>
+    0x5CF0 (10.0 to 1607); <br>
+    0x5D70 (1703); <br>
+    0x5CF0 (1709 to 1903); <br>
+    0x7FF0 </td>
+    <td>
+    <pre class="source">ULONG MmCacheIoCount;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously <span class="type">LONG volatile</span> at 0x0DB0 </td>
+  </tr>
+  <tr>
+    <td rowspan="4">0x3774 (early 6.0); <br>
+    0x3874 (late 6.0); <br>
+    0x47F4 (6.1); <br>
+    0x53F4 (6.2 to 6.3); <br>
+    0x5CF4 (10.0 to 1607); <br>
+    0x5D74 (1703); <br>
+    0x5CF4 (1709 to 1903); <br>
+    0x7FF4 </td>
+    <td>
+    <pre class="soruce">ULONG PrcbPad91 [3];</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">ULONG PrcbPad91 [1];</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">ULONG PrcbPad91 [3];</pre>
+    </td>
+    <td>6.2 to 1709 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">ULONG PrcbPad91;</pre>
+    </td>
+    <td>1803 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x47F8 (6.1) </td>
+    <td>
+    <pre class="source">ULONG64 RuntimeAccumulation;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x5CF8 (1803 to 1903); <br>
+    0x7FF8 </td>
+    <td>
+    <pre class="soruce">PVOID MmFlushList;</pre>
+    </td>
+    <td>1803 to 1809 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">PVOID MmInternal;</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Windows Vista brought forward the <span class="member">PowerState</span> to a 
+cache boundary. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x3780 (early 6.0); <br>
+    0x3880 (late 6.0); <br>
+    0x4800 (6.1); <br>
+    0x5400 (6.2 to 6.3); <br>
+    0x5D00 (10.0 to 1607); <br>
+    0x5D80 (1703); <br>
+    0x5D00 (1709 to 1903); <br>
+    0x8000 </td>
+    <td>
+    <pre class="soruce"><a href="../../procpowr/processor_power_state.htm">PROCESSOR_POWER_STATE</a> PowerState;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>cache-aligned; <br>
+    previously at 0x22D0 </td>
+  </tr>
+  <tr>
+    <td>0x5F00 (1709 to 1903); <br>
+    0x8200 </td>
+    <td>
+    <pre class="soruce">PVOID HyperPte;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>cache-aligned; <br>
+    previously at 0x60C0 </td>
+  </tr>
+  <tr>
+    <td>0x55C8 (6.2); <br>
+    0x55E0 (6.3); <br>
+    0x5ED0 (10.0 to 1607); <br>
+    0x5F58 (1703); <br>
+    0x5F08 (1709 to 1903); <br>
+    0x8208 </td>
+    <td>
+    <pre class="soruce">PVOID ScbList [2];</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5F68 (1703); <br>
+    0x5F18 (1709 to 1903); <br>
+    0x8218 </td>
+    <td>
+    <pre class="soruce">KDPC ForceIdleDpc;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="5">0x4900 (6.1); <br>
+    0x55D8 (6.2); <br>
+    0x55F0 (6.3); <br>
+    0x5EE0 (10.0 to 1607); <br>
+    0x5FA8 (1703) </td>
+    <td>
+    <pre class="source">UCHAR PrcbPad92 [0x10];</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad92 [0x16];</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad92 [0x13];</pre>
+    </td>
+    <td>6.3 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad92 [7];</pre>
+    </td>
+    <td>10.0 to1607 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad92 [0x12];</pre>
+    </td>
+    <td>1703 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2298 (5.2); <br>
+    0x38B8 (early 6.0); <br>
+    0x3998 (late 6.0); <br>
+    0x4910 (6.1); <br>
+    0x5630 (6.2); <br>
+    0x563C (6.3); <br>
+    0x5EFC (10.0 to 1607); <br>
+    0x5FF0 (1703) </td>
+    <td>
+    <pre class="source">ULONG KeAlignmentFixupCount;</pre>
+    </td>
+    <td>5.2 to 1703 </td>
+    <td>next at 0x6038 </td>
+  </tr>
+  <tr>
+    <td>0x229C (5.2) </td>
+    <td>
+    <pre class="source">ULONG KeDcacheFlushCount;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x22A0 (5.2) </td>
+    <td>
+    <pre class="source">ULONG KeExceptionDispatchCount;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x337C </td>
+  </tr>
+  <tr>
+    <td>0x22A4 (5.2) </td>
+    <td>
+    <pre class="source">ULONG KeFirstLevelTbFills;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x22A8 (5.2) </td>
+    <td>
+    <pre class="source">ULONG KeFloatingEmulationCount;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x22AC (5.2) </td>
+    <td>
+    <pre class="source">ULONG KeIcacheFlushCount;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x22B0 (5.2) </td>
+    <td>
+    <pre class="soruce">ULONG KeSecondLevelTbFills;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x22B4 (5.2); <br>
+    0x38BC (early 6.0); <br>
+    0x399C (late 6.0) </td>
+    <td>
+    <pre class="soruce">UCHAR VendorString [0x0D];</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>next at 0x4BB8 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x22C1 (5.2); <br>
+    0x38C9 (early 6.0); <br>
+    0x39A9 (late 6.0) </td>
+    <td>
+    <pre class="soruce">UCHAR PrcbPad10 [2];</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">UCHAR PrcbPad10 [3];</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x22C4 (5.2); <br>
+    0x38CC (early 6.0); <br>
+    0x39AC (late 6.0) </td>
+    <td>
+    <pre class="soruce">ULONG FeatureBits;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>next at 0x4BC8 </td>
+  </tr>
+  <tr>
+    <td>0x22C8 (5.2); <br>
+    0x38D0 (early 6.0); <br>
+    0x39B0 (late 6.0) </td>
+    <td>
+    <pre class="soruce">LARGE_INTEGER UpdateSignature;</pre>
+    </td>
+    <td>5.2 to 6.0 </td>
+    <td>next at 0x4BD0 </td>
+  </tr>
+  <tr>
+    <td>0x22D0 (5.2) </td>
+    <td>
+    <pre class="soruce">PROCESSOR_POWER_STATE PowerState;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>next at 0x3780 </td>
+  </tr>
+  <tr>
+    <td>0x38D8 (early 6.0); <br>
+    0x39B8 (late 6.0); <br>
+    0x4918 (6.1); <br>
+    0x5638 (6.2); <br>
+    0x5640 (6.3); <br>
+    0x5F00 (10.0 to 1607); <br>
+    0x5FF8 (1703); <br>
+    0x5F58 (1709 to 1903); <br>
+    0x8258 </td>
+    <td>
+    <pre class="source">KDPC DpcWatchdogDpc;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3918 (early 6.0); <br>
+    0x39F8 (late 6.0); <br>
+    0x4958 (6.1); <br>
+    0x5678 (6.2); <br>
+    0x5680 (6.3); <br>
+    0x5F40 (10.0 to 1607); <br>
+    0x6038 (1703); <br>
+    0x5F98 (1709 to 1903); <br>
+    0x8298 </td>
+    <td>
+    <pre class="source">KTIMER DpcWatchdogTimer;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2440 (5.2); <br>
+    0x3958 (early 6.0); <br>
+    0x3A38 (late 6.0); <br>
+    0x4998 (6.1); <br>
+    0x56B8 (6.2); <br>
+    0x56C0 (6.3); <br>
+    0x5F80 (10.0 to 1607); <br>
+    0x6078 (1703); <br>
+    0x5FD8 (1709 to 1903); <br>
+    0x82D8 </td>
+    <td>
+    <pre class="soruce">CACHE_DESCRIPTOR Cache [5];</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x247C (5.2); <br>
+    0x3994 (early 6.0); <br>
+    0x3A74 (late 6.0); <br>
+    0x49D4 (6.1); <br>
+    0x56F4 (6.2); <br>
+    0x56FC (6.3); <br>
+    0x5FBC (10.0 to 1607); <br>
+    0x60B4 (1703); <br>
+    0x6014 (1709 to 1903); <br>
+    0x8314 </td>
+    <td>
+    <pre class="soruce">ULONG CacheCount;</pre>
+    </td>
+    <td>all </td>
+    <td>last member in 5.2 </td>
+  </tr>
+</table>
+<p>Given a GenuineIntel processor whose <span class="member">CpuType</span>, i.e., 
+family, is at least 6, the <span class="member">UpdateSignature</span> is all 64 
+bits that are read from the Model Specific Register 0x8B (<span class="constant">IA32_BIOS_SIGN_ID</span>), 
+having first written zero to that register and then executed the
+<span class="instruction">cpuid</span> instruction’s leaf 1. Starting with version 
+6.2, Windows also gets the <span class="member">UpdateSignature</span>—by a straightforward 
+read of the MSR—if the vendor is AuthenticAMD and the family is at least 15. </p>
+<h4>Appended For Windows Vista </h4>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x3998 (early 6.0); <br>
+    0x3A78 (late 6.0); <br>
+    0x49D8 (6.1); <br>
+    0x56F8 (6.2); <br>
+    0x5700 (6.3); <br>
+    0x5FC0 (10.0 to 1607); <br>
+    0x60B8 (1703); <br>
+    0x6018 (1709 to 1903); <br>
+    0x8318 </td>
+    <td>
+    <pre class="soruce">ULONG volatile CachedCommit;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x399C (early 6.0); <br>
+    0x3A7C (late 6.0); <br>
+    0x49DC (6.1); <br>
+    0x56FC (6.2); <br>
+    0x5704 (6.3); <br>
+    0x5FC4 (10.0 to 1607); <br>
+    0x60BC (1703); <br>
+    0x601C (1709 to 1903); <br>
+    0x831C </td>
+    <td>
+    <pre class="soruce">ULONG volatile CachedResidentAvailable;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x39A0 (early 6.0); <br>
+    0x3A80 (late 6.0); <br>
+    0x49E0 (6.1); <br>
+    0x5700 (6.2); <br>
+    0x5708 (6.3); <br>
+    0x5FC8 (10.0 to 1607); <br>
+    0x60C0 </td>
+    <td>
+    <pre class="source">PVOID HyperPte;</pre>
+    </td>
+    <td>6.0 to 1703 </td>
+    <td>next at 0x5F00 </td>
+  </tr>
+  <tr>
+    <td>0x39A8 (early 6.0); <br>
+    0x3A88 (late 6.0); <br>
+    0x49E8 (6.1); <br>
+    0x5708 (6.2); <br>
+    0x5710 (6.3); <br>
+    0x5FD0 (10.0 to 1607); <br>
+    0x60C8 (1703); <br>
+    0x6020 (1709 to 1903); <br>
+    0x8320 </td>
+    <td>
+    <pre class="source">PVOID WheaInfo;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x39B0 (early 6.0); <br>
+    0x3A90 (late 6.0); <br>
+    0x49F0 (6.1); <br>
+    0x5710 (6.2); <br>
+    0x5718 (6.3); <br>
+    0x5FD8 (10.0 to 1607); <br>
+    0x60D0 (1703); <br>
+    0x6028 (1709 to 1903); <br>
+    0x8328 </td>
+    <td>
+    <pre class="source">PVOID EtwSupport;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x39C0 (early 6.0); <br>
+    0x3AA0 (late 6.0); <br>
+    0x4A00 (6.1); <br>
+    0x5720 (6.2 to 6.3); <br>
+    0x5FE0 (10.0 to 1607); <br>
+    0x60E0 (1703) </td>
+    <td>
+    <pre class="source">SLIST_HEADER InterruptObjectPool;</pre>
+    </td>
+    <td>6.0 to 1703 </td>
+    <td>next at 0x2DC0 </td>
+  </tr>
+  <tr>
+    <td>0x6030 (1709 to 1903); <br>
+    0x8330 </td>
+    <td>
+    <pre class="source">PVOID ExSaPageArray;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>previously at 0x6978 </td>
+  </tr>
+  <tr>
+    <td>0x6038 (1709 to 1903); <br>
+    0x8338 </td>
+    <td>
+    <pre class="source">ULONG KeAlignmentFixupCount;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>previously at 0x5FF0 </td>
+  </tr>
+  <tr>
+    <td>0x603C (1709 to 1903); <br>
+    0x833C </td>
+    <td>
+    <pre class="source">ULONG PrcbPad95;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x39D0 (early 6.0); <br>
+    0x3AB0 (late 6.0); <br>
+    0x4A10 (6.1); <br>
+    0x5730 (6.2 to 6.3); <br>
+    0x5FF0 (10.0 to 1607); <br>
+    0x60F0 (1703); <br>
+    0x6040 (1709 to 1903); <br>
+    0x8340 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER HypercallPagePhysical;</pre>
+    </td>
+    <td>early 6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">SLIST_HEADER HypercallPageList;</pre>
+    </td>
+    <td>late 6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6050 (1709 to 1903); <br>
+    0x8350 </td>
+    <td>
+    <pre class="source">ULONGLONG *StatisticsPage;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>previously at 0x6110 </td>
+  </tr>
+  <tr>
+    <td>0x8358 </td>
+    <td>
+    <pre class="source">ULONG64 GenerationTarget;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>previously at 0x5BE0 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x6058 (1709 to 1903); <br>
+    0x8360 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad85 [5];</pre>
+    </td>
+    <td>1709 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad85 [4];</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x39D8 (early 6.0); <br>
+    0x3AC0 (late 6.0); <br>
+    0x4A20 (6.1); <br>
+    0x5740 (6.2 to 6.3); <br>
+    0x6000 (10.0 to 1607); <br>
+    0x6100 (1703); <br>
+    0x6080 (1709 to 1903); <br>
+    0x8380 </td>
+    <td>
+    <pre class="source">PVOID HypercallPageVirtual;</pre>
+    </td>
+    <td>6.0 to 6.3 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">PVOID HypercallCachedPages;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3AC8 (late 6.0); <br>
+    0x4A28 (6.1); <br>
+    0x5748 (6.2 to 6.3); <br>
+    0x6008 (10.0 to 1607); <br>
+    0x6108 (1703); <br>
+    0x6088 (1709 to 1903); <br>
+    0x8388 </td>
+    <td>
+    <pre class="source">PVOID VirtualApicAssist;</pre>
+    </td>
+    <td>late 6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3AD0 (late 6.0); <br>
+    0x4A30 (6.1); <br>
+    0x5750 (6.2 to 6.3); <br>
+    0x6010 (10.0 to 1607); <br>
+    0x6110 (1703) </td>
+    <td>
+    <pre class="source">ULONGLONG *StatisticsPage;</pre>
+    </td>
+    <td>late 6.0 to 1703 </td>
+    <td>next at 0x6050 </td>
+  </tr>
+  <tr>
+    <td>0x39E0 (early 6.0); <br>
+    0x3AD8 (late 6.0); <br>
+    0x4A38 (6.1) </td>
+    <td>
+    <pre class="source">PVOID RateControl;</pre>
+    </td>
+    <td>6.0 to 6.1 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x39E8 (early 6.0); <br>
+    0x3AE0 (late 6.0); <br>
+    0x4A40 (6.1) </td>
+    <td>
+    <pre class="source">ULONG64 CacheProcessorMask [5];</pre>
+    </td>
+    <td>6.0 to 6.1 </td>
+    <td>next as <span class="type">ULONG</span> array at 0x5800 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x3A10 (early 6.0); <br>
+    0x3B08 (late 6.0); <br>
+    0x4A68 (6.1); <br>
+    0x5758 (6.2 to 6.3); <br>
+    0x6018 (10.0 to 1607); <br>
+    0x6118 (1703); <br>
+    0x6090 (1709 to 1903); <br>
+    0x8390 </td>
+    <td>
+    <pre class="source">KAFFINITY PackageProcessorSet;</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">KAFFINITY_EX PackageProcessorSet;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6138 (1903); <br>
+    0x8438 </td>
+    <td>
+    <pre class="source">ULONG PackageId;</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x6138 (1709 to 1809); <br>
+    0x613C (1903); <br>
+    0x843C </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad86;</pre>
+    </td>
+    <td>1709 to 1809 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad86;</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5800 (6.2) </td>
+    <td>
+    <pre class="source">ULONG CacheProcessorMask [5];</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>previously as <span class="type">ULONG64</span> array at 0x4A40; <br>
+    next at 0x5828 </td>
+  </tr>
+  <tr>
+    <td>0x5800 (6.3); <br>
+    0x60C0 (10.0 to 1607); <br>
+    0x61C0 (1703); <br>
+    0x6140 (1709 to 1903); <br>
+    0x8440 </td>
+    <td>
+    <pre class="source">ULONG64 SharedReadyQueueMask;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5808 (6.3); <br>
+    0x60C8 (10.0 to 1607); <br>
+    0x61C8 (1703); <br>
+    0x6148 (1709 to 1903); <br>
+    0x8448 </td>
+    <td>
+    <pre class="source">KSHARED_READY_QUEUE *SharedReadyQueue;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x60D0 (10.0 to 1607); <br>
+    0x61D0 (1703); <br>
+    0x6150 (1709 to 1903); <br>
+    0x8450 </td>
+    <td>
+    <pre class="source">ULONG SharedQueueScanOwner;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x60D4 (10.0 to 1607); <br>
+    0x61D4 (1703); <br>
+    0x6154 (1709 to 1903); <br>
+    0x8454 </td>
+    <td>
+    <pre class="source">ULONG ScanSiblingIndex;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>previously at 0x5850 </td>
+  </tr>
+  <tr>
+    <td>0x5810 (6.3); <br>
+    0x60D8 (10.0 to 1607); <br>
+    0x61D8 (1703); <br>
+    0x6158 (1709 to 1903); <br>
+    0x8458 </td>
+    <td>
+    <pre class="source">ULONG64 CoreProcessorSet;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>previously at 0x5838 </td>
+  </tr>
+  <tr>
+    <td>0x5828 (6.2); <br>
+    0x5818 (6.3); <br>
+    0x60E0 (10.0 to 1607); <br>
+    0x61E0 (1703); <br>
+    0x6160 (1709 to 1903); <br>
+    0x8460 </td>
+    <td>
+    <pre class="source">ULONG64 ScanSiblingMask;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5820 (6.3); <br>
+    0x60E8 (10.0 to 1607); <br>
+    0x61E8 (1703); <br>
+    0x6168 (1709 to 1903); <br>
+    0x8468 </td>
+    <td>
+    <pre class="source">ULONG64 LLCMask;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5828 (6.3); <br>
+    0x60F0 (10.0 to 1607); <br>
+    0x61F0 (1703); <br>
+    0x6170 (1709 to 1903); <br>
+    0x8470 </td>
+    <td>
+    <pre class="source">ULONG64 CacheProcessorMask [5];</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>previously at 0x5800 </td>
+  </tr>
+  <tr>
+    <td>0x5830 (6.2); <br>
+    0x5850 (6.3) </td>
+    <td>
+    <pre class="source">ULONG ScanSiblingIndex;</pre>
+    </td>
+    <td>6.2 to 6.3 </td>
+    <td>next at 0x60D4 </td>
+  </tr>
+  <tr>
+    <td>0x5854 (6.3) </td>
+    <td>
+    <pre class="source">ULONG SharedReadyQueueOffset;</pre>
+    </td>
+    <td>6.3 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5834 (6.2) </td>
+    <td>
+    <pre class="source">ULONG LLCLevel;</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3A18 (early 6.0); <br>
+    0x3B10 (late 6.0); <br>
+    0x4A90 (6.1); <br>
+    0x5838 (6.2) </td>
+    <td>
+    <pre class="source">KAFFINITY CoreProcessorSet;</pre>
+    </td>
+    <td>6.0 to 6.2 </td>
+    <td>last member in 6.0; <br>
+    next at 0x5810 </td>
+  </tr>
+  <tr>
+    <td>0x5840 (6.2); <br>
+    0x5858 (6.3); <br>
+    0x6118 (10.0 to 1607); <br>
+    0x6218 (1703); <br>
+    0x6198 (1709 to 1903); <br>
+    0x8498 </td>
+    <td>
+    <pre class="source"><a href="../../../api/ntexapi/processor_profile_control_area.htm">PROCESSOR_PROFILE_CONTROL_AREA</a> *ProcessorProfileControlArea;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x4A98 (6.1); <br>
+    0x5848 (6.2); <br>
+    0x5860 (6.3); <br>
+    0x6120 (10.0 to 1607); <br>
+    0x6220 (1703); <br>
+    0x61A0 (1709 to 1903); <br>
+    0x84A0 </td>
+    <td>
+    <pre class="source">PVOID PebsIndexAddress;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">PVOID ProfileEventIndexAddress;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6228 (1703); <br>
+    0x61A8 (1709 to 1903); <br>
+    0x84A8 </td>
+    <td>
+    <pre class="source">PVOID *DpcWatchdogProfile;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6230 (1703); <br>
+    0x61B0 (1709 to 1903); <br>
+    0x84B0 </td>
+    <td>
+    <pre class="source">PVOID *DpcWatchdogProfileCurrentEmptyCapture;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x61B8 (1709 to 1903); <br>
+    0x84B8 </td>
+    <td>
+    <pre class="source">PVOID SchedulerAssist;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4AA0 (6.1) </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad93 [0x0C];</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  </table>
+<h4>Inserted For Windows 7 </h4>
+<p>Windows 7 defines numerous performance counters for synchronisation. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x4B00 (6.1) <br>
+    </td>
+    <td>
+    <pre class="source">ULONG SpinLockAcquireCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x4B04 (6.1) </td>
+    <td>
+    <pre class="source">ULONG SpinLockContentionCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B08 (6.1) </td>
+    <td>
+    <pre class="source">ULONG SpinLockSpinCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B0C (6.1) </td>
+    <td>
+    <pre class="source">ULONG IpiSendRequestBroadcastCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B10 (6.1) </td>
+    <td>
+    <pre class="source">ULONG IpiSendRequestRoutineCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B14 (6.1) </td>
+    <td>
+    <pre class="source">ULONG IpiSendSoftwareInterruptCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B18 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExInitializeResourceCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B1C (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExReInitializeResourceCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B20 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExDeleteResourceCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B24 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExecutiveResourceAcquiresCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B28 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExecutiveResourceContentionsCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B2C (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExecutiveResourceReleaseExclusiveCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B30 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExecutiveResourceReleaseSharedCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B34 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExecutiveResourceConvertsCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B38 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResExclusiveAttempts;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B3C (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResExclusiveAcquiresExclusive;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B40 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResExclusiveAcquiresExclusiveRecursive;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B44 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResExclusiveWaits;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B48 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResExclusiveNotAcquires;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B4C (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedAttempts;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B50 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedAcquiresExclusive;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B54 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedAcquiresShared;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B58 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedAcquiresSharedRecursive;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B5C (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedWaits;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B60 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedNotAcquires;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B64 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedStarveExclusiveAttempts;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B68 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedStarveExclusiveAcquiresExclusive;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B6C (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedStarveExclusiveAcquiresShared;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B70 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedStarveExclusiveAcquiresSharedRecursive;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B74 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedStarveExclusiveWaits;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B78 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedStarveExclusiveNotAcquires;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B7C (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedWaitForExclusiveAttempts;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B80 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedWaitForExclusiveAcquiresExclusive;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B84 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedWaitForExclusiveAcquiresShared;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B88 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedWaitForExclusiveAcquiresSharedRecursive;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B8C (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAcqResSharedWaitForExclusiveWaits;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B90 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExAceResSharedWaitForExclusiveNotAcquires;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B94 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExSetResOwnerPointerExclusive;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B98 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExSetResOwnerPointerSharedNew;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4B9C (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExSetResOwnerPointerSharedOld;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BA0 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExTryToAcqExclusiveAttempts;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BA4 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExTryToAcqExclusiveAcquires;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BA8 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExBoostExclusiveOwner;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BAC (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExBoostSharedOwners;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BB0 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExEtwSynchTrackingNotificationsCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BB4 (6.1) </td>
+    <td>
+    <pre class="source">ULONG ExEtwSynchTrackingNotificationsAccountedCount;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Windows 8 tidies all the preceding counters into one cache-aligned
+<span class="struct">SYNCH_COUNTERS</span> structure. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td rowspan="4">0x5850 (6.2); <br>
+    0x5858 (6.3); <br>
+    0x6128 (10.0 to 1607); <br>
+    0x6238 (1703) </td>
+    <td>
+    <pre class="source">ULONG PrcbPad94 [6];</pre>
+    </td>
+    <td>6.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad94 [3];</pre>
+    </td>
+    <td>6.3 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad94 [11];</pre>
+    </td>
+    <td>10.0 to 1607 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 PrcbPad94 [10];</pre>
+    </td>
+    <td>1703 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5880 (6.2 to 6.3); <br>
+    0x6180 (10.0 to 1607); <br>
+    0x6280 (1703); <br>
+    0x61C0 (1709 to 1903); <br>
+    0x84C0 </td>
+    <td>
+    <pre class="source">SYNCH_COUNTERS SynchCounters;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x6278 (1709 to 1903); <br>
+    0x8578 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad94;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5938 (6.3); <br>
+    0x6238 (10.0 to 1607); <br>
+    0x6338 (1703) </td>
+    <td>
+    <pre class="source">ULONG64 PteBitCache;</pre>
+    </td>
+    <td>6.3 to 1703 </td>
+    <td>next at 0x62B0 </td>
+  </tr>
+  <tr>
+    <td>0x5940 (6.3); <br>
+    0x6240 (10.0 to 1607); <br>
+    0x6340 (1703) </td>
+    <td>
+    <pre class="source">ULONG PteBitOffset;</pre>
+    </td>
+    <td>6.3 to 1703 </td>
+    <td>next at 0x62B8 </td>
+  </tr>
+  <tr>
+    <td>0x5938 (6.2); <br>
+    0x5948 (6.3); <br>
+    0x6248 (10.0 to 1607); <br>
+    0x6348 (1703); <br>
+    0x6280 (1709 to 1903); <br>
+    0x8580 </td>
+    <td>
+    <pre class="source">FILESYSTEM_DISK_COUNTERS FsCounters;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BB8 (6.1); <br>
+    0x5948 (6.2); <br>
+    0x5958 (6.3); <br>
+    0x6258 (10.0 to 1607); <br>
+    0x6358 (1703); <br>
+    0x6290 (1709 to 1903); <br>
+    0x8590 </td>
+    <td>
+    <pre class="soruce">UCHAR VendorString [0x0D];</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x399C </td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x4BC5 (6.1); <br>
+    0x5955 (6.2); <br>
+    0x5965 (6.3); <br>
+    0x6265 (10.0 to 1607); <br>
+    0x6365 (1703); <br>
+    0x629D (1709 to 1903); <br>
+    0x859D </td>
+    <td>
+    <pre class="soruce">UCHAR PrcbPad10 [3];</pre>
+    </td>
+    <td>6.1 to 1607 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">UCHAR PrcbPad10 [2];</pre>
+    </td>
+    <td>1703 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">UCHAR PrcbPad10 [3];</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6367 (1703) </td>
+    <td>
+    <pre class="soruce">UCHAR PendingVirtualLittle;</pre>
+    </td>
+    <td>1703 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x4BC8 (6.1); <br>
+    0x5958 (6.2); <br>
+    0x5968 (6.3); <br>
+    0x6268 (10.0 to 1607); <br>
+    0x6368 (1703); <br>
+    0x62A0 (1709 to 1903); <br>
+    0x85A0 </td>
+    <td>
+    <pre class="soruce">ULONG FeatureBits;</pre>
+    </td>
+    <td>6.1 to 6.2 </td>
+    <td rowspan="2">previously at 0x39AC </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 FeatureBits;</pre>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x5970 (6.3); <br>
+    0x6270 (10.0 to 1607); <br>
+    0x6370 (1703) </td>
+    <td>
+    <pre class="source">ULONG PrcbPad11;</pre>
+    </td>
+    <td>6.3 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG PrcbPad110;</pre>
+    </td>
+    <td>10.0 to 1703 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BD0 (6.1); <br>
+    0x5960 (6.2); <br>
+    0x5978 (6.3); <br>
+    0x6278 (10.0 to 1607); <br>
+    0x6378 (1703); <br>
+    0x62A8 (1709 to 1903); <br>
+    0x85A8 </td>
+    <td>
+    <pre class="soruce">LARGE_INTEGER UpdateSignature;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x39B0 </td>
+  </tr>
+  <tr>
+    <td>0x62B0 (1709 to 1903); <br>
+    0x85B0 </td>
+    <td>
+    <pre class="source">ULONG64 PteBitCache;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>previously at 0x6338 </td>
+  </tr>
+  <tr>
+    <td>0x62B8&nbsp; (1709 to 1903); <br>
+    0x85B8 </td>
+    <td>
+    <pre class="source">ULONG PteBitOffset;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>previously at 0x6340 </td>
+  </tr>
+  <tr>
+    <td>0x62BC (1709 to 1903); <br>
+    0x85BC </td>
+    <td>
+    <pre class="source">ULONG PrcbPad105;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BD8 (6.1); <br>
+    0x5968 (6.2); <br>
+    0x5980 (6.3); <br>
+    0x6280 (10.0 to 1607); <br>
+    0x6380 (1703); <br>
+    0x62C0 (1709 to 1903); <br>
+    0x85C0 </td>
+    <td>
+    <pre class="source">CONTEXT *Context;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x4BE0 (6.1); <br>
+    0x5970 (6.2); <br>
+    0x5988 (6.3); <br>
+    0x6288 (10.0 to 1607); <br>
+    0x6388 (1703); <br>
+    0x62C8 (1709 to 1903); <br>
+    0x85C8 </td>
+    <td>
+    <pre class="source">ULONG ContextFlags;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG ContextFlagsInit;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x62CC (1709 to 1903); <br>
+    0x85CC </td>
+    <td>
+    <pre class="source">ULONG PrcbPad115;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4BE8 (6.1); <br>
+    0x5978 (6.2); <br>
+    0x5990 (6.3); <br>
+    0x6290 (10.0 to 1607); <br>
+    0x6390 (1703); <br>
+    0x62D0 (1709 to 1903); <br>
+    0x85D0 </td>
+    <td>
+    <pre class="source">XSAVE_AREA *ExtendedState;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<h4>Inserted for Windows 8 and 8.1 </h4>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x5998 (6.3); <br>
+    0x6298 (10.0 to 1607); <br>
+    0x6398 (1703); <br>
+    0x62D8 (1709 to 1903); <br>
+    0x85D8 </td>
+    <td>
+    <pre class="source">PVOID IsrStack;</pre>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x5980 (6.2); <br>
+    0x59A0 (6.3); <br>
+    0x62A0 (10.0 to 1607); <br>
+    0x63A0 (1703); <br>
+    0x62E0 (1709 to 1903); <br>
+    0x85E0 </td>
+    <td>
+    <pre class="source">KENTROPY_TIMING_STATE EntropyTimingState;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x6430 (1803 to 1903); <br>
+    0x8730 </td>
+    <td>
+    <pre class="soruce">ULONG64 PrcbPad110;</pre>
+    </td>
+    <td>1803 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x6438 (1803 to 1903); <br>
+    0x8738 </td>
+    <td>
+    <pre class="soruce">ULONG64 PrcbPad111 [7];</pre>
+    </td>
+    <td>1803 only </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">struct {
+    ULONG UpdateCycle;
+    union {
+        SHORT PairLocal;
+        struct {
+            UCHAR PairLocalLow;
+            UCHAR PairLocalForceStibp : 1;
+            UCHAR Reserved : 4;
+            UCHAR Frozen : 1;
+            UCHAR ForceUntrusted : 1;
+            UCHAR SynchIpi : 1;
+        };
+    };
+    union {
+        SHORT PairRemote;
+        struct {
+            UCHAR PairRemoteLow;
+            UCHAR Reserved2;
+        };
+    };
+    UCHAR Trace [0x18];
+    ULONG64 LocalDomain;
+    ULONG64 RemoteDomain;
+    KTHREAD *Thread;
+} StibpPairingTrace;</pre>
+    </td>
+    <td>1809 and higher </td>
+  </tr>
+  <tr>
+    <td>0x5AF0 (6.3); <br>
+    0x63F0 (10.0 to 1607); <br>
+    0x64F0 (1703); <br>
+    0x6430 (1709); <br>
+    0x6470 (1803 to 1903); <br>
+    0x8770 </td>
+    <td>
+    <pre class="source">SINGLE_LIST_ENTRY AbSelfIoBoostsList;</pre>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x5AF8 (6.3); <br>
+    0x63F8 (10.0 to 1607); <br>
+    0x64F8 (1703); <br>
+    0x6438 (1709); <br>
+    0x6478 (1803 to 1903); <br>
+    0x8778 </td>
+    <td>
+    <pre class="source">SINGLE_LIST_ENTRY AbPropagateBoostsList;</pre>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x5B00 (6.3); <br>
+    0x6400 (10.0 to 1607); <br>
+    0x6500 (1703); <br>
+    0x6440 (1709); <br>
+    0x6480 (1803 to 1903); <br>
+    0x8780 </td>
+    <td>
+    <pre class="source">KDPC AbDpc;</pre>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+</table>
+<h4>Inserted For Windows 10 </h4>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x6440 (10.0 to 1607); <br>
+    0x6540 (1703); <br>
+    0x6480 (1709); <br>
+    0x64C0 (1803 to 1903); <br>
+    0x87C0 </td>
+    <td>
+    <pre class="source">IOP_IRP_STACK_PROFILER IoIrpStackProfilerCurrent;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6494 (10.0 to 1607); <br>
+    0x6594 (1703); <br>
+    0x64D4 (1709); <br>
+    0x6514 (1803 to 1903); <br>
+    0x8814 </td>
+    <td>
+    <pre class="source">IOP_IRP_STACK_PROFILER IoIrpStackProfilerPrevious;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6528 (1709); <br>
+    0x6568 (1803 to 1903); <br>
+    0x8868 </td>
+    <td>
+    <pre class="source">KSECURE_FAULT_INFORMATION SecureFault;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>previously at 0x6980 </td>
+  </tr>
+  <tr>
+    <td>0x6538 (1709); <br>
+    0x6578 (1803 to 1903); <br>
+    0x8878 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad120;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6500 (10.0 to 1607); <br>
+    0x6600 (1703); <br>
+    0x6540 (1709); <br>
+    0x6580 (1803 to 1903); <br>
+    0x8880 </td>
+    <td>
+    <pre class="source">KSHARED_READY_QUEUE LocalSharedReadyQueue;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x67B0 (1709); <br>
+    0x67F0 (1803 to 1903); <br>
+    0x8AF0 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad125 [2];</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x67C0 (1709); <br>
+    0x6800 (1803 to 1903); <br>
+    0x8B00 </td>
+    <td>
+    <pre class="source">ULONG TimerExpirationTraceCount;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>cache-aligned; <br>
+    previously at 0x6970 </td>
+  </tr>
+  <tr>
+    <td>0x67C4 (1709); <br>
+    0x6804 (1803 to 1903); <br>
+    0x8B04 </td>
+    <td>
+    <pre class="source">ULONG PrcbPad127;</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6760 (10.0 to 1607); <br>
+    0x6870 (1703); <br>
+    0x67C8 (1709); <br>
+    0x6808 (1803 to 1903); <br>
+    0x8B08 </td>
+    <td>
+    <pre class="source">KTIMER_EXPIRATION_TRACE TimerExpirationTrace [0x10];</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6860 (10.0 to 1607); <br>
+    0x6970 (1703) </td>
+    <td>
+    <pre class="source">ULONG TimerExpirationTraceCount;</pre>
+    </td>
+    <td>10.0 to 1703 </td>
+    <td>next at 0x67C0 </td>
+  </tr>
+  <tr>
+    <td>0x6868 (10.0 to 1607); <br>
+    0x6978 </td>
+    <td>
+    <pre class="source">PVOID ExSaPageArray;</pre>
+    </td>
+    <td>10.0 to 1703 </td>
+    <td>next at 0x6030 </td>
+  </tr>
+  <tr>
+    <td>0x6980 (1703) </td>
+    <td>
+    <pre class="source">KSECURE_FAULT_INFORMATION SecureFault;</pre>
+    </td>
+    <td>1703 only </td>
+    <td>next at 0x6528 </td>
+  </tr>
+  <tr>
+    <td>0x68C8 (1709); <br>
+    0x6908 (1803 to 1903); <br>
+    0x8C08 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad128 [7];</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<h4>Appended for Windows 7 </h4>
+<p>The mailboxes for inter-processor communications were moved to the end of the
+<span class="struct">KPRCB</span> in Windows 7 so that the array can accommodate 
+arbitrarily many processors but still be in the <span class="struct">KPRCB</span>. 
+Both the pointer and the array are cache-aligned without explicit padding in most 
+versions. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x4C00 (6.1); <br>
+    0x5B00 (6.2); <br>
+    0x5B40 (6.3); <br>
+    0x6880 (10.0 to 1607); <br>
+    0x69C0 (1703); <br>
+    0x6900 (1709); <br>
+    0x6940 (1803 to 1903); <br>
+    0x8C40 </td>
+    <td>
+    <pre class="source">REQUEST_MAILBOX *Mailbox;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x6908 (1709); <br>
+    0x6948 (1803 to 1903); <br>
+    0x8C48 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad130 [7];</pre>
+    </td>
+    <td>1709 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6980 (1809 to 1903); <br>
+    0x8C80 </td>
+    <td>
+    <pre class="source">MACHINE_CHECK_CONTEXT McheckContext [2];</pre>
+    </td>
+    <td>1809 and higher </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x6A20 (1809 to 1903); <br>
+    0x8D20 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad134 [4];</pre>
+    </td>
+    <td>1809 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6980 (1803); <br>
+    0x6A40 (1809 to 1903); <br>
+    0x8D40 </td>
+    <td>
+    <pre class="soruce">KLOCK_QUEUE_HANDLE SelfmapLockHandle [4];</pre>
+    </td>
+    <td>1803 and higher </td>
+    <td>cache-aligned </td>
+  </tr>
+  <tr>
+    <td>0x6AA0 (1809 to 1903); <br>
+    0x8DA0 </td>
+    <td>
+    <pre class="soruce">ULONG64 PrcbPad134a [4];</pre>
+    </td>
+    <td>1809 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x69E0 (1803); <br>
+    0x6AC0 (1809 to 1903); <br>
+    0x8DC0 </td>
+    <td>
+    <pre class="soruce">UCHAR PrcbPad135 [0x04A0];</pre>
+    </td>
+    <td>1803 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">UCHAR PrcbPad138 [0x03C0];</pre>
+    </td>
+    <td>1809 to 1903 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    &nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x8E40 </td>
+    <td>
+    <pre class="soruce">PrcbPad138a;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6E80 (1803 to 1903); <br>
+    0x8E80 </td>
+    <td>
+    <pre class="soruce">ULONG64 KernelDirectoryTableBase;</pre>
+    </td>
+    <td>1803 and higher </td>
+    <td>page-aligned </td>
+  </tr>
+  <tr>
+    <td>0x6E88 (1803 to 1903); <br>
+    0x8E88 </td>
+    <td>
+    <pre class="soruce">ULONG64 RspBaseShadow;</pre>
+    </td>
+    <td>1803 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6E90 (1803 to 1903); <br>
+    0x8E90 </td>
+    <td>
+    <pre class="soruce">ULONG64 UserRspShadow;</pre>
+    </td>
+    <td>1803 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6E98 (1803 to 1903); <br>
+    0x8E98 </td>
+    <td>
+    <pre class="soruce">ULONG ShadowFlags;</pre>
+    </td>
+    <td>1803 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6E9C (1903); <br>
+    0x8E9C </td>
+    <td>
+    <pre class="soruce">ULONG PrcbPad138b;</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6EA0 (1903); <br>
+    0x8EA0 </td>
+    <td>
+    <pre class="soruce">ULONG64 PrcbPad138c;</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6EA8 (1903); <br>
+    0x8EA8 </td>
+    <td>
+    <pre class="soruce">USHORT PrcbPad138d;</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x6EAA (1903); <br>
+    0x8EAA </td>
+    <td>
+    <pre class="soruce">USHORT PrcbPad138e;</pre>
+    </td>
+    <td>1903 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">USHORT VerwSelector;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6E9C (1809); <br>
+    0x6EAC (1903); <br>
+    0x8EAC </td>
+    <td>
+    <pre class="soruce">ULONG DbgMceNestingLevel;</pre>
+    </td>
+    <td>1809 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6EA0 (1809); <br>
+    0x6EB0 (1903); <br>
+    0x8EB0 </td>
+    <td>
+    <pre class="soruce">ULONG DbgMceFlags;</pre>
+    </td>
+    <td>1809 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x6E9C (1803); <br>
+    0x6EA4 (1809); <br>
+    0x6EB4 (1903); <br>
+    0x8EB4 </td>
+    <td>
+    <pre class="soruce">ULONG PrcbPad139;</pre>
+    </td>
+    <td>1803 to 1809 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">ULONG PrcbPad139b;</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x6EA0 (1803); <br>
+    0x6EA8 (1809); <br>
+    0x6EB8 (1903); <br>
+    0x8EB8 </td>
+    <td>
+    <pre class="soruce">ULONG64 PrcbPad140 [0x01FC];</pre>
+    </td>
+    <td>1803 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">ULONG64 PrcbPad140 [0x01FB];</pre>
+    </td>
+    <td>1809 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="soruce">ULONG64 PrcbPad140 [0x01F9];</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x7E80 (1903); <br>
+    0x9E80 </td>
+    <td>
+    <pre class="soruce">ULONG64 PrcbPad140a [8];</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>page-aligned </td>
+  </tr>
+  <tr>
+    <td>0x7EC0 (1903); <br>
+    0x9EC0 </td>
+    <td>
+    <pre class="soruce">ULONG64 PrcbPad141 [0x01F8];</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x8E80 (1903); <br>
+    0xAE80 </td>
+    <td>
+    <pre class="soruce">UCHAR PrcbPad141a [0x40];</pre>
+    </td>
+    <td>1903 and higher </td>
+    <td>page-aligned </td>
+  </tr>
+  <tr>
+    <td>0x4C80 (6.1); <br>
+    0x5B40 (6.2); <br>
+    0x5B80 (6.3); <br>
+    0x68C0 (10.0 to 1607); <br>
+    0x6A00 (1703); <br>
+    0x6940 (1709); <br>
+    0x7E80 (1803 to 1809); <br>
+    0x8EC0 (1903); <br>
+    0xAEC0 </td>
+    <td>
+    <pre class="source">REQUEST_MAILBOX RequestMailbox [ANYSIZE_ARRAY];</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>page-aligned in 1803 to 1809; <br>
+    previously at 0x2380; <br>
+    last member in 6.1 and higher </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 19th May 2016 but was not published 
+  until 14th <a href="../../../../../../../../new/16/11.htm">November 2016</a>. It was 
+  last modified on 5th January 2021. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1621.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14234" --></div>
+
+</body>
+
+</html>

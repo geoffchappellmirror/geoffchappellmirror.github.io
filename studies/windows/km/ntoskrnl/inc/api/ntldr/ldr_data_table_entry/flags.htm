@@ -1,0 +1,352 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Flags in the LDR_DATA_TABLE_ENTRY</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>Flags in the LDR_DATA_TABLE_ENTRY </h1>
+  <p>From its origin in Windows NT 3.1 as the definitive record of a loaded module, 
+  the <span class="struct"><a href="index.htm">LDR_DATA_TABLE_ENTRY</a></span> structure 
+  has a dword of <span class="member">Flags</span>. These might be just an internal 
+  detail of the boot loader’s, the kernel’s and NTDLL’s management of loaded modules—something 
+  useful to know when debugging but nothing to use safely in programming—except 
+  that the <span class="member">Flags</span> are copied whole to the
+  <span class="struct">RTL_PROCESS_MODULE_INFORMATION</span> structure. Thus are 
+  the <span class="member">Flags</span> exposed even to user-mode software from 
+  the beginning of Windows. </p>
+  <p>In the many years since this beginning, interpreting the
+  <span class="member">Flags</span> has got complicated. The
+  <span class="struct">LDR_DATA_TABLE_ENTRY</span> originally served all three of 
+  the boot loader, kernel and NTDLL. Each has its own loader of executable modules—at 
+  the very least, each loads the next—but although the three loaders are essentially 
+  independent, their early versions all use the same <span class="struct">LDR_DATA_TABLE_ENTRY</span> 
+  as their structure for managing any one loaded module. Within this structure’s
+  <span class="member">Flags</span>, some bits are meaningful to all the loaders, 
+  most only to NTDLL, and a few only to the kernel. </p>
+  <p>Microsoft’s names for these bits as long ago as Windows NT 3.51 are known from 
+  the output of the <span class="command">!dlls</span> command as implemented (then) 
+  by the KDEXTX86.DLL debugger extension from the contemporaneous Device Driver 
+  Kit (DDK). That a command for listing user-mode DLLs shows flags that look to 
+  have no meaning to the user-mode loader suggests most obviously two possibilities: 
+  I should look harder in my inspection of the binaries; or the writer of the debugger 
+  extension, possibly far removed from any programmers of the loaders, simply had
+  <span class="command">!dlls</span> show all the defined flags. Suppose the latter 
+  and then disregard bits whose known use in version 3.51 has no corresponding use 
+  in version 3.10, and the following is surely a reasonable guess for Microsoft’s 
+  original definitions of the <span class="member">Flags</span> bits: </p>
+  <pre class="source">#define LDRP_STATIC_LINK                0x00000002      // ntdll
+#define LDRP_IMAGE_DLL                  0x00000004      // ntdll
+#define LDRP_LOAD_IN_PROGRESS           0x00001000      // ntdll
+#define LDRP_UNLOAD_IN_PROGRESS         0x00002000      // ntdll
+#define LDRP_ENTRY_PROCESSED            0x00004000      // ntldr, ntoskrnl and ntdll
+#define LDRP_ENTRY_INSERTED             0x00008000
+#define LDRP_CURRENT_LOAD               0x00010000
+#define LDRP_FAILED_BUILTIN_LOAD        0x00020000      // ntoskrnl</pre>
+  <p>When Windows XP specialised the <span class="struct">LDR_DATA_TABLE_ENTRY</span> 
+  into a new <span class="struct">KLDR_DATA_TABLE_ENTRY</span> for the kernel-mode 
+  loader, keeping the <span class="struct">LDR_DATA_TABLE_ENTRY</span> for the user-mode 
+  loader, the many members that were carried from the old to the new included the
+  <span class="member">Flags</span>. For a few versions more, the two structures 
+  look to have shared the one list of <span class="member">Flags</span> bits.
+  </p>
+  <h2>Bit Fields </h2>
+  <p>Starting with version 6.2, what had just been a <span class="type">ULONG</span> 
+  for <span class="member">Flags</span> is elaborated formally as bit fields:
+  </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00000001 </td>
+        <td>
+        <pre class="source">ULONG PackagedBinary : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000002 </td>
+        <td>
+        <pre class="source">ULONG MarkedForRemoval : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000004 </td>
+        <td>
+        <pre class="source">ULONG ImageDll : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000008 </td>
+        <td>
+        <pre class="source">ULONG LoadNotificationsSent : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000010 </td>
+        <td>
+        <pre class="source">ULONG TelemetryEntryProcessed : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000020 </td>
+        <td>
+        <pre class="source">ULONG ProcessStaticImport : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000040 </td>
+        <td>
+        <pre class="source">ULONG InLegacyLists : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000080 </td>
+        <td>
+        <pre class="source">ULONG InIndexes : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000100 </td>
+        <td>
+        <pre class="source">ULONG ShimDll : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000200 </td>
+        <td>
+        <pre class="source">ULONG InExceptionTable : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG ReservedFlags1 : 2;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00001000 </td>
+        <td>
+        <pre class="source">ULONG LoadInProgress : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x00002000 </td>
+        <td>
+        <pre class="source">ULONG ReservedFlags2 : 1;</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG LoadConfigProcessed : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00004000 </td>
+        <td>
+        <pre class="source">ULONG EntryProcessed : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00008000 </td>
+        <td>
+        <pre class="source">ULONG ProtectDelayLoad : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">ULONG ReservedFlags3 : 3;</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG ReservedFlags3 : 2;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00040000 </td>
+        <td>
+        <pre class="source">ULONG DontCallForThreads : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00080000 </td>
+        <td>
+        <pre class="source">ULONG ProcessAttachCalled : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00100000 </td>
+        <td>
+        <pre class="source">ULONG ProcessAttachFailed : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00200000 </td>
+        <td>
+        <pre class="source">ULONG CorDeferredValidate : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00400000 </td>
+        <td>
+        <pre class="source">ULONG CorImage : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00800000 </td>
+        <td>
+        <pre class="source">ULONG DontRelocate : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01000000 </td>
+        <td>
+        <pre class="source">ULONG CorILOnly : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02000000 </td>
+        <td>
+        <pre class="source">ULONG ChpeImage : 1;</pre>
+        </td>
+        <td>1803 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">ULONG ReservedFlags5 : 3;</pre>
+        </td>
+        <td>6.2 to 1709 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG ReservedFlags5 : 2;</pre>
+        </td>
+        <td>1803 and higher </td>
+      </tr>
+      <tr>
+        <td>0x10000000 </td>
+        <td>
+        <pre class="source">ULONG Redirected : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG ReservedFlags6 : 2;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000000 </td>
+        <td>
+        <pre class="source">ULONG CompatDatabaseProcessed : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Though some programmer at Microsoft evidently went to some trouble to organise 
+  the <span class="member">Flags</span> into bit fields for Windows 8, and may even 
+  have intended to define all the bits that are meaningful to the user-mode loader, 
+  the result is not complete and current. Certainly, the two bits that are named
+  <span class="member">ReservedFlags1</span> both have new use even for Windows 
+  8. The 0x00000400 bit is set in the entry for the Application Verifier provider. 
+  The 0x00000800 bit records that the shim engine (apphelp.dll) has been sent its 
+  initial notification (<span class="function">SE_DllLoaded</span>) about this entry.
+  </p>
+  <h2>Macro Definitions </h2>
+  <p>If earlier versions defined the <span class="member">Flags</span> bits symbolically, 
+  it will have been through macros. These would not pass even into private symbols, 
+  but Microsoft’s names for some of the bits are known with good confidence from 
+  the output of the <span class="command">!dlls</span> command as implemented in 
+  debugger extensions KDEXTX86.DLL at first and then EXTS.DLL in Windows XP and 
+  higher: </p>
+  <p><span class="alert">RESEARCH AND WRITING IN PROGRESS</span> </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 29th
+    <a href="../../../../../../../../new/22/12.htm">December 2022</a> from material 
+    first published on 13th June 2016. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14250" -->
+  </div>
+</div>
+
+</body>
+
+</html>

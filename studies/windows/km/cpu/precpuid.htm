@@ -1,0 +1,652 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CPU Identification Before CPUID</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <h1>CPU Identification Before CPUID </h1>
+  <p>Processors that implement the x86 or x64 instruction sets are identified by 
+  a combination of vendor-specific family, model and stepping numbers (in order 
+  of decreasing significance). This classification dates from the 80386 but became 
+  firmly established when the <span class="instruction">
+  <a href="cpuid/index.htm">cpuid</a></span> instruction was added for Intel’s Pentium 
+  processor in 1993 and for some models of the 80486. </p>
+  <p>For the 32-bit Windows kernel to execute at all, the processor evidently has 
+  32-bit x86 instructions. If a standard test shows that this instruction set is 
+  not advanced enough to include <span class="instruction">cpuid</span> or if a 
+  less standard test suggests the instruction is not reliably usable, then the kernel 
+  falls back to identifying the processor as an 80386 or 80486. </p>
+  <p>Of course, when Windows was new, the 80386 and 80486 were not so old. Both 
+  were realistic possibilities for what Windows might find itself running on. That 
+  said, the 80386 was fast being supplanted for the high-end computers that the 
+  new Windows NT aimed for (and, some would say, needed for acceptable performance). 
+  Support for the 80386 soon started being closed down. Early steppings are not 
+  acceptable to version 3.10. Version 3.50 rejects any 80386 in a multi-processor 
+  system. Version 4.0 declines to start even on a lone 80386. Though the 80486 is 
+  not formally rejected by any version, it has been unable to run new Windows versions 
+  since Windows XP made the <span class="instruction"><a href="cx8.htm">cmpxchg8b</a></span> 
+  instruction essential. </p>
+  <p>Yet not until version 6.3 does the 32-bit kernel just assume that it’s running 
+  on a processor that has the <span class="instruction">cpuid</span> instruction. 
+  What does it do for processor identification when it can’t simply ask
+  <span class="instruction">cpuid</span>? </p>
+  <h2>Instruction Test </h2>
+  <p>Up to and including version 6.2, the 32-bit kernel regards the
+  <span class="instruction">cpuid</span> instruction as unimplemented if either:
+  </p>
+  <ul>
+    <li>the <span class="bit">ID</span> bit (21) in the <span class="register">eflags</span> 
+    register cannot be changed; </li>
+    <li>or executing the <span class="instruction">cpuid</span> instruction with 
+    the <span class="bit">ID</span> bit set in <span class="register">eflags</span> 
+    and with <span class="register">eax</span> set to zero causes an Invalid Opcode 
+    exception (0x06). </li>
+  </ul>
+  <p>A processor that has no <span class="instruction">cpuid</span> instruction 
+  by this test is inferred to be either an 80386 or 80486. So too can be a processor 
+  that has the instruction but only with too little functionality. The main measure 
+  of functionality for the <span class="instruction">cpuid</span> instruction is 
+  which function or <span class="definition">leaf</span> numbers the instruction 
+  accepts as input in the <span class="register">eax</span> register. The maximum 
+  supported leaf is easily learnt as the output in
+  <a href="cpuid/00000000h/eax.htm"><span class="register">eax</span> from
+  <span class="instruction">cpuid</span> leaf 0</a>. The family, model and stepping 
+  are produced as bit fields in <a href="cpuid/00000001h/eax.htm">
+  <span class="register">eax</span> from <span class="instruction">cpuid</span> 
+  leaf 1</a>. If the instruction does not have leaf 1, then starting with version 
+  3.50 the kernel dismisses the instruction as unusable, such that again the processor 
+  must be an 80386 or 80486. </p>
+  <h2>Processor Identification Signature </h2>
+  <p>Though the family, model and stepping can’t be read from these early processors 
+  by executing the <span class="instruction">cpuid</span> instruction, something 
+  very much like them had been introduced with the 80386 as a
+  <span class="definition">component identifier</span> and
+  <span class="definition">revision number</span> that are loaded into the
+  <span class="register">dx</span> register as its initial value immediately after 
+  the processor is reset. This, extended to <span class="register">edx</span>, is 
+  the essence of what is later named the <span class="definition">processor identification 
+  signature</span>. Many, if not all, computers with these early processors have 
+  BIOS support through which this value can be retrieved on a running machine.
+  </p>
+  <p>For some, the BIOS explicitly saves the processor identification signature 
+  and makes it available through some API. For many more, something that may look 
+  a bit like magic is inherited from the 80286, for which the processor’s inability 
+  to return to real mode from protected mode is overcome with BIOS support. The 
+  processor is reset without losing memory, having configured the BIOS not to reinitialise 
+  as if from a reboot but instead to resume execution at an address that was saved 
+  for it at a known location before the reset. If the BIOS gets this far without 
+  changing <span class="register">edx</span>, then the processor identification 
+  signature is retrievable from the reset. That’s all a bit much for the kernel, 
+  if not for anyone. </p>
+  <p>When faced with a processor that does not have a usable
+  <span class="instruction">cpuid</span> instruction from which to learn the processor 
+  identification signature, the kernel doesn’t try to retrieve it but instead invents 
+  family, model and stepping numbers from the results of various tests. These invented 
+  numbers go into the processor’s <span class="struct">
+  <a href="../ntoskrnl/inc/ntos/i386_x/kprcb/index.htm">KPRCB</a></span> as the
+  <span class="member">CpuType</span>, <span class="member">CpuModel</span> and
+  <span class="member">CpuStepping</span> members just as if they had been obtained 
+  from <span class="instruction">cpuid</span> leaf 1 except that they are not taken 
+  from any processor identification signature that might have been retrievable from 
+  the reset. </p>
+  <h3>Stepping Notation </h3>
+  <p>For later processors that do have the <span class="instruction">cpuid</span> 
+  instruction, Intel is clear that the processor signature returned in
+  <span class="register">eax</span> from <span class="instruction">cpuid</span> 
+  leaf 1 and the processor signature in <span class="register">edx</span> at reset 
+  are one and the same. For the 80386 and early 80486 which do not have the instruction, 
+  simulating the processor signature from <span class="register">edx</span> at reset 
+  plausibly wasn’t what Microsoft aimed for. </p>
+  <p>What does seem intended is to fit the processor into Intel’s descriptions of 
+  steppings as A0, B0, B1, etc. Even in later processors, this notation for steppings 
+  does not correlate directly with the model and stepping numbers in the processor 
+  signature. This seems to have been so for the 80386 too. See, for instance, that 
+  a datasheet for the <span class="title">Intel386™ DX Microprocessor 32-Bit CHMOS 
+  Microprocessor With Integrated Memory Management</span>, Order Number 231630-011, 
+  dated December 1995, has it (in <span class="title">Table 5-10. Component and 
+  Revision Identifier History</span>) that steppings named B0 and B1 both have 0x0303 
+  for the processor signature and the D0 and D1 steppings have 0x0305 and 0x0308.
+  </p>
+  <p>That Microsoft’s inferred family, model and stepping aim for the letter-and-number 
+  stepping, not the processor identification signature, is supported by their use 
+  for descriptive text in the registry: </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Hardware\Description\System\CentralProcessor\<span class="placeholder">index</span></span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">Identifier</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_SZ</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>For an 80386 or 80486, this registry value’s string data has the form
+  <span class="regsz">80<span class="placeholder">x</span>86-<span class="placeholder">y</span><span class="placeholder">z</span></span> 
+  in which <span class="placeholder">x</span>, <span class="placeholder">y</span> 
+  and <span class="placeholder">z</span> are resolved from the family, model and 
+  stepping as recorded in the <span class="struct">KPRCB</span>:
+  <span class="placeholder">x</span> is the <span class="member">CpuType</span> 
+  as a number, <span class="placeholder">y</span> is the <span class="member">CpuModel</span> 
+  but as a letter from the scheme A for 0, B for 1, etc., and
+  <span class="placeholder">z</span> is the <span class="member">CpuStepping</span> 
+  as a number. </p>
+  <p>Of course, with the Pentium being effectively a minimum requirement in Windows 
+  XP and higher, what the Windows kernel identifies about a processor that does 
+  not support <span class="instruction">cpuid</span> is now of interest only to 
+  historians—and perhaps to hobbyists who have enough time on their hands to try 
+  running a modern Windows on an 80486 for the dubious fun of seeing what happens.
+  </p>
+  <p>Yet it’s no small curiosity that the code for testing that the CPU is an 80386 
+  or 80486, and then for identifying which stepping of 80386 or 80486, wasn’t discarded 
+  until version 6.3, having stayed unchanged, byte for byte, from version 3.10. 
+  It had long been dead code, but there cannot in the whole history of computing 
+  be much other binary code that was retained longer and had wider distribution. 
+  (For an example that also dates from 1992 but still executes in ordinary use three 
+  decades later, see
+  <a href="../ntoskrnl/inc/api/ntexapi_x/kuser_shared_data/oldestunchangedcode.htm">
+  The Oldest Unchanged Kernel Code</a>.) </p>
+  <h2>Early 80486 </h2>
+  <p>When run on a processor without a <span class="instruction">cpuid</span> instruction 
+  that implements at least leaf 1, the kernel first looks to the
+  <span class="bit">AC</span> bit (18) in the <span class="register">eflags</span> 
+  register. If this can be changed, then the processor is deemed to be an 80486 
+  (family 4). To identify the model and stepping, the kernel tests successively 
+  for what seem mostly to be defects. Any 80486 that has none of the defects is 
+  said to be model 3. </p>
+  <table>
+    <tbody>
+      <tr>
+        <th>Family </th>
+        <th>Model </th>
+        <th>Stepping </th>
+        <th>Description </th>
+        <th>Defect </th>
+      </tr>
+      <tr>
+        <td>4 </td>
+        <td>0 </td>
+        <td>0 </td>
+        <td>80486-A0 </td>
+        <td><span class="bit">ET</span> bit (4) of <span class="register">cr0</span> 
+        can be cleared </td>
+      </tr>
+      <tr>
+        <td>4 </td>
+        <td>1 </td>
+        <td>0 </td>
+        <td>80486-B0 </td>
+        <td>reading <span class="register">dr4</span> causes Invalid Opcode exception
+        </td>
+      </tr>
+      <tr>
+        <td>4 </td>
+        <td>2 </td>
+        <td>0 </td>
+        <td>80486-C0 </td>
+        <td>numeric coprocessor not present; <br>
+        or pseudo-denormal not normalised for fractional
+        <span class="instruction">fscale</span> </td>
+      </tr>
+      <tr>
+        <td>4 </td>
+        <td>3 </td>
+        <td>0 </td>
+        <td>80486-D0 </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>80486-A0 </h3>
+  <p>According to the chapter on Architecture Compatibility in
+  <span class="title">Volume 3 System Programming Guide</span> of the
+  <span class="title">Intel® 64 and IA-32 Architectures Software Developer’s Manual</span><a class="FootnoteReference" name="FtnRef_IntelLinks" href="#Ftn_IntelLinks">[1]</a>, 
+  the <span class="bit">ET</span> bit of <span class="register">cr0</span> is “used 
+  in the Intel386 processor” but is “hardwired in the P6 family, Pentium and Intel486 
+  processors.” Presumably then, it can be cleared on some early 80486 processors 
+  only as an oversight or defect, which distinguishes what Microsoft regards as 
+  model 0. </p>
+  <h3>80486-B0 </h3>
+  <p>From its introduction for the 80386, the <span class="register">dr4</span> 
+  register has been documented as reserved. The chapter on Architecture Compatibility 
+  adds that “previous generations of processors aliased” <span class="register">
+  dr4</span> to <span class="register">dr6</span> and that “the P6 family and Pentium 
+  processors” do too, for compatibility, when the <span class="bit">DE</span> bit 
+  is clear in <span class="register">cr4</span>. When the bit is instead set, aliasing 
+  does not apply and references to <span class="register">dr4</span> result in an 
+  invalid-opcode exception. The 80486 does not have <span class="register">cr4</span>, 
+  let alone the <span class="bit">DE</span> bit, but aliasing also does not apply 
+  in what Microsoft calls model 1. </p>
+  <p>Note that as far as can be known from these tests, aliasing of
+  <span class="register">dr4</span> to <span class="register">dr6</span> can also 
+  have been removed for what Microsoft calls model 0 (and my own guess is that it 
+  likely was). These tests eliminate from early to late steppings. It is therefore 
+  in their nature that misbehaviour they find for a stepping is (thought to be) 
+  corrected in later steppings and may or may not affect earlier steppings. </p>
+  <h3>80486-C0 </h3>
+  <p>Model 2 is distinguished by having no sufficiently advanced floating-point 
+  unit. The test truly is done in two parts, first to see if any numeric coprocessor 
+  is present</p>
+  <p>Detection of a numeric coprocessor is a standard test. The kernel clears the
+  <span class="bit">MP</span>, <span class="bit">EM</span>, <span class="bit">TS</span> 
+  and <span class="bit">ET</span> bits of the <span class="register">cr0</span> 
+  register, initialises the floating-point unit (FPU) and reads the floating-point 
+  status word. An FPU is present if all flags in the low byte are clear. With the 
+  test done, the kernel sets the <span class="bit">EM</span>, <span class="bit">
+  TS</span> and <span class="bit">NE</span> bits in <span class="register">cr0</span>, 
+  and also the <span class="bit">ET</span> bit if the coprocessor was detected.<a class="FootnoteReference" name="FtnRef_ET" href="#Ftn_ET">[2]</a>
+  </p>
+  <p>The specific defect that is tested for model 2 is in the
+  <span class="instruction">fscale</span> instruction’s handling of pseudo-denormals. 
+  These are 80-bit floating-point encodings that have zero as the biased exponent 
+  and 1 as the integer part. They ought never to be given as operands, but are tolerated 
+  for compatibility. They supposedly cannot be generated as the result of any floating-point 
+  operation. They, along with actual denormals, are meant to be normalised automatically 
+  if the Denormal Operand exception is masked. Scaling by a fraction leaves a normalised 
+  operand unchanged. Model 2 is apparently defective in that fractional scaling 
+  leaves a pseudo-denormal operand un-normalised. For testing the
+  <span class="instruction">fscale</span> instruction, the kernel clears the
+  <span class="bit">MP</span>, <span class="bit">EM</span>, <span class="bit">TS</span> 
+  and <span class="bit">ET</span> bits of the <span class="register">cr0</span> 
+  register and masks all floating-point exceptions (by setting the low 8 bits of 
+  the floating-point control word). The pseudo-denormal used for the test has zero 
+  for all of its ten bytes except that 1 is set as its integer part. If scaling 
+  this pseudo-denormal by 0.5 leaves the exponent as zero, then the processor is 
+  model 2. </p>
+  <h2>80386 </h2>
+  <p>Finer identification of 80386 processors has long been academic. Whatever the 
+  model or stepping, the 80386 processor is unsupported since version 4.0. Detection 
+  of an 80386 soon causes the bug check <span class="constant">
+  <a href="../bugchecks/5d.htm">UNSUPPORTED_PROCESSOR</a></span> (0x5D), though 
+  not without the kernel having tested for defects to identify models and steppings.<a class="FootnoteReference" name="FtnRef_5D" href="#Ftn_5D">[3]</a> 
+  For any 80386 processor that passes all tests, the model and stepping leap ahead 
+  to 3 and 1: </p>
+  <table>
+    <tbody>
+      <tr>
+        <th>Family </th>
+        <th>Model </th>
+        <th>Stepping </th>
+        <th>Description </th>
+        <th>Defect </th>
+      </tr>
+      <tr>
+        <td>3 </td>
+        <td>0 </td>
+        <td>0 </td>
+        <td>80386-A0 </td>
+        <td>32-bit <span class="instruction">mul</span> not reliably correct
+        </td>
+      </tr>
+      <tr>
+        <td>3 </td>
+        <td>1 </td>
+        <td>0 </td>
+        <td>80386-B0 </td>
+        <td>supports <span class="instruction">xbts</span> instruction </td>
+      </tr>
+      <tr>
+        <td>3 </td>
+        <td>1 </td>
+        <td>1 </td>
+        <td>80386-B1 </td>
+        <td>set <span class="bit">TF</span> bit (8) in <span class="register">eflags</span> 
+        causes Debug exception only at completion of two-cycle
+        <span class="instruction">rep movsb</span> </td>
+      </tr>
+      <tr>
+        <td>3 </td>
+        <td>3 </td>
+        <td>1 </td>
+        <td>80386-D1 </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The few versions that accept the 80386 at all reject any that doesn’t pass 
+  all three tests. For who knows what reason, the bug check in versions 3.50 and 
+  3.51 is not specifically about the processor but is instead
+  <span class="constant">HAL_INITIALIZATION_FAILED</span> (0x5C). Version 3.10 doesn’t 
+  have a bug check for this but instead displays the following message in text mode 
+  and then deliberately hangs: </p>
+  <pre class="output">Your system may be using an early version of the Intel 386(tm) DX CPU
+which is not supported in this beta version of Windows NT.
+Please contact Intel at 1-800-228-4561, in Europe at 44-793-431144, or
+1-503-629-7354 to determine if you need to acquire an Intel 386 CPU upgrade.</pre>
+  <p>What resulted in practice from calling these telephone numbers is not known. 
+  And, yes, this is from the formally released build of Windows NT 3.1 no matter 
+  that the text still talks of it as a beta version. </p>
+  <h3>80386-A0 </h3>
+  <p>The particular multiplication that distinguishes model 0 is of 0x00000081 by 
+  0x0417A000. Specifically, this is an unsigned multiplication, coded as
+  <span class="instruction">mul</span> with a register. It is tried as many as 65,536 
+  times to see if it ever produces an incorrect result. </p>
+  <p>Incidentally, that the test does have 65,536 as a maximum count is either very 
+  clever assembly-language programming or a happy accident. The test is coded in 
+  two routines. An outer routine executes a loop in which an inner routine is called 
+  to do the multiplication and report the result. Failure causes the outer routine 
+  to exit the loop and fail. Repeated success until the loop counter falls to zero 
+  causes the outer routine to exit the loop and succeed. This is 32-bit code and 
+  so the outer routine’s two-byte <span class="instruction">loop</span> instruction 
+  takes the <span class="register">ecx</span> as its counter (the instruction having 
+  no 16-bit address override). But the outer routine enters the loop having cleared 
+  only <span class="register">cx</span> to zero and it preserves only
+  <span class="register">cx</span> across its call to the inner routine. As it happens, 
+  what <span class="register">ecx</span> holds on entry to the outer routine is 
+  what was in the <span class="register">eflags</span> register for the earlier 
+  identification of the processor as not having <span class="instruction">cpuid</span> 
+  and not being an 80486. On the 80386, the high word of the
+  <span class="register">eflags</span> has only two defined bits and so the high 
+  word of <span class="register">ecx</span> on entry to the outer routine must be 
+  expected to be zero. The only reason that the outer routine won’t loop as many 
+  as four billion times instead of the more manageable 65,536 is that the inner 
+  routine loads its 0x81 into <span class="register">ecx</span>, thus clearing the 
+  high word. </p>
+  <h4>The Older Windows </h4>
+  <p>This same test (but in 16-bit code and with interrupts disabled in each iteration) 
+  was used by Microsoft as long, long, long ago as September 1987 for Windows/386 
+  version 2.01, to advise </p>
+  <pre class="output">WARNING:
+The Intel 80386 CPU in this computer does not reliably execute 32-bit multiply
+operations. Windows will USUALLY work correctly on computers with this problem
+but may occasionally fail. Contacting your hardware service representative and
+replacing your 80386 chip is strongly recommended.
+Press any key to continue...</pre>
+  <p>Two of the several other phrasings of this warning from this and later versions 
+  of the Windows that runs on DOS are presented by Microsoft for the Knowledge Base 
+  article Q38029 <span class="title">Windows and Early Intel 80386 CPU 32-Bit Operations</span> 
+  (apparently long gone from Microsoft’s website). By the time of Windows 95, the 
+  warning was a little reduced and softened (and was no longer particular to Intel):&nbsp;</p>
+  <pre class="output">WARNING:
+The 80386 processor in this computer may not reliably execute 32-bit
+multiplication. Windows may occasionally fail on this computer. 
+
+You may want to replace your 80386 processor.
+Press any key to continue...</pre>
+  <p>These descriptions in text leave a useful point for history. For this stepping, 
+  what Microsoft warns about is exactly what was tested. For the other steppings, 
+  both of the 80386 and 80486, it’s hardly obvious how what’s tested could matter 
+  enough to Windows (or even to any program or driver that’s ever written to run 
+  on Windows) to make the processor unsafe to use. More credible is that what’s 
+  tested is not itself what matters but is only a safe way to identify processors 
+  that are separately known to have more serious faults. </p>
+  <p>Another difference to note is that although the multiplication defect is fatal 
+  to Windows NT, it’s not to the Windows that runs on DOS. If an occasionally erroneous 
+  32-bit multiplication truly is the problem with this stepping, then merely warning 
+  about it was understandable for WIndows/386. This version has no Virtual Device 
+  Driver (VxD) model for extending the 32-bit execution in ring 0 and has no notion 
+  of any other 32-bit execution. All 32-bit code is Microsoft’s and its possible 
+  use of a faulty 32-bit multiplication was feasibly within Microsoft’s power to 
+  avoid. If an application somehow has in its 16-bit code a 32-bit multiplication 
+  and this turns out to go wrong, then the consequences might reasonably be regarded 
+  as slight, or as the application’s problem and anyway not as fatal to Windows. 
+  That later versions—even Windows 3.0, which already has third-party VxDs and 32-bit 
+  DOS-extended programs as DPMI clients—retain this behaviour of merely warning 
+  about this stepping has the look of a decision that made sense once upon a time 
+  and then got carried along. </p>
+  <h3>80386-B0 </h3>
+  <p>The instruction whose support is tested for model 1 stepping 0 has the two-byte 
+  opcode 0x0F 0xA6 followed by a Mod R/M byte and by whatever more this byte indicates 
+  is needed. Intel’s <span class="title">Introduction to the 80386 Including the 
+  80386 Data Sheet</span>, Order Number 231746-001, dated April 1986, has this opcode 
+  as <span class="instruction">xbts</span> in its table of instructions and gives 
+  not just its encoding but its clock counts. In a separate overview of the instruction 
+  set, this same data sheet expands the <span class="instruction">xbts</span> mnemonic 
+  to Exact Bit String, though Extract Bit String must be what’s intended. </p>
+  <p>The specific test performed by the Windows kernel is to execute
+  <span class="instruction">xbts ecx,edx</span> having loaded
+  <span class="register">eax</span> and <span class="register">edx</span> with zero 
+  and <span class="register">ecx</span> with 0xFF00. If this does not cause an Invalid 
+  Opcode exception and clears <span class="register">ecx</span> to zero, then
+  <span class="instruction">xbts</span> is deemed to be supported and the processor 
+  is model 1 stepping 0. </p>
+  <p>Presumably, the B0 stepping is not rejected just for having this instruction 
+  that Windows is not known ever to have used except for identifying the B0 stepping. 
+  Yet for something so short-lived in real-world implementation, it has left surprisingly 
+  much history. </p>
+  <p>First, it survived outside the implementation. The opcode is disassembled as
+  <span class="instruction">xbts</span> by Microsoft’s linker, typically through 
+  the DUMPBIN tool, even as recently as Visual Studio 2019 and has been since at 
+  least the mid-90s. See <a href="../../../../notes/windows/archive/linkcpu.htm">
+  Strange Things LINK Knows About 80x86 Processors</a>, which I wrote in 1997 as 
+  one of the first new pages for what was then a new website. </p>
+  <p>Second, its two-byte opcode got a second life. In the first edition of Intel’s
+  <span class="title">i486™ Microprocessor Programmer’s Reference Manual</span>, 
+  Order Number 240486-001, dated 1990, the Opcode Table (Appendix A) clearly assigns 
+  0x0F 0xA6 to what was then the new <span class="instruction">cmpxchg</span> instruction, 
+  but Order Number 240486-002, dated 1992, fills the same space very distinctively:
+  </p>
+  <blockquote class="Centered">
+    A step <br>
+    CMPXCHG <br>
+    XBTS
+  </blockquote>
+  <p>The <span class="instruction">cmpxchg</span> instruction that had been at 0x0F 
+  0xA6 was by then at 0x0F 0xB0. Confusion certainly did follow, including at Microsoft. 
+  See, for instance, the following line from a file named DISASM.H in the Dr. Watson 
+  programming sample in Microsoft’s Win32 SDK, later named Platform SDK, at least 
+  until 1997: </p>
+  <pre class="source">&nbsp;&nbsp;&nbsp;&nbsp;dszCMPXCHG,O_bModrm_Reg,            /* A6 XBTS                       */</pre>
+  <p>How widespread was this confusion or what trouble it caused is not known, but 
+  Intel’s opcode charts leave 0x0F 0xA6 unassigned even now. Less lasting, but perhaps 
+  more interesting for what it suggests of Intel’s corporate sensitivity, is a paragraph 
+  from the Usage Guidelines of <span class="citation">Intel® Processor Identification 
+  and the CPUID Instruction</span> (once in wide circulation as Application Note 
+  485 but apparently no longer available online from Intel in any revision): </p>
+  <blockquote>
+    Do not use undocumented features of a processor to identify steppings or features. 
+    For example, the Intel386 processor A-step had bit instructions that were withdrawn 
+    with B-step. Some software attempted to execute these instructions and depended 
+    on the invalid-opcode exception as a signal that it was not running on the A-step 
+    part. This software failed to work correctly when the Intel486 processor used 
+    the same opcodes for different instructions. The software should have used the 
+    stepping information in the processor signature.
+  </blockquote>
+  <p>Leave aside that the software in question likely wouldn’t have gone to the 
+  trouble of attempting to execute instructions and watch for an exception had Intel 
+  not made the processor signature so hard to obtain. What software can Intel have 
+  had in mind? It can’t have been Windows as we now know it, since the usage Intel 
+  dislikes isn’t attempted except that Windows has already eliminated the 80486.
+  </p>
+  <h4>The Other Windows </h4>
+  <p>As with the kernel’s test for the A0 stepping, its test for the B0 stepping 
+  also was old code. True, the Windows that runs on DOS tests using 16-bit registers, 
+  not 32-bit: <span class="instruction">xbts cx,dx</span>, having loaded
+  <span class="register">ax</span> and <span class="register">dx</span> with zero 
+  and <span class="register">cx</span> with 0xFF00. If this clears
+  <span class="register">cx</span> without causing an Invalid Opcode exception, 
+  then all versions of this other Windows exit with a complaint. </p>
+  <p>The big difference is this Windows tests for <span class="instruction">xbts</span> 
+  without first eliminating the 80486. Why would it? In 1987, the 80486 did not 
+  yet exist, perhaps not even on Intel’s drawing board. Run this code on an early 
+  80486 and the instruction is instead <span class="instruction">cmpxchg cl,dl</span> 
+  but because it does not change <span class="register">ch</span>, this Windows 
+  also does not misidentify the 80486 as an 80386-B0. To know who upset Intel will 
+  require more study. </p>
+  <p>When Windows/386 version 2.01 does reject a processor for having the
+  <span class="instruction">xbts</span> instruction, it’s very terse: </p>
+  <pre class="output">Error: Unsupported Intel 80386 CPU version.</pre>
+  <p>By the time of Windows 3.10 Enhanced Mode, the rejection reads with less certainty:
+  </p>
+  <pre class="output">Windows may not run correctly with the 80386 processor in this computer.
+
+Upgrade your 80386 processor or start Windows in standard mode by typing
+WIN /s at the MS-DOS prompt.</pre>
+  <p>It changes again for Windows 95, which has no Standard Mode to offer as a fallback. 
+  Given that the test for Enhanced Mode is done while still executing 16-bit code, 
+  the recommendation of Standard Mode (which is all 16-bit code) suggests that presence 
+  of the <span class="instruction">xbts</span> instruction is not directly the point 
+  but is instead a proxy for serious problems that the stepping has with executing 
+  32-bit code. </p>
+  <p>Although no stepping is named by any of these error messages, some hint of 
+  the programmer’s understanding is given in the code. In later versions of the 
+  Windows that runs on DOS, the routine that does this test returns 0xB0 if the 
+  processor supports the <span class="instruction">xbts</span> instruction, else 
+  0xB1. </p>
+  <h3>80386-B1 </h3>
+  <p>When string instructions such as <span class="instruction">movsb</span> are 
+  repeated because of a <span class="instruction">rep</span> prefix, each iteration 
+  is ordinarily interruptible. As Intel says (for <span class="instruction">rep</span> 
+  in <span class="title">Volume 2: Instruction Set Reference</span> of the
+  <span class="title">Intel® 64 and IA-32 Architectures Software Developer’s Manual</span>), 
+  this “allows long string operations to proceed without affecting the interrupt 
+  response time of the system.” That repeated instructions are interruptible applies 
+  also to the Debug exception, such as raised by the processor at the end of executing 
+  an instruction for which the <span class="bit">TF</span> bit is set in the
+  <span class="register">eflags</span> when the instruction started. Programmers 
+  may have noticed this in assembly-language debugging:
+  <span class="instruction">rep movsb</span> may take many keystrokes to trace through!
+  </p>
+  <p>Though the appearance of tracing through <span class="instruction">rep movsb</span> 
+  without interruption might be welcome in practice when debugging—and Microsoft’s 
+  WDEB386 for the Windows that runs on DOS did give this effect by setting an
+  <span class="instruction">int 3</span> breakpoint where the instruction is calculated 
+  to end—missing the Debug exception on even one iteration when actually tracing 
+  through <span class="instruction">rep movsb</span> certainly is a defect. The 
+  kernel tests with 2 as the counter in <span class="register">ecx</span>. The
+  <span class="instruction">movsb</span> should execute twice and
+  <span class="register">ecx</span> should count down to zero, having produced two 
+  Debug exceptions. The kernel has the first Debug exception escape from the
+  <span class="instruction">rep</span>. If <span class="register">ecx</span> reaches 
+  zero, then the first of the expected Debug exceptions was missed and the kernel 
+  figures it is running on model 1 stepping 1. </p>
+  <h3>Identification Disagreements </h3>
+  <p>Though the kernel’s code that tests for 80386 defects associates each very 
+  directly with one letter-and-number stepping, and Microsoft surely did not write 
+  this code without unusually good knowledge from Intel, there look to be some good 
+  reasons to suspect that the kernel’s identification of 80386 steppings is not 
+  correct. </p>
+  <p>For one thing, it doesn’t match what Microsoft itself wrote for the Windows 
+  that runs on DOS. This other Windows is five years older. Indeed, it is a near 
+  contemporary of the unacceptable 80386 steppings. Since its early versions demanded 
+  less of the processor, notably for making only limited use of 32-bit execution, 
+  it arguably was less exposed to defects—which shows in its treating the multiplication 
+  error as merely something to warn about—but there ought not be any difference 
+  in the identification of those defects or of which steppings have them. </p>
+  <p>Yet Microsoft’s code for Windows NT 3.1 in 1993 is unambiguous that the multiplication 
+  error implies the A0 stepping, and a later Knowledge Base article
+  <span class="title">Windows 95 Fails to Install on an 80386 Computer</span> (Q119118) 
+  describes this defect just as definitely as affecting the B1 stepping: </p>
+  <blockquote>
+    Intel 386 microprocessors dated before April 1987 are known as B1 stepping chips. 
+    These chips are known to introduce random math errors when performing 32-bit 
+    operations, thus making them incompatible with Windows 95.
+  </blockquote>
+  <p>They can’t both be correct. It’s deeply unsatisfactory to say so but an overall 
+  uncertainty in the historical record may have to be accepted as an unsurprising 
+  side-effect of tightly restricted circulation of the original processor errata 
+  from Intel. </p>
+  <h2>Pre-Release Windows NT 3.1 </h2>
+  <p>The coding of all six of the preceding tests for early steppings of the 80386 
+  and 80486 was settled for Windows NT by mid-1992, if not before. The oldest pre-release 
+  version that has yet been obtained for inspection is 3.10.297.1, built on 28th 
+  June 1992. Its kernel does none of its own processor identification but instead 
+  learns from NTLDR. This loader’s processor identification is done before it is 
+  yet known that the 32-bit instruction set is available. After eliminating the 
+  8086 and 80286, there is just the <span class="bit">AC</span> bit to distinguish 
+  the 80386 and 80486. This loader knows nothing of the <span class="bit">ID</span> 
+  bit or the <span class="instruction">cpuid</span> instruction. It does, however, 
+  know the same six tests for steppings. Except that the code is 16-bit and executes 
+  in real mode, the main difference is just that it doesn’t try to form model and 
+  stepping numbers as if for a processor signature. Instead, the routines for each 
+  test return hexadecimal representations of the letter-and-stepping notation, i.e., 
+  0xA0 through to 0xD1. This loader accepts the defective 32-bit multiplication 
+  without warning, but it rejects the other two early 80386 steppings and is very 
+  precise for its explanation: </p>
+  <pre class="output">Windows NT has detected that your i386 CPU version is B0 or B1.
+Windows NT will not run on this CPU. Newer versions are available.
+Please contact your computer manufacturer for an upgrade.</pre>
+  <p>By version 3.10.328.1, built on 12th October 1992, processor identification 
+  had moved to the kernel, which now includes the A0 stepping among the rejects. 
+  The code is all 32-bit, of course, and now knows of a rudimentary
+  <span class="instruction">cpuid</span> instruction. For processors that don’t 
+  have this instruction, the only change in the identification algorithms on the 
+  way to the formal release (version 3.10.5098.1, built on 24th July 1993) was to 
+  reverse the order of distinguishing the families. In the pre-release code, inability 
+  to change the <span class="bit">AC</span> bit in the <span class="register">eflags</span> 
+  implies an 80386 and then inability to change the <span class="bit">ID</span> 
+  bit implies an 80486. The pre-release code thus checks for the old while progressing 
+  to the new, but the released code starts by hoping for the new and falling back.
+  </p>
+  <div class="Footnotes">
+    <hr>
+    <p><a class="Footnote" name="Ftn_IntelLinks" href="#FtnRef_IntelLinks">[1]</a>For 
+    your ready reference to this manual or to any of Intel’s current documentation, 
+    I should of course love to provide a hyperlink. But it would soon break, given 
+    that Intel is another of these multi-billion-dollar corporations that seem unable 
+    or unwilling to set up stable links to their product documentation. At least 
+    they keep the titles for a good while, and so the documentation is easily searched 
+    for. </p>
+    <p><a class="Footnote" name="Ftn_ET" href="#FtnRef_ET">[2]</a>For compatibility, 
+    software can load <span class="register">cr0</span> as if to clear or set the
+    <span class="bit">ET</span> bit but the processor keeps the bit set regardless.
+    </p>
+    <p><a class="Footnote" name="Ftn_5D" href="#FtnRef_5D">[3]</a>By causes I mean 
+    that the bug check is triggered, not certainly that anything will show of it. 
+    Microsoft’s kernel programmers demonstrably take quite some trouble to isolate 
+    the code for handling a bug check from functionality that might be the cause 
+    of the bug check, but there are limits to what’s possible. Processor support 
+    that’s even a little inadquate can easily be too inadequate for non-trivial 
+    continuation, even just to show what the problem is. Of course, with too modern 
+    a Windows version on an 80386 the wonder would be that the kernel even gets 
+    loaded. </p>
+  </div>
+  <div class="Footer">
+    <p class="Dates">This page was created on 27th
+    <a href="../../../../new/19/12.htm">January 2020</a> from material first published 
+    on 22nd January 2008. It was last modified on 4th
+    <a href="../../../../new/23/03.htm">March 2023</a>. </p>
+    <!--webbot bot="Include" U-Include="../_include/c0823.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="49184" -->
+  </div>
+</div>
+
+</body>
+
+</html>

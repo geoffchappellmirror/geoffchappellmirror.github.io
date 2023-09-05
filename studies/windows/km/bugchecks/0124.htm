@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Bug Check 0x0124: WHEA_UNRECOVERABLE_ERROR</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <h1>Bug Check 0x0124 </h1>
+  <p>The <span class="constant">WHEA_UNRECOVERABLE_ERROR</span> bug check reports 
+  that the Windows Hardware Error Architecture (WHEA) received an error that it 
+  has been unable to correct or which is anyway fatal. </p>
+  <table>
+    <tr>
+      <td>Bug Check Code: </td>
+      <td><span class="constant">WHEA_UNRECOVERABLE_ERROR</span> </td>
+    </tr>
+    <tr>
+      <td>1st Argument: </td>
+      <td>type of error source (from the <span class="enum">WHEA_ERROR_SOURCE_TYPE</span> 
+      enumeration) </td>
+    </tr>
+    <tr>
+      <td>2nd Argument: </td>
+      <td>address of <span class="struct">WHEA_ERROR_RECORD</span> structure
+      </td>
+    </tr>
+    <tr>
+      <td>3rd Argument: </td>
+      <td>high dword of status, if error source is Machine Check Exception or Corrected 
+      Machine Check; <br>
+      0, otherwise </td>
+    </tr>
+    <tr>
+      <td>4th Argument: </td>
+      <td>low dword of status, if error source is Machine Check Exception or Corrected 
+      Machine Check; <br>
+      0, otherwise </td>
+    </tr>
+  </table>
+  <p>The only known cause of the <span class="constant">WHEA_UNRECOVERABLE_ERROR</span> 
+  bug check is that some kernel-mode module, presumably what the WHEA documentation 
+  refers to as a Low-Level Hardware Error Handler (LLHEH), calls the kernel function
+  <span class="function">WheaReportHwError</span> for an error whose severity is 
+  said to be either </p>
+  <ul>
+    <li>fatal; </li>
+    <li>or recoverable, but the kernel’s call to <span class="function">PshedAttemptErrorRecovery</span> 
+    does not get the error corrected. </li>
+  </ul>
+  <p>With the system looking like it must be halted, the kernel calls the PSHED 
+  function <span class="function">PshedBugCheckSystem</span>. If this, in its turn, 
+  calls the HAL function <span class="function">
+  <a href="../hal/api/mcheck/halbugchecksystem.htm">HalBugCheckSystem</a></span> 
+  and the type of error source is any of the following: </p>
+  <ul>
+    <li>0, meaning Machine Check Exception (MCE); </li>
+    <li>1, meaning Corrected Machine Check (CMC); </li>
+    <li>4, meaning PCI Express Error (PCIe); </li>
+  </ul>
+  <p>then the HAL halts the system by raising the <span class="constant">WHEA_UNRECOVERABLE_ERROR</span> 
+  bug check. </p>
+  <p>For the MCE and CMC sources, the HAL is itself the LLHEH getting back its own 
+  hardware-specific description of the error. It extracts from this a 64-bit status 
+  to add to the bug check as the third and fourth arguments. The status depends 
+  on the <span class="bit">MCA</span> bit (0x4000) in the
+  <span class="instruction">CPUID</span> feature flags, as determined during the 
+  HAL’s initialisation. Without this Machine Check Architecture (MCA) feature, the 
+  status is simply the value of the machine-specific register
+  <span class="register">IA32_P5_MC_TYPE</span> at the time of the exception. In 
+  new processors, the status is the value of the <span class="register">IA32_MC<span class="placeholder">i</span>_STATUS</span> 
+  register for the MCA bank that had the error. </p>
+  <h2>Availability </h2>
+  <p>The <span class="constant">WHEA_UNRECOVERABLE_ERROR</span> bug check is new 
+  for Windows Vista. </p>
+  <h2>Documentation Status </h2>
+  <p>Though this bug check is defined symbolically in BUGCODES.H from the Windows 
+  Driver Kit (WDK) for Windows Vista, it somehow manages to escape being listed 
+  either in the WDK documentation or in contemporaneous “Debugging Tools for Windows” 
+  package. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 17th April 2009 and was last modified 
+    on 5th May 2009. </p>
+    <!--webbot bot="Include" U-Include="../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63259" -->
+  </div>
+</div>
+
+</body>
+
+</html>

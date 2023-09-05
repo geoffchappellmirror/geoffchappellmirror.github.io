@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>System Monitor Rounds Down to Thousands</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>System Monitor Rounds Down to Thousands </h1>
+  <p>Windows 95 introduces a scheme for presenting statistics on system performance. 
+  The essential component in this scheme is a VxD named PERF.VXD, which is supplied 
+  by Microsoft in the standard Windows package. PERF acts as a performance statistics
+  <span class="definition">server</span>. A VxD may register with the server as 
+  a performance statistics <em>provider</em>. A performance statistics
+  <span class="definition">client</span> is an application that retrieves statistics 
+  from PERF more or less regularly for presentation to the user. The particular 
+  client that Microsoft supplies in the standard Windows package is called the System 
+  Monitor. </p>
+  <p>A <span class="definition">statistic</span> is any 32-bit performance measure 
+  that a VxD cares to provide. A statistic may be specified as requiring
+  <span class="definition">differentiation</span> by the client, meaning that instead 
+  of reporting the statistic as provided by the VxD, the client is to compute and 
+  present the average rate per second at which the provided statistic has changed 
+  since the last sampling. In what follows, the term <span class="definition">counter</span> 
+  is used for the statistic as provided by the VxD and the term
+  <span class="definition">rate</span> (of counted <span class="definition">events</span> 
+  per second) for the differentiated statistic presented to the user by the client.
+  </p>
+  <h2>Problem </h2>
+  <p>When differentiated statistics are presented by the particular performance 
+  statistics client known as System Monitor, the rate may be rounded down to whole 
+  thousands. </p>
+  <h2>Cause </h2>
+  <p>Inspection reveals a coding error in the SYSMON.EXE program. Specifically, 
+  if the increase in the counter between samples is 65535 or more, then to get the 
+  rate, SYSMON first divides by the elapsed time in milliseconds and then multiplies 
+  by 1000. The intention appears to be the avoidance of overflow in 32-bit registers, 
+  but a consequence is to pick up a rounding error instead. </p>
+  <p>Observation of the effect is more likely and more significant when SYSMON is 
+  configured to sample at longer intervals. For instance, when sampling once per 
+  second, rounding down to whole thousands occurs only if the rate is at least 65535 
+  events per second; but when sampling every 10 seconds, rounding down to whole 
+  thousands occurs if 65535 or more events were counted over the 10 seconds between 
+  samples, with the consequence that an average rate of 6554 events per second over 
+  the 10 seconds is presented to the user as just 6000 events per second. </p>
+  <h3>Applicable Versions </h3>
+  <p>The coding error is observed in SYSMON.EXE versions from Windows 95 and Windows 
+  98. File sizes, dates and times for the versions inspected are: </p>
+  <table class="FileVersions">
+    <colgroup>
+      <col class="Version"><col class="Size"><col class="Date">
+      <col class="Package">
+    </colgroup>
+    <tr>
+      <th>Version </th>
+      <th>Size </th>
+      <th>Date and Time </th>
+      <th>Package </th>
+    </tr>
+    <tr>
+      <td rowspan="2">4.00.950 </td>
+      <td rowspan="2">65,024 </td>
+      <td>09:50, 11th July 1995 </td>
+      <td>Windows 95 upgrade </td>
+    </tr>
+    <tr class="Span">
+      <td>11:11, 24th August 1996 </td>
+      <td>Windows 95 OSR2 </td>
+    </tr>
+    <tr>
+      <td>4.10.1998 </td>
+      <td>81,920 </td>
+      <td>19:01, 11th May 1998 </td>
+      <td>Windows 98 </td>
+    </tr>
+  </table>
+  <h2>Fix </h2>
+  <p>The problem can be corrected by patching better arithmetic into the SYSMON.EXE 
+  file. The three patch sites, given as offsets in bytes from the start of the file, 
+  vary with the version: </p>
+  <table class="FileOffsets">
+    <colgroup>
+      <col class="Version"><col class="Offset">
+    </colgroup>
+    <tr>
+      <th>Version </th>
+      <th>File Offsets </th>
+    </tr>
+    <tr>
+      <td>4.00.950 (Windows 95) </td>
+      <td>262Fh <br>
+      263Fh <br>
+      2645h </td>
+    </tr>
+    <tr>
+      <td>4.10.1998 (Windows 98) </td>
+      <td>30B9h <br>
+      30C9h <br>
+      30CFh </td>
+    </tr>
+  </table>
+  <p>At the first site, the expected byte is 72. It is to be changed to EB. </p>
+  <p>At the second site, the expected bytes are 69 C0. They are to be changed to 
+  C7 C2. </p>
+  <p>The third site is more complicated. The expected bytes are 2B D2 for the Windows 
+  95 version and 33 D2 for the Windows 98 version. They are to be changed to F7 
+  E2. </p>
+  <p>If you are even slightly uncertain how to patch a file, do not try it. </p>
+  <h3>Patch Details </h3>
+  <p>The following table presents on the left some instructions from near the patch 
+  site and on the right the instructions that change by applying the patch. Differences 
+  in version are accommodated by use of some symbols: <span class="placeholder">
+  zero</span> stands for the <span class="instruction">sub</span> or
+  <span class="instruction">xor</span> instruction in the Windows 95 and Windows 
+  98 versions respectively; <span class="placeholder">time</span> and
+  <span class="placeholder">result</span> are both <span class="register">ebx</span> 
+  for Windows 95 but are <span class="register">ecx</span> and
+  <span class="register">esi</span> respectively for Windows 98. to be sure they’re 
+  not missed, the three patches are highlighted: </p>
+  <table>
+    <tr>
+      <td>
+      <pre class="source">        cmp     eax,0000FFFFh 
+        jb      @f 
+
+        <span class="placeholder">zero</span>    edx,edx 
+        div     <span class="placeholder">time</span> 
+        mov     <span class="placeholder">result</span>,eax 
+        imul    <span class="placeholder">result</span>,<span class="placeholder">result</span>,1000 
+        jmp     done 
+
+@@: 
+        imul    eax,eax,1000 
+        <span class="placeholder">zero</span>    edx,edx 
+        div     <span class="placeholder">time</span> 
+        mov     <span class="placeholder">result</span>,eax 
+        jmp     done </pre>
+      </td>
+      <td>
+      <pre class="source">        cmp     eax,0000FFFFh 
+        <span class="highlight">jmp     @f</span> 
+
+
+
+
+
+
+
+@@: 
+        <span class="highlight">mov     edx,1000</span> 
+        <span class="highlight">mul     edx</span> 
+        div     <span class="placeholder">time</span> 
+        mov     <span class="placeholder">result</span>,eax 
+        jmp     done </pre>
+      </td>
+    </tr>
+  </table>
+  <p>The effect of the patch is therefore first to render redundant the set of instructions 
+  that would divide first then multiply, and second, to change from using the
+  <span class="instruction">imul</span> instruction to <span class="instruction">
+  mul</span>. The <span class="instruction">imul</span> instruction, in the form 
+  shown above, multiplies a 32-bit variable by a 32-bit constant and stores the 
+  result in a 32-bit register. If the result is too large for the 32-bit register, 
+  then the overflow is lost. The <span class="instruction">mul</span> instruction 
+  multiplies a 32-bit variable by the contents of the 32-bit register
+  <span class="register">eax</span> and stores the result in a 64-bit combination 
+  of <span class="register">edx</span> and <span class="register">eax</span>. There 
+  can be no overflow to lose. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 7th June 1999 and was archived on 
+    14th September 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9908.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1999-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63783" -->
+  </div>
+</div>
+
+</body>
+
+</html>

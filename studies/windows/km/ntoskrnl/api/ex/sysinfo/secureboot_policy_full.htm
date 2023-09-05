@@ -1,0 +1,565 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+<h1>SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION </h1>
+<p>The <span class="struct">SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION</span> structure 
+is what a successful call to <span class="function"><a href="query.htm">ZwQuerySystemInformation</a></span> 
+or <span class="function">NtQuerySystemInformation</span> produces in its output 
+buffer when given the information class <span class="constant">SystemSecureBootPolicyFullInformation</span> 
+(0xAB). </p>
+<h2>Documentation Status </h2>
+<p>The <span class="struct">SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION</span> structure 
+is not documented. </p>
+<h2>Layout </h2>
+<p>Formally, the <span class="struct">SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION</span> 
+is 0x20 bytes in both 32-bit and 64-bit Windows. In practice, it is a fixed-size 
+header of 0x1C bytes plus a variable-size <span class="member">Policy</span> whose 
+size in bytes is given by <span class="member">PolicySize</span> in the header.
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source"><a href="secureboot_policy.htm">SYSTEM_SECUREBOOT_POLICY_INFORMATION</a> PolicyInformation;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">ULONG PolicySize;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td>
+    <pre class="source">UCHAR Policy [ANYSIZE_ARRAY];</pre>
+    </td>
+  </tr>
+</table>
+<h3>The Secure Boot Policy Blob </h3>
+<p>As far as concerns the <span class="function">ZwQuerySystemInformation</span> 
+function and the <span class="struct">SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION</span> 
+structure, the <span class="member">Policy</span> is an opaque blob. The kernel 
+will have received the blob from the loader, else the function has nothing to return. 
+The kernel interprets some of the contents, but relies on parsing that is also received 
+from the loader. In the possibly temporary absence of somewhere better, the blob’s 
+interpretation is as well given here. No formal structure is known. The loader parses 
+it as a stream. In the original release of version 10.0, this parsing picks out 
+the following sequence of items: </p>
+<ol>
+  <li>a word, which can be no greater than 2; </li>
+  <li>a dword, which is the <span class="member">PolicyVersion</span>; </li>
+  <li>a <span class="struct">GUID</span>, which is the <span class="member">PolicyPublisher</span>;
+  </li>
+  <li>a one-word count, which may be zero, for a <span class="struct">GUID</span> 
+  array that follows; </li>
+  <li>the possibly empty <span class="struct">GUID</span> array; </li>
+  <li>a dword, which is the <span class="member">PolicyOptions</span>; </li>
+  <li>a one-word count, which may be zero, of BCD rules that come later; </li>
+  <li>a one-word count, which may be zero, of registry rules that come later;
+  </li>
+  <li>the BCD rules, as a possibly empty array of 0x0C-byte structures; </li>
+  <li>the registry rules, as a possibly empty array of 0x10-byte structures;
+  </li>
+  <li>value table, as whatever remains in the policy blob. </li>
+</ol>
+<p>The terms BCD rule, registry rule and value table are surmised from the names 
+of relevant routines as known from public symbol files for the loader and kernel.
+</p>
+<p>The least size for a valid Secure Boot <span class="member">Policy</span> blob 
+is 0x20 bytes, being 0x18 bytes for the first four items as a fixed-size header, 
+plus the <span class="member">PolicyOptions</span> and two counts, with all variable-size 
+items empty. </p>
+<h4>Boot Configuration Data (BCD) Rule </h4>
+<p>Each BCD rule describes the policy expectations of one boot option: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>BCD object type in which option is subject to rule; <br>else zero if option 
+    is subject to rule in any BCD object </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>BCD element type </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>dword </td>
+    <td>offset into value table of value table entry </td>
+  </tr>
+</table>
+<p>Remember that each boot option is a
+<a href="../../../../../../../notes/windows/boot/bcd/elements.htm">BCD element</a> 
+in a <a href="../../../../../../../notes/windows/boot/bcd/objects.htm">BCD object</a>. 
+The same numerical value for a BCD element can be defined for multiple BCD objects 
+yet denote completely unrelated boot options. For instance, the element type 0x23000003 
+is <span class="bcdopt">default</span> in a Windows Boot Manager object (with object 
+type 0x10200001) but <span class="bcdopt">resumeobject</span> in a Windows Boot 
+Loader object (with object type 0x10200003). Were a rule to have zero for the object 
+type and 0x23000003 as the element type, then it would apply to both
+<span class="bcdopt">default</span> and <span class="bcdobj">resumeobject</span> 
+in all BCD objects. </p>
+<p>If a rule specifies a BCD object, then it applies only to that precise combination 
+of BCD object and BCD element. Suppose, for instance, that a BCD rule would prevent 
+the setting of the <span class="bcdopt">debug</span> option (element type 0x260000A0) 
+in BCD objects of type 0x10200003. Then the kernel’s enforcement of the policy does 
+indeed mean that while Secure Boot is enabled the <span class="bcdopt">debug</span> 
+option can not be set in any Windows Boot Loader object such as created by the BCDEDIT 
+command-line switches <span class="switch">/create /application osloader</span> 
+and that the option will be deleted from all such objects if Secure Boot is later 
+enabled. However, the rule does not prevent the option from being set in a
+<span class="bcdobj">{bootloadersettings}</span> or <span class="bcdobj">{kerneldbgsettings}</span> 
+object. This is useful in practice because the latter types of object are inheritable 
+by the former. Set the <span class="bcdopt">debug</span> option in an inheritable 
+object, and its effect is nullified by policy for the inheriting object while Secure 
+Boot is enabled but because the option in the inherited object is not subject to policy, 
+it is not deleted and it regains its effect if Secure Boot is later disabled. </p>
+<h4>Registry Rule </h4>
+<p>Each registry rule describes a key and value in a Secure Boot registry hive.
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>must be 0x81000000 </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>offset into value table of registry key as sized string </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>dword </td>
+    <td>offset into value table of registry value as sized string </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td>offset into value table of value table entry </td>
+  </tr>
+</table>
+<p>The registry key and value that the rule applies to are held in the value table 
+as a one-word size in bytes of Unicode characters that follow. The characters end 
+with a null that is not in the size. </p>
+<h4>Value Table Entry </h4>
+<p>The value table holds variable-size details for the rules. Some such details 
+are counted strings, as described above for registry rules. Others are value table 
+entries that each begin with a word of bit fields. The type, as masked by 0x1F, 
+determines the value table entry’s layout beyond its first word. </p>
+<table>
+  <tr>
+    <th>Mask </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x001F </td>
+    <td>type </td>
+  </tr>
+  <tr>
+    <td>0x0020 </td>
+    <td>rule subject to BitLocker </td>
+  </tr>
+  <tr>
+    <td>0x0040 </td>
+    <td>rule subject to Virtualization Based Security (VBS) </td>
+  </tr>
+</table>
+<p>The precise conditions are meant above by BitLocker and VBS are beyond the 
+present scope of this note. </p>
+<p>A value table entry of type 0 defines a string value. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Type </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x00 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>word </td>
+    <td>size in bytes of string that follows, not including terminating null
+    </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>word array </td>
+    <td>default value as case-insensitive null-terminated Unicode string </td>
+  </tr>
+</table>
+<p>Type 1 defines a boolean value. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Type </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x01 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>word </td>
+    <td>zero if default value is <span class="constant">FALSE</span>; <br>non-zero 
+    if default value is <span class="constant">TRUE</span> </td>
+  </tr>
+</table>
+<p>Types 2 to 4 are for <span class="type">ULONG</span> values. All these value 
+types allow that a policy can force one value as the default, but the different 
+types allow that the enforcement can be conditional. Type 2 is for a policy that 
+insists on the one value unconditionally: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Type </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x02 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>dword </td>
+    <td>default value </td>
+  </tr>
+</table>
+<p>Type 3 elaborates with a range of acceptable <span class="type">ULONG</span> 
+values: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Type </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x03 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>dword </td>
+    <td>default value </td>
+  </tr>
+  <tr>
+    <td>0x06 </td>
+    <td>dword </td>
+    <td>lowest acceptable value </td>
+  </tr>
+  <tr>
+    <td>0x0A </td>
+    <td>dword </td>
+    <td>highest acceptable value </td>
+  </tr>
+</table>
+<p>For type 4 the elaboration of acceptable <span class="type">ULONG</span> values 
+is instead an enumeration: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Type </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x04 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>dword </td>
+    <td>default value </td>
+  </tr>
+  <tr>
+    <td>0x06 </td>
+    <td>word </td>
+    <td>count of acceptable values </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>dword array </td>
+    <td>array of acceptable values </td>
+  </tr>
+</table>
+<p>Types 5 to 7 are the same but for <span class="type">ULONGLONG</span> values. 
+Type 5 is the basic case of a single <span class="type">ULONGLONG</span> value to 
+enforce by policy: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x05 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>qword </td>
+    <td>default value </td>
+  </tr>
+</table>
+<p>Type 6 defines the acceptable <span class="type">ULONGLONG</span> values as a 
+range: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x06 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>qword </td>
+    <td>default value </td>
+  </tr>
+  <tr>
+    <td>0x0A </td>
+    <td>qword </td>
+    <td>lowest acceptable value </td>
+  </tr>
+  <tr>
+    <td>0x12 </td>
+    <td>qword </td>
+    <td>highest acceptable value </td>
+  </tr>
+</table>
+<p>Type 7 lists the acceptable <span class="type">ULONGLONG</span> values as an 
+array: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x07 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>qword </td>
+    <td>default value </td>
+  </tr>
+  <tr>
+    <td>0x0A </td>
+    <td>word </td>
+    <td>count of acceptable values </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>qword array </td>
+    <td>array of acceptable values </td>
+  </tr>
+</table>
+<p>For type 8, there is no default value to enforce. Instead, the policy is whether 
+the BCD option or registry value is permitted at all. According to public symbols 
+for the Boot Manager, this type of value table entry is an
+<span class="definition">option</span>. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Type </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x08 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>word </td>
+    <td>zero if not permitted; <br>else non-zero to preserve </td>
+  </tr>
+</table>
+<p>If the second word is zero in this value table entry for a BCD rule, then the 
+corresponding BCD option’s existence is a policy violation. The option cannot be 
+set to any value while Secure Boot is enabled. It can be deleted, however. Indeed, 
+any updating of the BCD store that is done when Secure Boot gets enabled is meant 
+to delete the option. If the second word is non-zero, then not only does the rule 
+allow the corresponding BCD option, it makes a policy violation of deleting it.
+</p>
+<p>Type 9 is valid for a value table entry, but the only code that is yet known 
+for interpreting it does no more than compute the size: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Type </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x09 as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>&nbsp;</td>
+    <td>unknown two bytes </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>word </td>
+    <td>size in bytes of data at offset 0x0A </td>
+  </tr>
+  <tr>
+    <td>0x06 </td>
+    <td>&nbsp;</td>
+    <td>unknown four bytes </td>
+  </tr>
+  <tr>
+    <td>0x0A </td>
+    <td>&nbsp;</td>
+    <td>unknown data </td>
+  </tr>
+</table>
+<p>Type 10 defines a binary value: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Description">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Type </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>flags; 0x0A as type </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>word </td>
+    <td>size in bytes of data that follows </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>byte array </td>
+    <td>default value </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th July 2016 but was not published 
+  until 26th <a href="../../../../../../../new/16/10.htm">October 2016</a>. It was 
+  last modified on 29th March 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1618.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5013" -->
+</div>
+
+</body>
+
+</html>

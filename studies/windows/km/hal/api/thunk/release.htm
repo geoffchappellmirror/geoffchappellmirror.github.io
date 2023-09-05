@@ -1,0 +1,125 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KeReleaseSpinLock</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<h1>KeReleaseSpinLock </h1>
+<p>This function gives up the current thread’s exclusive access to whatever resource 
+is protected by the given lock. </p>
+<h2>Declaration </h2>
+<pre class="source">VOID KeReleaseSpinLock (KSPIN_LOCK *SpinLock, KIRQL NewIrql);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SpinLock</span> argument is the address of the lock 
+that is to be released. </p>
+<p>The <span class="argument">NewIrql</span> argument is the Interrupt Request Level 
+(IRQL) to execute at once the lock is released. This is typically the IRQL to restore 
+from before the lock’s acquisition. </p>
+<h2>Availability </h2>
+<p>The <span class="function">KeReleaseSpinLock</span> function is exported by name 
+from x86 builds of the HAL in all versions and of the kernel in version 6.2 and 
+higher. The HAL’s export in version 6.2 and higher is merely a forward to the kernel.
+</p>
+<p>For 64-bit Windows, <span class="function">KeReleaseSpinLock</span> is not a 
+HAL export. It is instead exported by name from the x64 builds of the kernel in 
+all versions, i.e., starting with the version 5.2 from Windows Server 2003 SP1.
+</p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">KeReleaseSpinLock</span> function is documented in 
+all known editions of the DDK or Windows Driver Kit (WDK) since at least the DDK 
+for Windows NT 3.51. </p>
+<h2>Behaviour </h2>
+<p>As early as version 3.50, the <span class="function">KeReleaseSpinLock</span> 
+implementation was shifted to a <span class="keyword">__fastcall</span> alternative 
+named <span class="function"><a href="../mpspin/release.htm">KfReleaseSpinLock</a></span>. 
+Starting at least from the Device Driver Kit (DDK) for Windows NT 3.51, a macro 
+definition reinterprets the former in terms of the latter. New code is written as 
+if calling <span class="function">KeReleaseSpinLock</span> but actually calls
+<span class="function">KfReleaseSpinLock</span>. The old function continues to be 
+exported, presumably to support (old) code that tries to import the function, but 
+its implementation is only a stub that reinterprets in terms of
+<span class="function">KfReleaseSpinLock</span> just like the macro. </p>
+<p>That <span class="function">KfReleaseSpinLock</span> has all the substance is 
+here treated just as a detail of internal organisation. As far as should concern 
+any code outside the kernel or HAL, the behavour is all in
+<span class="function">KeReleaseSpinLock</span>. </p>
+<h3>Compound </h3>
+<p>The <span class="function">KeReleaseSpinLock</span> function is in some sense 
+a convenience. Its work is in two parts which can be done independently of
+<span class="function">KeReleaseSpinLock</span> by calling exported functions, the 
+first from the kernel, the second from the HAL. The <span class="function">KeReleaseSpinLock</span> 
+implementation gains by inlining its two parts (and skipping the first entirely 
+for single-processor builds). </p>
+<p>The first part is to release the current processor’s exclusive use of the protected 
+resource. All threads that seek to use the resource must acquire the agreed lock. 
+All call <span class="function">KeAcquireSpinLock</span> or a similar one so that 
+all try to mark the lock in the same way but can do so only while the lock is not 
+already marked. Typically, they wait in a more or less tight loop until they are 
+able to mark the lock to signify that they now own the resource. The first part 
+of releasing the lock is to clear this mark. Equivalent exported functions for this 
+first part are <span class="function">
+<a href="../../../ntoskrnl/api/ke/spinlock/releasefromdpclevel.htm">KeReleaseSpinLockFromDpcLevel</a></span> 
+and, on x86 builds only, <span class="function">KefReleaseSpinLockFromDpcLevel</span> 
+and <span class="function">KiReleaseSpinLock</span>. This part is trivial in single-processor 
+builds. </p>
+<p>The second part is to set the desired <span class="argument">NewIrql</span>. 
+Typically, this lowers the IRQL from <span class="constant">DISPATCH_LEVEL</span>, 
+which allows that other threads can now execute on the current processor. Equivalent 
+exported functions are <span class="function">KeLowerIrql</span> and
+<span class="function">KfLowerIrql</span>. </p>
+<h3>IRQL and Other Constraints </h3>
+<p>The <span class="function">KeReleaseSpinLock</span> function is intended for 
+use at <span class="constant">DISPATCH_LEVEL</span> or higher. The address that 
+is given in the <span class="argument">SpinLock</span> argument must be of non-paged 
+memory. </p>
+<p>The implementation merely assumes that the calling thread does own the spin lock.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 4th
+  <a href="../../../../../../new/19/12.htm">December 2019</a> and was last modified 
+  on 10th December 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62933" -->
+</div>
+
+</body>
+
+</html>

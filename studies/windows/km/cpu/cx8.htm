@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CMPXCHG8B Support in the 32-Bit Windows Kernel</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <h1>CMPXCHG8B Support in the 32-Bit Windows Kernel </h1>
+  <p>The 32-bit Windows kernel started using the 8-byte compare-exchange instruction 
+  (<span class="instruction">cmpxchg8b</span>) in version 4.0. At first, the instruction 
+  had only a few uses, for more efficient coding of a few newly exported functions:
+  </p>
+  <ul>
+    <li><span class="function">ExInterlockedCompareExchange64</span>; </li>
+    <li><span class="function">ExInterlockedPopEntrySList</span>; </li>
+    <li><span class="function">ExInterlockedPushEntrySList</span>; </li>
+  </ul>
+  <p>and of one internal routine that improves on the ancient export
+  <span class="function">ExInterlockedAddLargeInteger</span>. With successive versions,
+  <span class="instruction">cmpxchg8b</span> found ever more use, not just in more 
+  exported functions, such as <span class="function">ExInterlockedFlushSList</span> 
+  (added in version 5.0), but especially internally, e.g., for working with 64-bit 
+  page table entries when using Physical Address Extension (PAE). </p>
+  <p>Curiously, the Driver Development Kit (DDK) for Windows NT 4.0 left
+  <span class="function">ExInterlockedCompareExchange64</span> undocumented, which 
+  is conspicuous because that particular function is little but a wrapper to get 
+  C-language arguments into appropriate registers for executing the instruction:
+  </p>
+  <ul>
+    <li><span class="argument">Destination</span> as the formal operand; </li>
+    <li><span class="argument">Exchange</span> in <span class="register">ecx</span> 
+    (high) and <span class="register">ebx</span> (low); </li>
+    <li><span class="argument">Comperand</span> in <span class="register">edx</span> 
+    (high) and <span class="register">eax</span> (low); </li>
+    <li><span class="argument">Lock</span> ignored. </li>
+  </ul>
+  <p>The <span class="argument">Lock</span> argument provides for the “interlocked” 
+  functionality to be implemented without the <span class="instruction">cmpxchg8b</span> 
+  instruction. All use of <span class="instruction">cmpxchg8b</span> can be coded 
+  without the instruction, but at the price (in a multi-processor coding, for which 
+  temporarily disabling interrupts does not suffice) of having the caller provide 
+  storage for a primitive synchronisation object known as a spin lock. For instance, 
+  the single instruction </p>
+  <pre class="source">        lock    cmpxchg8b qword ptr [esi]</pre>
+  <p>is replaceable with the following sequence </p>
+  <pre class="source">        pushfd
+try:
+        cli
+        lock    bts dword ptr [edi],0
+        jnb     acquired
+        popfd
+        pushfd
+wait:
+        test    dword ptr [edi],1
+        je      try
+        pause                   ; if available
+        jmp     wait
+
+acquired:
+        cmp     eax,[esi]
+        jne     keep
+        cmp     edx,[esi+4]
+        je      exchange
+keep:
+        mov     eax,[esi]
+        mov     edx,[esi+4]
+        jmp     done
+
+exchange:
+        mov     [esi],ebx
+        mov     [esi+4],ecx
+done:
+        mov     byte ptr [edi],0
+        popfd</pre>
+  <p>provided that the 8 bytes at <span class="register">esi</span> are never modified 
+  without acquiring the spin lock at <span class="register">edi</span> which is 
+  in turn never used for any other purpose than guarding those 8 bytes. Even putting 
+  aside the undesirability of depending on all users of those 8 bytes to cooperate 
+  regarding the spin lock, there is the problem that the replacement is a lot of 
+  code, not just in terms of space but of execution time. Just for its savings on 
+  this point, <span class="instruction">cmpxchg8b</span> is clearly a nice feature 
+  to have to hand, and it was a natural addition when Intel’s processors started 
+  working with a 64-bit external bus. </p>
+  <p>In the early days of Windows NT, however, not all the extant processors implemented 
+  the <span class="instruction">cmpxchg8b</span> instruction. In versions before 
+  5.1, every function that uses the instruction has an alternate coding for processors 
+  that do not support the instruction. Very early during its initialisation, the 
+  kernel checks whether the boot processor supports the
+  <span class="instruction">cmpxchg8b</span> instruction. If the support is missing, 
+  the kernel patches <span class="instruction">jmp</span> instructions at the start 
+  of each of those functions to redirect execution to their alternates. Conversely, 
+  if the boot processor does support the instruction, and the functions are left 
+  unpatched, then the kernel requires that all processors support the instruction, 
+  under pain of the bug check <span class="constant">
+  <a href="../bugchecks/3e.htm">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</a></span> 
+  (0x3E). Version 5.1 dropped the alternate codings and made it mandatory that the 
+  boot processor supports the <span class="instruction">cmpxchg8b</span> instruction. 
+  Without this support, these versions of the kernel raise the bug check
+  <span class="constant"><a href="../bugchecks/5d.htm">UNSUPPORTED_PROCESSOR</a></span> 
+  (0x5D). </p>
+  <h2>Non-Intel Processors </h2>
+  <p>If reading only Intel’s literature, one might think that testing for the
+  <span class="instruction">cmpxchg8b</span> instruction is a simple matter of executing 
+  the <span class="instruction">cpuid</span> instruction with 1 in
+  <span class="register">eax</span> and testing for the <span class="bit">CX8</span> 
+  bit (masked by 0x0100) in the feature flags that are returned in
+  <span class="register">edx</span>. However, there have always been quirks. </p>
+  <h3>Early Restriction </h3>
+  <p>Versions 4.0 and 5.0 test for the <span class="instruction">cmpxchg8b</span> 
+  instruction twice. The first test applies only to the boot processor. Its purpose 
+  is to determine whether functions that use the instructions must be patched, as 
+  described above. If the <span class="bit">CPUID</span> bit (masked by 0x00200000) 
+  in the <span class="register">eflags</span> register cannot be changed, then there 
+  is no <span class="instruction">cpuid</span> instruction let alone
+  <span class="instruction">cmpxchg8b</span>. The kernel then sets the
+  <span class="bit">CPUID</span> bit and executes the <span class="instruction">
+  cpuid</span> instruction with 1 in <span class="register">eax</span> to produce 
+  the feature flags in <span class="register">edx</span>. If these feature flags 
+  have the <span class="bit">CX8</span> bit set, then <span class="instruction">
+  cmpxchg8b</span> is supported and no patches are needed. The second test is done 
+  for all processors, including the boot processor, as part of a wider examination 
+  of processor features. In builds of version 4.0 from before Windows NT 4.0 SP4, 
+  however, this second test recognises the <span class="bit">CX8</span> bit only 
+  if the processor’s vendor string is GenuineIntel, AuthenticAMD or CyrixInstead. 
+  (The vendor string is the sequence of characters obtained by executing
+  <span class="instruction">cpuid</span> with 0 in <span class="register">eax</span> 
+  and then storing the values of <span class="register">ebx</span>,
+  <span class="register">edx</span> and <span class="register">ecx</span> at successive 
+  memory locations.) </p>
+  <p>For processors that set the <span class="bit">CX8</span> bit but are not made 
+  by Intel, AMD or Cyrix, the two tests do not agree and the processor falls foul 
+  of the requirement that if the boot processor supports
+  <span class="instruction">cmpxchg8b</span> then all processors must. The result 
+  is the bug check <span class="constant">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</span>—yes, 
+  even if there is only one processor. In the Knowledge Base article
+  <a target="_top" href="http://support.microsoft.com/kb/189988">CMPXCHG8B CPUs 
+  in Non-Intel/AMD x86 Compatibles Not Supported</a>, Microsoft is at best disingenuous 
+  in suggesting that the first test is only a rough guess from the processor’s “type”, 
+  which a second test must “verify” by querying for “specific features”: both tests 
+  are specifically for the <span class="bit">CX8</span> bit; the “specific features” 
+  that are sought for the second test are not for <span class="instruction">cmpxchg8b</span> 
+  but for particular manufacturers, and Microsoft must have understood this when 
+  choosing its words for that article. </p>
+  <p>Despite its acknowledgement of trouble caused by restricting one CPU feature 
+  to known vendors, Microsoft certainly didn’t rush to relax similar restrictions 
+  for other features. Although the version 4.0 from Windows NT 4.0 SP4 removes the 
+  vendor restrictions from its test for the <span class="bit">CX8</span> bit, other 
+  feature flags of interest to it continue to be recognised only for particular 
+  vendors: </p>
+  <ul>
+    <li><span class="bit">TSC</span>, <span class="bit">VME</span> and
+    <span class="bit">MMX</span> require GenuineIntel, AuthenticAMD or CyrixInstead;
+    </li>
+    <li><span class="bit">PSE</span>, <span class="bit">PGE</span> and
+    <span class="bit">CMOV</span> require GenuineIntel or CyrixInstead before SP4, 
+    or also AuthenticAMD in SP4 and higher; </li>
+    <li><span class="bit">MTRR</span> requires GenuineIntel. </li>
+  </ul>
+  <p>Only with version 5.0 did Microsoft stop routinely excluding unknown (or unfavoured) 
+  CPU manufacturers from having Intel-compatible features be usable by Windows. 
+  (This is not to say that exclusions don’t exist in Windows 2000 and higher, just 
+  that it credibly isn’t done as routine practice.) </p>
+  <h3>Explicit Recognition </h3>
+  <p>Meanwhile, of course, the CPU manufacturers who were initially excluded from 
+  having Windows use their <span class="instruction">cmpxchg8b</span> instruction 
+  will naturally have wanted to sell their processors. Even once they obtained recognition 
+  in new Windows versions, they will just as naturally have wanted to sell their 
+  processors even to people who might want to run an early build of Windows NT 4.0. 
+  To avoid the bug check on these versions, the processor must start with
+  <span class="bit">CX8</span> clear. Inevitably, these vendors developed ways to 
+  turn the <span class="bit">CX8</span> bit off, and even to have it turned off 
+  by default. After all, if they’re going to sell a CPU for use in computers that 
+  might be sold to just about anyone, then to compete at all they need that all 
+  Windows versions do at least start on their processors, even if the kernel’s execution 
+  without <span class="instruction">cmpxchg8b</span> is less than optimal. Competing 
+  equally might then be possible if Microsoft would make up for the earlier omission 
+  and build into new versions of its kernel some recognition of these processors’ 
+  support for <span class="instruction">cmpxchg8b</span> and perhaps even to turn 
+  the <span class="bit">CX8</span> bit back on. Microsoft did eventually do this, 
+  but again it didn’t rush. </p>
+  <p>Starting with version 5.1, which is also the first version that won’t start 
+  without support for <span class="instruction">cmpxchg8b</span>, the Windows kernel 
+  makes special cases for processors that may implement the
+  <span class="instruction">cmpxchg8b</span> instruction but do not show the
+  <span class="bit">CX8</span> bit in the feature flags. These provisions remain 
+  in the 32-bit kernel until at least the 1803 release of Windows 10. The processors 
+  that are catered for are identified by the vendor strings GenuineTMx86, CentaurHauls 
+  and (a little later) RiseRiseRise. The following notes describe the provisions 
+  as actually made by the Windows kernel, and are in no way concerned with how well 
+  the implementation corresponds with documentation by the vendors. </p>
+  <h4>TransMeta </h4>
+  <p>For GenuineTMx86 processors starting with family 5 model 4 stepping 2, if the
+  <span class="instruction">cmpxchg8b</span> instruction is not indicated in the 
+  CPU feature flags, it is enabled by setting the 0x0100 bit in the model-specific 
+  register 0x80860004. </p>
+  <p>The previous paragraph describes the presumed intention. As actually coded, 
+  the model and stepping, taken together, must be at least 4 and 2 even if the family 
+  is greater than 5. A hypothetical family 6 model 1 stepping 1 would need to have 
+  the <span class="bit">CX8</span> bit set or cleared in advance of booting Windows, 
+  depending on which version is to be run. </p>
+  <h4>Centaur </h4>
+  <p>If the CPU feature flags for a CentaurHauls processor do not show support for
+  <span class="instruction">cmpxchg8b</span>, then the support is enabled by slightly 
+  different methods depending on the family: </p>
+  <ul>
+    <li>if the family is 5, set the 0x02 bit in the model-specific register 0x0107;
+    </li>
+    <li>if the family is 6 or higher, set the 0x02 bit and clear the 0x01 bit in 
+    the model-specific register 0x1107. </li>
+  </ul>
+  <p>Clearing the 0x01 bit is omitted in early builds. It begins with the version 
+  5.1 from Windows XP SP2 and the version 5.2 from Windows Server 2003 SP1. </p>
+  <h4>Rise </h4>
+  <p>Starting with the version 5.1 from Windows XP SP2 and the version 5.2 from 
+  Windows Server 2003 SP1, all RiseRiseRise processors are treated as supporting
+  <span class="instruction">cmpxchg8b</span>, even without the <span class="bit">
+  CX8</span> bit in the feature flags from <span class="instruction">cpuid</span>.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 23rd January 2008 and was last modified 
+    on 28th December 2019. </p>
+    <!--webbot bot="Include" U-Include="../_include/c0819.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="49272" -->
+  </div>
+</div>
+
+</body>
+
+</html>

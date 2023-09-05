@@ -1,0 +1,247 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<title>The Windows/386 WIN386.386 File Format</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>The Windows/386 WIN386.386 File Format </h1>
+  <p>Late 1987 brought the formal release of Microsoft’s first extension of DOS 
+  into a pre-emptive multi-tasking operating system. That this got very little attention 
+  at the time is not insignificant for the history of personal computing but is 
+  not the point of this note. The extension has two implementations that differ 
+  slightly in that each is specialised to one type of display adapter. These files 
+  are named CGA.386 and EGA.386 on the distribution media but are renamed to WIN386.386 
+  when installed. The file format was novel, or at least looks to have been, even 
+  after many decades. It was retained for these and other *.386 files in the remaining 
+  Windows/386 releases and then seems to have been discarded. This file format’s 
+  presentation is very much the point of this note. </p>
+  <p>Through the whole history of Windows/386, the only files that are known to 
+  have this format are: </p>
+  <ul>
+    <li>CGA.386 from versions 2.01, 2.03 and 2.10; </li>
+    <li>EGA.386 from versions 2.01, 2.03 and 2.10; </li>
+    <li>CTVGA.386 from version 2.10; </li>
+    <li>HERCULES.386 from version 2.10; </li>
+    <li>8514.386 from version 2.11. </li>
+  </ul>
+  <p>The four from Windows/386 version 2.10 are also distributed with version 2.11 
+  but they are identical, byte for byte. </p>
+  <p>Files in this .386 format were surely produced by some sort of linker and the 
+  definitive format would be discoverable from studying this linker. What Microsoft 
+  used as this linker, however, is not known—well, not to me. Unlike all others 
+  of Microsoft’s formats for executables, these have no two-character signature 
+  such as MZ, NE, LX, LE or PE. </p>
+  <p>Instead, if only for now, all that is known of the file format is what relatively 
+  little is needed for getting a file loaded. This is done by files that are named 
+  *.3EX on the distribution media but are renamed to WIN386.EXE when installed. 
+  Let me stress that it is not the business of this note to infer any meaning from 
+  observation of the files’ content, only to present what can be deduced with reasonable 
+  confidence from the corresponding loaders. </p>
+  <h2>File Headers </h2>
+  <p>The WIN386.386 file begins with 20h bytes: </p>
+  <table class="Struct">
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Size </th>
+        <th>Description </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>04h </td>
+        <td>three dwords </td>
+        <td>each is a size; total must fit available memory </td>
+      </tr>
+      <tr>
+        <td>18h </td>
+        <td>word </td>
+        <td>offset of entry point, from start of loaded program </td>
+      </tr>
+      <tr>
+        <td>1Ch </td>
+        <td>byte </td>
+        <td>low six bits must be 0Ah </td>
+      </tr>
+      <tr>
+        <td>1Eh </td>
+        <td>word </td>
+        <td>0800h bit must be set </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The entry point executes as 16-bit code with real-mode addressing. Registers 
+  are undefined, except for <span class="register">cs</span>:<span class="register">ip</span>, 
+  necessarily, and <span class="register">ss</span>:<span class="register">sp</span>. 
+  This stack is prepared such that execution can return as if from a far
+  <span class="instruction">call</span>. The loader treats such a return as an error. 
+  Although no parameters are passed in registers, the code at this entry point assumes 
+  that some data in the loaded program has been prepared by the loader using the 
+  symbol table (see below). This data includes a GDT, IDT, TSS and page directory 
+  for the program’s protected-mode execution. None of these details are shared through 
+  the file format. </p>
+  <p>This first header is followed immediately by a second, which is 2Ch bytes:
+  </p>
+  <table class="Struct">
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Size </th>
+        <th>Description </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>14h </td>
+        <td>dword </td>
+        <td>offset of object table from start of file </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The object table, for want of a better name, is an array of 20h-byte entries.
+  </p>
+  <h2>Object Table Entry </h2>
+  <table class="Struct">
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Size </th>
+        <th>Description </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>00h </td>
+        <td>word </td>
+        <td>type </td>
+        <td>types 0002h and 0003h only </td>
+      </tr>
+      <tr>
+        <td>02h </td>
+        <td>byte </td>
+        <td>flags </td>
+        <td>type 0002h only </td>
+      </tr>
+      <tr>
+        <td>08h </td>
+        <td>dword </td>
+        <td>offset of contents from start of file </td>
+        <td>types 0002h and 0003h only </td>
+      </tr>
+      <tr>
+        <td>0Ch </td>
+        <td>dword </td>
+        <td>size, in bytes, of contents in file </td>
+        <td>types 0002h and 0003h only </td>
+      </tr>
+      <tr>
+        <td>10h </td>
+        <td>dword </td>
+        <td>size, in bytes, of loaded object </td>
+        <td>type 0002h only&nbsp; </td>
+      </tr>
+      <tr>
+        <td>14h </td>
+        <td>dword </td>
+        <td>linear address of loaded object </td>
+        <td>type 0002h only </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Only one object table entry is sought of each type 0002h and 0003h. Object 
+  table entries before the first of type 0002h are ignored. Presence of an object 
+  table entry of type 0002h is simply assumed. Absence of an object table entry 
+  of type 0003h is explicitly an error. </p>
+  <p>The object table entry of type 0002h must have the 3Bh bits all clear in the 
+  flags. The object of type 0002h is the whole of the program’s loaded image, as 
+  linked from segments (or sections) such as <span class="section">_TEXT</span> 
+  and <span class="section">_DATA</span>. In particular, it may contain code and 
+  data, and the code can be both 16-bit and 32-bit. Nothing in the object table 
+  entry distinguishes these different types of content. </p>
+  <p>The object of type 0003h is a symbol table. </p>
+  <h2>Symbol Table Entry </h2>
+  <p>Very many items are labelled symbolically, not just items of code and data 
+  but sections and constants. Each symbol has a name and a value. For an item that 
+  occupies memory, the symbol evaluates to the loaded item’s linear address. </p>
+  <table class="Struct">
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Size </th>
+        <th>Description </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>04h </td>
+        <td>dword </td>
+        <td>value </td>
+      </tr>
+      <tr>
+        <td>08h </td>
+        <td>varies </td>
+        <td>name as null-terminated string </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The loader knows of many symbols (nearly a hundred) to find by name in this 
+  symbol table. It uses this knowledge to seed the program’s loaded image with information 
+  determined in real mode, especially about the BIOS and DOS, and with addresses 
+  either in the loader or of items that have been prepared by the loader. These 
+  addresses are depended on for the program’s protected-mode execution, for its 
+  temporary returns to virtual-8086 execution, and for an eventual exit to the loader. 
+  All this is here treated as an interface between the loader and the program, not 
+  itself as part of the file format except for depending heavily on the symbol table.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 5th
+    <a href="../../../new/22/01.htm">January 2022</a> and was last modified on 6th 
+    January 2022. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="40616" -->
+  </div>
+</div>
+
+</body>
+
+</html>

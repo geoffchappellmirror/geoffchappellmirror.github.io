@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Internal Error During ParseDefDescription</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Internal Error During ParseDefDescription </h1>
+  <h2>Problem </h2>
+  <p>Attempts to build even some startlingly simple VxD projects using common versions 
+  of Microsoft’s COFF linker may fail with the following error message: </p>
+  <pre class="output">LINK : error : Internal error during ParseDefDescription </pre>
+  <h2>Analysis </h2>
+  <p>This internal error means that an exception has occurred after entry to the
+  <span class="function">ParseDefDescription</span> function but before the linker 
+  gets round to recording that it has progressed to some other function. (Strictly 
+  speaking, this <span class="function">ParseDefDescription</span> function is known 
+  by that name only for the purpose of reporting errors. Whether the function is 
+  called by that name in Microsoft’s source code is of no interest here.) </p>
+  <h3>Cause </h3>
+  <p>Inspection reveals a coding error that executes soon after the
+  <span class="function">ParseDefinitionFile</span> function calls the
+  <span class="function">ParseDefDescription</span> function. This call occurs only 
+  when using a module definition file that has a non-empty <span class="keyword">
+  <a href="../../../studies/msvc/link/lib/def/description.htm">DESCRIPTION</a></span> 
+  entry. The erroneous instruction executes only if <span class="switch">/vxd</span> 
+  is given on the linker’s command line. The VxD case gets special treatment in 
+  that a <span class="keyword">DESCRIPTION</span> in the module definition file 
+  for a VxD is translated to a <span class="switch">/comment</span> switch as if 
+  for the linker’s command line. (Note that what counts for determining whether 
+  the linker is building a VxD rather than some other executable is the
+  <span class="switch">/vxd</span> switch on the command line, not a
+  <span class="keyword">VXD</span> directive in the module definition file.) </p>
+  <p>At the time the bug occurs in the <span class="function">ParseDefinitionFile</span> 
+  function, the <span class="keyword">DESCRIPTION</span> text has been extracted 
+  from the module definition file and duplicated to a heap block A
+  <span class="switch">/comment</span> switch is then to be built on the stack before 
+  adding it to the translations of module-definition statements. The intention behind 
+  the bug is to ensure that this construction of the <span class="switch">/comment</span> 
+  switch does not overrun its allowance of 80h bytes of stack space. The switch, 
+  its colon and a pair of double quotes to enclose the <span class="keyword">DESCRIPTION</span> 
+  text total 11 bytes, leaving 75h bytes for the text, including its terminating 
+  null. The bug is that the code puts a null terminator exactly 75h bytes from the 
+  start of the text—while the text is still on the heap. In practice, the text for 
+  a <span class="keyword">DESCRIPTION</span> is surely never anything like that 
+  long, so the immediate result is a one-byte corruption further into the heap.
+  </p>
+  <h3>Consequences </h3>
+  <p>The practical result varies widely, depending on the state of the heap at the 
+  time of execution. It may often be that this write out-of-bounds is entirely harmless 
+  because the corruption site lies either in free space or in space that the program 
+  happens to have finished using (and won’t actually look at again). </p>
+  <p>The next best outcome is for the spurious instruction to trigger the internal 
+  error immediately. This can happen if the heap block with the value of the
+  <span class="keyword">DESCRIPTION</span> entry happens to be very near the end 
+  of the last page for which physical memory has yet been committed to the linker’s 
+  heap. In this situation, executing the instruction causes a page fault, which 
+  the linker handles by reporting the internal error and then terminating. </p>
+  <p>If the corruption site lies in another heap block or in a header used for defining 
+  blocks on the heap, then the consequences are essentially unpredictable. Again, 
+  it may happen that the corruption goes unnoticed—for instance, because the heap 
+  allocation routines may turn out to meet all subsequent demand for heap space 
+  without having to examine the heap headers all the way to the corrupt one. At 
+  the other extreme are theoretical possibilities such as more exceptions (but with 
+  the internal error ascribed to the wrong function) and incorrect data being calculated 
+  for the output files. </p>
+  <h3>Applicable Versions </h3>
+  <p>Since this can “impact” only on VxD programmers, it’s hardly surprising that 
+  the bug has lingered. It is present in the LINK.EXE version 2.60.5046 supplied 
+  with the Windows 95 DDK and in versions 3.00.5270, 3.10.6038 and 4.20.6164 from 
+  Microsoft Visual C++ 4.0, 4.1 and 4.2 respectively. </p>
+  <p>The bug is fixed in the LINK.EXE version 5.00.7022 supplied with Microsoft 
+  Visual C++ version 5.0. The new code does not proceed with its attempted truncation 
+  of the <span class="keyword">DESCRIPTION</span> text after 75h bytes without checking 
+  first that the text is at least that long. </p>
+  <h2>Work-Around </h2>
+  <p>To side-step this bug, avoid using a <span class="keyword">DESCRIPTION</span> 
+  entry in any module definition file for a VxD. Instead, put the description into 
+  a <span class="switch">/comment</span> switch on the command line, thereby saving 
+  LINK from the work that triggers the bug. </p>
+  <p>Even now that Microsoft has detected the bug and corrected it for new versions, 
+  it should be borne in mind that it is not always possible for programmers to insist 
+  on particular versions of development tools. This applies especially when source 
+  code is written for others—for instance, when a consultant or contractor starts 
+  a project that may thereafter be maintained by the client, or when sample code 
+  is written for the instruction of and possible adaptation by unknown readers. 
+  In the absence of any good reason to insist on Visual C++ 5.0 (or higher), the 
+  greater benefit must come from adopting the work-around as standard practice for 
+  VxD Programming. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 3rd March 1998 and was last modified 
+    on 15th September 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9808.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1998-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63655" -->
+  </div>
+</div>
+
+</body>
+
+</html>

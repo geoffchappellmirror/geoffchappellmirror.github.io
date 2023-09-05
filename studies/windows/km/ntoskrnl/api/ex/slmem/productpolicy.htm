@@ -1,0 +1,196 @@
+<html>
+
+<head>
+<meta name="GENERATOR" content="Microsoft FrontPage 12.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Storage of License Values</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="29544" endspan -->
+<h1>Storage of License Values </h1>
+<p>License values in Windows Vista are stored in the registry as the binary data 
+for one registry value: </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\ProductOptions</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">ProductPolicy</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_BINARY</span> </td>
+  </tr>
+</table>
+<p>The binary data for the <span class="regvalue">ProductPolicy</span> value is 
+interpreted by the kernel as providing data for an essentially arbitrary number 
+of named license values. (The number is not quite arbitrary, however. The kernel 
+imposes an upper limit of 0x0923 values. The derivation seems to be that the total 
+size of <span class="regvalue">ProductPolicy</span> data is restricted to 64KB, 
+and then since each value with a name and non-trivial data will need at least 0x1C 
+bytes, there can be at most 0x0923 values.) </p>
+<p>Though a handful of license values are meaningful to the kernel, most are held 
+by the kernel as black boxes for whatever component may be interested. The kernel 
+exports several functions for access to the license data and to manage a record 
+of whether the license data has been tampered with: </p>
+<ul>
+  <li><span class="function"><a href="fetchdata.htm">ExFetchLicenseData</a></span>
+  </li>
+  <li><span class="function"><a href="gettamperstate.htm">ExGetLicenseTamperState</a></span>
+  </li>
+  <li><span class="function"><a href="settamperstate.htm">ExSetLicenseTamperState</a></span>
+  </li>
+  <li><span class="function"><a href="updatedata.htm">ExUpdateLicenseData</a></span>
+  </li>
+  <li><span class="function"><a href="queryvalue.htm">ZwQueryLicenseValue</a></span>
+  </li>
+</ul>
+<p>The last of these, <span class="function">ZwQueryLicenseValue</span>, is also 
+callable from user mode through the NTDLL exports <span class="function">NtQueryLicenseValue</span> 
+and <span class="function">ZwQueryLicenseValue</span>. </p>
+<h2>Data Format </h2>
+<p>The binary data for the <span class="regvalue">ProductPolicy</span> value is 
+in three parts: </p>
+<ul>
+  <li>a 0x14-byte header; </li>
+  <li>an array of variably-sized structures that represent the values; </li>
+  <li>an end marker. </li>
+</ul>
+<h3>Header </h3>
+<p>The header provides the sizes of the two parts that follow it. </p>
+<table class="Constants">
+  <colgroup>
+    <col class="Constant"><col class="Remarks" span="2">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Value </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>total size, including this header </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>size of values array that follows this header </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>dword </td>
+    <td>size of end marker that follows the values array </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td>unknown </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>dword </td>
+    <td>must be 1, perhaps as version number </td>
+  </tr>
+</table>
+<h3>Values </h3>
+<p>Each value is described in three parts: </p>
+<ul>
+  <li>a 0x10-byte header; </li>
+  <li>the name of the value, in Unicode; </li>
+  <li>data for the value. </li>
+</ul>
+<p>The sizes of both the value and its data are in the header: </p>
+<table class="Constants">
+  <colgroup>
+    <col class="Constant"><col class="Remarks" span="2">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Value </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>word </td>
+    <td>total size, including this header </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>word </td>
+    <td>size of name </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>word </td>
+    <td>type of data </td>
+  </tr>
+  <tr>
+    <td>0x06 </td>
+    <td>word </td>
+    <td>size of data </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>dword </td>
+    <td>flags </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td>unknown </td>
+  </tr>
+</table>
+<p>The data type follows the familiar scheme for registry data:
+<span class="constant">REG_SZ</span> (0x01) for a string, <span class="constant">
+REG_BINARY</span> (0x03) for binary data and <span class="constant">REG_DWORD</span> 
+(0x04) for a dword. </p>
+<p>For the flags, only the 0x01 and 0x02 bits are valid. <span class="draft">If 
+the 0x01 bit is set, then the value requires something that is apparently called 
+proxy support. </span></p>
+<h3>End Marker </h3>
+<p>The end marker is necessarily a dword with the value 0x45. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th March 2009 and was last modified 
+  on 10th March 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="6658" endspan -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,142 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>TimerControlFlags</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<h1>TimerControlFlags </h1>
+<div class="Main">
+  <p>In a <span class="struct"><a href="index.htm">DISPATCHER_HEADER</a></span> 
+  that begins a <span class="struct"><a href="../ktimer.htm">KTIMER</a></span>, 
+  the <span class="member">Type</span> at offset 0x00 is <span class="constant">
+  TimerNotificationObject</span> (0x08) or <span class="constant">TimerSynchronizationObject</span> 
+  (0x09). The byte at offset 0x01 is historically the single member
+  <span class="member">Absolute</span>, ever since version 4.0 started recording 
+  that the due time had been set as an absolute system time rather than as relative 
+  to the current interrupt time. To accommodate the <span class="argument">TolerableDelay</span> 
+  argument of the new <span class="function">KeSetCoalescableTimer</span> function 
+  without changing the size of the <span class="struct">KTIMER</span>, Windows 7 
+  reworked the byte into bit fields in union with a <span class="type">UCHAR</span> 
+  member named <span class="member">TimerControlFlags</span>. The old
+  <span class="member">Absolute</span> survives as one of the bit fields. </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01 </td>
+        <td>
+        <pre class="source">UCHAR Absolute : 1;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02 </td>
+        <td>
+        <pre class="source">UCHAR Coalescable : 1;</pre>
+        </td>
+        <td>6.1 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Wake : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 (6.1) </td>
+        <td>
+        <pre class="source">UCHAR KeepShifting : 1;</pre>
+        </td>
+        <td>6.1 only </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xF8 (6.1); <br>
+        0xFC </td>
+        <td>
+        <pre class="source">UCHAR EncodedTolerableDelay : 5;</pre>
+        </td>
+        <td>6.1 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR EncodedTolerableDelay : 6;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>If a timer is set though <span class="function">KeSetCoalescableTimer</span> 
+  with a non-zero <span class="argument">TolerableDelay</span>, then
+  <span class="member">Coalescable</span> is set. If a non-zero
+  <span class="argument">Period</span> is specified too, then in Windows 7
+  <span class="member">KeepShifting</span> is set and the <span class="member">EncodedTolerableDelay</span> 
+  is the binary logarithm of the <span class="argument">TolerableDelay</span>. Perhaps 
+  this was thought too coarse, at least for long tolerances on long periods. For 
+  instance, of the documentation’s suggestions, 150 and 250ms both get treated as 
+  128. Windows 8 changed to a proportional encoding: specifically, the
+  <span class="member">EncodedTolerableDelay</span> is the
+  <span class="argument">TolerableDelay</span> (in milliseconds) multiplied by 10,000 
+  and shifted right by 18 bits, truncated to a maximum of 0x3F. </p>
+  <p>Starting with the Windows Driver Kit (WDK) for Windows 8, the bit width of
+  <span class="member">EncodedTolerableDelay</span> is defined symbolically as
+  <span class="constant">TIMER_TOLERABLE_DELAY_BITS</span>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 7th October 2017 from material that 
+    was first published on 20th <a href="../../../../../../../../new/16/06.htm">
+    June 2016</a>. It was last modified on 10th October 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14250" -->
+  </div>
+</div>
+
+</body>
+
+</html>

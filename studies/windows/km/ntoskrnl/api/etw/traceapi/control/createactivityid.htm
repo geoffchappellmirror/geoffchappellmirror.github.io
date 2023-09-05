@@ -1,0 +1,118 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EtwActivityIdCreate</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<h1>EtwActivityIdCreate </h1>
+<p>When given <span class="constant">EtwActivityIdCreate</span> (0x0C) as its
+<span class="argument">FunctionCode</span> argument, the <span class="function">
+<a href="index.htm">NtTraceControl</a></span> function creates an activity identifier 
+such as may be associated with some occurrence of an event to help track relationships 
+between occurrences. This note deals only with the function’s behaviour that is 
+specific to this function code. The function’s general behaviour is here taken as 
+assumed knowledge. </p>
+<h2>Access </h2>
+<p>Well-behaved user-mode software does not call <span class="function">NtTraceControl</span>. 
+The documented user-mode API for reaching this functionality is
+<span class="function">EventActivityIdControl</span>, which is exported by name 
+from ADVAPI32 in version 6.0 and higher, though only ever as a forward to the undocumented 
+NTDLL function <span class="function">EtwEventActivityIdControl</span>. These higher-level 
+functions vary their behaviour according to a <span class="argument">ControlCode</span> 
+argument. Two cases can create an activity identifier: <span class="constant">EVENT_ACTIVITY_CTRL_CREATE_ID</span> 
+(3) and <span class="constant">EVENT_ACTIVITY_CTRL_CREATE_SET_ID</span> (5). This 
+creation is done in kernel mode through <span class="function">NtTraceControl</span>.
+</p>
+<p>Kernel-mode software also does not call <span class="function">NtTraceControl</span> 
+to create an activity identifier. The documented kernel-mode API is more efficient. 
+It is <span class="function">EtwActivityIdControl</span>, which is exported by name 
+from the kernel, also in version 6.0 and higher. This function takes the same
+<span class="argument">ControlCode</span> argument. In the two cases that create 
+an activity identifier, the function cuts through to the same internal routine that
+<span class="function">NtTraceControl</span> would in kernel mode and does from 
+user mode. </p>
+<p>That said, the kernel itself calls <span class="function">ZwTraceControl</span> 
+to create an activity identifier. It does this for the undocumented
+<span class="function"><a href="../../../wdi/wdiapi/start.htm">EtwWriteStartScenario</a></span> 
+function if the activity identifier that is given as the <span class="argument">
+ActivityId</span> argument is all zeroes. </p>
+<h2>Documentation Status </h2>
+<p>Since <span class="constant">EtwActivityIdCreate</span> is known only as an argument 
+for an undocumented function, it should not surprise that it too is undocumented. 
+Microsoft’s name for it has been published in anything like plain text only in the 
+NTETW.H from the Enterprise WDK for Windows 10 version 1511—specifically this one 
+edition, its publication being very plausibly an oversight. Otherwise it is known 
+from type information in symbol files that Microsoft has published for a few user-mode 
+DLLs in Windows 8 and higher. </p>
+<h2>Behaviour </h2>
+<p>The output buffer is to receive a <span class="struct">GUID</span>. If the output 
+buffer is not exactly 0x10 bytes, the function returns <span class="constant">STATUS_INVALID_PARAMETER</span>. 
+Versions 6.0 to 6.1 also require that the input buffer be exactly 0x10 bytes. This 
+is here guessed as following the design of the <span class="function">EventActivityIdControl</span> 
+function, which can have a GUID as input, output or both. </p>
+<p>The whole of the actual work is to generate a suitable GUID as the output. Suitable 
+does not mean random. Presumably because of the role in linking events to track 
+progress from one activity to another, some attempt is made to create GUIDs in sequence. 
+The implementation keeps a separate sequence for each processor. Each
+<span class="struct"><a href="../../../../inc/ntos/kprcb.htm">KPRCB</a></span> 
+has as its <span class="member">EtwSupport</span> member a pointer to per-processor 
+storage just to support Event Tracing for Windows (ETW). Microsoft’s name for this 
+storage as a structure is not known. Within this storage is the next activity identifier 
+to allocate. The identifier is treated in two parts: the first eight bytes are stable; 
+the second are incremented at each allocation. </p>
+<p>The creation of an activity identifier cannot itself fail. It cannot fail even 
+indirectly in versions 6.0 to 6.1 since these create the activity identifier in 
+the function’s double buffer which is known to be good. In version 6.2 and higher, 
+this case of the function is exempted from double-buffering. The activity identifier 
+is created directly in the caller-supplied output buffer and can fail indirectly 
+if the output buffer, though tested on entry to the function, is no longer good. 
+Curiously, when adding the necessary exception handling, Microsoft’s programmers 
+lost the line that records how much has been placed in the output buffer. The variable 
+that the caller provided for learning the <span class="argument">ReturnSize</span> 
+is set to zero instead of 0x10. To a caller who bothers looking, which apparently 
+none do since this oversight persists at least to the 1803 edition of Windows 10, 
+the function succeeds but says it produced no output. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 22nd April 2020 from material first 
+  published on 31st <a href="../../../../../../../../new/18/12.htm">December 2018</a>. 
+  It was last modified on 28th <a href="../../../../../../../../new/20/05.htm">May 
+  2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14474" -->
+</div>
+
+</body>
+
+</html>

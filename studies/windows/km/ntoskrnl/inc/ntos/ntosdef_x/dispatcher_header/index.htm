@@ -1,0 +1,1118 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DISPATCHER_HEADER</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>DISPATCHER_HEADER </h1>
+  <p>Every kernel object that can be waited on, e.g., by giving its address as the 
+  first argument to <span class="function">KeWaitForSingleObject</span>, begins 
+  with a <span class="struct">DISPATCHER_HEADER</span>. Microsoft’s symbol files 
+  for the kernel identify the following structures as beginnning with a
+  <span class="struct">DISPATCHER_HEADER</span>: </p>
+  <ul>
+    <li><span class="struct">KEVENT</span>; </li>
+    <li><span class="struct">KGATE</span> (5.2 SP1, and higher); </li>
+    <li><span class="struct">KMUTANT</span>; </li>
+    <li><span class="struct">KPRIQUEUE</span> (6.3 and higher); </li>
+    <li><span class="struct"><a href="../../ke/kprocess/index.htm">KPROCESS</a></span>;
+    </li>
+    <li><span class="struct">KQUEUE</span>; </li>
+    <li><span class="struct">KSEMAPHORE</span>; </li>
+    <li><span class="struct"><a href="../../ke/kthread/index.htm">KTHREAD</a></span>;
+    </li>
+    <li><span class="struct"><a href="../ktimer.htm">KTIMER</a></span>; </li>
+    <li><span class="struct">KTIMER2</span> (6.3 and higher). </li>
+  </ul>
+  <p>For each, the <span class="struct">DISPATCHER_HEADER</span> is named
+  <span class="member">Header</span> (not that it must be, just that it is). For 
+  the <span class="struct">KEVENT</span> and <span class="struct">KGATE</span>, 
+  the <span class="member">Header</span> is the only member, and so these objects 
+  are in effect nothing but a <span class="struct">DISPACHER_HEADER</span>. Some 
+  types of object add only one or a few members to the <span class="member">Header</span>. 
+  Others, notably the <span class="struct">KPROCESS</span> and
+  <span class="struct">KTHREAD</span>, are among the largest and most complex structures 
+  in all of kernel-mode programming. </p>
+  <p>It is through their common beginning that these objects pick up some common 
+  behaviour of being waitable. When the address of a waitable object is given to 
+  a function such as <span class="function">KeWaitForSingleObject</span>, the function 
+  does not return until the object has been <span class="definition">signalled</span>. 
+  Meanwhile, the calling thread is left in an efficient wait state, with the kernel 
+  knowing not to waste time on the thread’s execution. Some of the behaviour varies 
+  with the type of object. For instance, signalling ordinarily releases all the 
+  waiting threads, but for some types signalling releases only one waiter. How an 
+  object even gets signalled varies with the type of object. Some can be signalled 
+  explicitly, others only implicitly. For instance, a <span class="struct">KEVENT</span> 
+  is signalled by passing its address to <span class="function">KeSetEvent</span> 
+  but a <span class="struct">KPROCESS</span> is signalled from within the kernel 
+  just as a consequence of the corresponding process’s termination. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="struct">DISPATCHER_HEADER</span> is not formally documented 
+  but even the Device Driver Kit (DDK) for Windows NT 3.1 supplies a C-language 
+  definition in NTDDK.H, and each new DDK or Windows Driver Kit (WDK) has continued 
+  to, though the definition soon moved to WDM.H. </p>
+  <p>Of the objects that build on the <span class="struct">DISPATCHER_HEADER</span>, 
+  Microsoft publishes C-language definitions for some but not all. The main distinction 
+  concerns the allocation of memory for the object. For some types, such as
+  <span class="struct">KEVENT</span>, memory for the object can be supplied by its 
+  intended user, such as a kernel-mode driver, who then calls a kernel function 
+  to initialise the object. Other types, such as <span class="struct">KPROCESS</span>, 
+  only ever exist in memory that is allocated by the kernel, the intended user of 
+  the object having called a kernel function (including indirectly from user mode) 
+  that creates the object. The former have C-language definitions in public header 
+  files and the latter don’t. </p>
+  <h2>Variability </h2>
+  <p>Although its layout is public, the <span class="struct">DISPATCHER_HEADER</span> 
+  surely is intended to be treated as opaque outside the kernel. The definition 
+  seems to have been published only so that in those cases where drivers and other 
+  kernel-mode modules create the waitable object they can know how much space to 
+  allocate. If only in principle, how much space, and what sort of space, is
+  <span class="emphasis">all</span> they need to know. What happens in the space 
+  is entirely in the hands of kernel functions that are provided for initialising 
+  and then working with the object. Microsoft might therefore have defined the
+  <span class="struct">DISPATCHER_HEADER</span> as an array of bytes, with no consequences 
+  for programmers at large except if the size ever changed. </p>
+  <p>In all versions, the <span class="struct">DISPATCHER_HEADER</span> is 0x10 
+  and 0x18 bytes in 32-bit and 64-bit Windows respectively. Constancy of size is 
+  not strictly required, but is more or less required for compatbility, given the 
+  expectation of opacity in caller-supplied memory. The same opacity, however, means 
+  that interpretation within the constant size could change completely even between 
+  builds, if only in principle. </p>
+  <p>It happens that the <span class="struct">DISPATCHER_HEADER</span> has varied 
+  hardly at all if understood as a common header for all waitable objects. In this 
+  sense, the simple structure from the early kits is all that any kernel-mode programmer 
+  needs to keep in mind, e.g., to recognise when debugging. In another sense, the 
+  layout has changed significantly as the structure has been elaborated here and 
+  there for different types of object. At first, and mostly since, the mechanism 
+  has been that the object picks up more functionality as 
+  Windows evolves but new members that support the new functionality are 
+  squeezed into the header because the object as a whole is constrained to its original size.
+  </p>
+  <h2>Layout </h2>
+  <p>Type-specific members are all in the first four bytes. Their proliferation 
+  has greatly complicated the header’s description, both for this page and in 
+  Microsoft’s own programming. This article distinguishes three layouts according to the organisation of the 
+  first four bytes: </p>
+  <ul>
+    <li>originally, individual members at the same level as the subsequent members;
+    </li>
+    <li>in versions 5.2 to 6.3, a union of a four-byte integer and a sub-structure 
+    mostly of unions for different object types; </li>
+    <li>in Windows 10, a union of a four-byte integer and four-byte structures for 
+    different object types. </li>
+  </ul>
+  <p>Please bear in mind that the difference between layouts is mostly cosmetic. 
+  It is Microsoft’s description in C that changes, not (with a few exceptions) the 
+  position and interpretation of the members. Importantly, there has been no change 
+  at all, ever, in the two members for whether the object is yet signalled and for 
+  which threads currently wait on the object: &nbsp;</p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="4">0x00 </td>
+        <td>
+        <pre class="source">/*  integral members, see below  */</pre>
+        </td>
+        <td>3.10 to 5.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    struct {
+        /*  four single-byte members, see below  */
+    };
+    LONG volatile Lock;
+};</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    struct {
+        /*  four single-byte members, see below  */
+    };
+    union {
+        LONG volatile Lock;
+        LONG LockNV;
+    };
+};</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    union {
+        LONG volatile Lock;
+        LONG LockNV;
+    };
+    /*  four-byte members, see below  */
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>
+        <pre class="source">LONG SignalState;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">LIST_ENTRY WaitListHead;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Though different types of object have different ways of changing the
+  <span class="member">SignalState</span>, what they have in common is that the 
+  object is regarded as signalled when the <span class="member">SignalState</span> 
+  is positive. Indeed, for many types of object, the <span class="member">SignalState</span> 
+  is only ever 0 (not signalled) or 1 (signalled). </p>
+  <p>Any object can have multiple threads waiting on it simultaneously. Any thread 
+  can be waiting on multiple objects concurrently. For each object that it waits 
+  on, a thread needs a <span class="struct">
+  <a href="../../ke_x/kwait_block.htm">KWAIT_BLOCK</a></span> structure. This may 
+  be (and, in practice, almost always is) one of three such structures that are 
+  built-in to the <span class="struct">KTHREAD</span> or it can be provided from 
+  outside, as must be done by callers of <span class="function">KeWaitForMultipleObjects</span> 
+  when multiple is more than three. Each thread that waits on the same object gets 
+  a wait block appended to the double-linked list that begins with the object’s
+  <span class="member">WaitListHead</span> and links through the wait block’s
+  <span class="member">WaitListEntry</span> member. </p>
+  <h3>Original (3.10 to 5.1) </h3>
+  <p>Before Windows Server 2003, the first four bytes of the
+  <span class="struct">DISPATCHER_HEADER</span> are straightforwardly defined as 
+  1-byte and 2-byte integers. They were originally 
+  divided equally into a <span class="member">Type</span> and a
+  <span class="member">Size</span>. That space might be squeezed from these seems 
+  to have been anticipated for version 3.51 but was not acted on until version 4.0.
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x00 </td>
+        <td>
+        <pre class="source">SHORT Type;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Type;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01 </td>
+        <td>
+        <pre class="source">UCHAR Spare;</pre>
+        </td>
+        <td>3.51 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Absolute;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x02 </td>
+        <td>
+        <pre class="source">SHORT Size;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT Size;</pre>
+        </td>
+        <td>3.51 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Size;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td>
+        <pre class="source">UCHAR Inserted;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>previously at 0x24 in <span class="struct">KTIMER</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Object Type </h4>
+  <p>Though no <span class="struct">DISPATCHER_HEADER</span> definition in any DDK 
+  or WDK ever says so, the <span class="member">Type</span>—or, to be precise, its 
+  low 7 bits except in early versions—comes from the undocumented
+  <span class="enum"><a href="../../ke/kobjects.htm">KOBJECTS</a></span> enumeration.
+  </p>
+  <p>Though the enumeration and its possible values are disclosed in the public 
+  symbol files for the kernel, Microsoft has plainly not intended that any of this 
+  shows in the usual headers for programming. All that slips out nowadays in the 
+  WDK headers is a comment in WDM.H that the <span class="member">Type</span> is 
+  “accessible via KOBJECT_TYPE” but the latter, which is presumably a macro, is 
+  not defined in any of the WDK headers. </p>
+  <p>This comment first appeared in WDM.H from the WDK for Windows 7. It, but not 
+  any later WDK, has macros such as <span class="macro">ASSERT_EVENT</span> that 
+  show <span class="macro">KOBJECT_TYPE</span> in use for testing that an object 
+  is the type it’s expected to be. These in turn show that the result of applying
+  <span class="macro">KOBJECT_TYPE</span> to an object is some such symbol as
+  <span class="constant">GateObject</span> or <span class="constant">EventSynchronizationObject</span> 
+  (from the enumeration). I pick out these two because the macro that tests for 
+  these, <span class="macro">ASSERT_GATE</span>, looks to be the oldest of this 
+  sort. It shows first in the DDK for Windows Server 2003 SP1. There, it does not 
+  use <span class="macro">KOBJECT_TYPE</span> but instead computes the object’s 
+  type by extracting bits, such that the presumably later macro is defined something 
+  like: </p>
+  <pre class="source">#define KOBJECT_TYPE(object) ((object) -&gt; Header.Type &amp; KOBJECT_TYPE_MASK)</pre>
+  <p>The name <span class="constant">KOBJECT_TYPE_MASK</span> suggests an intention 
+  that it applies to an arbitrary object to extract its type. And it does indeed 
+  work this way, starting with Windows 7. Then and since, the type of any object 
+  is only the low 7 bits of the <span class="member">Type</span> because the high 
+  bit was given a special meaning. At first, however, this was true only for particular 
+  types of object. The WDM.H from the WDK for Windows Vista has some macros test 
+  against the low 7 bts but most compare the whole 8. The high bit had meaning only 
+  for gate objects in version 5.2 SP1 and then also for queue objects in version 
+  6.0. In these cases, and then for all types of object in version 6.1 and higher, 
+  the high bit of the <span class="member">Type</span> acts as a lock. No changes 
+  are ever made to an object’s <span class="struct">DISPATCH_HEADER</span> without 
+  setting the high bit, having waited in a spin, if necessary, for the high bit 
+  to have become clear. </p>
+  <p>By the way, there is other interpretation of the <span class="member">Type</span> 
+  in bits, and it has even earlier history, going back to version 4.0. When this 
+  version extended the ancient differentiation of notification and synchronization 
+  event objects to apply also to timer objects, it coded for generality. Any object, 
+  not just events and timers, might be a synchronization object in the sense that 
+  when the object is signalled and a waiting thread is released from its wait, the 
+  object is automatically reset to non-signalled such that no other waiting thread 
+  is released until the object is signalled again. What distinguishes that an object 
+  gets this synchronization behaviour is that the low three bits of its
+  <span class="member">Type</span> are exactly 1. </p>
+  <h4>Object Size </h4>
+  <p>The <span class="member">Size</span> is that of the whole object, including 
+  the header—but only of the kernel object, not of an even larger object such as 
+  managed by the Object Manager and exposed even to user mode through a handle. 
+  For instance, for a thread object, the <span class="member">Size</span> is that 
+  of the <span class="struct">KTHREAD</span>, not the <span class="struct">
+  <a href="../../ps/ethread/index.htm">ETHREAD</a></span>. </p>
+  <p>The original 16-bit <span class="member">Size</span> counted bytes. When narrowed 
+  to 8 bits for version 4.0, it changed to counting dwords. </p>
+  <h4>Timer-Specific </h4>
+  <p>The <span class="member">Absolute</span> and <span class="member">Inserted</span> 
+  members are the chronologically first examples of the <span class="struct">DISPATCHER_HEADER</span> 
+  being specialised for a type of object. The motivation in this case came when 
+  Windows NT 4.0 improved the functionality of the <span class="struct">KTIMER</span> 
+  enough to need new members. Because timer objects are among the types that can 
+  be in caller-supplied memory, these new members would ideally be squeezed in without 
+  enlarging the <span class="struct">KTIMER</span>. </p>
+  <p>The boolean <span class="member">Absolute</span> was genuinely new, and brought 
+  into use a byte that version 3.51 had explicitly set aside as
+  <span class="member">Spare</span>. The other, <span class="member">Inserted</span>, 
+  had been at the end of the <span class="struct">KTIMER</span> beyond the header. 
+  As a side-effect of alignment, moving its one byte to the header freed four bytes 
+  for the new use of allowing timers to be periodic. Space for
+  <span class="member">Inserted</span> in the header was found by taking from the
+  <span class="member">Size</span>. </p>
+  <h3>Nested Unions (5.2 to 6.3) </h3>
+  <p>Starting with Windows Server 2003 the role of the high bit of the
+  <span class="member">Type</span> as the object’s lock is formalised as one 32-bit
+  <span class="member">Lock</span> laid over the first four bytes so that all four 
+  bytes, but especially the high bit of the <span class="member">Type</span>, can 
+  be accessed together with one instruction such as <span class="instruction">cmpxchg</span> 
+  or <span class="instruction">bts</span> that can take the
+  <span class="instruction">lock</span> prefix (and which anyway can’t operate on 
+  single bytes). </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x00 </td>
+        <td>
+        <pre class="source">struct {
+    /*  varying members, see below  */
+};</pre>
+        </td>
+        <td>5.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LONG volatile Lock;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    LONG volatile Lock;
+    LONG LockNV;
+};</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Except for the <span class="member">Type</span>, each of the first four bytes—in 
+  the structure within the union—soon becomes a union of different members for different 
+  object types: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">UCHAR Type;</pre>
+        </td>
+        <td>5.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01 </td>
+        <td>
+        <pre class="source">UCHAR Absolute;</pre>
+        </td>
+        <td>early 5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    /*  varying members, see below (Byte 1)  */
+};</pre>
+        </td>
+        <td>late 5.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02 </td>
+        <td>
+        <pre class="source">UCHAR Size;</pre>
+        </td>
+        <td>early 5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    /*  varying members, see below (Byte 2)  */
+};</pre>
+        </td>
+        <td>late 5.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td>
+        <pre class="source">union {
+    /*  varying members, see below (Byte 3)  */
+};</pre>
+        </td>
+        <td>5.2 to 6.3 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Better might have been to define the last three of these bytes as a union of 
+  three-byte structures for the different types, but the business of this article 
+  is to describe, not prescribe, however messy the description has to be. That said, 
+  the definition in WDM.H seems to have got messy enough that Microsoft redid it 
+  for Windows 10: you may prefer to skip ahead. </p>
+  <h4>Byte 1 </h4>
+  <table class="Union">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="7">0x01 </td>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="timercontrolflags.htm">TimerControlFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Abandoned;</pre>
+        </td>
+        <td>6.0 to 6.2 </td>
+        <td>next in <span class="member">QueueControlFlags</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="queuecontrolflags.htm">QueueControlFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Absolute;</pre>
+        </td>
+        <td>late 5.2 to 6.0 </td>
+        <td>next in <span class="member">TimerControlFlags</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR NpxIrql;</pre>
+        </td>
+        <td>late 5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN Signalling;</pre>
+        </td>
+        <td>6.0 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="timer2flags.htm">Timer2Flags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Byte 2 </h4>
+  <p>Windows Server 2003 SP1 made a simple union of what had just been the
+  <span class="member">Size</span>, adding <span class="member">Hand</span> for 
+  timer objects—in that order. Windows 7 swapped them, and put them both after a 
+  new set of bit fields for thread objects. </p>
+  <table class="Union">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="5">0x02 </td>
+        <td>
+        <pre class="source">UCHAR Size;</pre>
+        </td>
+        <td>late 5.2 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="threadcontrolflags.htm">ThreadControlFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Hand;</pre>
+        </td>
+        <td>late 5.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Reserved3;</pre>
+        </td>
+        <td>6.3 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Size;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>See that as pressure mounted for finding new space for new functionality in 
+  timer objects, keeping a size in the header was ruled extravagant. Timer 
+  objects can be in memory supplied by their intended user and Microsoft 
+  apparently regarded this as fixing the size in stone. Starting with version 
+  5.2 SP1, timer objects do not have a size in their header. </p>
+  <p>Starting with version 6.1, thread objects also lose the size from their 
+  header. Thread objects, however, are created only by the kernel and evidently 
+  do not have their size constrained by any considerations of compatibility. It 
+  is presently not known what is so important about the <span class="member">
+  ThreadControlFlags</span> that they needed to be in the header, rather than be 
+  defined elsewhere in the <span class="struct">KTHREAD</span>. </p>
+  <h4>Byte 3 </h4>
+  <p>The last of the first four bytes had been used as <span class="member">Inserted</span> 
+  for timer objects since version 4.0. Windows Server 2003 added
+  <span class="member">DebugActive</span> for thread objects, Windows Vista added
+  <span class="member">DpcActive</span> for mutants, and then Windows 7 made bit 
+  fields of the first two. For <span class="member">DebugActive</span> this merely 
+  formalised an earlier interpretation in bits, despite the formal declaration 
+  as a <span class="type">BOOLEAN</span>—and then these 
+  bit fields are dropped from the definition for x86 builds in Windows 8 
+  and higher. </p>
+  <table class="Union">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="7">0x03 </td>
+        <td>
+        <pre class="source">UCHAR Inserted;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>becomes bit in <span class="member">TimerMiscFlags</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="timermiscflags.htm">TimerMiscFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN DebugActive;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>previously at 0x2C in <span class="struct">KTHREAD</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source"> union {
+    BOOLEAN <a href="debugactive.htm">DebugActive</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.1 only (x86); <br>
+        6.1 to 6.3 (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    BOOLEAN DebugActive;
+};</pre>
+        </td>
+        <td>6.2 to 6.3 (x86) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN DpcActive;</pre>
+        </td>
+        <td>6.0 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Reserved5;</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Union of Structures (10.0 and Higher) </h3>
+  <p>Windows 10 reorganises the first four bytes into a union of different four-byte 
+  structures for the different object types: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source"> union {
+    union {
+        LONG volatile Lock;
+        LONG LockNV;
+    };
+    /*  varying unnamed structures, see below  */
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>General Objects </h4>
+  <p>The objects that have no special interpretation are events, processes, semaphores 
+  and gates. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">UCHAR Type;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01 </td>
+        <td>
+        <pre class="source">UCHAR Signalling;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td>
+        <pre class="source">UCHAR Size;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td>
+        <pre class="source">UCHAR Reserved1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Timer Objects </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">UCHAR TimerType;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01 </td>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="timercontrolflags.htm">TimerControlFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td>
+        <pre class="source">UCHAR Hand;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="timermiscflags.htm">TimerMiscFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Timer2 Objects </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">UCHAR Timer2Type;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01 </td>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="timer2flags.htm">Timer2Flags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02 </td>
+        <td>
+        <pre class="source">UCHAR Timer2Reserved1;</pre>
+        </td>
+        <td>10.0 to 1607 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Timer2ComponentId;</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x03 </td>
+        <td>
+        <pre class="source">UCHAR Timer2Reserved2;</pre>
+        </td>
+        <td>10.0 to 1607 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Timer2RelativeId;</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Queue Objects </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">UCHAR QueueType;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01 </td>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="queuecontrolflags.htm">QueueControlFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td>
+        <pre class="source">UCHAR QueueSize;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td>
+        <pre class="source">UCHAR QueueReserved;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Thread Objects </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">UCHAR ThreadType;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x01 </td>
+        <td>
+        <pre class="source">UCHAR ThreadReserved;</pre>
+        </td>
+        <td>10.0 to 1709 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR ThreadSpecControl;
+    struct {
+        UCHAR SpecControlIbrs : 1;
+        UCHAR SpecControlStibp : 1;
+        UCHAR SpecControlReserved : 6;
+    };
+};</pre>
+        </td>
+        <td>1803 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR ThreadReserved;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="threadcontrolflags.htm">ThreadControlFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="debugactive.htm">DebugActive</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">ThreadSpecControl</span>, including the bit fields 
+  and the union, is from public symbol files for the kernel. The C-language definition 
+  in WDM.H from the WDK for the 1803 release of Windows 10 persists with
+  <span class="member">ThreadReserved</span>. </p>
+  <h4>Mutant Objects </h4>
+  <p>For mutant objects, the <span class="member">DpcActive</span> member was at 
+  offset 0x03 in versions 6.0 to 6.2. Windows 10 actually does shift it to offset 
+  0x02 (and the <span class="member">Size</span> to offset 0x01). Whether this was 
+  intentional, or is just a transcription error in Microsoft’s reorganisation of 
+  the surprisingly complex structure that the <span class="struct">DISPATCH_HEADER</span> 
+  had become, is not known. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">UCHAR MutantType;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01 </td>
+        <td>
+        <pre class="source">UCHAR MutantSize;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td>
+        <pre class="source">BOOLEAN DpcActive;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td>
+        <pre class="source"> UCHAR MutantReserved;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 20th
+    <a href="../../../../../../../../new/16/06.htm">June 2016</a> and was last modified 
+    on 16th October 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14250" -->
+  </div>
+</div>
+
+</body>
+
+</html>

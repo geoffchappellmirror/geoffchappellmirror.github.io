@@ -1,0 +1,435 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>_GetStdLocation</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>_GetStdLocation </h1>
+<p>This function obtains a URL for a standard location such as the start page or 
+search page. </p>
+<h2>Declaration </h2>
+<pre class="source">HRESULT
+_GetStdLocation (
+    PWSTR pszBuffer,
+    DWORD cchBuffer,
+    DWORD dwLocation);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">pszBuffer</span> and <span class="argument">cchBuffer</span> 
+argument describe a buffer (by address and capacity in Unicode characters, respectively) 
+that is to receive the URL. </p>
+<p>The <span class="argument">dwLocation</span> argument specifies the standard 
+location for which the URL is sought. Supported values are: </p>
+<table>
+  <tr>
+    <td>0x010E </td>
+    <td>get the Start Page (commonly called the home page) </td>
+  </tr>
+  <tr>
+    <td>0x010F </td>
+    <td>get the Search Page </td>
+  </tr>
+  <tr>
+    <td>0x0110 </td>
+    <td>get the First Home Page (once), else the Start Page </td>
+  </tr>
+  <tr>
+    <td>0x0111 </td>
+    <td>get the First Home Page, else the Start Page </td>
+  </tr>
+  <tr>
+    <td>0x0112 </td>
+    <td>get the Local Page </td>
+  </tr>
+  <tr>
+    <td>0x0118 </td>
+    <td>get the Search Bar </td>
+  </tr>
+</table>
+<h3>Return Value </h3>
+<p>The function returns zero for success, else an error code. </p>
+<h2>Behaviour </h2>
+<p>The notes immediately below describe the behaviour before the SHDOCVW version 
+6.0 from Windows Vista. In later versions, the function is exported but only as 
+a forward to IEFRAME. The implementation in IEFRAME elaborates the behaviour 
+significantly, most notably in the treatment of the 
+First Home Page cases. The new behaviour is described in its own section (further 
+below) as a variation of what was long established. </p>
+<p>All the standard locations are configured together in the registry. They may 
+each be in either of two keys, which are listed below in decreasing order of precedence:
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main</span>
+    <br><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet Explorer\Main</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Values: </td>
+    <td><span class="regvalue">First Home Page</span> <br>
+    <span class="regvalue">Local Page</span> <br><span class="regvalue">Search Bar</span>
+    <br><span class="regvalue">Search Page</span> <br><span class="regvalue">Start 
+    Page</span> </td>
+  </tr>
+</table>
+<p>The function queries whichever of these registry values corresponds to
+<span class="argument">dwLocation</span>, defaulting to <span class="regvalue">Start 
+Page</span> for an unsupported <span class="argument">dwLocation</span>. Data of 
+any type is accepted as the URL, up to <span class="constant">INTERNET_MAX_URL_LENGTH</span> 
+(0x0824) characters. The function resolves <a href="../util/sub.htm">URL 
+substitutions</a> in whatever URL is obtained. </p>
+<p>If a First Home Page is sought (i.e., if <span class="argument">dwLocation</span> 
+is either 0x0110 or 0x0111) but a URL is not found for it, the function falls back 
+to querying <span class="regvalue">Start Page</span>, again resolving substitutable 
+parameters. The function thereafter behaves as if called to obtain the Start Page.
+</p>
+<p>Without a URL, the function fails. The 
+error code will be nothing more informative than <span class="constant">E_FAIL</span>, 
+this being all that the function gets from <span class="function">
+<a href="../util/urlsubregquery.htm">URLSubRegQuery</a></span>.
+</p>
+<p>If querying the <span class="regvalue">Start Page</span>, including because 
+of falling back from the <span class="regvalue">First Home Page</span>, 
+the URL “about:home” might be problematic. The function spares the <span class="protocol">about</span> 
+protocol from the circular reference and uses “about:blank” instead. This defence 
+dates from version 5.50. The obvious experiment with Windows 2000 confirms that 
+setting “about:home” as the home page induces Internet Explorer to exhaust its stack 
+when started.
+</p>
+<p>The function copies a canonical form of the URL to the given buffer. Details 
+of this canonicalisation (done by the undocumented <span class="function">ParseURLFromOutsideSource</span> 
+function) are beyond the scope of this article. If the canonicalisation fails, then 
+presumably by oversight, the function does not fail even though it may leave the 
+given buffer with undefined contents. If the canonicalised URL has the <span class="protocol">file</span> 
+protocol, the function converts the URL to a DOS pathname. Failure of this conversion 
+is failure for the function, subject to the following paragraph. </p>
+<p>If <span class="argument">dwLocation</span> is 0x0110 (to seek the
+<span class="regvalue">First Home Page</span> just once) and the function did not 
+fall back to <span class="regvalue">Start Page</span>, the function deletes one
+<span class="regvalue">First Home Page</span> value from the registry. If the value 
+is in both its eligible keys, it is deleted only from the key that has the higher 
+precedence. Deletion is attempted even if the URL turned out to have the
+<span class="protocol">file</span> protocol and conversion to a DOS pathname 
+failed: presumably as an oversight, the function forgets the error code from 
+that conversion and returns success. </p>
+<h3>Internet Explorer 7 And Higher </h3>
+<p>In version 7.0 and higher, the registry values are recognised only if they have 
+string data. This requirement comes about in two ways. As a side-effect of a 
+code change in <span class="function">
+URLSubRegQuery</span>, all the registry values except
+<span class="regvalue">Start Page</span> are permitted the
+<span class="constant">REG_SZ</span> and <span class="constant">REG_EXPAND_SZ</span> 
+types, and environment variables in <span class="constant">REG_EXPAND_SZ</span> 
+are expanded as part of retrieving the data. For
+<span class="regvalue">Start Page</span> only <span class="constant">REG_SZ</span> 
+data is accepted. This is a consequence of a coding change in the function itself, 
+so that this one registry value is queried a new way (using newly developed library 
+code). Moreover, the <span class="regvalue">Start Page</span> value is subject 
+to administrative control by accepting it from two extra keys: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regkey">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Values: </td>
+    <td><span class="regvalue">Start Page</span> </td>
+  </tr>
+</table>
+<p>One coding oversight that persisted throughout version 6.0 is corrected and another 
+is side-stepped. If a URL is found and its canonicalisation into the given buffer 
+fails, then the function fails, returning <span class="constant">E_FAIL</span>. 
+If the canonicalisation has the <span class="protocol">file</span> protocol, the 
+function does not convert it to a DOS pathname (and thus cannot pick up an error 
+to overlook). </p>
+<h4>Alternative First Home Page </h4>
+<p>All the other changes for version 7.0 are for the cases where
+<span class="argument">dwLocation</span> is 0x0110 or 0x0111. The registry value
+<span class="regvalue">First Home Page</span> becomes just one source of the First 
+Home Page URL for these cases. Two others are also registry values, from the same 
+keys, but the function may also load a hard-coded URL (in version 8.) or load from the string table 
+in the IEFRAME resources. The following few paragraphs work through these alternatives 
+in order of decreasing priority. Whichever first applies is the one the function 
+uses instead of <span class="regvalue">First Home Page</span>. </p>
+<h5>The Security Risk Page </h5>
+<p>First, if the current security settings for Internet Explorer are too risky, 
+the function seeks the URL from the registry value <span class="regvalue">Security 
+Risk Page</span> (with a fallback to <span class="regvalue">Start 
+Page</span>). To see this case in practice with Internet Explorer 7, open Internet 
+Options from the Control Panel, then in the Security tab select any zone, click 
+Custom Level and then click on any radio button that is marked “not secure” in brackets. 
+Close the dialog, dismissing all the protests, and then start Internet Explorer.
+</p>
+<p>Whether the security settings are too risky is decided by the zone manager’s <span class="method">GetIESecurityState</span> 
+method. In version 7.0, this is evaluated when this function is first called 
+with 0x0110 or 0x0111 as <span class="argument">dwLocation</span>, and is then 
+remembered. In version 8.0, the evaluation is done at various times and the 
+latest result is written to the registry, which is where this function retrieves 
+it: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\Zones</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">SecuritySafe</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The security settings are considered too risky unless this value has non-zero 
+data of the correct type. </p>
+<h5>Private Browsing </h5>
+<p>In version 8.0, if the new feature known as InPrivate Browsing is on, the function 
+selects the hard-coded URL “about:InPrivate”. </p>
+<h5>The Extensions Off Page </h5>
+<p>If add-ons are disabled, the function seeks the URL from the registry value
+<span class="regvalue">Extensions Off Page</span> (with a fallback to
+<span class="regvalue">Start Page</span>). The programmatic test for whether 
+add-ons are disabled is the URLMON function <span class="function">
+<a href="../../../urlmon/api/extension/cointernetisextensionsoff.htm">CoInternetIsExtensionsOff</a></span>. 
+To turn extensions off, someone must call the URLMON function
+<span class="function">
+<a href="../../../urlmon/api/extension/cointernetsetextensionsoff.htm">CoInternetSetExtensionsOff</a></span> 
+while <span class="constant">FEATURE_ADDON_MANAGEMENT</span> is not disabled. Since 
+the latter is enabled by default for Internet Explorer, it is ordinarily possible 
+to have Internet Explorer run without add-ons by starting IEXPLORE.EXE with its
+<span class="switch">-extoff</span> switch. This feature is important enough that 
+Windows Vista provides two forms of user-interface support: </p>
+<ul>
+  <li>a shortcut labelled “Internet Explorer (No Add-ons)” among the System Tools 
+  on the Start menu; </li>
+  <li>an entry labelled “Start Without Add-ons” on the context menu for the Internet 
+  Explorer icon on the desktop. </li>
+</ul>
+<h5>The Run Once Page </h5>
+<p>In version 7.0 only, the function goes to a lot of trouble about directing the 
+user to a Microsoft web site, typically for something that Microsoft presents as 
+completing the Internet Explorer installation. Microsoft may have intended that 
+users be subjected to a Run Once page just the once, but what’s actually coded 
+is that redirection persists until the first run completes. A successful run is supposed to have set two registry values. The first test 
+for whether to show the Run Once page is therefore to look for those values. Again, 
+each may be in either of two keys, which are listed in order of decreasing priority:
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main</span>
+    <br><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet Explorer\Main</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">RunOnceComplete</span> <br>
+    <span class="regvalue">RunOnceHasShown</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td>boolean </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>false </td>
+  </tr>
+</table>
+<p>The function accepts data in a variety of types and sizes that evaluate as boolean. 
+(Strictly speaking, the criteria are not this function’s but are those of
+<span class="constant">SHRegGetBoolUSValue</span> and would change incidentally 
+were Microsoft ever to strengthen that function. For data of type
+<span class="constant">REG_DWORD</span> and when treating ≤ 4 bytes of
+<span class="constant">REG_BINARY</span> data as a dword, non-zero is true and zero 
+is false. Data of <span class="constant">REG_SZ</span> or <span class="constant">
+REG_EXPAND_SZ</span> type is interpreted as a case-insensitive string:
+<span class="regsz">yes</span>, <span class="regsz">true</span> and
+<span class="regsz">1</span> count as true; <span class="regsz">no</span>,
+<span class="regsz">false</span> and <span class="regsz">0</span> count as false. 
+Note that <span class="constant">REG_BINARY</span> is accepted even if there are 
+fewer than 4 bytes of data. In particular, though a single non-zero byte must be 
+interpreted as true, it seems that a single null byte might not be interpreted as 
+false.) </p>
+<p>If the <span class="regvalue">RunOnceHasShown</span> and
+<span class="regvalue">RunOnceComplete</span> values are both true, the function 
+deems that the Run Once page has run and that it ought not run again. The function 
+proceeds with seeking the First Home Page URL from the <span class="regvalue">First 
+Home Page</span> registry value (with a fallback to <span class="regvalue">Start Page</span>). </p>
+<p>An almost successful run may have set another registry value, in just one eligible key: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">RunOnceLastShown</span> </td>
+  </tr>
+  <tr>
+    <td>Data: </td>
+    <td>8 bytes </td>
+  </tr>
+</table>
+<p>The function interprets the data as a <span class="struct">FILETIME</span>, i.e., 
+a count of ten-millionths of seconds since the start of 1601. The function expects 
+8 bytes of any type but accepts fewer. If the <span class="regvalue">RunOnceLastShown</span> 
+value is present and 3 days have not yet passed since the time represented by the 
+data, then the function deems that the Run Once page has been shown, albeit inadequately, 
+but need not be shown again so soon. The function proceeds with seeking the URL 
+from the <span class="regvalue">First Home Page</span> value (with a fallback to
+<span class="regvalue">Start Page</span>). </p>
+<p>The remaining decision of whether to show a Run Once page falls to a registry 
+value that can be in any of four keys, again listed below in order of decreasing 
+priority. </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regkey">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableFirstRunCustomize</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Data: </td>
+    <td>0 to show the Run Once page; <br>1 to show the First Home Page; <br>2 to 
+    show the Welcome to Internet Explorer page </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableFirstRunCustomize</span> registry value has user-interface support through the Group Policy Object 
+Editor, as “Prevent performance of First Run Customize settings” in the Internet 
+Explorer administrative template (shown under Windows Components). </p>
+<p>If <span class="regvalue">DisableFirstRunCustomize</span> is 0, including by 
+default, then the function deems that the Run Once page is to show. The URL is 
+stored among the string resources in the MUI file for IEFRAME.DLL. The relevant 
+string ID is 38744 if the operating system is Windows Vista or higher, else 38736. 
+In the U.S. edition, the corresponding URLs are </p>
+<ul>
+  <li>“http://go.microsoft.com/fwlink/?LinkId=76277”, for Windows Vista </li>
+  <li>“http://go.microsoft.com/fwlink/?LinkId=74005”, otherwise </li>
+</ul>
+<p>If the function cannot retrieve the URL from the resources, it falls back to 
+seeking a URL from the <span class="regvalue">Start Page</span> registry value.
+</p>
+<p>If the URL is in a security zone that disallows the running of scripts, then 
+showing the Run Once page would be essentially pointless. In recognition of this, 
+the function sets the <span class="regvalue">RunOnceHasShown</span> and
+<span class="regvalue">RunOnceComplete</span> values to 1, so that the Run Once 
+page should not be tried again. If running on Windows Vista or higher, the function then falls 
+back to seeking a URL from the <span class="regvalue">Start Page</span> value. On 
+earlier systems however, the function persists with the URL from the resources (but 
+at least the Run Once page will not be tried on future calls to the function).
+</p>
+<p>If <span class="regvalue">DisableFirstRunCustomize</span> is 2, then the function 
+sets the <span class="regvalue">RunOnceHasShown</span> and
+<span class="regvalue">RunOnceComplete</span> values to 1, so that the Run Once 
+page should not be tried again, but it proceeds with an alternative URL, again from 
+the IEFRAME resources. The string ID is 38743. In the U.S. edition, the corresponding 
+URL is </p>
+<ul>
+  <li>“http://go.microsoft.com/fwlink/?LinkId=59527” </li>
+</ul>
+<p>If the function cannot retrieve this URL from the resources, it falls back to 
+seeking a URL from the <span class="regvalue">Start Page</span> registry value.
+</p>
+<p>If <span class="regvalue">DisableFirstRunCustomize</span> is anything else, e.g., 
+1, the function sets the <span class="regvalue">RunOnceHasShown</span> and
+<span class="regvalue">RunOnceComplete</span> values to 1, so that the Run Once 
+page should not be tried again, and then the function seeks the URL from the
+<span class="regvalue">First Home Page</span> registry value (with a fallback to
+<span class="regvalue">Start Page</span>). </p>
+<h4>Deleting the First Home Page </h4>
+<p class="alert">IN PROGRESS </p>
+<p class="draft">If <span class="argument">dwLocation</span> is 0x0110 and the URL 
+was found from either the <span class="regvalue">First Home Page</span> or
+<span class="regvalue">Security Risk Page</span> values (the latter perhaps as a 
+coding oversight), the function deletes the <span class="regvalue">First Home Page</span> 
+value from the <span class="regkey">HKEY_CURRENT_USER</span> branch only. </p>
+<h2>Availability </h2>
+<p>The <span class="function">_GetStdLocation</span> function is exported from:
+</p>
+<ul>
+  <li>SHDOCVW.DLL as ordinal 150 in version 5.0 and higher; </li>
+  <li>IEFRAME.DLL, again as ordinal 150, in version 7.0 and higher. </li>
+</ul>
+<p>The SHDOCVW build of version 6.0 from Windows Vista continues to export the function 
+but only as a forward to IEFRAME. </p>
+<p>The <span class="function">_GetStdLocation</span> function exists in SHDOCVW 
+from as far back as version 4.70, but it isn’t exported until version 5.0. The early 
+versions work in ANSI. Except for this, the coding is so well established by version 
+4.71 that there is only one change until the function was moved to IEFRAME. In versions 
+4.71 and 4.72, ordinal 150 is instead an early implementation (in ANSI) of
+<span class="function"><a href="../util/urlsubstitution.htm">URLSubstitution</a></span>.
+</p>
+<h3>Documentation Status </h3>
+<!--webbot bot="Include" U-Include="../_include/undoc500.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 1999, it was still not 
+documented by Microsoft as late as the January 2007 edition of the Windows Vista 
+Software Development Kit (SDK). </p>
+
+<!--webbot bot="Include" i-checksum="57206" endspan -->
+<div class="Footer">
+  <p class="Dates">TThis page was created on 16th December 2008 and was last modified 
+  on 4th April 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0810.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="55263" endspan -->
+</div>
+
+</body>
+
+</html>

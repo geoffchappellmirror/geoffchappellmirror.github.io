@@ -1,0 +1,106 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>HvlQueryNumaDistance</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>HvlQueryNumaDistance </h1>
+<p>The <span class="function">HvlQueryNumaDistance</span> function queries the hypervisor 
+for the distance between two NUMA nodes. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+HvlQueryNumaDistance (
+    USHORT CpuNumaNode, 
+    USHORT MemoryNumaNode, 
+    ULONG64 *Distance);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">CpuNumaNode</span> and <span class="argument">MemoryNumaNode</span> 
+arguments specify the nodes to evaluate. </p>
+<p>The <span class="argument">Distance</span> argument provides the address of a 
+variable that is to receive the distance. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+<p>If the function fails, it produces the distance as -1. This, not the return value, 
+is what the kernel tests for the success or failure of its one internal use of this 
+function. No other use of the function is known. </p>
+<h2>Availability </h2>
+<p>The <span class="function">HvlQueryNumaDistance</span> function is exported by 
+name from the kernel in version 6.3 and higher. It exists in version 6.2 but only 
+as an internal routine, not as an exported function. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">HvlQueryNumaDistance</span> function is not documented. 
+It is, however, declared in the NTOSP.H from the Windows Driver Kit (WDK) for Windows 
+10. </p>
+<h2>Behaviour </h2>
+<p>The query is made of the hypervisor via hypercall code 0x0078, which Microsoft’s
+<a href="https://msdn.microsoft.com/en-us/virtualization/hyperv_on_windows/reference/tlfs">
+Hypervisor Top-Level Functional Specification</a> documents as
+<span class="constant">HvCallQueryNumaDistance</span>. This documentation describes 
+the distance as “the number of CPU cycles for 1024 accesses” from the CPU node to 
+the memory node, else as -1 if “the calculation is not possible.” </p>
+<p>The hypercall requires proximity domain IDs. The function obtains these from 
+the given node numbers by looking in the kernel’s array of <span class="struct">
+KNODE</span> structures. </p>
+<p>The function does not check that the hypervisor supports the query, i.e., that
+<span class="member">NumaDistanceQueryAvailable</span> is set in the
+<span class="struct"><a href="../../hvilib/hviintel/hypervisor_features.htm">HV_HYPERVISOR_FEATURES</a></span> 
+that are the output of <span class="instruction">cpuid</span> leaf 0x40000003. From 
+the one place that the kernel calls this function internally, this check is made 
+before calling the function, the point being that the kernel would itself compute 
+the distance between nodes except for noticing that it can—indeed, would better—ask 
+the hypervisor. </p>
+<p>Incidentally, the kernel establishes its table of distances between nodes during 
+phase 1 of the kernel’s initialisation. Without hypervisor support, the kernel computes 
+the distances experimentally by: switching to a processor in the CPU node; obtaining 
+a page of memory from the memory node, locked and mapped into system address space; 
+and then, while at <span class="constant">DISPATCH_LEVEL</span>, timing the reading 
+of the whole page as successive dwords or qwords (for 32-bit and 64-bit Windows, 
+respectively). </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 21st
+  <a href="../../../../../../../new/16/11.htm">November 2016</a> and was last modified 
+  on 24th November 2016. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c16.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6338" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,596 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ApiSetSchema</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/win32.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="6863" -->
+<!--webbot bot="Include" U-Include="../_include/workitem.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">OLD MATERIAL BEING UPDATED - TAKE CARE </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="10749" -->
+<h1>The API Set Schema </h1>
+<p>Windows 7 brings a significant reorganisation of the lower levels of the Win32 
+subsystem. Long-familiar ADVAPI32 functions are moved to KERNEL32. Many functions 
+from both of those are moved to a new DLL named KERNELBASE. Other ADVAPI32 functions 
+are moved to a new DLL named SECHOST. Very many executables in Windows 7 import 
+functions from new DLLs that have unusually long names such as API-MS-Win-Core-LocalRegistry-L1-1-0.dll. 
+This importing is done by ADVAPI32 and KERNEL32, by DLLs for general support such 
+as MFC42, MSVCRT and OLE32, by many services, and by all sorts of other executables 
+all through the lower levels of Windows out as far as SHELL32 and SHLWAPI. Whatever 
+it is that’s going on, it’s developed much further in Windows 8. Not only are there 
+very many more of those DLLs with the long names but they apply in kernel-mode too. 
+The NT kernel itself (NTOSKRNL), which once upon a time imported only from the HAL, 
+now imports from such DLLs as ext-ms-win-ntos-ksigningpolicy-l1-1-0.dll. </p>
+<p>There is not much official documentation of this. The original Software Development 
+Kit (SDK) for Windows 7 makes just the one mention of KERNELBASE, in a brief page 
+about <a target="_top" href="http://msdn.microsoft.com/library/dd371752.aspx">New 
+Low-Level Binaries</a>, and says nothing about the new DLLs with the unusual names. 
+If not much more ever is documented about it, then in one sense there should not 
+be much surprise. After all, higher-level executables distributed with Windows continue 
+to import as before from such DLLs as KERNEL32, and since the SDK has no import 
+libraries for the new DLLs, the intention is surely that programs written outside 
+Microsoft, and probably also most that are written inside Microsoft, will know nothing 
+of the new DLLs and should be unaffected. The new DLLs with the long names are anyway 
+just stubs in which all exported functions are implemented no more than needed for 
+hard-coded failure. Moreover, these failing implementations have not all received 
+great care: see for instance that <span class="function">CreateFileW</span> in API-MS-Win-Core-File-L1-1-0.dll 
+returns a hard-coded <span class="constant">NULL</span> (0) instead of
+<span class="constant">INVALID_HANDLE_VALUE</span> (-1). </p>
+<p>In another sense, the lack of documentation may astonish, depending on what one 
+expects to be told about the Windows architecture in order to assess its security 
+and robustness. These new DLLs are part of a small but significant embellishment 
+of how NTDLL resolves imports when loading user-mode modules. It turns out that 
+all imports from any DLL whose (case-insensitive) module name starts with API- are 
+checked for a new form of redirection. Windows 8 adds EXT- as an applicable prefix 
+and applies the same embellishment to the kernel’s resolution of imports when loading 
+kernel-mode modules and to the loader’s when loading the kernel (and HAL, etc). 
+Since very many Windows executables import from modules that have these prefixes, 
+and especially since KERNEL32 and ADVAPI32 do so for the initial handling of several 
+hundred of the most commonly used Windows API functions, software that can interfere 
+with this new redirection could be very powerful in terms of modifying behaviour 
+throughout Windows for relatively little effort. </p>
+<p>Perhaps both Microsoft and the computer security industry were just slow to formalise 
+or assess, respectively, this huge change in what’s where in Windows. Though the 
+introduction for Windows 7 seems to have passed almost entirely unnoticed outside 
+Microsoft, the SDKs for Windows 8 and Windows 8.1 bring import libraries with which 
+non-Microsoft programmers can import from the new DLLs and there’s even some documentation, 
+of <a href="http://msdn.microsoft.com/library/windows/desktop/hh802935.aspx">Windows 
+API Sets</a> generally, and of
+<a href="http://msdn.microsoft.com/library/windows/desktop/dn505783.aspx">Windows 
+8 API Sets</a> and
+<a href="http://msdn.microsoft.com/library/windows/desktop/dn933214.aspx">Windows 
+8.1 API Sets</a> specifically. </p>
+<p>Curiously—or not, depending perhaps on whether you look at it as a practising 
+Windows programmer or as the designer of a competing operating system—far and away 
+the most documentation of API Sets is in a patent:
+<a href="http://www.patentsencyclopedia.com/app/20140366045">Dynamic Management 
+of Composable API Sets</a> (filed on 7th June 2013, i.e., a little before the release 
+of Windows 8.1). It may be too cynical to infer that Microsoft is more concerned 
+to stop its invention from being copied than to help its users understand how they’re 
+affected, but even so, something important is being done to the Windows architecture 
+and it’s mostly happening without disclosure by Microsoft or comment from outside.
+</p>
+<h2>Mechanism </h2>
+<p>In Windows 7, the new redirection of imports from DLLs is managed by NTDLL as 
+a preferred alternative to isolation through activation contexts. Whether the imports 
+from any particular API- or EXT- module are redirected depends entirely on the contents 
+of a new file, named ApiSetSchema.dll in the System32 directory. Although ApiSetSchema 
+is a DLL, it is wanted only for data. The whole file is mapped into kernel-mode 
+address space by the NT kernel during phase 1 of system initialisation. From there, 
+the wanted data is mapped into the user-mode address space of each newly initialised 
+process and a pointer to this data is placed in a new member, named
+<span class="member">ApiSetMap</span> (at offset 0x38 and 0x68 in x86 and x64 builds 
+respectively), of the process’s semi-documented <span class="struct">
+<a href="../ntdll/structs/peb.htm">PEB</a></span> structure. The kernel recognises 
+the data only as the whole contents of a section that is named “.apiset” and is 
+aligned to 64KB (i.e., whose <span class="member">VirtualAddress</span> member in 
+the <span class="struct">IMAGE_SECTION_HEADER</span> has the low 16 bits clear). 
+The kernel has nothing to do with interpreting these contents: it just provides 
+them for NTDLL to interpret. Conversely, NTDLL knows nothing of where the contents 
+came from. To NTDLL, whenever it is to resolve an import to one module from another, 
+whatever is at the address given by <span class="member">ApiSetMap</span> is accepted 
+as a map from which to learn whether to resolve the import from somewhere else instead.
+</p>
+<p>Windows 8 complicates this neat division by having the kernel join the redirection 
+game. Indeed, the kernel’s own imports are subject to redirection. So that this 
+redirection is done before any kernel code executes, the work of loading ApiSetSchema 
+is brought forward to the Windows loader (WINLOAD), which loads the kernel. Again, 
+the map is the whole contents of the “.apiset” section (though now with no alignment 
+requirement). Again, these contents are just assumed to have the correct format. 
+WINLOAD both loads the map and uses it (to resolve imports by the kernel itself, 
+by the HAL and by other modules that must be ready before the kernel first executes). 
+The kernel does not load the map, but it does know that the map comes from the ApiSetSchema 
+file. WINLOAD leaves ApiSetSchema in the list of loaded modules that it passes to 
+the kernel through the undocumented <span class="struct">
+<a href="../../km/ntoskrnl/structs/loader_parameter_block.htm">LOADER_PARAMETER_BLOCK</a></span> 
+structure. The kernel then finds the loaded image, extracts its own copy of the 
+“.apiset” section, and unloads the image. Except for these changes in preparation 
+and that the kernel, too, interprets the map for redirecting imports in kernel-mode 
+modules such as drivers, the mechanism (even down to the file format) is that of 
+Windows 7. </p>
+<h3>API Set Schema Extensions </h3>
+<p>In Windows 8.1 and higher, WINLOAD has the entire responsibility for building 
+the map. ApiSetSchema is already unloaded when the kernel initialises. The kernel 
+knows nothing of where the map comes from. It just gets an address and size in an 
+extension of the <span class="struct">LOADER_PARAMETER_BLOCK</span> and it accepts 
+whatever’s there. </p>
+<p>In these versions, the map of API Sets to hosts need not come from the one DLL. 
+The file named ApiSetSchema.dll in the System32 directory is required, but only 
+as a <span class="definition">base schema</span>. Unless a flag in that file marks 
+this map as <span class="definition">sealed</span> WINLOAD looks in the registry 
+for more files from which to extend the map. There can be arbitrarily many
+<span class="definition">schema extensions</span>: </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session 
+    Manager\ApiSetSchemaExtensions\<span class="placeholder">subkey</span>
+    </span></td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">FileName</span> </td>
+  </tr>
+</table>
+<p>The <span class="placeholder">subkey</span> is irrelevant except that each different
+<span class="placeholder">subkey</span> allows a different extension. WINLOAD recognises
+<span class="regvalue">Name</span> and <span class="regvalue">FileName</span> values 
+in the subkey, but interprets only the latter. Data for the
+<span class="regvalue">FileName</span> value names a file in the System32 directory. 
+The file has the same format as ApiSetSchema but with a different interpretation. 
+Where the base schema is a list of API Sets and gives for each the rules for redirecting 
+the API Set to a host (depending possibly on who’s importing), a schema extension 
+is a list of hosts and gives for each a list of API Sets that this host implements. 
+WINLOAD has the job of merging the extensions into the base. The principle seems 
+to be that if an API Set is implemented by a host that is listed in a schema extension, 
+then the API Set redirects to that host, not to whatever was specified in the base 
+schema. The <span class="definition">composed schema</span>, in the same format 
+as the base schema, is what WINLOAD itself uses for resolving imports and is all 
+that the kernel and NTDLL ever receive as the map they’re to use for resolving imports.
+</p>
+<h2>Original Data Format </h2>
+<p>The map begins as a header followed immediately by an array of entries which 
+each describe one API Set. Beware, however, that a different interpretation 
+applies to schema extensions in Windows 8.1. Throughout the description below, 
+structures are presented first for the base and composed schemas and the 
+difference for schema extensions is left to comments after each structure. </p>
+<h3>Namespace Array </h3>
+<p>The fixed-size header is 8 bytes originally, but version 6.3 expands it to 0x10. 
+A file named APISET.H in the SDKs for Windows 8 and Windows 8.1 documents that Microsoft’s 
+name for the map’s header, including the array, is <span class="struct">API_SET_NAMESPACE_ARRAY</span>. 
+(All the symbolic names given in this article are from that file.) </p>
+<table class="Struct">
+  <tr>
+    <th>Offset (6.1) </th>
+    <th>Offset (6.3) </th>
+    <th>Size </th>
+    <th>Symbolic Name </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td><span class="member">Version</span> </td>
+    <td>ignored before 6.3, observed to be 2; <br>
+    3 or higher for recognition as schema extension in 6.3; <br>
+    observed to be 4 in 6.3 </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td><span class="member">Size</span> </td>
+    <td>size of map in bytes </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x08 </td>
+    <td>dword </td>
+    <td><span class="member">Flags</span> </td>
+    <td>0x01 bit set in ApiSetSchema if base schema is “sealed”; <br>
+    0x02 bit set in schema extension </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td><span class="member">Count</span> </td>
+    <td>number of API Sets described by array that follows </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x10 </td>
+    <td>unsized </td>
+    <td><span class="member">Array</span> </td>
+    <td>array of namespace entries </td>
+  </tr>
+</table>
+<p>The only known interpretation of the <span class="member">Version</span> 
+member is by WINLOAD and only then if looking for schema extensions. The only known interpretation 
+of the <span class="member">Size</span> member is also by WINLOAD and only then 
+if extension actually occurs (such that the name of a new host, at least, is 
+appended to the base schema). </p>
+<p>The <span class="member">Flags</span> member is meaningful only to WINLOAD. 
+The 0x01 bit (<span class="bit">API_SET_SCHEMA_FLAGS_SEALED</span>) matters only 
+in the ApiSetSchema.dll from the System32 directory. If it is set, then the base 
+schema from this file is the whole map. WINLOAD does not look in the registry 
+for schema extensions. The 0x02 bit (<span class="bit">API_SET_SCHEMA_FLAGS_HOST_EXTENSION</span>) 
+matters only in a file that is named as a schema extension. It must be set, else 
+WINLOAD ignores the file. </p>
+<p>In a schema extension, the <span class="member">Count</span> entries in the
+<span class="member">Array</span> list hosts, not API Sets. </p>
+<h3>Namespace Entry </h3>
+<p>Each entry in the array is an <span class="struct">API_SET_NAMESPACE_ENTRY</span>. 
+Each is 0x0C bytes orginally, expanded to 0x18 in version 6.3. Each names an API 
+Set but without the API- prefix (or EXT- prefix in version 6.2 and higher) and without 
+a file extension. Names are in Unicode and are not null-terminated. The array is 
+assumed to be already sorted in case-insensitive alphabetical order. </p>
+<table class="struct">
+  <tr>
+    <th>Offset (6.1) </th>
+    <th>Offset (6.3) </th>
+    <th>Size </th>
+    <th>Symbolic Name </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td><span class="member">Flags</span> </td>
+    <td>0x01 bit set in ApiSetSchema if API Set is sealed; <br>
+    0x02 bit
+    observed to be clear for API- and set for EXT- </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td><span class="member">NameOffset</span> </td>
+    <td>offset from start of map to name of API Set </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x08 </td>
+    <td>word in version 6.1; <br>
+    else dword </td>
+    <td><span class="member">NameLength</span> </td>
+    <td>size, in bytes, of name of API Set </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td><span class="member">AliasOffset</span> </td>
+    <td>ignored; <br>
+    observed to be same as <span class="member">NameOffset</span> </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x10 </td>
+    <td>dword </td>
+    <td><span class="member">AliasLength</span> </td>
+    <td>ignored; <br>
+    observed to be <span class="member">NameLength</span> less 8 </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x14 </td>
+    <td>dword </td>
+    <td><span class="member">DataOffset</span> </td>
+    <td>offset from start of map to structure that lists the API Set’s hosts </td>
+  </tr>
+</table>
+<p>The <span class="member">Flags</span> member is meaningful only to WINLOAD. 
+The 0x01 bit (<span class="bit">API_SET_SCHEMA_ENTRY_FLAGS_SEALED</span>) 
+matters only in the ApiSetSchema.dll from the System32 directory. If it is set, 
+then the API Set described by this entry cannot be overridden by a schema 
+extension.
+</p>
+<p>Though the <span class="member">NameLength</span> is formally a
+<span class="member">ULONG</span> in the headers that Microsoft publishes with SDKs 
+for later versions, the Windows 7 implementation of NTDLL uses only the low 16 bits.
+</p>
+<p>The structure that lists the API Set’s hosts is an <span class="struct">
+API_SET_VALUE_ARRAY</span>, described next.
+</p>
+<p>In a schema extension, an <span class="struct">API_SET_NAMESPACE_ENTRY</span> 
+names a host, i.e., a DLL that imports from one or more API Sets may be 
+redirected to. Names are again in Unicode and not null-terminated. No sorting of 
+the array is assumed. The <span class="member">DataOffset</span> is again the 
+offset from the start of the map to an <span class="struct">API_SET_VALUE_ARRAY</span>, 
+but to list the API Sets that the host implements (and which should redirect to 
+this host, not to whatever host is specified in the base schema).
+</p>
+<h3>Value Array </h3>
+<p>If the module to be imported from is an API Set as found in the array, then the 
+import may be redirected to some host module. Before version 6.3, NTDLL assumes 
+that at least one host is specified (else why list the API Set). Later versions allow that an API Set can be 
+defined but inactive, in the sense of naming no host (presumably anticipating 
+that a host will be specified in a schema extension). The hosts for an API Set are 
+described by a header and an array. Microsoft’s name for the header, including the 
+array, is <span class="struct">API_SET_VALUE_ARRAY</span>. Originally, the header 
+contains only a count of entries in the array. Version 6.3 expands this header to 
+8 bytes. </p>
+<table class="Struct">
+  <tr>
+    <th>Offset (Original) </th>
+    <th>Offset (New) </th>
+    <th>Size </th>
+    <th>Symbolic Name </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td><span class="member">Flags</span> </td>
+    <td>ignored; <br>
+    observed to be 0 </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td><span class="member">Count</span> </td>
+    <td>number of hosts described by array that follows </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x08 </td>
+    <td>unsized </td>
+    <td><span class="member">Array</span> </td>
+    <td>array of entries for hosts </td>
+  </tr>
+</table>
+<p>In a schema extension, the <span class="member">Count</span> entries in the
+<span class="member">Array</span> list API Sets, not hosts. </p>
+<h3>Value Entry </h3>
+<p>Each entry in the value array is an <span class="struct">API_SET_VALUE_ENTRY</span>. 
+Each is 0x10 or 0x14 bytes, depending on the version. The first entry in the array 
+describes a default host. Subsequent entries, if any, are selected according to 
+the name of the importing module. Entries for these exceptional hosts are assumed 
+to be already sorted in case-insensitive alphabetical order of the importing module. 
+Note, however, that no schema has yet been seen that defines more than two hosts 
+for any one API Set. </p>
+<table class="Struct">
+  <tr>
+    <th>Offset (6.1) </th>
+    <th>Offset (6.3) </th>
+    <th>Size </th>
+    <th>Symbolic Name </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td><span class="member">Flags</span> </td>
+    <td>ignored; <br>
+    observed to be 0 </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td><span class="member">NameOffset</span> </td>
+    <td>offset from start of map to name of importing module, in Unicode </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x08 </td>
+    <td>word in version 6.1; <br>
+    else dword </td>
+    <td><span class="member">NameLength</span> </td>
+    <td>size, in bytes, of name of importing module </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td><span class="member">ValueOffset</span> </td>
+    <td>offset from start of map to name of host module, in Unicode </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>0x10 </td>
+    <td>word or dword </td>
+    <td><span class="member">ValueLength</span> </td>
+    <td>size, in bytes, of name of host module </td>
+  </tr>
+</table>
+<p>Both names are in Unicode and are not null-terminated. For a default host, with 
+no importing module to specify, the <span class="member">NameOffset</span> and
+<span class="member">NameLength</span> members are irrelevant and are observed to 
+be 0. </p>
+<p>Though the <span class="member">ValueLength</span> is formally a
+<span class="member">ULONG</span> in the headers that Microsoft publishes with SDKs 
+for Windows 8 and Windows 8.1, annotations for static analysis tools document that 
+the length must fit 16 bits, and NTDLL uses only the low 16 bits. When WINLOAD processes 
+value entries in schema extensions, it takes the whole dword. </p>
+<p>In a schema extension, the <span class="member">ValueOffset</span> and
+<span class="member">ValueLength</span> name an API Set. WINLOAD requires that 
+this API Set be defined already in the base schema. </p>
+<h2>Data Format In Windows 10 </h2>
+<p>Version 10.0 changes the data format enough that it seems better described fresh. 
+The most notable change is the introduction of a hash table so that the binary search 
+of namespace entries can be faster for comparing 32-bit hashes rather than case-insensitive 
+strings. Another is a simplification that removes the <span class="struct">API_SET_VALUE_ARRAY</span>. 
+Perhaps even more notable to some is a change not in the data format itself but 
+in what Microsoft formally reveals of it: in the SDK for Windows 10, APISET.H drops 
+the structural definitions. </p>
+<h3>Namespace Header </h3>
+<p>The header is 0x1C bytes in which the first 0x10 are compatible with the header 
+from version 6.3. The map now has two arrays. Even though the array of namespace 
+entries does still follow the header, if only in the one example that is yet observed, 
+both arrays are located by giving their offsets. </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>5 or higher for recognition as schema extension in 10.0; <br>
+    observed to be 6 in 10.0 </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>size of map in bytes </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>dword </td>
+    <td>0x01 bit set in ApiSetSchema if schema is sealed </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td>number of API Sets </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>dword </td>
+    <td>offset from start of map to array of namespace entries for API Sets </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>dword </td>
+    <td>offset from start of map to array of hash entries for API Sets </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>dword </td>
+    <td>multiplier to use when computing hash </td>
+  </tr>
+</table>
+<h3>Hash Entry </h3>
+<p>The algorithm for hashing a sequence of characters is to start with zero and 
+then for each character multiply the previous hash by the multiplier from the header 
+and add the character’s lower-case conversion. Each hash entry is 0x08 bytes:
+</p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>hash of API Set’s lower-case name up to but not including last hyphen
+    </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>index of API Set in array of namespace entries </td>
+  </tr>
+</table>
+<p>The hash entries are assumed to be already sorted in increasing order of the 
+hash. To find the <span class="struct">API_SET_NAMESPACE_ENTRY</span> for a supposed 
+API Set, NTDLL first hashes the supposed name up to but not including the last hyphen 
+and then searches the array of hash entries for one that has the same hash. Only 
+when a matching hash is found are the names themselves compared. Note that in version 
+10, the last part in the name of an API Set, i.e., from the last hyphen onwards, 
+is insignificant. </p>
+<h3>Namespace Entry </h3>
+<p>The <span class="struct">API_SET_NAMESPACE_ENTRY</span>, which describes a single 
+API Set, changes a little. The API Set’s name is again in Unicode, with no null 
+terminator, but now includes the prefix that earlier versions omit. The hosts for 
+the API Set are described directly by an array of <span class="struct">API_SET_VALUE_ENTRY</span> 
+structures instead of indirectly through an <span class="struct">API_SET_VALUE_ARRAY</span>. 
+The latter’s count of hosts moves to the namespace entry. </p>
+<table class="struct">
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>0x01 bit set in ApiSetSchema.dll if API Set is “sealed” </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>offset from start of map to name of API Set </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>dword </td>
+    <td>ignored; <br>
+    observed to be size, in bytes, of name of API Set </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td>size, in bytes, of name of API Set up to but not including last hyphen;<br>
+    thus also number of bytes hashed from name of API Set for corresponding hash 
+    entry </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>dword </td>
+    <td>offset from start of map to array of value entries for hosts </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>dword </td>
+    <td>number of hosts </td>
+  </tr>
+</table>
+<p>The <span class="struct">API_SET_VALUE_ENTRY</span> is unchanged from version 
+6.3, except that non-zero <span class="member">Flags</span> are observed for one 
+API set (0x18 for api-ms-win-security-provider-l1-1-0 and only then in the x86 build).
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 13th June 2010 and was last modified 
+  on 30th April 2016. </p>
+  <!--webbot bot="Include" U-Include="../_include/c1016.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010-2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="48264" -->
+</div>
+
+</body>
+
+</html>

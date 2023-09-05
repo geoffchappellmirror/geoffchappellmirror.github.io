@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Strange Things LINK Knows About 80x86 Processors</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Strange Things LINK Knows about 80x86 Processors </h1>
+  <p>The history of the dominant operating systems designed for Intel’s processors 
+  is such that software intended to work at or near the level of the operating system 
+  is sometimes developed by programmers who did not write the operating system itself. 
+  These programmers mean to add features to the operating system—and it may be that 
+  inventive additions by programmers outside Microsoft have contributed much to 
+  the stability and success of Microsoft’s operating systems in the consumer market.
+  </p>
+  <p>Because they work more closely with the processor than some think should ever 
+  be necessary in a well-designed operating system, low-level programmers of Intel’s 
+  80x86 processors are occasionally faced with the practical problem of identifying 
+  the processor more precisely than simply distinguishing an 80386 from an 80486 
+  from a Pentium. It is also the nature of these programmers to wonder whether they 
+  are working from the full story—and suspicions of this sort have not been allayed 
+  by the occasional revelation that Intel’s processors support instructions that 
+  Intel does not document. </p>
+  <p>Going at least as far back as the use of an undocumented
+  <span class="instruction">LOADALL</span> instruction for a RAM disk driver in 
+  an early DOS version, Microsoft has been seen to know more about Intel’s processors 
+  than could be learned just by studying Intel’s 80x86 manuals. This is only to 
+  be expected in programs that Microsoft writes as components of the operating systems 
+  that Intel’s processors are most often bought to support, though it does raise 
+  the question of whether similar information is as readily available to developers 
+  of utility programs that replace or enhance operating system functionality or 
+  to other designers of operating systems for Intel’s processors. That unusual knowledge 
+  of these processors occasionally finds its way into applications (most notably, 
+  development tools such as assemblers, compilers and linkers) is more clearly unsatisfactory, 
+  since in the market of these programs, Microsoft is generally just one of many.
+  </p>
+  <p>In 1997, I examined two Microsoft programs for unusual knowledge of Intel’s 
+  processors, intending to write a paper in two parts. The first showed Microsoft’s 
+  32-bit linker, which was then fairly new, as knowing opcodes for as many as 15 
+  instructions that do not seem to have been documented for everyone. A second part 
+  was to look at the operating system kernel from Windows NT 4.0 for some finer 
+  points of CPU identification, but it never got beyond a draft. (That said, see
+  <a href="../../../studies/windows/km/cpu/identification.htm">CPU Identification 
+  by the Windows Kernel</a>, which treads some of the same ground but is up-to-date 
+  for Windows Vista.) </p>
+  <p>This article is essentially what was originally published as a Word document 
+  titled <span class="citation">Strange Things That Microsoft Knows About Intel’s 
+  80x86 Processors</span>. It describes how a linker that was supplied with different 
+  versions of Microsoft Visual C++ knows the opcodes and operand requirements of 
+  a dozen or so 80x86 instructions that Intel does not seem to have documented for 
+  general knowledge: <span class="instruction">LOADALL</span>,
+  <span class="instruction">CFLSH</span>, <span class="instruction">WRECR</span>,
+  <span class="instruction">RDECR</span>, <span class="instruction">SVDC</span>,
+  <span class="instruction">RSDC</span>, <span class="instruction">SVLDT</span>,
+  <span class="instruction">RSLDT</span>, <span class="instruction">SVTS</span>,
+  <span class="instruction">RSTS</span>, <span class="instruction">SMINT</span>,
+  <span class="instruction">XBTS</span>, <span class="instruction">IBTS</span>,
+  <span class="instruction">ZALLOC</span>.&nbsp; </p>
+  <p>(I am grateful to Robert Collins and Christian Ludloff for their separate information 
+  that seven of these, namely <span class="instruction">SVDC</span>,
+  <span class="instruction">RSDC</span>, <span class="instruction">SVLDT</span>,
+  <span class="instruction">RSLDT</span>, <span class="instruction">SVTS</span>,
+  <span class="instruction">RSTS</span> and <span class="instruction">SMINT</span>, 
+  are not actually Intel’s instructions but are documented as instructions for Cyrix’s 
+  80x86 look-alike processors. I would never have thought to look.) </p>
+  <h2>Versions </h2>
+  <p>In the versions of Microsoft Visual C++ for developing 32-bit applications, 
+  the linker has an option to dump the contents of its input files (which may be 
+  object files or executables). You turn LINK into a COFF Binary File Dumper by 
+  giving LINK the <span class="switch">/dump</span> switch on the command line or, 
+  more usually, by running LINK indirectly from a stub program called DUMPBIN.
+  </p>
+  <p>The following table shows the versions of LINK that have been examined for 
+  this paper. All come from releases of Microsoft Visual C++, the linker supplied 
+  with the Windows 95 DDK being apparently an amendment of the linker from some 
+  version of Microsoft Visual C++ 2.0.<a class="FootnoteReference" name="FtnRef_1" href="#Ftn_1">[1]</a>
+  </p>
+  <table class="FilePackages">
+    <colgroup>
+      <col class="Version"><col class="Package">
+    </colgroup>
+    <tr>
+      <th>File Version </th>
+      <th>Source </th>
+    </tr>
+    <tr>
+      <td>2.60.5046 </td>
+      <td>Windows 95 DDK </td>
+    </tr>
+    <tr>
+      <td>3.00.5270 </td>
+      <td>Microsoft Visual C++ 4.0 </td>
+    </tr>
+    <tr>
+      <td>3.10.6038 </td>
+      <td>Microsoft Visual C++ 4.1 </td>
+    </tr>
+    <tr>
+      <td>4.20.6164 </td>
+      <td>Microsoft Visual C++ 4.2 </td>
+    </tr>
+  </table>
+  <p>Among the features offered for the file dump is a simple disassembly of code 
+  sections. This option is invoked by also giving the linker the
+  <span class="switch">/disasm </span>switch. Microsoft’s linker can recognise files 
+  developed for many processors—indeed, for a few more than are listed in relevant 
+  Microsoft documentation—and can disassemble code for all but one of them.<a class="FootnoteReference" name="FtnRef_2" href="#Ftn_2">[2]</a>
+  </p>
+  <table>
+    <tr>
+      <th>Machine ID </th>
+      <th>Description </th>
+      <th>Is Disassembly Supported? </th>
+    </tr>
+    <tr>
+      <td>014Ch </td>
+      <td>i386 </td>
+      <td>yes </td>
+    </tr>
+    <tr>
+      <td>0162h </td>
+      <td>R3000 </td>
+      <td>yes </td>
+    </tr>
+    <tr>
+      <td>0166h </td>
+      <td>R4000 </td>
+      <td>yes </td>
+    </tr>
+    <tr>
+      <td>0168h </td>
+      <td>R10000 </td>
+      <td>yes </td>
+    </tr>
+    <tr>
+      <td>0184h </td>
+      <td>Alpha AXP </td>
+      <td>yes </td>
+    </tr>
+    <tr>
+      <td>01F0h </td>
+      <td>PPC </td>
+      <td>yes </td>
+    </tr>
+    <tr>
+      <td>0268h </td>
+      <td>M68K </td>
+      <td>yes </td>
+    </tr>
+    <tr>
+      <td>0290h </td>
+      <td>PARISC </td>
+      <td>no </td>
+    </tr>
+    <tr>
+      <td>0601h </td>
+      <td>MPPC </td>
+      <td>yes </td>
+    </tr>
+  </table>
+  <p>The R10000 machine is a relatively recent addition to the list of supported 
+  machines: it is not recognised by LINK version 2.60. </p>
+  <h2>The Undocumented Instructions </h2>
+  <p>Over the four versions studied, the disassembler for Intel’s processors knows 
+  of 15 instructions that do not appear in opcode maps supplied with Intel’s widely 
+  available manuals. The following table shows these unusual opcodes and the corresponding 
+  instructions, using placeholders to represent the operands that LINK includes 
+  with the instruction mnemonic when disassembling. </p>
+  <table>
+    <tr>
+      <th>Opcode </th>
+      <th>Mnemonic </th>
+      <th>Operands </th>
+    </tr>
+    <tr>
+      <td>0F 05 </td>
+      <td>LOADALL </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0F 07 </td>
+      <td>LOADALL </td>
+      <td><span class="placeholder">esi16</span> or <span class="placeholder">esi32</span>
+      </td>
+    </tr>
+    <tr>
+      <td>0F 0A </td>
+      <td>CFLSH </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0F 34 </td>
+      <td>WRECR </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0F 36 </td>
+      <td>RDECR </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0F 78 </td>
+      <td>SVDC </td>
+      <td><span class="placeholder">mem80</span>,<span class="placeholder">sreg</span>
+      </td>
+    </tr>
+    <tr>
+      <td>0F 79 </td>
+      <td>RSDC </td>
+      <td><span class="placeholder">sreg</span>,<span class="placeholder">mem80</span>
+      </td>
+    </tr>
+    <tr>
+      <td>0F 7A </td>
+      <td>SVLDT </td>
+      <td><span class="placeholder">mem80</span> </td>
+    </tr>
+    <tr>
+      <td>0F 7B </td>
+      <td>RSLDT </td>
+      <td><span class="placeholder">mem80</span> </td>
+    </tr>
+    <tr>
+      <td>0F 7C </td>
+      <td>SVTS </td>
+      <td><span class="placeholder">mem80</span> </td>
+    </tr>
+    <tr>
+      <td>0F 7D </td>
+      <td>RSTS </td>
+      <td><span class="placeholder">mem80</span> </td>
+    </tr>
+    <tr>
+      <td>0F 7E </td>
+      <td>SMINT </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0F A6 </td>
+      <td>XBTS </td>
+      <td><span class="placeholder">reg16</span>,<span class="placeholder">r/m16</span> 
+      or <span class="placeholder">reg32</span>,<span class="placeholder">r/m32</span>
+      </td>
+    </tr>
+    <tr>
+      <td>0F A7 </td>
+      <td>IBTS </td>
+      <td><span class="placeholder">r/m16</span>,<span class="placeholder">reg16</span> 
+      or <span class="placeholder">r/m32</span>,<span class="placeholder">reg32</span>
+      </td>
+    </tr>
+    <tr>
+      <td>0F AE </td>
+      <td>ZALLOC </td>
+      <td><span class="placeholder">mem256</span> </td>
+    </tr>
+  </table>
+  <p>Placeholders for operands are adapted from the convention used in Intel’s manuals. 
+  Thus, <span class="placeholder">reg16</span> and <span class="placeholder">reg32</span> 
+  stand for 16-bit and 32-bit general registers, and <span class="placeholder">sreg</span> 
+  stands for a segment register. The <span class="placeholder">r/m16</span> and
+  <span class="placeholder">r/m32</span> combinations may be filled by a register 
+  or by a memory reference. The <span class="placeholder">mem80</span> and
+  <span class="placeholder">mem256</span> placeholders are for references to memory 
+  only, specifically to ten-byte and 32-byte variables. The
+  <span class="placeholder">esi16</span> and <span class="placeholder">esi32</span> 
+  placeholders are for references to memory but with <span class="register">DS:SI</span> 
+  or <span class="register">DS:ESI</span> as the implied address. </p>
+  <p>Strictly speaking, recognition of opcodes by LINK does not imply that the corresponding 
+  instructions ever existed for any of Intel’s processors. It could be, for instance, 
+  that the programmer who prepared LINK’s disassembly tables worked from an opcode 
+  map that reflected only some intention at Intel. On the other hand, Microsoft’s 
+  use of an opcode map with more detail than the one Intel makes available to most 
+  programmers is clearly no one-shot: different versions of the linker use disassembly 
+  tables that support different selections from the preceding table and which do 
+  not match up easily with published opcode maps for successive processors. </p>
+  <p>Consider that LINK version 2.60 knows of all the documented Pentium instructions. 
+  It does not know of the <span class="instruction">FCOMI</span>,
+  <span class="instruction">FCOMIP</span>, <span class="instruction">FUCOMI</span> 
+  and <span class="instruction">FUCOMIP</span> instructions that Intel documents 
+  as being introduced for the Pentium Pro, nor of the <span class="instruction">
+  RDPMC</span> instruction that Intel documents as being available on the Pentium 
+  Pro and the Pentium with MMX technology. Yet this version of LINK does recognise 
+  opcodes for the <span class="instruction">CMOV<span class="placeholder">cc</span></span> 
+  and <span class="instruction">FCMOV<span class="placeholder">cc</span></span> 
+  instructions that Intel documents as having been introduced for the Pentium Pro.<a class="FootnoteReference" name="FtnRef_3" href="#Ftn_3">[3]</a>
+  </p>
+  <p>It is possible that the disassembly tables in LINK version 2.60 were prepared 
+  for the Pentium Pro, but some instructions were omitted by oversight. It may be 
+  that the conditional move instructions were designed first among new instructions 
+  for the Pentium Pro and were merely anticipated when the disassembly tables were 
+  prepared. Finally, it could be that the conditional move instructions existed, 
+  undocumented, on at least some Pentium processors and that this was known to whoever 
+  prepared the disassembly tables for LINK version 2.60. </p>
+  <p>LINK version 3.00 knows of all instructions that are documented for the Pentium 
+  Pro, but not of any MMX instructions. It is also the only version studied that 
+  recognises opcodes for the seven instructions <span class="instruction">SVDC</span>,
+  <span class="instruction">RSDC</span>, <span class="instruction">SVLDT</span>,
+  <span class="instruction">RSLDT</span>, <span class="instruction">SVTS</span>,
+  <span class="instruction">RSTS</span> and <span class="instruction">SMINT</span>. 
+  Note that disassembly of the opcode 0Fh 7Eh as <span class="instruction">SMINT</span> 
+  conflicts with Intel’s (presumably later) assignment of that opcode as a
+  <span class="instruction">MOVD</span> instruction for reading a dword from an 
+  MMX register. LINK version 3.10, which introduces support for MMX instructions, 
+  drops all seven of these instructions, which we may surmise exist only on the 
+  Pentium Pro, if at all. </p>
+  <p>Operands that LINK gives for the instructions <span class="instruction">SVDC</span> 
+  and <span class="instruction">RSDC</span> are consistent with an interpretation 
+  of the mnemonics as suggesting that the instructions save and restore the internal 
+  descriptor cache that corresponds to a given segment register. The descriptor 
+  cache would presumably consist of a dword each for the base and limit, and a word 
+  of access rights and other flags. A similar interpretation of
+  <span class="instruction">SVLDT</span>, <span class="instruction">RSLDT</span>,
+  <span class="instruction">SVTS</span> and <span class="instruction">RSTS</span> 
+  as operating on the internal descriptors for the current LDT and TSS would have 
+  those instructions also access ten bytes of memory. </p>
+  <h2>A Grain of Salt </h2>
+  <p>The correctness of LINK’s knowledge of operands should not be taken for granted, 
+  however. LINK makes rather too many errors even when disassembling documented 
+  instructions: </p>
+  <ul>
+    <li>
+    <p>Given a <span class="instruction">DEC</span> instruction that operates on 
+    a byte, LINK disassembles it as decrementing a dword (assuming here that the 
+    disassembly is of 32-bit code and no prefix overrides the operand size). In 
+    the language of Intel’s opcode maps, LINK disassembles
+    <span class="instruction">DEC Eb</span> as <span class="instruction">DEC Ev</span>. 
+    This error is fixed in LINK versions 3.10 and 4.20.<a class="FootnoteReference" name="FtnRef_4" href="#Ftn_4">[4]</a>
+    </p>
+    <p>For a practical example of ambiguity caused by this error, consider that 
+    LINK’s disassembly of an instruction as “dec eax” may truly mean
+    <span class="instruction">DEC EAX</span> but might also mean
+    <span class="instruction">DEC AL</span>. Resolving this ambiguity typically 
+    requires reference to an opcode map or list of instruction encodings. </p>
+    </li>
+    <li>
+    <p>For all the instructions that move to and from control, debug and test registers, 
+    LINK disassembles the operands in the wrong order. This error is fixed in LINK 
+    version 4.20, but not for the instructions that operate on test registers (which 
+    exist only on 80386 and 80486 processors). </p>
+    </li>
+    <li>
+    <p>Given the long form of <span class="instruction">IMUL</span> instruction 
+    with three word or dword operands, LINK’s disassembly shows the last operand 
+    (that is, the immediate data) as a byte. In the language of Intel’s opcode maps, 
+    LINK lists <span class="instruction">IMUL Gv,Ev,Iv</span> as
+    <span class="instruction">IMUL Gv,Ev,Ib</span>. </p>
+    <p>For a practical example of ambiguity caused by this error, consider that 
+    LINK’s disassembly of an instruction as “imul eax,eax,78h” may truly be a multiplication 
+    by 12345678h (or by any other dword whose low byte is 78h). The correct immediate 
+    operand is shown among the opcode bytes that precede the instruction mnemonic 
+    in the disassembly. </p>
+    </li>
+    <li>
+    <p>LINK recognises the <span class="instruction">FCOMI</span>,
+    <span class="instruction">FUCOMI</span>, <span class="instruction">FCOMIP</span> 
+    and <span class="instruction">FUCOMIP</span> instructions as taking only ST,ST(0) 
+    as its operands. Opcodes that indicate use of any stack register except
+    <span class="register">ST(0)</span> as the second operand are not accepted as 
+    valid. </p>
+    </li>
+    <li>
+    <p>For the <span class="instruction">MOVD</span> and
+    <span class="instruction">MOVQ</span> instructions, LINK disassembles the operands 
+    in the wrong order. For the <span class="instruction">MOVD</span> instruction 
+    there is an additional problem. Specifically, the operand that Intel documents 
+    as a general register or memory address is instead interpreted as an MMX register 
+    or memory address. In the language of Intel’s opcode maps, LINK disassembles
+    <span class="instruction">MOVD Pd,Ed</span> as <span class="instruction">MOVD 
+    Qd,Pd</span>, and similarly in the other direction. </p>
+    </li>
+    <li>
+    <p>Given a packed shift instruction with the count as immediate data, LINK allows 
+    the destination operand to be an MMX register or memory address, though Intel 
+    documents the instruction as allowing only an MMX register as the destination. 
+    In the language of Intel’s opcode maps, LINK disassembles the Group A instructions 
+    as having operands Qq,Ib instead of Pq,Ib. </p>
+    </li>
+    <li>
+    <p>LINK disassembles the opcode 82h as a <span class="instruction">MOV</span> 
+    of immediate data into al. In doing this, LINK follows an error that appears 
+    in some opcode maps from Intel.<a class="FootnoteReference" name="FtnRef_5" href="#Ftn_5">[5]</a> 
+    The opcode 82h in fact denotes an arithmetical or logical instruction from Group 
+    1 (<span class="instruction">ADD</span>, <span class="instruction">OR</span>,
+    <span class="instruction">ADC</span>, <span class="instruction">SBB</span>,
+    <span class="instruction">AND</span>, <span class="instruction">SUB</span>,
+    <span class="instruction">XOR</span> or <span class="instruction">CMP</span>, 
+    depending on bits in the second byte). The operands are an 8-bit register or 
+    byte of memory and a byte of immediate data. The opcode differs from 80h only 
+    in requiring sign-extension of the immediate data—but sign-extension from a 
+    byte to a byte is meaningless. The opcode 82h is redundant and rarely appears 
+    in program code. </p>
+    </li>
+  </ul>
+  <p>There are also instructions that LINK decodes correctly but represents inappropriately 
+  (not that the difference is anything but a fine point). Examples that involve 
+  some significant loss of information from the disassembly are: </p>
+  <ul>
+    <li>
+    <p>Given an instruction that forms an immediate operand by sign-extending from 
+    a byte in the opcode sequence, LINK shows the immediate data as a byte and not 
+    as the full operand after sign-extension. </p>
+    <p>For a practical example of ambiguity caused by this misrepresentation, consider 
+    that LINK’s disassembly of an instruction as “cmp eax,0ffh” may truly mean
+    <span class="instruction">CMP EAX,000000FFh</span> but might also mean
+    <span class="instruction">CMP EAX,0FFFFFFFFh</span>. Resolving this ambiguity 
+    typically requires reference to an opcode map or list of instruction encodings, 
+    or sufficient understanding of general principles of encoding to infer sign-extension 
+    from the instruction’s length. </p>
+    </li>
+    <li>
+    <p>For instructions that work with memory variables larger than a dword, LINK 
+    shows the memory references as dword pointers. </p>
+    <p>For a practical example of ambiguity caused by this misrepresentation, consider 
+    that LINK’s disassembly of an instruction as “fld dword ptr [eax]” may denote 
+    an <span class="instruction">FLD</span> of a single-real (32 bits), double-real 
+    (64h bits) or extended-real (80 bits). Resolving this ambiguity typically requires 
+    reference to an opcode map or list of instruction encodings. </p>
+    </li>
+  </ul>
+  <p>Of the undocumented instructions recognised by LINK, the 80386
+  <span class="instruction">LOADALL</span> (opcode 0Fh 07h) is certainly disassembled 
+  with the wrong operand. For the purpose of listing operands, LINK treats the 80386
+  <span class="instruction">LOADALL</span> the same as it treats
+  <span class="instruction">LODSW</span> and <span class="instruction">LODSD</span>, 
+  so that the operand is shown to be a word or dword at <span class="register">DS:SI</span> 
+  or <span class="register">DS:ESI</span> (depending on the operand and address 
+  sizes). The reality is that the 80386 <span class="instruction">LOADALL</span> 
+  takes its operand from <span class="register">ES:DI</span> or
+  <span class="register">ES:EDI</span> (depending on the address size) and works 
+  with a 0127h-byte region of memory rather than a word or dword.<a class="FootnoteReference" name="FtnRef_6" href="#Ftn_6">[6]</a> 
+  Curiously, Microsoft has better information in another of its programs: the WDEB386.EXE 
+  debugger that Microsoft includes with various Windows SDKs and DDKs shows the 
+  80386 <span class="instruction">LOADALL</span> as taking the byte at
+  <span class="register">ES:DI</span> or <span class="register">ES:EDI</span> as 
+  its operand. </p>
+  <h3>Software Analysis </h3>
+  <p>From the perspective of Software Analysis as a technique of software development 
+  or as a future academic discipline, it is very interesting that LINK’s opcode 
+  tables have so many errors, even for instructions that are well-known. Indeed, 
+  this article’s primary motivation was not to list some undocumented CPU instructions 
+  but to demonstrate the feasibility and practical value of having a second person 
+  check a first person’s programming work for errors. </p>
+  <p>Successive versions of the program have corrected some errors but not others, 
+  which suggests that the program’s manufacturer has a will to have the correct 
+  tables but a difficulty in detecting the errors. Moreover, with successive upgrades 
+  to support instructions for new processors, new errors have been introduced. The 
+  program’s opcode tables are presumably generated through macros. Although these 
+  may be convenient for development, they may also obscure errors from someone who 
+  reviews the program’s source code. The manufacturer could have detected more errors 
+  by having someone review the relevant code and data as actually generated in the 
+  program. The article demonstrates that this can be done even by someone external 
+  to the manufacturer without already knowing the format of those tables, still 
+  less without the source code. It may even be that such a process of review is 
+  commercially feasible. </p>
+  <div class="Footnotes">
+    <hr>
+    <p><a class="FootnoteReference" name="Ftn_1" href="#FtnRef_1">[1]</a> See the 
+    README.TXT file in the MSVC20 directory for a hint that none of the linkers 
+    from the several Microsoft Visual C++ 4.x releases can be relied on to link 
+    object files correctly if building Virtual Device Drivers (VxDs), even though 
+    documentation in these products continues to describe a <span class="switch">
+    /vxd</span> switch. </p>
+    <p><a class="FootnoteReference" name="Ftn_2" href="#FtnRef_2">[2]</a> Machine 
+    types are documented in Microsoft’s <span class="citation">Portable Executable 
+    and Common Object File Format (PE/COFF) Specification 4.1</span>, which is on 
+    the MSDN Library CD, and as symbols beginning with <span class="constant">IMAGE_FILE_MACHINE</span> 
+    in the WINNT.H header file supplied with both Microsoft Visual C++ and the Win32 
+    SDK. </p>
+    <p><a class="FootnoteReference" name="Ftn_3" href="#FtnRef_3">[3]</a> For information 
+    about instruction compatibility, see the <span class="citation">Intel Architecture 
+    Software Developer’s Manual, Volume 2: Instruction Set Reference</span> for 
+    the Pentium Pro, Order Number 243191, and available via anonymous FTP at download.intel.com 
+    in the directory design/pro/manuals. </p>
+    <p><a class="FootnoteReference" name="Ftn_4" href="#FtnRef_4">[4]</a> A Microsoft 
+    Knowledge Base (MSKB) article that describes these errors and notes any fixes 
+    is something I should be happy to cite, but I could not find one, for instance 
+    by looking among articles listed as containing “DUMPBIN” in the Knowledge Base 
+    collections on the MSDN Library CD (January 1997), the Microsoft Visual C++ 
+    4.2 CD and the TechNet CD (February 1997). Analysts of Microsoft’s bug-reporting 
+    practices may care to consider that no matter how many articles in the MSKB 
+    describe bugs, there is no reason to suppose that the MSKB lists even a tiny 
+    proportion of bugs known to Microsoft. </p>
+    <p><a class="FootnoteReference" name="Ftn_5" href="#FtnRef_5">[5]</a> See for 
+    instance the opcode maps presented as Appendix A in Intel’s
+    <span class="citation">386 DX Microprocessor Programmer’s Reference Manual
+    </span>(Order Number 230985) or, more recently and available on-line from www.intel.com, 
+    the <span class="citation">Pentium Pro Family Developer’s Manual, Volume 3: 
+    Operating System Writer’s Guide </span>(Order Number 242692). The latter at 
+    least has a footnote to mark opcode 82h as reserved. </p>
+    <p><a class="FootnoteReference" name="Ftn_6" href="#FtnRef_6">[6]</a> This instruction 
+    seems to have been brought to wide attention by Robert Collins in an article 
+    published in <span class="citation">Tech Specialist</span>, October, 1991, and 
+    available on-line at www.x86.org (which is probably where most interested readers 
+    will find it for the first time). Before publication of that article, the instruction 
+    was certainly known to BIOS developers, the most notable use being for emulation 
+    of the 80286 <span class="instruction">LOADALL</span> on 80386 machines. </p>
+  </div>
+  <div class="Footer">
+    <p class="Dates">This page was created on 18th March 1997 and was last modified 
+    on 3rd October 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9708.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1997-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63527" -->
+  </div>
+</div>
+
+</body>
+
+</html>

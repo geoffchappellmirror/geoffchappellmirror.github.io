@@ -1,0 +1,160 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KSE_HOOK</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KSE_HOOK </h1>
+<p>An array of <span class="struct">KSE_HOOK</span> structures provides the third 
+level in the description of a driver shim. The second level of the description is 
+an array of <span class="struct"><a href="collection.htm">KSE_HOOK_COLLECTION</a></span> 
+structures. The top top level is a <span class="struct"><a href="shim.htm">KSE_SHIM</a></span> 
+structure. </p>
+<p>Microsoft’s name for this structure is known from symbol files for a driver (NDIS.SYS) 
+that registers a shim and uses C++ for instantiating its <span class="struct">KSE_HOOK</span> 
+array as statically allocated data: the C++ decoration names the type. Microsoft’s 
+names and types are not known for members, there being no type information in the 
+symbol file. </p>
+<p>The <span class="struct">KSE_HOOK</span> is 0x10 and 0x20 bytes in 32-bit and 
+64-bit Windows 10, respectively. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>type of hook: <br>
+    0 to hook function in shimmed driver’s Import Address Table; <br>
+    1 to hook shimmed driver’s receipt of I/O requests and related notifications;
+    <br>
+    2 for last <span class="struct">KSE_HOOK</span> in array </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x04 </td>
+    <td rowspan="2">0x08 </td>
+    <td>pointer </td>
+    <td>for type 0 only: address of name of exported function to hook, as null-terminated 
+    ANSI string </td>
+  </tr>
+  <tr>
+    <td>dword </td>
+    <td>for type 1 only: I/O callback code </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x10 </td>
+    <td>pointer </td>
+    <td>address of hook routine </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>0x18 </td>
+    <td>pointer </td>
+    <td>initially <span class="constant">NULL</span>; <br>
+    for type 0 only: receives forwarding address </td>
+  </tr>
+</table>
+<p>For the last hook in the array, i.e., for type 2, all other members are ignored.
+</p>
+<p>Each <span class="struct">KSE_HOOK</span> must specify a hook routine to which 
+a shimmed driver’s execution is to be diverted. If instead the pointer is
+<span class="constant">NULL</span>, then the shim that contains this
+<span class="struct">KSE_HOOK</span> cannot be registered. </p>
+<p>When a registered shim is applied to some driver, the Kernel Shim Engine (KSE) 
+edits each <span class="struct">KSE_HOOK</span>. </p>
+<p>The type 0 hooks are applied after the driver is loaded, of course, but before 
+it executes any of its code, even for initialisation. This ensures that all the 
+driver’s code is subject to the redirection of functions that the driver imports. 
+The type 1 hooks are applied later, because it is only during the driver’s initialisation 
+that the driver sets into various members of the given <span class="struct">DRIVER_OBJECT</span> 
+the addresses at which it wants to be called for such things as I/O requests. The 
+codes for these I/O callbacks are: </p>
+<table>
+  <tr>
+    <th>Code </th>
+    <th>Interpretation </th>
+  </tr>
+  <tr>
+    <td>1 </td>
+    <td>to hook what the driver puts in the <span class="member">DriverInit</span> 
+    member </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>to hook what the driver puts in the <span class="member">DriverStartIo</span> 
+    member </td>
+  </tr>
+  <tr>
+    <td>3 </td>
+    <td>to hook what the driver puts in the <span class="member">DriverUnload</span> 
+    member </td>
+  </tr>
+  <tr>
+    <td>4 </td>
+    <td>to hook what the driver puts in the <span class="member">AddDevice</span> 
+    member (of the <span class="struct">
+<a href="../../../inc/ntos/io_x/driver_extension.htm">DRIVER_EXTENSION</a></span>) </td>
+  </tr>
+  <tr>
+    <td>100 + <span class="placeholder">mj</span> </td>
+    <td>to hook what the driver puts in the <span class="member">MajorFunction</span> 
+    member for the IRP major function <span class="placeholder">mj</span> </td>
+  </tr>
+</table>
+<p>It is not clear what Microsoft intends by changing the <span class="member">DriverInit</span> 
+member. Having loaded a driver and expecting to initialise it, the kernel sets
+<span class="member">DriverInit</span> to the driver’s entry point for initialisation 
+and then calls that entry point. To hook the member after the initialisation is 
+too late if the goal is to affect the driver’s initialisation. More study is evidently 
+needed. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th
+  <a href="../../../../../../../new/16/08.htm">August 2016</a> and was last modified 
+  on 6th August 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1618.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5013" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,132 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ServiceMain</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="54033" endspan -->
+<h1>ServiceMain </h1>
+<p>A service DLL in a <a href="../index.htm">SVCHOST</a> process exports this function 
+as its entry point for starting services. </p>
+<h2>Declaration </h2>
+<pre class="source">VOID WINAPI ServiceMain (DWORD dwArgc, LPWSTR *lpszArgv); </pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">dwArgc</span> argument is the number of null-terminated 
+Unicode strings described by the <span class="argument">lpszArgv</span> argument. 
+The first such string is the (case-insensitive) name of the service that is being 
+started. </p>
+<h2>Behaviour </h2>
+<p>The <span class="function">ServiceMain</span> function for a service that is 
+implemented in a service DLL running in a SVCHOST instance is essentially the same 
+as if the service were implemented in a service program. The essential differences 
+are that: </p>
+<ul>
+  <li>only the Unicode version of the prototype is supported; </li>
+  <li>the function must be exported by name; </li>
+  <li>if the name is not <span class="function">ServiceMain</span>, then it must 
+  be configured in the registry as the data for the following value: </li>
+</ul>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span>\Parameters</span>
+    <br>
+    <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">ServiceMain</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td><span class="regsz">ServiceMain</span> </td>
+  </tr>
+</table>
+<p>where <span class="placeholder">service</span> is the name of the service that 
+is being started. Until SVCHOST version 6.0, the value can be in the
+<span class="regkey">Parameters</span> subkey only. Version 6.00 accepts a value 
+in the parent key if the <span class="regkey">Parameters</span> subkey is not present.
+</p>
+<p>Although a service DLL is unlikely in practice to implement more than one service, 
+it is not restricted to just the one, and it can export as many
+<span class="function">ServiceMain</span> functions as it cares to. It can have 
+one <span class="function">ServiceMain</span> to handle the start of any service, 
+relying on the first string described by <span class="argument">lpszArgv</span> 
+to indicate which service is being started. At the other extreme, it can have one
+<span class="function">ServiceMain</span> for each service, all named differently, 
+all (or all but one) configured in the registry. </p>
+<p>A <span class="function">ServiceMain</span> function in a service DLL can be 
+coded as for one in a service program. Refer to Microsoft’s documentation. However, 
+some work that might be done in a service program can be avoided in a service DLL 
+because it is already done by SVCHOST. First, there is
+<a href="../process/index.htm">per-process initialisation</a> which is not only 
+convenient to be done by SVCHOST but is perhaps better attempted only once per process 
+(as with initialising COM security). Second, though only since version 5.1, SVCHOST 
+provides service DLLs with access to shared code and data. To learn the addresses, 
+a service DLL should export a function named <span class="function">
+<a href="svchostpushserviceglobals.htm">SvchostPushServiceGlobals</a></span>, which 
+SVCHOST calls before each call to any <span class="function">ServiceMain</span> 
+function in the DLL. </p>
+<p>An important, though recent, feature of the shared code is to provide service 
+DLLs with a very slight change of coding that allows SVCHOST to unload a service 
+DLL that is no longer in use. To obtain this benefit, where a service program would 
+call the KERNEL32 function <span class="function">RegisterWaitForSingleObject</span> 
+to arrange a callback for stopping a service, a service DLL instead calls the SVCHOST 
+function <span class="function"><a href="../process/registerstopcallback.htm">RegisterStopCallback</a></span>.
+</p>
+<p>In version 6.0, SVCHOST logs each call to <span class="function">ServiceMain</span> 
+as an event, such that it may be retrieved through the Event Viewer in the Diagnostic 
+channel under the heading Microsoft Windows Services Svchost Performance Diagnostic 
+Provider. Each call is preceded by event 101 and each return is marked as event 
+102. For both, the event data is the service’s name. This event log provides ready 
+confirmation that many services implemented in service DLLs do not return from
+<span class="function">ServiceMain</span> until stopped. </p>
+<h2>Availability </h2>
+<p>The <span class="function">ServiceMain</span> function in service DLLs is supported 
+by SVCHOST.EXE in all known versions (5.0 and higher). </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 30th September 2008 and was last modified 
+  on 26th October 2008. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c08.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62741" endspan -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,338 @@
+﻿<html>
+
+<head>
+<title>Source File for Demonstrating Profiling Crash</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>Source File for Demonstrating Profiling Crash </h1>
+<p>There follows the one source file, PROCRASH.CPP, for a small console application 
+that demonstrates a <a href="bugdemo.htm">Bug Check From User Mode By Profiling</a>. 
+Compile with a separate header, <a href="profile.h.htm">PROFILE.H</a>, of declarations 
+and definitions that Microsoft ordinarily does not provide for user-mode programming.
+</p>
+<pre class="source">/*  ************************************************************************  *
+ *                                procrash.cpp                                *
+ *  ************************************************************************  */
+
+/*  Begin with the usual headers for user-mode Windows programming and for 
+    console output via the C Run-Time Library. Be nice to readers who expect 
+    demonstration code to compile with /Wall even if Microsoft's own headers 
+    don't. Those who worry about such things likely already know what 
+    warnings these numbers select.  */
+
+#pragma warning (disable : 4514 4710 4711)
+#pragma warning (push)
+#pragma warning (disable : 4668 4820)
+
+#define     WIN32_LEAN_AND_MEAN 1
+#include    &lt;windows.h&gt;
+
+#include    &lt;stdio.h&gt;
+
+#pragma warning (pop)
+
+/*  Some more or less general-purpose support for profiling is available in 
+    the Windows Driver Kit (WDK) for kernel-mode programming. For user-mode 
+    programming there's little choice but to reproduce from the WDK. Bring 
+    it in from a separate header to reduce distraction from the actual 
+    program.  */
+
+#include    "profile.h"
+
+/*  Ease the use of undocumented functions such as NtCreateProfile by 
+    importing them just as for documented API functions. This requires 
+    access to an import library for NTDLL.  */
+
+#pragma comment (lib, "ntdll.lib")
+
+/*  ************************************************************************  */
+/*  Configurable  */
+
+/*  Profiling specifies a region whose execution is to be sampled 
+    recurrently. This profiled region is treated as an array of buckets. 
+    Sampling produces an execution count for each bucket. 
+    
+    For simplicity, use the fewest possible buckets.  */
+
+#define BUCKET_COUNT            1
+
+/*  The bucket size must be a power of two - and the BucketSize argument 
+    for NtCreateProfile is actually the logarithm of the size in bytes. The 
+    smallest bucket that's permitted is 4 bytes. 
+
+    The two demonstrations have different requirements, however. 
+
+    For the ancient defect (demonstration 1), we need that profiling catches 
+    some execution anywhere in roughly a quarter of a bucket. Choosing 64
+    bytes as the bucket size allows 16 bytes for a tight loop plus whatever 
+    prolog and epilog code the compiler happens to add.  */
+
+#define LOG_BUCKET_SIZE_1       6
+
+/*  For demonstration 2, the smallest possible bucket is large enough.  */
+
+#define LOG_BUCKET_SIZE_2       2
+
+/*  ========================================================================  */
+/*  Implications and compile-time sanity checking  */
+
+/*  As noted above, the smallest allowed bucket is 4 bytes.  */
+
+#define BUCKET_SIZE_1           (1 &lt;&lt; LOG_BUCKET_SIZE_1)
+#define BUCKET_SIZE_2           (1 &lt;&lt; LOG_BUCKET_SIZE_2)
+
+C_ASSERT (BUCKET_SIZE_1 &gt;= sizeof (ULONG));
+C_ASSERT (BUCKET_SIZE_2 &gt;= sizeof (ULONG));
+
+/*  The execution counts go into a buffer. Each execution count is a ULONG. 
+    Our choice of BUCKET_COUNT thus determines how big a buffer to provide 
+    and the count and size together determine how large a region we can 
+    profile.  */
+
+#define BUFFER_SIZE             (BUCKET_COUNT * sizeof (ULONG))
+
+#define PROFILE_SIZE_1          (BUCKET_COUNT * BUCKET_SIZE_1)
+#define PROFILE_SIZE_2          (BUCKET_COUNT * BUCKET_SIZE_2)
+
+/*  For the ancient defect, we ask mischievously to profile a slightly 
+    larger region than we should be allowed to. If we don't ask for too much 
+    more, we sneak past a defect in the kernel's parameter validation.  */
+
+#define PROFILE_EXCESS          (BUCKET_SIZE_1 / sizeof (ULONG) - 1)
+
+C_ASSERT (PROFILE_EXCESS != 0);
+
+/*  ************************************************************************  */
+/*  Supporting data  */
+
+/*  To make things go wrong, the last execution count for (what we should 
+    be allowed to specify as) the profiled region must end on a page 
+    boundary. To arrange this, set aside memory that is sure to be large 
+    enough to contain BUFFER_SIZE bytes that end at a page boundary. 
+
+    For all imagined use of this demonstration, the page size can reasonably 
+    be regarded as well-known.  */
+
+#ifndef PAGE_SIZE
+#define PAGE_SIZE       0x1000
+#endif
+
+BYTE Buffer [BUFFER_SIZE + PAGE_SIZE];
+
+/*  ************************************************************************  */
+/*  Profiled code  */
+
+/*  Both demonstrations run a loop until some execution is interrupted for 
+    profiling. Aim for as tight a loop as can be without much risk that the 
+    compiler eliminates it altogether. 
+    
+    For demonstration 1 it's enough just to execute in the excess that we 
+    shouldn't be allowed to add to the profiled region. It doesn't matter 
+    much what's in the loop, though we get the best chance of trapping 
+    execution in the excess if the whole loop fits into the excess. 
+    
+    Demonstration 2 is fussier. The profiled region must end at an 
+    instruction boundary, the defect being that the instruction that 
+    follows the profiled region can get profiled by mistake. The choice of 
+    coding below allows that we can learn the address of an instruction in 
+    the loop by executing the loop just once without profiling. 
+
+    That we support the building of this code by tools from the WDK brings a 
+    small problem: believe it or not, but the WDK has not always come with a 
+    header to include for the _ReturnAddress intrinsic.  */
+
+extern "C" PVOID _ReturnAddress (VOID);
+#pragma intrinsic (_ReturnAddress)
+
+/*  While we're at it with compiler intrinsics, it helps to have another so 
+    that the instruction we find is not some little thing that the processor 
+    can often execute in zero cycles and thus hardly ever returns to when
+    interrupted.  */
+
+extern "C" VOID _ReadWriteBarrier (VOID);
+#pragma intrinsic (_ReadWriteBarrier)
+
+DECLSPEC_NOINLINE
+PVOID GetReturnAddress (VOID)
+{
+    return _ReturnAddress ();
+}
+
+DECLSPEC_NOINLINE
+VOID __fastcall ProfileLoop (UINT Runs, PVOID volatile *Pointer)
+{
+    do {
+	*Pointer = GetReturnAddress ();
+        _ReadWriteBarrier ();
+    } while (-- Runs != 0);
+}
+
+/*  ************************************************************************  */
+/*  The actual program  */
+
+int __cdecl wmain (int argc, PWSTR *argv)
+{
+    /*  Parse the command line to learn which coding error to demonstrate.  */
+
+    int demo = 0;
+
+    if (argc == 0) return -1;
+
+    while (++ argv, -- argc != 0) {
+        PWSTR arg = *argv;
+        if (demo == 0) {
+            if (wcscmp (arg, L"1") == 0) {
+                demo = 1;
+                continue;
+            }
+            if (wcscmp (arg, L"2") == 0) {
+                demo = 2;
+                continue;
+            }
+        }
+        printf ("Invalid parameter %ws\n", arg);
+        return -1;
+    }
+
+    if (demo == 0) demo = 1;
+
+    /*  From the Buffer that we set aside above, carve out the BUFFER_SIZE 
+        bytes that we'll provide for the execution counts. Remember, the
+        distinctive property we want is that these BUFFER_SIZE bytes end at 
+        a page boundary.  */
+
+    PBYTE end = (PBYTE) ALIGN_UP_BY (Buffer + BUFFER_SIZE, PAGE_SIZE);
+    ULONG *buffer = (ULONG *) (end - BUFFER_SIZE);
+
+    /*  The two demonstrations choose the profiled region ever so slightly 
+        differently.  */
+
+    ULONG logbucketsize;
+    PVOID profilebase;
+    ULONG profilesize;
+
+    if (demo == 1) {
+
+        logbucketsize = LOG_BUCKET_SIZE_1;
+
+        /*  For the ancient defect, place the whole of the ProfileLoop in 
+            our mischievous excess.  */
+
+        profilebase = (PBYTE) ProfileLoop - PROFILE_SIZE_1;
+        profilesize = PROFILE_SIZE_1 + PROFILE_EXCESS;
+    }
+    else {
+
+        logbucketsize = LOG_BUCKET_SIZE_2;
+
+        /*  For demonstration 2, contrive to get the profiled region ending 
+            at exactly an instruction in the loop.  */
+
+        PVOID endprofile;
+        ProfileLoop (1, &amp;endprofile);
+
+        profilebase = (PBYTE) endprofile - PROFILE_SIZE_2;
+        profilesize = PROFILE_SIZE_2;
+    }
+
+    /*	Set up the profiling of execution in the profiled region. 
+    
+        By the way, the simplicity of passing -1 to stand for profiling all 
+        processors comes with a small burden on 64-bit Windows: we must run 
+        a 64-bit build, not a 32-bit build, else the -1 is interpreted as 
+        meaning to profile the first 32 processors and NtCreateProfile fails
+        unless there actually are 32 active processors to profile.  */
+
+    HANDLE hprofile;
+    NTSTATUS status = NtCreateProfile (
+        &amp;hprofile,
+        GetCurrentProcess (),
+        profilebase,
+        profilesize,
+        logbucketsize,
+        buffer,
+        BUFFER_SIZE,
+        ProfileTime,
+        (KAFFINITY) -1);
+    if (!NT_SUCCESS (status)) {
+        printf ("Error 0x%08X creating profile object\n", (UINT32) status);
+    }
+    else {
+
+        /*  Start the profiling and run the loop.  */
+
+        status = NtStartProfile (hprofile);
+        if (!NT_SUCCESS (status)) {
+            printf ("Error 0x%08X starting profile\n", (UINT32) status);
+        }
+        else {
+
+            PVOID p;
+            ProfileLoop (MAXUINT, &amp;p);
+
+            /*  All being "well", we can't get here. While executing the
+                preceding loop, a profile interrupt will occur and the
+                kernel will try to increment an execution count for which
+                no memory has been provided. The expected result is a bug 
+                check - indeed, a nasty one for occurring inside a hardware
+                interrupt handler.  */
+
+            NtStopProfile (hprofile);
+
+            printf ("Profiling completed\n");
+        }
+        CloseHandle (hprofile);
+    }
+
+    return 0;
+}
+
+/*  ************************************************************************  */</pre>
+<p>That’s it! Compile and link to taste. </p>
+<p>To crash all Windows versions up to but not including the 1703 release of Windows 
+10, run <span class="command">procrash 1</span>. Before Windows 8,
+<span class="command">procrash 2</span> causes no fault. Some update will soon be 
+released by Microsoft—probably without much description, and surely without attribution—such 
+that new builds of Windows aren’t crashed by either command-line option. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 14th July 2018 from material that was 
+  first published on 14th <a href="../../../../../../../new/17/01.htm">January 2017</a>.
+  </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1718.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5141" -->
+</div>
+
+</body>
+
+</html>

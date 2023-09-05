@@ -1,0 +1,609 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Windows Kernel Header Files</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/tree.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/tree.js" defer></script>
+<script type="text/javascript" src="../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<div class="Main">
+  <h1>Windows Kernel Header Files </h1>
+  <p>It can’t have gone completely unnoticed, though it does look to have gone largely 
+  unremarked, but public symbol files for the Windows kernel nowadays contain information 
+  from which reverse engineers can learn: </p>
+  <ul>
+    <li>full pathnames for header files that were used in compiling the kernel;
+    </li>
+    <li>which classes, structures, unions and enumerations were picked up from which 
+    headers; </li>
+    <li>and even the line numbers where these definitions begin. </li>
+  </ul>
+  <p>This disclosure starts with Windows 8 and continues at least to the 2004 edition 
+  of Windows 10. It’s not specific to the Windows kernel or even to Windows, but 
+  seems instead to come from new capability of the compiler and related tools in 
+  Visual Studio 2012. </p>
+  <p>In symbol files that are built with compilers from Visual Studio 2012 and later, 
+  the type information that has long described classes, structures, unions and enumerations, 
+  even down to the detail of listing the names, types and offsets of members, comes 
+  with a separate set of records of where these user-defined types came from. These 
+  records have the leaf index 0x1606, which Microsoft defines symbolically as
+  <span class="constant">LF_UDT_SRC_LINE</span>. These records are created during 
+  compilation. Private symbol files—which Microsoft occasionally distributes in 
+  packages of public symbol files, though apparently never for the kernel—may instead 
+  have slightly more informative records with leaf index <span class="constant">
+  LF_UDT_MOD_SRC_LINE</span> (0x1607) which are created when linking. </p>
+  <p>In public symbol files that retain type information, as the kernel’s must to 
+  support debugging, the <span class="constant">LF_UDT_SRC_LINE</span> records are 
+  retained too. The types need not come from headers, but in practice they do and 
+  so the records might well enough be thought of as header information for types. 
+  They aren’t present for every type that the kernel uses, only for those for which 
+  the public symbol files have type information. Even so, the public symbol files 
+  for the kernel—and for other modules, but the kernel is the interest here—nowadays 
+  tell much more than they used to. </p>
+  <h2>Public and Private Symbols </h2>
+  <p>With enough investigative work, this relatively new embellishment of the public 
+  symbol files even reveals how it is that they have any type information at all. 
+  Remember that the whole point to a public symbol file is that it “omits symbols 
+  that you would not want to ship to your customers.” This is from Microsoft’s documentation 
+  of the linker’s <span class="switch">/pdbstripped</span> switch, which specifically 
+  lists type information among the things that the “stripped PDB file will not contain”. 
+  Yet the kernel’s public symbol files do have type information—and have done since 
+  as long ago as Windows XP (chronologically, but Windows 2000 SP3 by version number).
+  </p>
+  <p>It turns out that however much it may be convenient to think of public symbol 
+  files as retaining type information from the private symbol files, as if the stripping 
+  was only partial, they do not in fact retain any such thing. They are fully stripped 
+  but then they get merged into them the type information from compiling a separate 
+  source file. In the kernel’s case, this source file is among the many that are 
+  specifically the kernel’s. It is compiled with many, if not all, of the same headers, 
+  but it is separate in the sense that the object file that results from its compilation 
+  is not linked into the kernel. It contributes nothing to the binary. It possibly 
+  never is fed to the linker to contribute to any binary. Even the object file is 
+  not wanted, just the PDB streams that have type information. </p>
+  <p>Strictly speaking, then, the type information in the kernel’s public symbol 
+  files is not the kernel’s. To say so may seem like splitting hairs, but it’s not 
+  without consequences. It may, for instance, explain an age-old mystery about the
+  <span class="struct">SECTION_OBJECT</span> and <span class="struct">SEGMENT_OBJECT</span> 
+  types. Examples are clearer for executables other than the kernel: some sizes 
+  and offsets that the public symbol files for WIN32K.SYS in Windows 7 give for 
+  several structures, including both the <span class="struct">
+  <a href="../../../win32k/structs/processinfo/index.htm">PROCESSINFO</a></span> 
+  and <span class="struct">
+  <a href="../../../win32k/structs/threadinfo/index.htm">THREADINFO</a></span>, 
+  cannot be correct for the structure as used by the matching binary. Surely the 
+  most credible explanation is that this mechanism by which Microsoft gets type 
+  information into public symbol files sometimes goes wrong because the separate 
+  source file may pick up a different definition or compile the same definition 
+  slightly differently from what got built into the matching binary. Still, the 
+  examples are few. We can’t keep looking under the bed for monsters even though 
+  we know they’re real. Having summarised that type information in public symbol 
+  files comes with caveats, this introductory page must leave the details and implications 
+  to be taken up elsewhere—a link follows the source tree, below—and press on with 
+  what can be learnt about the kernel’s header files now that public symbol files 
+  tell us more than they used to. </p>
+  <h2>Source Tree </h2>
+  <p>An immediate insight is to flesh out the source tree. Microsoft’s debugging 
+  support in the first few versions showed which code and data came from which source 
+  file and where these source files were when compiled. The change from .DBG files 
+  to .PDB files reduced this to showing not the source files but the object files. 
+  Still, the .PDB files tell where the object files got built and which libraries 
+  brought them into the kernel. Pathnames for at least some source files continued 
+  to be disclosed through assert statements in checked builds. These also give line 
+  numbers, often also showing macros and the names of arguments and local variables. 
+  Say what you will about Microsoft, but the programmer who commits enough to Windows 
+  that their debugging turns into reverse engineering has never been anything like 
+  as much deprived of details as you might think they must be in a closed-source 
+  model. </p>
+  <p>But back to the source tree, specifically. Though the directory structure of 
+  source files for the kernel has never been a secret, little has been reliably 
+  inferrable about how Microsoft organises header files for inclusion into the source 
+  files. Starting with Windows 8, however, the public symbol files for the kernel 
+  give full pathnames for every header that defines any type for which the same 
+  symbol files have type information. The tree below is reconstructed from information 
+  in the NTKRPAMP.PDB and NTKRNLMP.PDB symbol files for the 32-bit and 64-bit kernel, 
+  respectively, from the original release of Windows 10. If you browse this page 
+  with scripts enabled, then it starts with my selection of branches to expand for 
+  your attention, but you can expand the branches that interest you and collapse 
+  those that don’t. </p>
+  <div class="Tree">
+    <ul>
+      <li class="Expanded Branch">d:
+      <ul>
+        <li class="Expanded Branch">th.public.fre
+        <ul>
+          <li class="Collapsed Branch">ddk
+          <ul>
+            <li class="Branch">inc
+            <ul>
+              <li><a href="ntimage.htm">ntimage.h</a> </li>
+              <li><a href="ntpoapi.htm">ntpoapi.h</a> </li>
+              <li><a href="pep_x.htm">pep_x.h</a> </li>
+            </ul>
+            </li>
+          </ul>
+          </li>
+          <li class="Collapsed Branch">halkit
+          <ul>
+            <li class="Branch">inc
+            <ul>
+              <li><a href="arc.htm">arc.h</a> </li>
+              <li><a href="ntdbg.htm">ntdbg.h</a> </li>
+            </ul>
+            </li>
+          </ul>
+          </li>
+          <li class="Expanded Branch">internal
+          <ul>
+            <li class="Collapsed Branch">minwin
+            <ul>
+              <li class="Branch">priv_sdk
+              <ul>
+                <li class="Branch">inc
+                <ul>
+                  <li><a href="traceloggingprovider.htm">TraceLoggingProvider.h</a>
+                  </li>
+                  <li><a href="affinity.htm">affinity.h</a> </li>
+                  <li><a href="atom.htm">atom.h</a> </li>
+                  <li><a href="authzbase.htm">authzbase.h</a> </li>
+                  <li><a href="busp.htm">busp.h</a> </li>
+                  <li><a href="cfg.htm">cfg.h</a> </li>
+                  <li><a href="etwumkm.htm">etwumkm.h</a> </li>
+                  <li><a href="evntcons.htm">evntcons.h</a> </li>
+                  <li><a href="evntpayload.htm">evntpayload.h</a> </li>
+                  <li><a href="evntprov.htm">evntprov.h</a> </li>
+                  <li><a href="evntrace.htm">evntrace.h</a> </li>
+                  <li><a href="guiddef.htm">guiddef.h</a> </li>
+                  <li><a href="hvgdk_mini.htm">hvgdk_mini.h</a> </li>
+                  <li><a href="kernel-pnp-events.htm">kernel-pnp-events.h</a>
+                  </li>
+                  <li><a href="ntrtl.htm">ntrtl.h</a> </li>
+                  <li><a href="ntrtl_x.htm">ntrtl_x.h</a> </li>
+                  <li><a href="poclass.htm">poclass.h</a> </li>
+                  <li><a href="power.htm">power.h</a> </li>
+                  <li><a href="rtlrbtree.htm">rtlrbtree.h</a> </li>
+                  <li><a href="switchcontext.htm">switchcontext.h</a> </li>
+                  <li><a href="triage9f.htm">triage9f.h</a> </li>
+                </ul>
+                </li>
+              </ul>
+              </li>
+            </ul>
+            </li>
+            <li class="Expanded Branch">sdk
+            <ul>
+              <li class="Expanded Branch">inc
+              <ul>
+                <li class="Expanded Branch">minwin
+                <ul>
+                  <li><a href="ntetw.htm">ntetw.h</a> </li>
+                  <li><a href="ntioapi_x.htm">ntioapi_x.h</a> </li>
+                  <li><a href="ntpnpapi.htm">ntpnpapi.h</a> </li>
+                  <li><a href="ntwmi.htm">ntwmi.h</a> </li>
+                  <li><a href="wow64t.htm">wow64t.h</a> </li>
+                </ul>
+                </li>
+                <li><a href="devpropdefp.htm">devpropdefp.h</a> </li>
+                <li>ntamd64_x.h (x64 only) </li>
+                <li><a href="ntconfig.htm">ntconfig.h</a> </li>
+                <li><a href="ntexapi.htm">ntexapi.h</a> </li>
+                <li><a href="ntexapi_x.htm">ntexapi_x.h</a> </li>
+                <li><a href="nti386_x.htm">nti386_x.h</a> (x86 only) </li>
+                <li><a href="ntkeapi_x.htm">ntkeapi_x.h</a> </li>
+                <li><a href="ntldr.htm">ntldr.h</a> </li>
+                <li><a href="ntlpcapi.htm">ntlpcapi.h</a> </li>
+                <li><a href="ntmmapi.htm">ntmmapi.h</a> </li>
+                <li><a href="ntobapi_x.htm">ntobapi_x.h</a> </li>
+                <li><a href="ntpsapi.htm">ntpsapi.h</a> </li>
+                <li><a href="ntpsapi_x.htm">ntpsapi_x.h</a> </li>
+                <li><a href="ntseapi.htm">ntseapi.h</a> </li>
+                <li><a href="ntseapi_x.htm">ntseapi_x.h</a> </li>
+                <li><a href="nttpapi.htm">nttpapi.h</a> </li>
+                <li><a href="nturtl.htm">nturtl.h</a> </li>
+                <li><a href="ntxcapi_x.htm">ntxcapi_x.h</a> </li>
+                <li><a href="pebteb.htm">pebteb.h</a> </li>
+              </ul>
+              </li>
+            </ul>
+            </li>
+          </ul>
+          </li>
+          <li class="Collapsed Branch">sdk
+          <ul>
+            <li class="Branch">inc
+            <ul>
+              <li class="Branch">crt
+              <ul>
+                <li><a href="excpt.htm">excpt.h</a> </li>
+                <li><a href="stdio.htm">stdio.h</a> </li>
+              </ul>
+              </li>
+              <li class="Branch">minwin
+              <ul>
+                <li><a href="ntlsa.htm">ntlsa.h</a> </li>
+              </ul>
+              </li>
+              <li><a href="cper.htm">cper.h</a> </li>
+              <li><a href="wdbgexts.htm">wdbgexts.h</a> </li>
+              <li><a href="wheadef.htm">wheadef.h</a> </li>
+            </ul>
+            </li>
+          </ul>
+          </li>
+          <li class="Collapsed Branch">shared
+          <ul>
+            <li class="Branch">inc
+            <ul>
+              <li class="Branch">minwin
+              <ul>
+                <li><a href="ntdef.htm">ntdef.h</a> </li>
+              </ul>
+              </li>
+            </ul>
+            </li>
+          </ul>
+          </li>
+        </ul>
+        </li>
+        <li class="Expanded Branch">th
+        <ul>
+          <li class="Expanded Branch">minkernel
+          <ul>
+            <li class="Expanded Branch">ntos
+            <ul>
+              <li class="Collapsed Branch">cache
+              <ul>
+                <li><a href="cc.htm">cc.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">config
+              <ul>
+                <li><a href="cmp.htm">cmp.h</a> </li>
+                <li><a href="cmptrans.htm">cmptrans.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">etw
+              <ul>
+                <li><a href="disallowedguids.htm">disallowedguids.h</a> </li>
+                <li><a href="etwp.htm">etwp.h</a> </li>
+              </ul>
+              </li>
+              <li class="Expanded Branch">inc
+              <ul>
+                <li><a href="alpc.htm">alpc.h</a> </li>
+                <li>amd64_x.h (x64 only) </li>
+                <li><a href="arbiter.htm">arbiter.h</a> </li>
+                <li><a href="cache.htm">cache.h</a> </li>
+                <li><a href="cache_x.htm">cache_x.h</a> </li>
+                <li><a href="clfslsn.htm">clfslsn.h</a> </li>
+                <li><a href="cm_x.htm">cm_x.h</a> </li>
+                <li><a href="cmdata.htm">cmdata.h</a> </li>
+                <li><a href="counters.htm">counters.h</a> </li>
+                <li><a href="dockintf.htm">dockintf.h</a> </li>
+                <li><a href="etw_x.htm">etw_x.h</a> </li>
+                <li><a href="ex.htm">ex.h</a> </li>
+                <li><a href="ex_x.htm">ex_x.h</a> </li>
+                <li><a href="fsrtl.htm">fsrtl.h</a> </li>
+                <li><a href="fsrtl_x.htm">fsrtl_x.h</a> </li>
+                <li><a href="hal.htm">hal.h</a> </li>
+                <li><a href="heap.htm">heap.h</a> </li>
+                <li><a href="hivedata.htm">hivedata.h</a> </li>
+                <li><a href="i386_x.htm">i386_x.h</a> (x86 only) </li>
+                <li><a href="io.htm">io.h</a> </li>
+                <li><a href="io_x.htm">io_x.h</a> </li>
+                <li><a href="ke.htm">ke.h</a> </li>
+                <li><a href="ke_x.htm">ke_x.h</a> </li>
+                <li><a href="lpc.htm">lpc.h</a> </li>
+                <li><a href="mm.htm">mm.h</a> </li>
+                <li><a href="ntosdef.htm">ntosdef.h</a> </li>
+                <li><a href="ntosdef_x.htm">ntosdef_x.h</a> </li>
+                <li><a href="ob.htm">ob.h</a> </li>
+                <li><a href="ob_x.htm">ob_x.h</a> </li>
+                <li><a href="pcw_x.htm">pcw_x.h</a> </li>
+                <li><a href="pf.htm">pf.h</a> </li>
+                <li><a href="pnp_x.htm">pnp_x.h</a> </li>
+                <li><a href="pnppo.htm">pnppo.h</a> </li>
+                <li><a href="po.htm">po.h</a> </li>
+                <li><a href="po_x.htm">po_x.h</a> </li>
+                <li><a href="pool.htm">pool.h</a> </li>
+                <li><a href="procpowr.htm">procpowr.h</a> </li>
+                <li><a href="ps.htm">ps.h</a> </li>
+                <li><a href="rtlrange.htm">rtlrange.h</a> </li>
+                <li><a href="se_x.htm">se_x.h</a> </li>
+                <li><a href="tm.htm">tm.h</a> </li>
+                <li><a href="verifier.htm">verifier.h</a> </li>
+                <li><a href="whea_x.htm">whea_x.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">io
+              <ul>
+                <li class="Branch">iomgr
+                <ul>
+                  <li><a href="iomgr.htm">iomgr.h</a> </li>
+                </ul>
+                </li>
+                <li class="Branch">pnpmgr
+                <ul>
+                  <li><a href="action.htm">action.h</a> </li>
+                  <li><a href="assign.htm">assign.h</a> </li>
+                  <li><a href="async.htm">async.h</a> </li>
+                  <li><a href="event.htm">event.h</a> </li>
+                  <li><a href="hwconfig.htm">hwconfig.h</a> </li>
+                  <li><a href="queue.htm">queue.h</a> </li>
+                  <li><a href="relations.htm">relations.h</a> </li>
+                  <li><a href="remove.htm">remove.h</a> </li>
+                </ul>
+                </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">ke
+              <ul>
+                <li class="Branch">amd64
+                <ul>
+                  <li>kiamd64.h (x64 only) </li>
+                </ul>
+                </li>
+                <li><a href="ki.htm">ki.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">lpc
+              <ul>
+                <li class="Branch">alpc
+                <ul>
+                  <li><a href="alpcp.htm">alpcp.h</a> </li>
+                </ul>
+                </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">mm
+              <ul>
+                <li class="Branch">amd64
+                <ul>
+                  <li>miamd.h (x64 only) </li>
+                </ul>
+                </li>
+                <li class="Branch">i386
+                <ul>
+                  <li><a href="mi386.htm">mi386.h</a> (x86 only) </li>
+                </ul>
+                </li>
+                <li><a href="mi.htm">mi.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">ob
+              <ul>
+                <li><a href="obp.htm">obp.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">po
+              <ul>
+                <li><a href="pop.htm">pop.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">rtl
+              <ul>
+                <li><a href="heapidx.htm">heapidx.h</a> </li>
+                <li><a href="heappriv.htm">heappriv.h</a> </li>
+                <li><a href="range.htm">range.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">se
+              <ul>
+                <li><a href="sep.htm">sep.h</a> </li>
+                <li><a href="tokenp.htm">tokenp.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">verifier
+              <ul>
+                <li><a href="vfbranch.htm">vfbranch.h</a> (x86 only) </li>
+                <li><a href="vfdeadlock.htm">vfdeadlock.h</a> </li>
+                <li><a href="vfutil.htm">vfutil.h</a> </li>
+              </ul>
+              </li>
+              <li class="Collapsed Branch">whea
+              <ul>
+                <li><a href="wheai.htm">wheai.h</a> </li>
+              </ul>
+              </li>
+            </ul>
+            </li>
+            <li class="Collapsed Branch">po
+            <ul>
+              <li class="Branch">pdc
+              <ul>
+                <li class="Branch">inc
+                <ul>
+                  <li><a href="popdc.htm">popdc.h</a> </li>
+                </ul>
+                </li>
+              </ul>
+              </li>
+            </ul>
+            </li>
+          </ul>
+          </li>
+        </ul>
+        </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <p>Among the records of header files is one for a file that I do not place in 
+  the tree above. This file is named just ..\<a href="../ntsym.htm">ntsym.c</a>. 
+  It is indeed a source file, not a header. Though its <span class="constant">LF_UDT_SRC_LINE</span> 
+  record gives only a relative path, the file is almost certainly in a directory 
+  named d:\th\minkernel\ntos\init. Though it is in that part of the source tree 
+  that has the source files that are specifically for the kernel, it does not contribute 
+  any code or data to the kernel. It is instead the source file that is described 
+  above as additional, intended only for getting otherwise private type information 
+  into the public symbol files. Follow the link for the evidence. </p>
+  <h2>Standard Headers </h2>
+  <p>To go by this record in the public symbol files, the kernel’s source code does 
+  not include any of the usual headers, such as WDM.H, NTDDK.H and NTIFS.H, that 
+  are standard inclusions for almost all kernel-mode projects. Even the HAL includes 
+  NTDDK.H (and therefore also WDM.H), but the kernel evidently does not. Clues have 
+  abounded even from as long ago as version 3.10 that these headers are not fundamental 
+  but are instead constructed from others. Now we get to see something of how.
+  </p>
+  <h3>Repeated Definitions </h3>
+  <p>Start with the clues, if only to use the history as background. The first part 
+  to the oldest clue is the repetition of definitions. Even for Windows NT 3.1, 
+  a programmer who works only with kernel mode and is armed only with the Device 
+  Driver Kit (DDK) will see that although most drivers include NTDDK.H, some do 
+  not. These others are miniport drivers. If only in principle, they interact only 
+  with a designated port driver, not directly with the kernel. They do not need, 
+  and would better not even have access to, most of the definitions in NTDDK.H or 
+  even to most in NTDEF.H (which is included by NTDDK.H). The header that miniport 
+  drivers include as standard is not NTDDK.H but is MINIPORT.H instead. Inevitably, 
+  some types and macros are defined in both MINIPORT.H and NTDEF.H. The programmer 
+  who looks at the user-mode support in the Software Development Kit (SDK) will 
+  find that some of these types are also defined in WINNT.H. Moroever, such repetitions 
+  are not limited just to headers that get included as standard. For instance, some 
+  definitions in NTDDK.H are repeated in DEVIOCTL.H from the DDK and in WINIOCTL.H 
+  from the SDK, and the two SDK headers WINNT.H and NTIMAGE.H share a run of 928 
+  lines. </p>
+  <p>Microsoft’s programmers surely didn’t intend that identical sequences in a 
+  range of headers supplied in two kits should be maintained separately, with the 
+  attendant risk that they would soon get out of synch. If there was not some coordination 
+  right from the start, there surely was at least a plan that each sequence in common 
+  has one master definition. Some indication is visible in the published headers 
+  as comments, which become the second part to this old clue. Some of the repeated 
+  sequences are, in some of the affected headers, bracketed by comments in a particular 
+  form. Some repeated lines, again only in some of the headers, end with single-line 
+  comments in a particular form. For instance, the first example in NTDDK.H is
+  </p>
+  <pre class="source">// begin_winnt
+#define MAXIMUM_WAIT_OBJECTS 64     // Maximum number of wait objects
+
+#define MAXIMUM_SUSPEND_COUNT MAXCHAR // Maximum times thread can be suspended
+// end_winnt</pre>
+  <p>The lines between the begin_winnt and end_winnt comments are reproduced exactly 
+  in WINNT.H. Roughly 20 lines later in NTDDK.H is </p>
+  <pre class="source">typedef ULONG KSPIN_LOCK;  // winnt</pre>
+  <p>and it is the very next line in WINNT.H, reproduced exactly except for being 
+  stripped of the single-line comment. Before these lines in WINNT.H are definitions 
+  of some two dozen <span class="type">NTSTATUS</span> values, which are just the 
+  ones whose definitions in NTSTATUS.H end with the single-line “winnt” comment.
+  </p>
+  <p>Such comments might exist just to alert Microsoft’s programmers that lines 
+  they might think to edit have consequences for synchronisation with other headers, 
+  but this would invite that the comments too get out of synch. Even in the DDK 
+  for Windows NT 3.1, the alerts aren’t consistent. For instance, the reader of 
+  NTIMAGE.H will be warned of 928 lines that are also in WINNT.H but the reader 
+  of the latter is not warned that these lines are shared with the former. More 
+  plausible is that the comments are remnants, perhaps left carelessly, of automation. 
+  The suggestion is strong that headers such as WINNT.H and perhaps even NTDDK.H 
+  itself are each prepared from some script or some master header that contains 
+  directions to pull in lines from other masters. </p>
+  <p>Signs of what such master headers may even be named, let alone of what they 
+  contain, were initially few in any published DDK or SDK. The earliest that I know 
+  of is in an SDK dated January 1998. A new header, named SCARDERR.H, defines Win32 
+  error codes that are specific to the Smart Card Resource Manager and begins with 
+  a comment that the content “must be reconciled with winerror.w”. The relationship 
+  is more direct in a new header, SDDL.H, from an SDK dated January 2000. Its introductory 
+  comment has “sddl.w” as the Module Name right after the copyright notice at the 
+  top. That the file extension .w is in use for something very much like header 
+  files is put beyond doubt by the Windows XP DDK, whose KBD.H follows its definition 
+  of <span class="constant">ALTNUMPAD_BIT</span> by a comment that it is “copied 
+  from windows\inc\wincon.w”. Thus have the .w names trickled out for years, occasionally 
+  to be removed, perhaps as some hint that disclosure was once seen as an oversight 
+  to be corrected. By now, after many years, there has been a relative proliferation. 
+  In the SDK for Windows 10, as prominent a header as WINBASE.H mentions “ntioapi_x.w”, 
+  which is notable because not even the .h form of this header is published. </p>
+  <h3>Different Definitions </h3>
+  <p>That NTDDK.H specifically is not fundamental and that the kernel is built without 
+  it was also inferrable in ancient times, at least as a possibility. The most prominent, 
+  but perhaps not the first, basis for such inference is the
+  <span class="struct"><a href="../../inc/ntos/kpcr.htm">KPCR</a></span> structure. 
+  C-language definitions of this structure for different processors are presented 
+  in NTDDK.H from the DDK for Windows NT 3.1, though not for the i386 processor 
+  until the DDK for Windows NT 3.51. This definition in NTDDK.H is only of “the 
+  architecturally defined section”. It is not the whole thing, but there is no conditional 
+  compilation through which the kernel can include NTDDK.H while bringing in a different
+  <span class="struct">KPCR</span> definition from elsewhere. Either the kernel’s 
+  knowledge of the whole structure uses a different name or the kernel does not 
+  include NTDDK.H. </p>
+  <p>Confirmation that the full definition of the structure that NTDDK.H defines 
+  as <span class="struct">KPCR</span> also has the name <span class="struct">KPCR</span> 
+  when building the kernel came with Windows XP. In this version (chronologically, 
+  but in Windows 2000 SP3 by version number), the .PDB files for the kernels have 
+  type information. The big benefit of this is that debuggers, which Microsoft concurrently 
+  unified around the Debugger Engine (DBGENG.DLL), could do their work without needing 
+  built-in knowledge of implementation details such as where to find this member 
+  of that structure. To debug a particular Windows version, programmers no longer 
+  needed a particular version of the debugger or of some debugger extension, just 
+  the right symbol files for that Windows version. A benefit for Microsoft’s programmers 
+  of the kernel is that they became more free to change the internals without fear 
+  of complicating debugging, but that’s another story. What matters here is that 
+  type information in symbol files was a significant increase in disclosure. Type 
+  information can be reconstructed mechanically into a C-language definition. The 
+  type information that public symbol files for the kernels in Windows XP show for 
+  the <span class="struct">KPCR</span> is plausibly the full definition, certainly 
+  with more members than are shown in NTDDK.H. </p>
+  <p>Since Windows XP, then, it has been known certainly that the kernel doesn’t 
+  include NTDDK.H. What, then, does the kernel include instead? Which header has 
+  the kernel’s definition of the <span class="struct">KPCR</span>? This seemed unanswerable, 
+  short of access to Microsoft’s source code, until Windows 8 and its augmentation 
+  of type information with header information. Now it is known that the x86 and 
+  x64 kernels gets their <span class="struct">KPCR</span> definitions by including 
+  i386_x.h and amd64_x.h, respectively. These headers are not supplied with any 
+  DDK or WDK or through any other channel that reasonably counts as publication. 
+  That asking Google for pages containing “i386_x.h” today, 9th November 2020, turns 
+  up only four matches (two of them to pages of mine) doesn’t mean the file has 
+  been super-secret. It may be that the name and even the file have been seen by 
+  many and thought by all to be too obscure for words. Still, it doesn’t seem impossible 
+  that even this header’s name has never been formally revealed by Microsoft except 
+  to a limited audience that had explicitly agreed in advance to non-disclosure. 
+  Relative to this, header information in the public symbol files is a signficant 
+  new disclosure. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 20th July 2020 but was not published 
+    until 25th <a href="../../../../../../new/20/10.htm">October 2020</a>. It was 
+    last modified on 27th January 2021 (except for minor editing on 23rd May 2022).
+    </p>
+    <!--webbot bot="Include" U-Include="../../../_include/c2022.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="54407" -->
+  </div>
+</div>
+
+</body>
+
+</html>

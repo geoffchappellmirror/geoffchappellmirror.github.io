@@ -1,0 +1,241 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Service Control Manager Trace Provider</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="54033" endspan -->
+<h1>WPP Software Tracing in SERVICES.EXE </h1>
+<p>Several tens of KB of the SERVICES.EXE file in Windows Vista is explained by 
+WPP Software Tracing. Microsoft is surely correct that “the performance cost of 
+software tracing is very small” and even that “the code is minimized” (see
+<a target="_top" href="http://msdn.microsoft.com/library/ms797210.aspx">What is 
+the performance cost of tracing when no one is listening?</a> in the Windows DDK), 
+but note that minimized does not necessarily mean small, especially not when accumulated 
+over numerous events. </p>
+<table>
+  <tr>
+    <td>Provider Name: </td>
+    <td>Service Control Manager Trace </td>
+  </tr>
+  <tr>
+    <td>Provider GUID: </td>
+    <td>{EBCCA1C2-AB46-4A1D-8C2A-906C2FF25F39} </td>
+  </tr>
+  <tr>
+    <td>Symbolic Name for GUID: </td>
+    <td><span class="symbol">WPP_ThisDir_CTLGUID_Regular</span> </td>
+  </tr>
+</table>
+<p>This trace provider is ordinarily not configured in the registry. It is therefore 
+not listed as a publisher by WEVTUTIL and no session listed by either WEVTUTIL or 
+the Event Viewer receives events from this provider. However, it is always logging! 
+Whenever SERVICES starts, it starts a trace session, named SCM, and it enables this 
+provider in that session. It can therefore be controlled through the Reliability 
+and Performance Monitor, where it is listed among the Event Trace Sessions. The 
+log file for the SCM session can be loaded into the Event Viewer for inspection.
+</p>
+<h2>Session Configuration </h2>
+<p>The name and location of the log file for the SCM session is hard-coded: </p>
+<table>
+  <tr>
+    <td>Directory: </td>
+    <td>%windir%\system32\LogFiles\Scm </td>
+  </tr>
+  <tr>
+    <td>Filename: </td>
+    <td>SCM.EVM </td>
+  </tr>
+</table>
+<p>The maximum file size, which is ordinarily 50MB, can be set from an environment 
+variable, named <span class="env">SCMLogSize</span>. This variable’s value is a 
+decimal number of MB. Everything else about the log file is hard-coded. </p>
+<p>The log file is operated in circular mode, but SERVICES itself manages log files 
+for previous sessions. Each time that SERVICES starts, it renames the existing SCM.EVM 
+file to a backup. There can be as many as five such backups, with names from SCM.EVM.1 
+to SCM.EVM.5 inclusive. Thus, whether you knew it or not, whether you wanted it 
+or not, your switched-off computer typically has a very detailed record of what 
+SERVICES executed in each of the previous five times that you started Windows.
+</p>
+<h2>Provider Configuration </h2>
+<p>The provider’s enable flags are configurable through the registry: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Tracing\SCM\Regular</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Flags</span> </td>
+  </tr>
+</table>
+<p>Though the data type <span class="constant">REG_DWORD</span> is surely expected, 
+this is not enforced and up to four bytes of any data type are accepted. The default 
+is 0x0FF3F7FF. The following table shows the interpretation of bits as defined in 
+SERVICES.MOF. They are accessible in the Reliability and Performance Monitor as 
+the “Keywords(Any)” property for the provider. </p>
+<table>
+  <tr>
+    <th>Bit </th>
+    <th>Interpretation </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00000001 </td>
+    <td>ERROR Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000002 </td>
+    <td>WARNING Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td>TRACE Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000008 </td>
+    <td>INFO Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000010 </td>
+    <td>SECURITY Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000020 </td>
+    <td>CONFIG Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000040 </td>
+    <td>DEPEND Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000080 </td>
+    <td>DEPEND_DUMP Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000100 </td>
+    <td>CONFIG_API Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000200 </td>
+    <td>LOCK_API Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000400 </td>
+    <td>ACCOUNT Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000800 </td>
+    <td>USECOUNT Flag </td>
+    <td>not enabled by default </td>
+  </tr>
+  <tr>
+    <td>0x00001000 </td>
+    <td>NETBIOS Flag </td>
+    <td>not used in code </td>
+  </tr>
+  <tr>
+    <td>0x00002000 </td>
+    <td>THREADS Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00004000 </td>
+    <td>BSM Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00008000 </td>
+    <td>SHUTDOWN Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00010000 </td>
+    <td>WHY Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00020000 </td>
+    <td>BOOT Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00040000 </td>
+    <td>HANDLE Flag </td>
+    <td>not enabled by default </td>
+  </tr>
+  <tr>
+    <td>0x00080000 </td>
+    <td>LOCKS Flag </td>
+    <td>not enabled by default </td>
+  </tr>
+  <tr>
+    <td>0x00100000 </td>
+    <td>CONTROL Flag </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Note that although the Reliability and Performance Monitor can change properties 
+of the session or provider, including even to get events written to a different 
+log file, such changes are at best temporary. When SERVICES next starts, typically 
+when Windows next starts, it reverts to hard-coded properties except for the maximum 
+file size and the enable flags. </p>
+<h2>Possible Events </h2>
+<p>Windows does not supply any definitions for formatting events from this trace 
+provider. A GUID corresponds to a source file and the event ID selects a trace statement 
+in that source file. Parameters, such as shown in the EventData on the Details tab 
+in the Event Viewer, vary from one trace statement to another. SERVICES presently 
+provides for well over a thousand trace statements. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 12th October 2008 and was last modified 
+  on 3rd January 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c08.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62741" endspan -->
+</div>
+
+</body>
+
+</html>

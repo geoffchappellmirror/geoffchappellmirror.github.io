@@ -1,0 +1,429 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Same-Thread APC Flags In The KTHREAD</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>Same-Thread APC Flags in the ETHREAD </h1>
+  <p>Windows XP gave the <span class="struct"><a href="index.htm">ETHREAD</a></span> 
+  three sets of bit fields. The set that is overlaid by the <span class="member">
+  SameThreadApcFlags</span> member, which is a <span class="type">ULONG</span> for 
+  simultaneous access to all the bits described below, started with just three bits, 
+  two of which had been booleans. Many were added for later versions and many then 
+  disappeared in a reorganisation for Windows 10. </p>
+  <p>Despite the <span class="type">ULONG</span> overlay, the flags themselves are 
+  defined as <span class="type">UCHAR</span> bit fields, and in one case with
+  <span class="type">volatile</span> as well. </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask"><col class="Definition"><col class="Versions">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset / Mask </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 / 0x01 </td>
+        <td>
+        <pre class="source">UCHAR OwnsProcessAddressSpaceExclusive : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>previously 0x01 / 0x02 </td>
+      </tr>
+      <tr>
+        <td>0x00 / 0x02 </td>
+        <td>
+        <pre class="source">UCHAR OwnsProcessAddressSpaceShared : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>previously 0x01 / 0x04 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x00 / 0x01 (5.1 to 6.3); <br>
+        0x00 / 0x04 </td>
+        <td>
+        <pre class="source">UCHAR LpcReceivedMsgIdValid : 1;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>previously as <span class="type">BOOLEAN</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Spare : 1;</pre>
+        </td>
+        <td>6.0 to 6.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR HardFaultBehavior : 1;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x00 / 0x02 (5.1 to 6.3); <br>
+        0x00 / 0x08 </td>
+        <td>
+        <pre class="source">UCHAR LpcExitThreadCalled : 1;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>previously as <span class="type">BOOLEAN</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR volatile StartAddressInvalid : 1;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x00 / 0x04 (5.1 to 6.3); <br>
+        0x00 / 0x10 </td>
+        <td>
+        <pre class="source">UCHAR AddressSpaceOwner : 1;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR EtwPageFaultCalloutActive : 1;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR EtwCalloutActive : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x00 / 0x08 (late 5.2 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsProcessWorkingSetExclusive : 1;</pre>
+        </td>
+        <td>late 5.2 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x00 / 0x10 (late 5.2 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsProcessWorkingSetShared : 1;</pre>
+        </td>
+        <td>late 5.2 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x00 / 0x20 (late 5.2 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsSystemWorkingSetExclusive : 1;</pre>
+        </td>
+        <td>late 5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR OwnsSystemCacheWorkingSetExclusive : 1;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x00 / 0x40 (late 5.2 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsSystemWorkingSetShared : 1;</pre>
+        </td>
+        <td>late 5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR OwnsSystemCacheWorkingSetShared : 1;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x00 / 0x80 (late 5.2 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsSessionWorkingSetExclusive : 1;</pre>
+        </td>
+        <td>late 5.2 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01 / 0x01 (late 5.2 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsSessionWorkingSetShared : 1;</pre>
+        </td>
+        <td>late 5.2 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01 / 0x02 (late 5.2 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR ApcNeeded : 1;</pre>
+        </td>
+        <td>late 5.2 to v. late 5.2 </td>
+        <td>previously in union with <span class="member">CreateTime</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR OwnsProcessAddressSpaceExclusive: 1;</pre>
+        </td>
+        <td>6.0 to 6.3 </td>
+        <td>next as 0x00 / 0x01 </td>
+      </tr>
+      <tr>
+        <td>0x01 / 0x04 (6.0 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsProcessAddressSpaceShared : 1;</pre>
+        </td>
+        <td>6.0 to 6.3 </td>
+        <td>next as 0x00 / 0x02 </td>
+      </tr>
+      <tr>
+        <td>0x01 / 0x08 (6.0 to 6.3); <br>
+        0x00 / 0x20 </td>
+        <td>
+        <pre class="source">UCHAR SuppressSymbolLoad : 1;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01 / 0x10 (6.0 to 6.3); <br>
+        0x00 / 0x40 </td>
+        <td>
+        <pre class="source">UCHAR Prefetching : 1;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01 / 0x20 (6.0 to 6.3); <br>
+        0x00 / 0x80 </td>
+        <td>
+        <pre class="source">UCHAR OwnsDynamicMemoryShared : 1;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR OwnsVadExclusive : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01 / 0x40 (6.0 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsChangeControlAreaExclusive : 1;</pre>
+        </td>
+        <td>6.0 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01 / 0x80 (6.0 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsChangeControlAreaShared : 1;</pre>
+        </td>
+        <td>6.0 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 / 0x01 (6.1 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsPagedPoolWorkingSetExclusive : 1;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 / 0x02 (6.1 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsPagedPoolWorkingSetShared : 1;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 / 0x04 (6.1 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsSystemPtesWorkingSetExclusive : 1;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 / 0x08 (6.1 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR OwnsSystemPtesWorkingSetShared : 1;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 / 0x30 (6.1 to 6.3) </td>
+        <td>
+        <pre class="source">UCHAR TrimTrigger : 2;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR Spare1 : 8;</pre>
+        </td>
+        <td>late 6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Spare1 : 2;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Spare2 : 2;</pre>
+        </td>
+        <td>6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 / 0x0F (early 6.0); <br>
+        0x03 / 0xFF (late 6.0 to 6.2) </td>
+        <td>
+        <pre class="source">UCHAR PriorityRegionActive;</pre>
+        </td>
+        <td>6.0 to 6.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03 / 0x01 (6.3); <br>
+        0x02 / 0x01 </td>
+        <td>
+        <pre class="source">UCHAR SystemPagePriorityActive : 1;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03 / 0x0E (6.3); <br>
+        0x02 / 0x0E </td>
+        <td>
+        <pre class="source">UCHAR SystemPagePriority : 3;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR Spare3 : 4;</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02 / 0x10 </td>
+        <td>
+        <pre class="source">UCHAR AllowWritesToExecutableMemory : 1;</pre>
+        </td>
+        <td>1709 to 1809 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR AllowUserWritesToExecutableMemory : 1;</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 / 0x20 </td>
+        <td>
+        <pre class="source">UCHAR AllowKernelWritesToExecutableMemory : 1;</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 / 0x20 (1809); <br>
+        0x02 / 0x40 </td>
+        <td>
+        <pre class="source">UCHAR OwnsVadShared : 1;</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>In the build of version 6.0 for Windows Vista SP1, i.e., Windows Server 2008,
+  <span class="member">PriorityRegionActive</span> is no longer a bit field but 
+  becomes the whole of the fourth byte until it gets reworked for Windows 8.1.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 5th July 2016 and was last modified 
+    on 2nd <a href="../../../../../../../../new/22/07.htm">August 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14250" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,317 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RTL_BARRIER</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+<h1>RTL_BARRIER </h1>
+<p>The <span class="struct">RTL_BARRIER</span> (formally <span class="struct">_RTL_BARRIER</span>) 
+is the control structure for the user-mode synchronisation barrier. A process may 
+want that some number of its threads share some work and none proceed until all 
+have done their share. The <span class="struct">RTL_BARRIER</span> is memory that 
+the process provides for managing the participating threads as they reach the barrier, 
+each in their own time, wait until all catch up, and are all released together. 
+The process initialises the barrier, especially to set the number of participating 
+threads, by calling the API function <span class="function">InitializeSynchronizationBarrier</span>. 
+Participating threads each call <span class="function">EnterSynchronizationBarrier</span> 
+to signal that their execution has reached the barrier. This call does not return 
+until the configured number of participating threads have all called this function. 
+Apparently essential to the design is that the work that is shared ahead of the 
+barrier can be merely one phase. Having each called <span class="function">EnterSynchronizationBarrier</span> 
+to end one phase and been released when all have ended this phase, the participating 
+threads can each call <span class="function">EnterSynchronizationBarrier</span> 
+again but now to mark that they have ended the next phase, and so on. Behavour is 
+undefined if the function is called for the same barrier by more threads than the 
+barrier is initialised for. When the barrier is no longer needed, the process calls
+<span class="function">DeleteSynchronizationBarrier</span>. </p>
+<p>Though the <span class="struct">RTL_BARRIER</span> structure has no known kernel-mode 
+use and is ordinarily known to user-mode source code from a definition in WINNT.H, 
+i.e., the standard header for user-mode programming, private symbol files that Microsoft 
+has published for a handful of user-mode modules say the structure is defined in 
+a header, named <a href="index.htm">NTRTL_X.H</a>, that is included by the kernel’s 
+own source code. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="struct">RTL_BARRIER</span> is not itself documented. It is meant 
+to be treated as opaque, being operated on only by calling the documented API functions
+<span class="function">InitializeSynchronizationBarrier</span>,
+<span class="function">EnterSynchronizationBarrier</span> and
+<span class="function">DeleteSynchronizationBarrier</span>. What these take as their
+<span class="struct">SYNCHRONIZATION_BARRIER</span> is just a
+<span class="keyword">typedef</span> for the <span class="struct">RTL_BARRIER</span>. 
+The <span class="struct">SYNCHRONIZATION_BARRIER</span> is not documented, either.
+</p>
+<p>The documented API functions date from version 6.2 as exports from KERNELBASE.DLL. 
+They repackage lower-level exports from NTDLL. These date from version 6.0 and have 
+never been documented. The strong suggestion is that <span class="struct">RTL_BARRIER</span> 
+is the original name, if only for matching the original functions:
+<span class="function">RtlInitBarrier</span>, <span class="function">RtlBarrier</span> 
+and <span class="function">RtlDeleteBarrier</span>. </p>
+<h2>Layout </h2>
+<p>The <span class="struct">RTL_BARRIER</span> is 0x14 or 0x20 bytes in 32-bit and 
+64-bit Windows, respectively. Since callers provde the memory as an uninitialised 
+blob, these sizes are fixed in stone for as long as new versions of Windows support 
+the functions’ use by old code. Given that callers conform to the documentation 
+and do not interpret the memory they provide, the structure is free to change internally 
+with any re-implementation of the functions—which was indeed done for the 1607 release 
+of Windows 10. </p>
+<h3>Defined Structure </h3>
+<p>It happens, though, that the implementation’s changes have not redefined the 
+structure. The only known changes of the <span class="struct">RTL_BARRIER</span> 
+are in the very formal sense of how the structure is presented to programmers outside 
+Microsoft. The published definition in WINNT.H would have it that all the structure’s 
+members are reserved: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">DWORD Reserved1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">DWORD Reserved2;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">ULONG_PTR Reserved3 [2];</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">DWORD Reserved4;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>0x1C </td>
+    <td>
+    <pre class="source">DWORD Reserved5;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p>It is here thought that this definition was introduced for Windows 8, with the 
+new higher-level documented API functions and the exposure of the
+<span class="struct">RTL_BARRIER</span> as the <span class="struct">SYNCHRONIZATION_BARRIER</span>. 
+The definition that Microsoft uses for its own code is in the unpublished header 
+NTRTL_X.H. This is known from private symbol files that Microsoft has released in 
+packages of public symbols, e.g., OLE32.PDB, starting from Windows 8. In this definition, 
+the structure is an unnamed union of two unnamed structures. The first has the structure’s 
+meaningful members. The second has the dummy members from the public definition. 
+The relevant lines in the unseen NTRTL_X.H will look very much like </p>
+<pre class="source">typedef struct _RTL_BARRIER {                       // winnt
+    union {
+        struct {
+            /* meaningful members, see below  */
+        };
+        struct {
+            ULONG Reserved1;                        // winnt
+            ULONG Reserved2;                        // winnt
+            ULONG_PTR Reserved3[2];                 // winnt
+            ULONG Reserved4;                        // winnt
+            ULONG Reserved5;                        // winnt
+        } DUMMYRESERVEDSTRUCTNAME;
+    };
+} RTL_BARRIER, *PRTL_BARRIER;                       // winnt</pre>
+<p>The comment in the body of the first nested structure is mine. It stands for 
+definitions of five members, spread over probably 12 lines. Symbol files for the 
+original Windows 10 place the opening brace of the <span class="struct">_RTL_BARRIER</span> 
+definition at line 332 and of the second nested structure at line 348. There may 
+be blank lines, comments or who knows what else in the remainder too, but not very 
+many, since symbol files place another structure’s definition at line 370. The single-line 
+“winnt” comments are almost certainly in Microsoft’s NTRTL_X.H with exactly this 
+spacing. These are the lines that survive in WINNT.H, each with trailing white space 
+to where the comment is stripped. That this structure’s extraction to WINNT.H involves 
+a translation from <span class="type">ULONG</span> to <span class="type">DWORD</span>, 
+such as known for lines that WINNT.H shares with headers such as
+<a href="../../../source/inc/ntdef.htm">NTDEF.H</a>, is just a supposition: symbol 
+files tell much but not all. </p>
+<p>The meaningful members as known from these symbol files for version 6.2 and higher 
+are consistent with the NTDLL implementation in version 6.0. It is here thought 
+these were originally the whole definition, i.e., that the <span class="keyword">
+union</span>, first unnamed <span class="keyword">struct</span> and the whole
+<span class="member">DUMMYRESERVEDSTRUCTNAME</span> member were added for version 
+6.2 when exposing the structure as opaque for higher-level use: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">LONG volatile Barrier;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">LONG LeftBarrier;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">HANDLE WaitEvent [2];</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">LONG TotalProcessors;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>0x1C </td>
+    <td>
+    <pre class="source">ULONG Spins;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+</table>
+<p>Strip aside some elaborations and the beginnings of the implementation are that 
+the <span class="member">Barrier</span> and <span class="member">LeftBarrier</span> 
+count participating threads on their way in to and out from the barrier. When no 
+threads are at the barrier, as when the barrier is newly initialised, both these 
+counts equal the number of participating threads. When a thread enters the barrier,
+<span class="member">Barrier</span> is decremented and the thread is ordinarily 
+made to wait. The exception is for the thread whose entry brings
+<span class="member">Barrier</span> to zero. It resets <span class="member">Barrier</span> 
+from <span class="member">LeftBarrier</span> (which, being the count of threads 
+that left the previous phase should be also the count of participating threads), 
+sets <span class="member">LeftBarrier</span> to one (to count itself), and signals 
+the others to leave. Each other thread that leaves the barrier increments
+<span class="member">LeftBarrier</span> on its way out. </p>
+<p>If what the waiting threads wait on is to be specifically an event, then because 
+of the intention that threads can repeat their calls to <span class="function">RtlBarrier</span> 
+as all progress from phase to phase, one event does not suffice. A thread that is 
+released when the event is set could call <span class="function">RtlBarrier</span> 
+for its next phase before the ending thread of the previous phase has yet cleared 
+the event. The first elaboration, then is that the barrier has two events and an 
+indicator of which is the one that threads wait on for the current phase. When a 
+phase ends, the event for the next phase is cleared and the indicator is toggled 
+before the event for the ending phase is set. The second elaboration is that the 
+indicator is encoded as the high bit of the <span class="member">Barrier</span>. 
+A phase ends when decrementing the <span class="member">Barrier</span> brings the 
+low 31 bits to zero. </p>
+<p><span class="alert">WRITING IN PROGRESS</span> </p>
+<h3>New Implementation </h3>
+<p>As noted above, the implementation changed for the 1607 release of Windows 10. 
+The definition, however, has not. At least to the 2004 edition, symbol files retain 
+either or both of the reduced and full definitions from earlier versions. Microsoft’s 
+name for the structure that’s interpreted by the new implementation is not known.
+</p>
+<p>This new structure is 0x10 or 0x18 bytes in 32-bit and 64-bit Windows, respectively. 
+In both, the structure has 8-byte alignment. Callers do not know this. They continue 
+to think they are providing memory for an <span class="struct">RTL_BARRIER</span>, 
+with only 4-byte alignment in 32-bit Windows, and so the new structure begins at 
+the first 8-byte boundary at or above the given address. </p>
+<table class="Struct">
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Description </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>volatile 64 bits in two parts: <br>
+    low 32: number of threads in barrier; <br>
+    high 32: phase number </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x08 </td>
+    <td>an <span class="struct">RTL_SRWLOCK</span> for safety of
+    <span class="function">RtlDelete</span> </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>0x10 </td>
+    <td>32-bit number of participating threads </td>
+    <td>1607 and higher </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 17th
+  <a href="../../../../../../../new/20/12.htm">December 2020</a> and was last modified 
+  on 27th January 2021. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c2021.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4205" -->
+</div>
+
+</body>
+
+</html>

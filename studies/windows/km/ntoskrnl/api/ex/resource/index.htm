@@ -1,0 +1,162 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Executive Resources</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>Executive Resources </h1>
+<p>The core Kernel implements a useful variety of synchronisation objects but all 
+are in some sense primitive. The Executive provides a compound that abstracts a 
+notion of acquiring a resource for either exclusive or shared use. A common purpose 
+is that some resource can be read concurrently by any number of threads as long 
+as no thread can be writing to the resource, which in turn can safely be done by 
+only one thread at a time. Programmers for user mode have reader/writer locks of 
+various sorts. Kernel-mode programmers have the Executive Resource (ERESOURCE).
+</p>
+<p>To protect some abstract resource, make all access to the resource conditional 
+on acquiring some corresponding <span class="struct"><a href="eresource.htm">ERESOURCE</a></span> 
+structure. Treat this as opaque space that the kernel prepares however it wants 
+when its <span class="function">ExInitializeResourceLite</span> function is given 
+the structure’s address ahead of any intended use. Until the same address is given 
+to the <span class="function">ExDeleteResourceLite</span> function to withdraw the
+<span class="struct">ERESOURCE</span> from use, all threads that intend to use the 
+resource pass the address of this same <span class="struct">ERESOURCE</span> to 
+yet more functions to acquire access, possibly having to wait, and to release what 
+access they have. </p>
+<p>The functionality is complicated by a change in the very early history. The Lite 
+suffix was added for a new implementation as early as version 3.50. Functions without 
+the suffix operate on an old implementation. Old binaries would call the old functions 
+and get the old behaviour. New drivers would call the new functions and get the 
+new behaviour. For old drivers that were rebuilt, macros redefined the old functions 
+so that the old drivers would call the new functions too, for no change in their 
+source code. </p>
+<p>The exported functions that were immediately superseded after version 3.10 are:
+</p>
+<ul>
+  <li><span class="obsolete function">ExAcquireResourceShared</span> </li>
+  <li><span class="obsolete function">ExConvertExclusiveToShared</span> </li>
+  <li><span class="reserved function">ExDisableResourceBoost</span> </li>
+  <li><span class="obsolete function"><a href="isacquiredshared.htm">ExIsResourceAcquiredShared</a></span>
+  </li>
+  <li><span class="obsolete function">ExReleaseResource</span> </li>
+</ul>
+<p>Four more continue as kernel exports up to and including version 5.0: </p>
+<ul>
+  <li><span class="obsolete function">ExAcquireResourceExclusive</span> </li>
+  <li><span class="obsolete function">ExDeleteResource</span> </li>
+  <li><span class="obsolete function">ExInitializeResource</span> </li>
+  <li><span class="obsolete function">ExReleaseResourceForThread</span> </li>
+</ul>
+<p>All except one are shaded <span class="obsolete">grey</span> as this website’s 
+usual indication that Microsoft documents them as obsolete. They were obsolete as 
+long ago as the Device Driver Kit (DDK) for Windows NT 3.51. The exception is surely 
+obsolete too, but both it and its replacement have only ever been documented as
+<span class="reserved">reserved</span>. </p>
+<p>Of course, these functions weren’t originally documented as obsolete. Perusal 
+of a Device Driver Kit (DDK) for Windows NT 3.1 (of unknown provenance) confirms 
+that: </p>
+<ul>
+  <li>the four that survive the reworking were documented; </li>
+  <li><span class="function">ExReleaseResource</span> was documented but was redefined 
+  in NTDDK.H as a macro using <span class="function">ExReleaseResourceForThread</span>;
+  </li>
+  <li>and the four that do not survive were not documented. </li>
+</ul>
+<p>On the one hand, we have that Microsoft’s commitment to backwards compatibility—known 
+well from DOS and from of the Windows that ran on DOS (and a large and even under-credited 
+part of establishing the mass market in personal computers)—continued to the new 
+Windows from the start. That this commitment did not extend to functions that nobody 
+(or very few) outside Microsoft can have known to use is understandable, even with 
+the curious side-effect of functions that have only ever been documented to say 
+they’re obsolete. </p>
+<p>But the other hand holds a mystery. The <span class="struct">ERESOURCE</span> 
+exists for its contrast of exclusive and shared access, yet the functions for shared 
+access weren’t documented. Why document the <span class="struct">ERESOURCE</span> 
+at all without disclosing the support for shared access? If shared access was thought 
+to be not ready enough to be documented, then surely the whole thing wasn’t. Anyway, 
+both exclusive and shared access were ready enough for version 3.10 to be used extensively 
+by Microsoft’s own drivers for file systems and networking. Neither was the shared 
+access implemented only insubstantially. In addition to the exported functions, 
+version 3.10 has internal routines that not only act like <span class="routine">
+ExAcquireSharedStarveExclusive</span> (see below) and <span class="routine">ExConvertSharedToExclusive</span> 
+(presumed in contrast to <span class="function">ExConvertExclusiveToShared</span>) 
+but do have those names (as known from symbol files). No use is known of the latter, 
+but the former was apparently useful enough that its corresponding routine for the 
+new implementation was soon exported. </p>
+<p>The exported functions for the new <span class="struct">ERESOURCE</span> implementation 
+in version 3.50 and higher are: </p>
+<ul>
+  <li><span class="function">ExAcquireResourceExclusiveLite</span> </li>
+  <li><span class="function">ExAcquireResourceSharedLite</span> </li>
+  <li><span class="function">ExAcquireSharedStarveExclusive</span> (3.51 and higher)
+  </li>
+  <li><span class="function">ExAcquireSharedWaitForExclusive</span> </li>
+  <li><span class="function">ExConvertExclusiveToSharedLite</span> </li>
+  <li><span class="function">ExDeleteResourceLite</span> </li>
+  <li><span class="reserved function">ExDisableResourceBoostLite</span> </li>
+  <li><span class="function">ExGetExclusiveWaiterCount</span> </li>
+  <li><span class="function">ExGetSharedWaiterCount</span> </li>
+  <li><span class="function">ExInitializeResourceLite</span> </li>
+  <li><span class="function">ExIsResourceAcquiredExclusiveLite</span> </li>
+  <li><span class="function"><a href="isacquiredsharedlite.htm">ExIsResourceAcquiredSharedLite</a></span>
+  </li>
+  <li><span class="function">ExReinitializeResourceLite</span> (3.51 and higher)
+  </li>
+  <li><span class="function">ExReleaseResourceForThreadLite</span> </li>
+  <li><span class="function">ExReleaseResourceLite</span> (3.51 and higher) </li>
+  <li><span class="function">ExSetResourceOwnerPointer</span> (4.0 and higher)
+  </li>
+  <li><span class="minwin function">ExTryToAcquireResourceExclusiveLite</span> (6.3 
+  and higher) </li>
+</ul>
+<p>Perhaps unsurprisingly, given that version 3.10 has <span class="routine">ExAcquireSharedStarveExclusive</span> 
+as an internal routine, version 3.50 does too. The other late additions to the exported 
+functions are not known as internal routines in earlier versions, except for one 
+stand-out curiosity. Not only is <span class="routine">ExTryToAcquireResourceExclusiveLite</span> 
+present as an internal routine in all versions from 3.50 to 6.0 inclusive, but Microsoft 
+documented it almost all the while (up to and including the DDK for Windows Server 
+2003 SP1) as if it is available to be called from outside the kernel. Yet not until 
+version 6.3 does the routine actually become an exported function—and now that it 
+is exported, it’s undocumented. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 18th November 2018 but was not published 
+  until 28th <a href="../../../../../../../new/20/06.htm">June 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

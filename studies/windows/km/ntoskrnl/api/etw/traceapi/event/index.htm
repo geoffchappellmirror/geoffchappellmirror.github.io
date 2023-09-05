@@ -1,0 +1,306 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>NtTraceEvent</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<!--webbot bot="Include" U-Include="../../../../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+<h1>NtTraceEvent </h1>
+<p>This function is the central switching point for writing an event through Event 
+Tracing For Windows (ETW). </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+NtTraceEvent (
+    HANDLE TraceHandle, 
+    ULONG Flags,
+    ULONG FieldSize, 
+    PVOID Fields);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">TraceHandle</span> is a handle to an event provider 
+or to a logger, or is <span class="constant">NULL</span>. Interpretation depends 
+on the <span class="argument">Flags</span>. The interpretation can include that
+<span class="argument">TraceHandle</span> is ignored. </p>
+<p>The <span class="argument">Flags</span> describe the type of the event and something 
+of how the event is to be handled. Interpretation varies with the Windows version.
+</p>
+<p>The <span class="argument">Fields</span> and <span class="argument">FieldSize</span> 
+arguments are respectively the address and size, in bytes, of data for the event. 
+Interpretation of this data depends on the <span class="argument">Flags</span>. 
+The interpretation can include that <span class="argument">FieldSize</span> is ignored.
+</p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+<h2>Availability </h2>
+<p>Both the <span class="function">NtTraceEvent</span> and
+<span class="function">ZwTraceEvent</span> functions are exported by name from NTDLL 
+in version 5.1 and higher. There, in user mode, the functions are aliases for a 
+stub that transfers execution to the <span class="routine">NtTraceEvent</span> implementation 
+in kernel mode such that the execution is recognised as originating in user mode.
+</p>
+<p>This <span class="function">NtTraceEvent</span> implementation is exported by 
+name from the kernel in version 5.1 and higher. Only in version 6.1 and higher does 
+the kernel also export a <span class="function">ZwTraceEvent</span>. The kernel-mode
+<span class="function">ZwTraceEvent</span> is also a stub that transfers execution 
+to the <span class="routine">NtTraceEvent</span> implementation but such that the 
+execution is recognised as originating in kernel mode. </p>
+<p>The oldest functionality of <span class="function">NtTraceEvent</span> appeared 
+first in version 5.0 as Device I/O Control (code 0x0022808F) for the WMI service 
+device. In some sense, the introduction of <span class="function">NtTraceEvent</span> 
+for version 5.1 signals the evolution of ETW as its own feature with direct support 
+from the kernel. Access as Device I/O Control for WMI was discontinued in version 
+6.0. </p>
+<h2>Documentation Status </h2>
+<p>Though the <span class="function">NtTraceEvent</span> and
+<span class="function">ZwTraceEvent</span> functions are not documented under either 
+name, C-language declarations have been published by Microsoft in headers from the 
+Enterprise edition of the Windows Driver Kit (WDK) for Windows 10 version 1511:
+<span class="function">NtTraceEvent</span> in NTWMI.H and <span class="function">
+ZwTraceEvent</span> in ZWAPI.H. </p>
+<h2>Behaviour </h2>
+<p>The following implementation notes are from inspection of the kernel from the 
+original release of Windows 10 only. They may some day get revised to account for
+<br>
+other versions. Meanwhile, where anything is added about earlier versions, take 
+it not as an attempt at comprehensiveness but as a bonus from my being unable to 
+resist a trip down memory lane or at least a quick look into the history. </p>
+<h3>User-Mode Defences </h3>
+<p>If executing for a user-mode request, the function has some general defensiveness 
+about addresses passed as arguments. Failure at any of these defences is failure 
+for the function, which typically returns <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span> 
+or <span class="constant">STATUS_ACCESS_VIOLATION</span> (showing in kernel mode 
+as raised but handled exceptions). </p>
+<h3>Valid Flags </h3>
+<p>Starting with version 6.0, the <span class="argument">Flags</span> are interpreted 
+as multi-bit fields: </p>
+<table class="Bits">
+  <tr>
+    <th>Mask </th>
+    <th>Name </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x000000FF </td>
+    <td><span class="constant">ETW_SYSTEM_EVENT_VERSION_MASK</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0000FFFF (6.0); <br>
+    0x0000FF00 </td>
+    <td><span class="constant">ETW_NT_TRACE_TYPE_MASK</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x000F0000 </td>
+    <td><span class="constant">ETW_USER_FRAMES_TO_SKIP_MASK</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x40000000 </td>
+    <td><span class="constant">ETW_NT_FLAGS_USE_NATIVE_HEADER</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x80000000 </td>
+    <td><span class="constant">ETW_NT_FLAGS_WOW64_CALL</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Masking the <span class="argument">Flags</span> by <span class="constant">ETW_NT_TRACE_TYPE_MASK</span> 
+produces an event type. Versions before 6.0 test the <span class="argument">Flags</span> 
+for single bits but have an event type in effect, since it is an error not to set 
+either of the two defined bits but both cannot usefully be set together (<span class="constant">ETW_NT_FLAGS_TRACE_HEADER</span> 
+has precedence). </p>
+<p>The table below lists the types that the function does not dismiss as invalid. 
+For all others, the function returns <span class="constant">STATUS_INVALID_PARAMETER</span>. 
+The versions that are presently shown for each function code are just from a cursory 
+look for the upper limit that the function applies in different builds. </p>
+<table>
+  <tr>
+    <th>Numeric Value </th>
+    <th>Symbolic Name </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00000001 (5.1 to 6.0); <br>
+    0x00000100 </td>
+    <td><span class="constant">ETW_NT_FLAGS_TRACE_HEADER</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000002 (5.1 to 6.0); <br>
+    0x00000200 </td>
+    <td><span class="constant">ETW_NT_FLAGS_TRACE_MESSAGE</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000003 (6.0); <br>
+    0x00000300 </td>
+    <td><span class="constant">ETW_NT_FLAGS_TRACE_EVENT</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000004 (6.0); <br>
+    0x00000400 </td>
+    <td><span class="constant">ETW_NT_FLAGS_TRACE_SYSTEM</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000005 (6.0); <br>
+    0x00000500 </td>
+    <td><span class="constant">ETW_NT_FLAGS_TRACE_SECURITY</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000006 (6.0); <br>
+    0x00000600 </td>
+    <td><span class="constant">ETW_NT_FLAGS_TRACE_MARK</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000700 </td>
+    <td><span class="constant">ETW_NT_FLAGS_TRACE_EVENT_NOREG</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000800 </td>
+    <td><span class="constant">ETW_NT_FLAGS_TRACE_INSTANCE</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000900 </td>
+    <td><span class="constant">ETW_NT_FLAGS_TRACE_RAW</span> </td>
+    <td>1511 and higher </td>
+  </tr>
+</table>
+<p>All remaining behaviour varies with the type. </p>
+<h3>EVENT_NT_FLAGS_TRACE_HEADER </h3>
+<p>This type of event supports the documented user-mode API functions
+<span class="function">TraceEvent</span> and (in versions before 6.1)
+<span class="function">TraceEventInstance</span>. As exports from ADVAPI32, these 
+predate <span class="function">NtTraceEvent</span>. In version 5.0, this case of 
+event tracing is done through Device I/O Control as a WMI feature. </p>
+<p>What’s expected for <span class="argument">Fields</span> is a fixed-size header 
+possibly followed by variable-size data. All versions ignore
+<span class="argument">FieldSize</span> in favour of learning the total size, in 
+bytes, from the header. Interpretation of this header and of the variable-size data 
+depends on flags in the header. Versions before 6.0 ignore the
+<span class="argument">TraceHandle</span> in favour of learning it from the header. 
+Version 6.0 defaults to this if <span class="argument">TraceHandle</span> is
+<span class="constant">NULL</span>. Later versions require the
+<span class="argument">TraceHandle</span>. However the handle is obtained, it is 
+a 16-bit logger ID. </p>
+<p>Historically, the header is in general a <span class="struct">WNODE_HEADER</span> 
+whose <span class="member">BufferSize</span>, <span class="member">HistoricalContext</span> 
+and <span class="member">Flags</span> members are respectively the total size, trace 
+handle and flags. If the 32-bit <span class="member">BufferSize</span> at the header’s 
+start is implausible for having its highest bit set, the header is instead an
+<span class="struct"><a href="../../tracelog/event_trace_header.htm">EVENT_TRACE_HEADER</a></span>, 
+an <span class="struct"><a href="../../tracelog/event_instance_header.htm">EVENT_INSTANCE_HEADER</a></span> 
+(in version 5.1) or an <span class="struct">
+<a href="../../tracelog/event_instance_guid_header.htm">EVENT_INSTANCE_GUID_HEADER</a></span>. 
+These each begin with a 16-bit <span class="member">Size</span>. </p>
+<p>Version 6.1 discontinues recognition of a <span class="struct">WNODE_HEADER</span> 
+and supports <span class="struct">EVENT_INSTANCE_GUID_HEADER</span> through a separate 
+case of the <span class="argument">Flags</span> (see <span class="constant">ETW_NT_FLAGS_TRACE_INSTANCE</span>), 
+such that the header is necessarily an <span class="struct">EVENT_TRACE_HEADER</span>.
+</p>
+<h3>EVENT_NT_FLAGS_TRACE_MESSAGE </h3>
+<p>This type of event supports the documented user-mode API function
+<span class="function">TraceMessageVa</span>. The event data described by
+<span class="argument">Fields</span> and <span class="argument">FieldSize</span> 
+must be exactly a <span class="struct">MESSAGE_TRACE_USER</span>, which is essentially 
+a repackaging of what would ordinarily have been passed as arguments to
+<span class="function">TraceMessageVa</span>. The <span class="member">Data</span> 
+and <span class="member">DataSize</span> members are respectively the address and 
+size, in bytes, of an argument list for the event. The argument list is in turn 
+a sequence of pointers and sizes, in pairs, each for one argument, ending with a
+<span class="constant">NULL</span> pointer. </p>
+<h3>EVENT_NT_FLAGS_TRACE_INSTANCE </h3>
+<p>This type of event supports the documented user-mode API function
+<span class="function">TraceEventInstance</span>. </p>
+<p>The <span class="argument">TraceHandle</span> is a 16-bit logger ID. The special 
+value 0xFFFF for the NT Kernel Logger is explicitly not valid. If the
+<span class="argument">TraceHandle</span> does not select a running logger, the 
+function returns <span class="constant">STATUS_INVALID_HANDLE</span>. If the logger 
+has <span class="constant">EVENT_TRACE_SECURE_MODE</span>, it does not accept events 
+through this interface even from kernel-mode callers, and the function returns
+<span class="constant">STATUS_ACCESS_DENIED</span>. For a kernel-mode request, the 
+logger must not have the <span class="constant">EVENT_TRACE_USE_PAGED_MEMORY</span> 
+mode, else the function fails, returning <span class="constant">STATUS_NOT_SUPPORTED</span>.
+</p>
+<p>The <span class="argument">Fields</span> argument must be the dword-aligned address 
+of a 0x48-byte <span class="struct">EVENT_INSTANCE_GUID_HEADER</span>, possibly 
+followed by variable-size event-specific data. The <span class="argument">FieldSize</span> 
+argument, which might be the total size in bytes, is ignored in favour of the
+<span class="member">Size</span> from the header. </p>
+<p>This <span class="member">Size</span> is ordinarily also the size of what the 
+function writes to a trace buffer as the event. The output header is slightly edited 
+from the input but the event-specific data is simply copied. </p>
+<p>Special interpretation applies, however, if <span class="constant">TRACE_HEADER_FLAG_USE_MOF_PTR</span> 
+is set in the header’s <span class="member">Flags</span>. The data that follows 
+the header on input is not itself the event-specific data but is instead an array 
+of <span class="struct">MOF_FIELD</span> structures which may each supply the address 
+and size of one item of event-specific data. All versions limit this array to 0x0100 
+bytes. If more is allowed by the <span class="member">Size</span>, the function 
+returns <span class="constant">STATUS_ARRAY_BOUNDS_EXCEEDED</span>. If the total 
+size of the header and of all items described by whole <span class="struct">MOF_FIELD</span> 
+structures in the array overflows 32 bits, the function returns
+<span class="constant">STATUS_BUFFER_OVERFLOW</span>. </p>
+<p>If the function cannot obtain space in a trace buffer for the fixed-header and 
+the event-specific data, it returns its choice of <span class="constant">STATUS_INTEGER_OVERFLOW</span>,
+<span class="constant">STATUS_BUFFER_OVERFLOW</span> or <span class="constant">STATUS_NO_MEMORY</span>.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 8th
+  <a href="../../../../../../../../new/18/12.htm">December 2018</a> and was last 
+  modified on 31st December 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c18.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="2144" -->
+</div>
+
+</body>
+
+</html>

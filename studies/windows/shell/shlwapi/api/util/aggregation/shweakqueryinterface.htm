@@ -1,0 +1,164 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SHWeakQueryInterface</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>SHWeakQueryInterface </h1>
+<p>This function queries an inner object for a desired interface. </p>
+<h2>Declaration </h2>
+<pre class="source">HRESULT SHWeakQueryInterface (
+    IUnknown *punkOuter,
+    IUnknown *punkInner,
+    REFIID riid,
+    PVOID *ppv);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">punkOuter</span> argument is an interface pointer 
+to an outer object. </p>
+<p>The <span class="argument">punkInner</span> argument is an interface pointer 
+to an inner object that is to be queried for a desired interface. </p>
+<p>The <span class="argument">riid</span> argument is a reference to the IID of 
+the desired interface. </p>
+<p>The <span class="argument">ppv</span> argument is the address of a variable that 
+is to receive a pointer to the desired interface. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/hresult.htm" TAG="BODY" startspan -->
+
+<p>The function returns zero for success, else an error code. </p>
+
+<!--webbot bot="Include" i-checksum="1551" endspan -->
+<p>In all cases of failure, the variable at <span class="argument">ppv</span> is 
+cleared to NULL. </p>
+<h2>Behaviour </h2>
+<p>If either <span class="argument">punkOuter</span> or <span class="argument">punkInner</span> 
+is NULL, the function has nothing to do, and fails (returning
+<span class="constant">E_NOINTERFACE</span>). Failure at querying the object
+<span class="argument">punkInner</span> for the desired interface becomes failure 
+for the function. Once the function has obtained a pointer to the desired interface 
+for the object at <span class="argument">punkInner</span>, it releases the object 
+at <span class="argument">punkOuter</span>. </p>
+<h3>Aggregation </h3>
+<p>The <span class="function">SHWeakQueryInterface</span> function seems intended 
+to ease some bookkeeping with COM aggregation. An outer (aggregating) object contains 
+an inner (aggregable) object such that the inner object’s interfaces seem to be 
+those of the outer object. Part of the technique is that the inner object implements 
+an explicit <span class="interface">IUnknown</span> interface that gives access 
+to its other interfaces, but has all its other interfaces delegate their
+<span class="interface">IUnknown</span> methods to an outer
+<span class="interface">IUnknown</span> interface provided by the outer object. 
+If the outer object ever queries the inner object’s explicit
+<span class="interface">IUnknown</span> interface for an interface other than
+<span class="interface">IUnknown</span>, the inner object’s delegation (of the implied
+<span class="method">AddRef</span> for the queried interface) will have incremented 
+the outer <span class="interface">IUnknown</span> interface’s reference count. An 
+outer object that is not awake to this will never be deletable. Proper reference 
+counting therefore demands the following rule, which Microsoft’s page
+<a target="_top" href="http://msdn.microsoft.com/library/ms686558.aspx">Aggregation 
+(COM)</a> expresses as: </p>
+<blockquote>
+  The outer object must call its controlling <b>IUnknown Release</b> method if it 
+  queries for a pointer to any of the inner object’s interfaces.
+</blockquote>
+<p>Using the <span class="function">SHWeakQueryInterface</span> function conveniently 
+deals with both steps as one. </p>
+<h3>Other Use </h3>
+<p>The function is not, however, restricted to helping with aggregation. The object 
+represented by <span class="argument">punkOuter</span> can be any (old) object that 
+is to be released once a desired interface is obtained from the (new) object represented 
+by <span class="argument">punkInner</span>. </p>
+<h4>Weak Reference </h4>
+<p>Moreover, <span class="argument">punkOuter</span> and <span class="argument">
+punkInner</span> can refer to the same object (not just in theory but in Microsoft’s 
+actual practice). The effect is then that the caller of <span class="function">SHWeakQueryInterface</span> 
+obtains the desired interface without adding a reference, and without the responsibility 
+of calling the object’s <span class="method">Release</span> method when done.
+</p>
+<p>Of course, this usage is unsafe in general, most notably when the desired interface 
+has a tear-off implementation. It is well suited, however, to another situation 
+that can occur in containment when the inner and outer objects are designed to act 
+as a pair, such that the inner object may query the outer object for an interface. 
+While the reference is held, the outer object is not deletable. This is a problem 
+especially if the reference is wanted for the whole of the inner object’s lifetime 
+and the inner object lives until the outer object is to be destroyed. A solution 
+is for the inner object to release its reference to the desired interface, but use 
+the interface anyway, through what is sometimes called a
+<span class="definition">weak reference</span>. The interface is maintained because 
+the inner object’s existence is anyway dependent on the outer object’s and the interface 
+is agreed not to have a tear-off implementation. Although this does not seem to 
+be Microsoft’s typical use of <span class="function">SHWeakQueryInterface</span>, 
+it may be what gives the function its name. </p>
+<h2>Availability </h2>
+<p>The <span class="function">SHWeakQueryInterface</span> function is exported from 
+SHLWAPI.DLL as ordinal 267 in version 5.00 and higher. </p>
+<!--webbot bot="Include" U-Include="../../_include/undoc500-2007.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 1999, it was still not documented 
+by Microsoft as late as the January 2007 edition of the Windows Vista Software Development 
+Kit (SDK). </p>
+
+<!--webbot bot="Include" i-checksum="62277" endspan -->
+<h3>Use by Microsoft </h3>
+<p>Before Windows Vista, the <span class="function">SHWeakQueryInterface</span> 
+function was imported by BROWSEUI.DLL, SHDOCVW.DLL and SHELL32.DLL. Since SHDOCVW 
+is beyond debate as being part of Internet Explorer, the only way that this function 
+can be exempt from needing to be documented among the
+<a target="_top" href="http://msdn.microsoft.com/library/ms807073.aspx">Settlement 
+Program Interfaces</a> is that Microsoft does not count SHLWAPI as part of any Windows Operating 
+System Product for the terms of the settlement. Whatever may have been Microsoft’s 
+argument, it is made irrelevant in Windows Vista. Where use of the function by BROWSEUI 
+and SHDOCVW is transferred to or reproduced in the new DLL named IEFRAME, the latter 
+does not import the function from SHLWAPI but instead calls its own copy. </p>
+<p>Windows Vista also sees this function acquire new use, in TWEXT.DLL, which is 
+the Time Warp namespace extension and is responsible for the Previous Versions tab 
+in the Properties dialog for files. As it happens, TWEXT shows the purest of all 
+known uses of the function. Its creatable <span class="class">TimeWarpFolder</span> 
+class is implemented as an outer object for an inner object of whose implementation 
+details TWEXT has no special knowledge. When the <span class="class">TimeWarpFolder</span> 
+queries the inner object for its <span class="interface">IShellFolder</span>,
+<span class="interface">IShellFolder2</span>, <span class="interface">
+<a href="../../../../shell32/interfaces/ishellfolder3.htm">IShellFolder3</a></span> 
+and <span class="interface">IPersistFolder3</span> interfaces, it uses
+<span class="function">SHWeakQueryInterface</span> to keep its own reference count 
+in order. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 2nd June 2009 and was last modified 
+  on 1st July 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="7105" endspan -->
+</div>
+
+</body>
+
+</html>

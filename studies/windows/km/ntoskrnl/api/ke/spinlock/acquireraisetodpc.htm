@@ -1,0 +1,121 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KeAcquireSpinLockRaiseToDpc</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KeAcquireSpinLockRaiseToDpc </h1>
+<p>This function obtains exclusive use of whatever resource is protected by the 
+given lock. </p>
+<h2>Declaration </h2>
+<pre class="source">KIRQL KeAcquireSpinLockRaiseToDpc (KSPIN_LOCK *SpinLock);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SpinLock</span> argument is the address of the lock 
+that is to be acquired. </p>
+<h3>Return Value </h3>
+<p>The function returns the Interrupt Request Level (IRQL) that is to be restored 
+when the lock is released. </p>
+<h2>Availability </h2>
+<p>The <span class="function">KeAcquireSpinLockRaiseToDpc</span> function is exported 
+by name from x64 builds of the kernel in all versions, i.e., starting with the version 
+5.2 from Windows Server 2003 SP1. </p>
+<p>The most direct x86 analogue of this function is <span class="function">
+<a href="../../../../hal/api/mpspin/acquire.htm">KfAcquireSpinLock</a></span>. This 
+anyway is not intended for programmers to use explicitly. They instead write as 
+if calling the documented <span class="function">
+<a href="../../../../hal/api/thunk/acquire.htm">KeAcquireSpinLock</a></span> function, 
+which a macro definition reinterprets in terms of <span class="function">KfAcquireSpinLock</span>.
+</p>
+<p>Something similar is intended when programming for the x64 processor. Programmers 
+write as if calling the documented <span class="function">KeAcquireSpinLock</span> 
+function, but it is again a macro. The difference is that the x64 macro reinterprets 
+in terms of <span class="function">KeAcquireSpinLockRaiseToDpc</span>. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">KeAcquireSpinLockRaiseToDpc</span> function is documented. 
+The first known documentation is in the Device Driver Kit (DDK) for Windows XP, 
+which presents it as “a faster version of the <span class="function">KeAcquireSpinLock</span> 
+function” and says nothing of its being processor-specific. The WDM.H from this 
+DDK version declares the function only if the target architecture is not x86. Not 
+until the Windows Driver Kit (WDK) for Windows 7 does the documentation spell out 
+that “This routine is not available in 32-bit versions of Windows.” </p>
+<h2>Behaviour </h2>
+<p>The <span class="function">KeAcquireSpinLockRaiseToDpc</span> function is a compound. 
+Its work is in two parts which can be done independently by calling other exported 
+functions. The <span class="function">KeAcquireSpinLockRaiseToDpc</span> implementation 
+gains by inlining its two parts (and skipping the second entirely for single-processor 
+builds). </p>
+<p>The first part is to raise the IRQL to <span class="constant">DISPATCH_LEVEL</span> 
+if it is not already there. This ensures that the current thread has exclusive use 
+of the current processor. Interrupts can occur at higher IRQL, as with hardware 
+interrupts, but they are not permitted to switch the processor to another thread. 
+The equivalent exported function is <span class="function">KeRaiseIrqlToDpcLevel</span>.
+</p>
+<p>The second part is to obtain the current processor’s exclusive use of the protected 
+resource. All threads that seek to use the resource must acquire the agreed lock. 
+All call this function or a similar one so that all try to mark the lock in the 
+same way but are able to do so only while the lock is not already marked. Typically, 
+they wait in a more or less tight loop until they are able to mark the lock to signify 
+that they now own the resource. The equivalent exported function for this second 
+part is <span class="function"><a href="acquireatdpclevel.htm">KeAcquireSpinLockAtDpcLevel</a></span>. 
+This part is trivial in single-processor builds. </p>
+<h3>IRQL and Other Constraints </h3>
+<p>The <span class="function">KeAcquireSpinLockRaiseToDpc</span> function is intended 
+for use at IRQL up to and including <span class="constant">DISPATCH_LEVEL</span>. 
+The address that is given in the <span class="argument">SpinLock</span> argument 
+must be of non-paged memory. </p>
+<p>The function returns with the IRQL at <span class="constant">DISPATCH_LEVEL</span>. 
+No other thread can execute on the same processor. No thread on another processor 
+can acquire the lock. The owning thread must cause no exception, including by touching 
+paged memory. These constraints continue until the owning thread releases the lock, 
+e.g., by calling the <span class="function">
+<a href="../../../../hal/api/thunk/release.htm">KeReleaseSpinLock</a></span> function.
+</p>
+<p>Spin locks are either owned or not. That is their entire state. If
+<span class="function">KeAcquireSpinLockRaiseToDpc</span> or any similar function 
+is called to acquire a spin lock that the thread already owns, then the function cannot 
+return (except with contrivance). This is not a deadlock between two threads, just 
+that the one thread is hung in the function’s spin loop, waiting forever for the same thread 
+to release the lock. &nbsp;</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 4th
+  <a href="../../../../../../../new/19/12.htm">December 2019</a> and was last modified 
+  on 11th December 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

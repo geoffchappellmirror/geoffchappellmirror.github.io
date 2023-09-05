@@ -1,0 +1,700 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The MRXCLS.SYS Malware Loader</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>The MRXCLS.SYS Malware Loader </h1>
+  <p>A practically necessary feature of malware is that it is not content just to 
+  run once when picked up by the hapless user but must arrange that it will run 
+  again even after the machine is restarted. Of course, not all programs that want 
+  to get run automatically at startup are malware. All sorts of legitimate reasons 
+  exist for an application to want, or even need, that at least some part of itself 
+  should run without depending on the user to do something explicit about it. Windows 
+  has correspondingly all sorts of configurable settings for specifying that this 
+  or that module should be loaded more or less early in the system’s initialisation.
+  </p>
+  <p>These settings are of course much abused. We have probably all been frustrated 
+  by software, even from reputable manufacturers, that does not obviously by nature 
+  require an automatic startup but just presumes the user should always want this 
+  program to be running. Some of these programs at least provide user-interface 
+  support for opting out, but many don’t, and all are subjects of concern. I expect 
+  that a large part of the everyday administrative concern of any careful user is 
+  to know what software has run automatically, and why. </p>
+  <p>As an aside in this context, I must express my surprise that for all Microsoft’s 
+  talk of attending to security in Windows there seems to be no systematic documentation 
+  by Microsoft of all the ways that Windows provides for software to load automatically. 
+  Without going so far as to say Microsoft ought long ago to have provided a system 
+  accessory or administrative tool that not only lists all the relevant settings 
+  but tracks changes to them, I would have thought it beyond dispute that all the 
+  settings ought at least be documented and collected. Yet as late as 2010, a setting 
+  that has been in Windows since the mid-90s and which I documented in 2005 as
+  <a href="../../windows/shell/explorer/taskman.htm">Run Program at Startup as Taskman</a> 
+  is documented only obscurely by Microsoft, and incorrectly to boot.<a class="FootnoteReference" name="FtnRef_1" href="#Ftn_1">1</a> 
+  It all seems a bit slack, but perhaps that’s someone’s business opportunity.
+  </p>
+  <p>It surely is an opportunity for the writers of malware. For them, knowledge 
+  of getting software loaded automatically, preferably without being obvious about 
+  it, must be valuable. It won’t be as much prized as knowledge of vulnerabilities 
+  that allow malware to get executing in the first place or to execute with extra 
+  privilege, but it is perhaps the next in line, given its importance to the malware’s 
+  sustained activity on infected computers. Though installing code to run automatically 
+  can be as easy as setting one registry value, other ways are more complex and 
+  even exotic, perhaps enough so that as malware development gets ever better organised, 
+  the writing of code to get other code loaded automatically may become a specialisation.
+  </p>
+  <h2>Stuxnet </h2>
+  <p>Some sign of this specialisation is discernable, if only as a possibility, 
+  in the Stuxnet worm that has recently made headlines. Among the many components 
+  of Stuxnet is a kernel-mode driver whose sole value to Stuxnet is to arrange that 
+  the worm will get to execute after Windows is restarted, should the circumstances 
+  it wants recur. The driver I mean—Stuxnet has two kernel-mode drivers—is installed 
+  as “mrxcls.sys”. The worm itself is an encrypted DLL installed as “oem7A.PNF”. 
+  The decrypted DLL contains the driver, lightly disguised, as one of its resources 
+  (number 201). The driver executes automatically when Windows is restarted, watches 
+  what programs get run, and injects the worm into each execution of the Windows 
+  program “services.exe” (which is sure to run on all Windows machines) and of two 
+  other programs “S7tgtopx.exe” and “CCProjectMgr.exe” (which are expected only 
+  on machines that are the worm’s ultimate targets). </p>
+  <p>Several analyses of Stuxnet note that the MRXCLS driver differs significantly 
+  from other Stuxnet components in obvious indicators of how and when the components 
+  were built. If various time stamps are to believed, the MRXCLS driver from a Stuxnet 
+  that was circulating in mid-2010 was built on 2nd January 2009 and signed on 26th 
+  January 2010 when the other driver, “mrxnet.sys” from resource 242, was both built 
+  and signed. It is no surprise if signing had to wait for the availability of a 
+  stolen certificate, but why would MRXCLS not have been revised during the year 
+  and rebuilt when signing? It could be, of course, that MRXCLS was long finished 
+  and needed no change, but there’s another possibility which nobody seems yet to 
+  have raised. It may be not so much that the Stuxnet writers
+  <span class="emphasis">didn’t</span> rebuild the MRXCLS driver but that they wouldn’t 
+  or couldn’t. This driver, and perhaps some other components too, may have been 
+  developed independently of Stuxnet. <span class="highlight">It’s even possible 
+  that the Stuxnet writers don’t have the MRXCLS source code.</span> </p>
+  <p>Although MRXCLS may presently be distributed only with Stuxnet, its code knows 
+  absolutely nothing about anything else in Stuxnet. That could just be good modularisation, 
+  but there’s more. First, it is written in a very distinctive C++ style (in which 
+  global variables are avoided by wrapping them into constructors for classes with 
+  static data members) that I have not noticed in any other Stuxnet component, including 
+  the other kernel-mode driver. Second, unlike Stuxnet’s other kernel-mode driver 
+  which clearly has been developed specially for Stuxnet, MRXCLS is fully a retail 
+  build, with no debug directory (and thus no pathname for a PDB file).<a class="FootnoteReference" name="FtnRef_2" href="#Ftn_2">2</a> 
+  Third, MRXCLS is conspicuously free of the particular light disguise (a word-wise 
+  XOR with 0xAE12) that many other Stuxnet components, though not the other kernel-mode 
+  driver, use for at least some strings. Most significantly, MRXCLS is written with 
+  far, far more generality than Stuxnet finds any use for.
+  <span class="highlight">Once installed, MRXCLS is a self-standing kernel-mode 
+  loader of essentially arbitrary user-mode malware specified in configuration data. 
+  Any malware that installs MRXCLS can name any number of processes whose execution 
+  MRXCLS is to watch for, and can name for each such process any number of DLLs 
+  that MRXCLS is to load into that process’s address space and execute ahead of 
+  the process’s main executable.</span> </p>
+  <p>That’s powerful stuff. Though this work is not at all sophisticated for a kernel-mode 
+  driver, that it is done in a kernel-mode driver is of itself enough difficulty 
+  for many programmers, even ones who might otherwise be thought among the most 
+  capable. Many a manager has learnt the hard way that kernel-mode programming is 
+  not for everyone, and I imagine that many a malware writer who wants the power 
+  of a kernel-mode malware loader would be pleased to have it ready-to-wear from 
+  a kernel-mode specialist. I certainly don’t say that MRXCLS breaks new ground 
+  in specialisation of malware development—I don’t inspect enough malware to know 
+  one way or the other—but I do say that those who talk of Stuxnet as one project 
+  developed on a previously unseen scale ought to consider that this much of it, 
+  at least, may have come off-the-shelf. </p>
+  <h2>Kernel-Mode Loading </h2>
+  <p>Of course, getting malware installed as a kernel-mode driver is not easy. It 
+  requires administrative privilege to create the relevant (well documented) registry 
+  keys and values, which are anyway in parts of the registry that will be watched 
+  by any competent anti-virus software. There is also the complication of kernel-mode 
+  code signing policy. Although 32-bit Windows does not insist on a digital signature 
+  for every kernel-mode driver, it does at least note the absence. Still, if what’s 
+  wanted is to get malware injected into other processes as early as possible in 
+  the execution of those other processes, then a kernel-mode driver would be hard 
+  to improve on as the solution and whatever alternatives exist would surely come 
+  with similar problems for installation. </p>
+  <p>Although MRXCLS is a kernel-mode driver, it’s not as if there’s a device to 
+  drive. This is true of many kernel-mode drivers, though most in practice do at 
+  least filter the system’s communications with drivers that do control devices. 
+  As a kernel-mode driver, MRXCLS has barely any presence at all. Once initialised, 
+  it maintains just two ways it can be called. One is a named device object that 
+  exists solely to support a Device I/O Control interface through which user-mode 
+  code, including the loaded malware, can access the kernel’s
+  <span class="symbol">ZwProtectVirtualMemory</span> routine, notably to ask that 
+  read-only memory be made writeable. The other foothold this driver keeps in the 
+  system is a routine that the driver registers through the
+  <span class="function">PsSetLoadImageNotifyRoutine</span> function and which is 
+  thereafter called by the kernel whenever any executable image is mapped into memory, 
+  whether for kernel-mode or user-mode execution. </p>
+  <p>The driver’s interest, of course, is in user-mode execution. The driver watches 
+  for two stages in the loading of a new process. When the main executable for the 
+  process is loaded, the driver checks its configuration data to see if this process 
+  is a target and, if so, prepares what to inject. The driver completes the kernel-mode 
+  part of the injection when it sees KERNEL32.DLL get loaded for the process. The 
+  greater part of the injection is done in user mode, by code that is contained 
+  in the driver but which the driver copies into the process’s user-mode address 
+  space. This user-mode hook gets to execute because the driver patches the process’s 
+  main executable at its entry point. Thus, after the process’s DLLs have been loaded 
+  and initialised but before the process’s main executable gets to run its intended 
+  code, the user-mode hook adds whatever extra DLLs have been specified as the malware 
+  for the process. For each, the user-mode hook calls the DLL’s own entry point 
+  as if for process attachment and then calls a post-initialisation function that 
+  the DLL can export. Arguments to this function provide the DLL with a few facilities 
+  that are surely useful for malware. Most notable is a handle to the driver’s device 
+  object, which lets the DLL play with memory protection without having to call 
+  user-mode functions that anti-virus software may think to monitor. When all the 
+  injected DLLs in the process are done with their initialisations, the user-mode 
+  hook undoes its patch and runs the main executable as if there had been no diversion 
+  to infect it. </p>
+  <p>As summaries go, that pretty much covers what the driver does. To defend against 
+  it, you would want to know more (and you might hope that I, who do not have an 
+  anti-virus product to sell, find sufficient resources to continue this article). 
+  But if your aim is just to use the driver, then even the preceding summary is 
+  more than you need. Imagine yourself as the writer of user-mode malware looking 
+  to this driver as a tool for getting your malware loaded. What you would want 
+  is directions for use. A necessary condition for my hypothesis is that directions 
+  can be given for configuring this driver to inject an arbitrary malware DLL into 
+  an arbitrary process, without having to understand more than a summary of how 
+  the driver does this magic. </p>
+  <h2>Configurability </h2>
+  <p>The driver seems to have two distinct levels of configurability. One is under 
+  the control of its writers, when they rebuild the driver without changing its 
+  code. The other lets the driver’s users control what malware the driver will load 
+  from which files into which processes. </p>
+  <h3>Compile-Time Configuration </h3>
+  <p>Since I have only the one sample, I am of course only inferring an intention 
+  on the part of the driver’s writers to vary their product, let alone that they 
+  mean to do so through the particular mechanisms I identify. Still, in a driver 
+  that does nothing about obfuscating its code, it sticks out plainly enough that 
+  one block of data is encrypted. What is provided in that block is: </p>
+  <ul>
+    <li>whether the driver should work in Safe Mode; </li>
+    <li>whether the driver should work if kernel-mode debugging is enabled; </li>
+    <li>whether the driver should inject into processes that are being debugged;
+    </li>
+    <li>the names of a registry key and value from which to get the client’s configuration 
+    data; </li>
+    <li>the name of a file from which to get the client’s configuration data in 
+    default of reading it from the registry; </li>
+    <li>the maximum file size, both for configuration data and for injected DLLs;
+    </li>
+    <li>the encryption key for the client’s configuration data; </li>
+    <li>the name of a device object that provides the client with access to
+    <span class="symbol">ZwProtectVirtualMemory</span>. </li>
+  </ul>
+  <p>The MRXCLS writers would surely have known that the driver could avoid depending 
+  on two of these: the registry key in which the driver is installed is anyway just 
+  what the kernel passes to the driver’s <span class="symbol">DriverEntry</span> 
+  function at initialisation; and since the client malware is given a handle to 
+  the open device object, the name of that device object really doesn’t matter. 
+  So, although some of the properties in this encrypted data are likely just to 
+  help during the driver’s development and testing, I surmise that some of the point 
+  to this compile-time configuration is that the MRXCLS writers have at least anticipated 
+  exercising a little control over their driver’s distribution. What the MRXCLS 
+  writers presumably don’t want is that malware writers who got hold of an MRXCLS 
+  binary could rename it to whatever they wanted, install it in whatever registry 
+  key they wanted, and use it for whatever malware they wanted. Instead, they have 
+  made it that anyone who wants to install the driver in a registry location of 
+  their own must get a new build (and encryption key) from the driver’s writers.<a class="FootnoteReference" name="FtnRef_3" href="#Ftn_3">3</a>
+  </p>
+  <p>For the remainder of this article, I take as understood the compile-time configuration 
+  from the MRXCLS distributed with Stuxnet. The registry key and value and the encryption 
+  key for the configuration data are all given shortly. The maximum file size is 
+  3MB, but no file is given as a fallback should configuration data not be readable 
+  from the registry. The driver aborts its initialisation if Windows is in Safe 
+  Mode or if kernel-mode debugging is enabled. Processes that would ordinarily be 
+  targets for injection are left alone if they are being debugged. Where any discussion 
+  below touches on any of these features, remember that the behaviour is subject 
+  to this compile-time configuration. </p>
+  <h3>Run-Time Configurability </h3>
+  <p>For the driver to act as a general-purpose malware loader, its writers must 
+  provide their client with a way to specify which DLLs to inject into which processes. 
+  The client supplies this configuration through a single registry value: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\MRxCls</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">Data</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_BINARY</span> </td>
+    </tr>
+  </table>
+  <p>The data for this value is expected to have been encrypted using 0xAE240682 
+  as the key. (I present the algorithm later.) </p>
+  <p>When decrypted, a simple checksum of all the bytes in the
+  <span class="regvalue">Data</span> data must produce zero. The data is read from 
+  the registry just the once but is parsed afresh each time the driver learns of 
+  the loading of the main executable for any process that isn’t being debugged. 
+  What the driver expects to see is: </p>
+  <ul>
+    <li>a dword which must be zero; </li>
+    <li>a variable-sized record that provides default injection material; </li>
+    <li>a dword which is the number of injection records which follow; </li>
+    <li>a sequence of variable-sized injection records. </li>
+  </ul>
+  <p>Anything beyond this is irrelevant to the driver, except for being included 
+  in the checksum that establishes the plausibility of decryption. A useful (and 
+  efficient) continuation would be a single byte that balances the checksum of all 
+  the preceding bytes. </p>
+  <p>The variable-sized record that follows the leading zero has the form of a dword 
+  whose value is the size in bytes of data that follows in the record. This data 
+  is itself a complex record. Note however that it typically will never be parsed. 
+  The driver looks inside this data only if an injection record directs the driver 
+  to load a file which the driver then finds it cannot do. </p>
+  <h4>Injection Records </h4>
+  <p>The injection records each name a process and a DLL that is to be injected 
+  into that process. The driver parses them all, continuing even after errors. It 
+  seems explicitly intended, then, that a process may be matched against any number 
+  of injection records. The corresponding DLLs will be injected in the reverse order 
+  of their injection records, but whether this particular order is intended or is 
+  merely a convenience in the programming is not clear. </p>
+  <p>Each injection record begins with a 10h-byte header: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks" span="2">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th colspan="2">Description </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>dword </td>
+      <td colspan="2">irrelevant </td>
+    </tr>
+    <tr>
+      <td>0x04 </td>
+      <td>word </td>
+      <td colspan="2">ordinal of DLL export for post-initialisation </td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x06 </td>
+      <td rowspan="2">byte </td>
+      <td>0x01 bit set: </td>
+      <td>DLL is encrypted </td>
+    </tr>
+    <tr>
+      <td>0x02 bit set: </td>
+      <td>inject DLL as memory image </td>
+    </tr>
+    <tr>
+      <td>0x08 </td>
+      <td>dword </td>
+      <td colspan="2">encryption key for decrypting DLL </td>
+    </tr>
+    <tr>
+      <td>0x0C </td>
+      <td>dword </td>
+      <td colspan="2">selector for default injection material if error reading DLL, 
+      else zero </td>
+    </tr>
+  </table>
+  <p>This header is followed immediately by two variable-sized records. Each is 
+  a dword whose value is the number of bytes of data that follow in the record.
+  </p>
+  <p>Data for the first record names the process. The driver merely assumes that 
+  this data is a null-terminated Unicode string. If the (case-insensitive) full 
+  pathname for the process that is being loaded ends with what’s in this first record, 
+  then the process is to be injected with the DLL that is named by the second record. 
+  The driver does not check that a match is just of the filename in the process’s 
+  full pathname, but whether this by design or oversight is not clear. </p>
+  <p>The second record names a DLL that the driver is to inject into the process. 
+  Again, the driver merely assumes that the data in this record is a null-terminated 
+  Unicode string. Exactly how this string names the injected material depends on 
+  the bit flags at offset 0x06 in the header. </p>
+  <p>If the 0x02 flag is clear, then when the driver intercepts the process’s initialisation, 
+  its user-mode hook is to load the named DLL into the process simply by calling
+  <span class="function">LoadLibrary</span>. The string given in this second record 
+  must in this case be suitable for passing to <span class="function">LoadLibrary</span>. 
+  The effect in this simple case is much as if the process’s main executable actually 
+  had been coded to load the named DLL. The detraction for malware is that defenders 
+  against malware surely have <span class="function">LoadLibrary</span> very high 
+  on their list of functions to monitor. </p>
+  <p>More sophistication is obtained if the 0x02 flag is set. The driver is then 
+  to read the DLL as a file, keeping the contents as source data from which the 
+  user-mode hook will prepare an executable image in the process’s address space. 
+  In this case, the string in this second record must be suitable for the kernel-mode
+  <span class="function">ZwOpenFile</span> function. If, additionally, the 0x01 
+  flag is set, then the named file is encrypted using the key from offset 0x08 in 
+  the header. Note that the 0x01 flag is ignored unless the 0x02 flag is also set.
+  </p>
+  <h4>Default Records </h4>
+  <p>If the 0x02 flag is set but the driver finds that it cannot read the indicated 
+  file, then a non-zero dword at offset 0x0C in the header tells the driver that 
+  alternative material to inject into the process may be available not in a file 
+  but in elsewhere in the <span class="regvalue">Data</span> data. As noted above, 
+  the variable-sized record that follows the leading zero is a dword that gives 
+  the size in bytes of data that follows. This data has the form: </p>
+  <ul>
+    <li>a dword which is the number of default records that follow; </li>
+    <li>a sequence of variable-sized default records. </li>
+  </ul>
+  <p>Each default record is in turn </p>
+  <ul>
+    <li>a dword to match against the dword from offset 0x0C in the injection header 
+    whose DLL could not be read; </li>
+    <li>a dword which is the size in bytes of injection data that follows; </li>
+    <li>injection data to use instead of what might have been read from the DLL.
+    </li>
+  </ul>
+  <p>Quite how useful this provision can be in practice is not clear. It is anyway 
+  not used by Stuxnet (whose configuration data supports it only to the extent of 
+  specifying that the number of default records is zero). Especially curious is 
+  that the default data precedes the injection records but becomes meaningful only 
+  after an injection record somehow goes wrong. Could it be retained for some sort 
+  of backwards compatibility? Was this driver, with earlier code, in circulation 
+  before its discovery in Stuxnet? </p>
+  <h2>Encryption Algorithm </h2>
+  <p>The driver has just the one encryption algorithm, for which it has as many 
+  as three uses: </p>
+  <table>
+    <tr>
+      <td>for the compile-time configuration, in driver’s own data section </td>
+      <td>key is 0, from driver’s code </td>
+    </tr>
+    <tr>
+      <td>for the run-time configuration, in the <span class="regvalue">Data</span> 
+      registry value </td>
+      <td>key is 0xAE240682, from compile-time configuration </td>
+    </tr>
+    <tr>
+      <td>optionally for any DLL image that the driver is to inject </td>
+      <td>key is specified in run-time configuration </td>
+    </tr>
+  </table>
+  <p>Though the first of these is the driver’s own business, any client malware 
+  that uses the driver must know the algorithm for the second use, i.e., to tell 
+  the driver which processes to infect with which DLLs, and can beneficially know 
+  the algorithm for the third use, i.e., to disguise the content of those DLLs. 
+  Note that although the algorithm provides for a 32-bit key, only the low 8 bits 
+  are significant: </p>
+  <pre class="source">class MRXCLS_CIPHER
+{
+    int x;
+    int y;
+
+    #define ROUNDS 5
+
+    public:
+
+    MRXCLS_CIPHER (int Key)
+    {
+        x = Key ^ 0xD4114896;
+        y = Key ^ 0xA36ECD00;
+    };
+
+    void Encrypt (char *Buffer, unsigned int Size)
+    {
+        for (int j = 0; j &lt; ROUNDS; j ++) {
+            unsigned int i;
+            for (i = 1; i &lt; Size; i ++) {
+                Buffer [i] += Buffer [i - 1];
+            }
+            for (i = 0; i &lt; Size / 2; i ++) {
+                Buffer [i] ^= Buffer [(Size + 1) / 2 + i];
+            }
+            for (i = 0; i &lt; Size; i ++) {
+                Buffer [i] ^= (char) x * i + y * j;
+            }
+        }
+    };
+
+    void Decrypt (char *Buffer, unsigned int Size)
+    {
+        for (int j = ROUNDS - 1; j &gt;= 0; j --) {
+            unsigned int i;
+            for (i = 0; i &lt; Size; i ++) {
+                Buffer [i] ^= (char) x * i + y * j;
+            }
+            for (i = 0; i &lt; Size / 2; i ++) {
+                Buffer [i] ^= Buffer [(Size + 1) / 2 + i];
+            }
+            for (i = Size - 1; i &gt;= 1; i --) {
+                Buffer [i] -= Buffer [i - 1];
+            }
+        }
+    };
+
+    static void Encrypt (char *Buffer, unsigned int Size, int Key)
+    {
+        MRXCLS_CIPHER cipher (Key);
+        cipher.Encrypt (Buffer, Size);
+    };
+
+    static void Decrypt (char *Buffer, unsigned int Size, int Key)
+    {
+        MRXCLS_CIPHER cipher (Key);
+        cipher.Decrypt (Buffer, Size);
+    };
+};</pre>
+  <p>Of course, the driver has code just for decrypting, not encrypting, but the 
+  source code as actually used when building the driver will be very similar to 
+  what’s shown above (though possibly with the <span class="keyword">static</span> 
+  member functions outside the class). Indeed, if the preceding class definition 
+  is included in a program that calls the <span class="keyword">static</span> member 
+  function named above as <span class="symbol">Decrypt</span>, and presents arbitrary 
+  arguments, then the driver’s binary code for this function is exactly reproduced 
+  by the compiler from Visual Studio 2005 (i.e., version 8.0, as indicated in the 
+  driver’s PE header) when run with the <span class="switch">/Oxs</span> and
+  <span class="switch">/GL</span> optimisations.<a class="FootnoteReference" name="FtnRef_4" href="#Ftn_4">4</a>
+  </p>
+  <p>The main Stuxnet DLL has code both for encrypting and decrypting, but its encoding 
+  of the algorithm is slightly different: </p>
+  <ul>
+    <li>the class has the number of rounds as a third data member; </li>
+    <li>the <span class="symbol">Size</span> argument and the
+    <span class="symbol">i</span> variable are signed, not unsigned. </li>
+  </ul>
+  <p>The algorithm is also used where the main Stuxnet DLL is hidden in the “.stub” 
+  section of a wrapper DLL. The decryption there stands between the two others: 
+  it uses unsigned arithmetic and the number of members isn’t knowable because the 
+  compiler has optimised away the class (as it can since there’s only the one use 
+  and the key, which incidentally is zero for this use, can be treated as constant).
+  </p>
+  <p>The close similarity of these various encodings suggests, if not proves, that 
+  the Stuxnet DLLs learn the driver’s algorithm through a header file, yet the differences 
+  are more than would be expected if the header was intended for modules that are 
+  developed together. There are ways to account for these differences, with more 
+  or less contrivance, but the easiest explanation may be that the header that describes 
+  the driver to the Stuxnet DLL is not the header with which the driver actually 
+  was built.<a class="FootnoteReference" name="FtnRef_5" href="#Ftn_5">5</a> </p>
+  <h2>Support </h2>
+  <p>Another point on which the driver may usefully be described programmatically 
+  for its client malware is with the support that the driver provides for the injected 
+  DLLs. The driver does not merely map the DLL into the target process’s address 
+  space. It also executes the DLL. This is in two steps. So that the DLL may be 
+  arbitrary, its entry point for initialisation will have the form of a
+  <span class="function">DllMain</span> function which the driver expects has been 
+  written to execute under all the restrictions that apply to a
+  <span class="function">DllMain</span> function in the ordinary loading and initialisation 
+  of any DLL. To help the DLL start some execution without these restrictions, the 
+  driver provides that the DLL exports a function which the driver will call after 
+  the DLL has initialised. The ordinal of this export is specified in the injection 
+  record. The driver does not explicitly anticipate that the DLL will not want this 
+  call, but if the client sets zero as the ordinal, then the driver will not find 
+  an exported function to call. </p>
+  <p>Given that a function is specified for post-initialisation, the driver provides 
+  it with three arguments, but in a way that allows the injected DLL to ignore them 
+  (as does the Stuxnet DLL). The only imposition on the DLL is that the exported 
+  function must have a C-language calling convention that leaves the arguments on 
+  the stack. Most notably, it can have any <span class="keyword">__cdecl</span> 
+  declaration or it can be <span class="keyword">__stdcall</span> with no arguments. 
+  This means the DLL can have been developed with essentially no thought to being 
+  loaded specifically by this driver. However, for a DLL that
+  <span class="emphasis">can</span> be coded with awareness of being loaded by this 
+  driver, the post-initialisation function gets some useful support. </p>
+  <p>That said, the support is not as clean as it might be. The first two arguments 
+  are pointers to structures that support the user-mode hook. Some members seem 
+  to be usable only with access to other data that the user-mode hook does not pass 
+  to the injected DLL. Others provide access to routines that could help the injected 
+  DLL with its own examination of executable images. For instance, one finds which 
+  image, if any, contains a given address in memory. It must be assumed that these 
+  routines are intended to be used by some injected DLLs, else why bother to pass 
+  these two arguments. Indeed, some of these routines are not used by the user-mode 
+  hook: either they are redundant, perhaps remaining from an earlier version, or 
+  they are meant explicitly for the injected DLL to use. Presumably, the writers 
+  of the injected DLL have the use of a header file that defines the structures 
+  and routines, or at least enough of them for using what’s intended. </p>
+  <p>The third argument is a handle to the \Device\MRxClsDvX device object through 
+  which the driver provides access to the kernel’s <span class="symbol">ZwProtectVirtualMemory</span> 
+  routine. This device object is created during the driver’s initialisation but 
+  a handle is opened for each process that the driver identifies as a target for 
+  injection. (For reasons unknown to me, the driver actually opens the device object 
+  seven times, keeps the last handle as the one to pass to user mode, and closes 
+  the others.) The user-mode hook needs the handle so that it can undo the driver’s 
+  patching of code at the main executable’s entry point. But, again, if it’s not 
+  meant to be used by the injected DLL, then why pass it as an argument to the DLL’s 
+  post-initialisation function. Again, the writers of the injected DLL would have 
+  a header file that defines the I/O control code and the structure that is to passed 
+  to and from the device if the injected DLL wants to use this support for changing 
+  memory protection. </p>
+  <h2>Installation </h2>
+  <p>Imagine you’re the writer of a malware DLL that you want this driver to inject 
+  into some target process. You have your DLL, with a function exported for post-initialisation. 
+  You have your configuration data prepared and encrypted. How do you install the 
+  driver? </p>
+  <p>Here too the driver is designed for generality. Just about any way that any 
+  kernel-mode driver might be installed will do. The driver explicitly anticipates 
+  that it may be loaded too early to complete its initialisation immediately. Instead, 
+  by registering and, if necessary, repeatedly re-registering a callback with the
+  <span class="function">IoRegisterDriverReinitialization</span> function, the driver 
+  arranges that it doesn’t even attempt any substantial initialisation until it 
+  learns that the system is sufficiently well initialised to support file I/O. It 
+  assesses this experimentally, by testing whether it can yet open \SystemRoot\System32\hal.dll.
+  </p>
+  <p>Of course, all kernel-mode drivers must be installed in the registry as services, 
+  but there is great variety in how they get loaded. As supplied with Stuxnet, the 
+  driver is given a name that suggests a driver that helps with network access—MRX 
+  is Microsoft’s abbreviation for mini-redirector—and it is installed in a way that 
+  makes a consistent picture of this, e.g., by specifying <span class="regsz">Network</span> 
+  as the driver’s <span class="regvalue">Group</span> for the purpose of determining 
+  the latest stage of system initialisation by which the driver should be loaded.
+  </p>
+  <h2>Applicable Windows Versions </h2>
+  <p>The driver’s PE header is marked as requiring at least Windows 2000, and the 
+  driver does indeed have code specially for Windows 2000. Indeed, it makes special 
+  cases of several Windows versions, and even of service packs, up to and including 
+  Windows Vista. </p>
+  <p>The driver knows, as anyone may, that the <span class="function">RtlGetVersion</span> 
+  function is not a kernel export until Windows XP and that
+  <span class="function">KeAreAllApcsEnabled</span> is not until Windows Server 
+  2003 SP1. It uses the latter to guard against its re-initialisation routine trying 
+  file I/O if APCs can’t be handled. More exotic version dependencies apply when 
+  the driver sets about looking for code sequences, whether in the kernel or in 
+  NTDLL. </p>
+  <p>The code to be found in the kernel is the internal routine
+  <span class="symbol">ZwProtectVirtualMemory</span> (an export in user mode but 
+  not in kernel mode), and is sought in all Windows versions. When running on version 
+  5.0, the driver looks for the routine’s known code. In later versions, the driver 
+  finds the routine by looking for other code that may reliably be expected to use 
+  the routine. Specifically, the driver depends on finding a
+  <span class="instruction">call</span> to the exported function
+  <span class="function">ZwAllocateVirtualMemory</span> and then within a certain 
+  distance a <span class="instruction">push</span> of 0x0104. One or another
+  <span class="instruction">call</span> after that, again within a limit, is hoped 
+  to have <span class="symbol">ZwProtectVirtualMemory</span> as its target, which 
+  the driver accepts if the code there looks plausible. </p>
+  <p>Code and data inside NTDLL are needed only for Windows Vista and higher. The 
+  circumstances are that the user-mode hook is building an executable memory image, 
+  whether of the injected DLL or of itself (from either of two images embedded in 
+  the driver’s data), has applied relocations and resolved imports, including to 
+  load dependent libraries, and is to finish by adding the image to the inverted 
+  function table which NTDLL maintains for exception handling. This involves the 
+  user-mode hook in searching NTDLL for the internal routines
+  <span class="symbol">RtlInsertInvertedFunctionTable</span> and
+  <span class="symbol">RtlRemoveInvertedFunctionTable</span>, and for the table 
+  itself, known symbolically as <span class="symbol">LdrpInvertedFunctionTable</span>. 
+  None of these exist in x86 builds of NTDLL before Windows Vista. </p>
+  <h2>So, Who Wrote This Thing? </h2>
+  <p>Stuxnet’s development is widely assessed as having required a large and sophisticated 
+  team. I don’t disagree. There’s a lot there to study and I have no trouble believing 
+  it would have taken a team of programmers at least a few months to write, even 
+  given prior knowledge of new vulnerabilities to exploit. Indeed, date stamps in 
+  the executables (embedded in the main DLL’s resources) suggest a concentration 
+  of effort ending with most components getting their final builds between 26th 
+  January 2010 and 1st March. Yet some of the executables have dates from well before 
+  and look to have been developed independently of Stuxnet. The driver installed 
+  as MRXCLS.SYS certainly was not written specifically for Stuxnet. It may have 
+  existed, even in real-world circulation, under other names before Stuxnet. It 
+  surely will turn up under other names in time to come. Whoever wrote it certainly 
+  intended it for reuse. </p>
+  <p>One possibility is that the Stuxnet writers are not just a large and sophisticated 
+  team themselves but are part of an even larger organisation that invests enough 
+  in malware (or cyber-war) to have spent time developing components for general 
+  malware support. I’m thinking here that the organisation must be large enough 
+  that when Stuxnet was planned as one particular project, its writers knew that 
+  helpful supporting components were already available from elsewhere in the organisation 
+  (from an armoury, if you like). The organisation could be large enough and disciplined 
+  enough to have barriers about access to source code. </p>
+  <p>Alternatively, that the driver is well enough separated from the rest of Stuxnet 
+  that it can be used without having source code may just mean it was brought in 
+  (or bought in) from outside. That would be a bit frightening for what it tells 
+  (or confirms) of malware development as organised crime. I expect there have long 
+  been specialist writers of packers and obfuscators, often for legitimate reasons 
+  of protecting intellectual property but surely also with the deliberate intention 
+  of complicating the inspection of malware. Now there may be specialist writers 
+  of kernel-mode malware support. If malware writers now have enough sense of community 
+  (or market) to support specialists, are they getting ahead of the security industry? 
+  I admit I have a drum to bang here, but as pleased as I am to see that several 
+  computer security companies have each invested man-months to report on Stuxnet, 
+  I have to ask if it might be done faster and cheaper. Defenders are in some sense 
+  doomed to be always playing catch-up with attackers, but surely one way to be 
+  better prepared at defence is to cultivate reverse engineering as specialist work.
+  </p>
+  <div class="Footnotes">
+    <hr>
+    <p><a class="FootnoteReference" name="Ftn_1" href="#FtnRef_1">[1]</a> See
+    <a target="_top" href="http://technet.microsoft.com/library/c957402.aspx">Taskman</a>, 
+    which would have you “add this entry to the registry to specify an alternate 
+    task manager”. I have even received an email telling me that my documentation 
+    is wrong and referring me to Microsoft’s. That the world mostly takes for granted 
+    that Microsoft, or any other software manufacturer, is a reliable authority 
+    on its own software is perhaps understandable, but a consequence is that mistaken 
+    documentation can persist for years and be circulated as if verified sufficiently 
+    well to accuse others of error. </p>
+    <p><a class="FootnoteReference" name="Ftn_2" href="#FtnRef_2">[2]</a> To link 
+    a driver without the <span class="switch">/debug</span> switch, which you must 
+    if you don’t want the executable to record your PDB path for all to see, is 
+    historically difficult when building with the master makefile and BUILD utility 
+    from the Windows Driver Kit (WDK). It can nowadays be arranged as easily as 
+    defining <span class="macro">LINKER_FORCE_NO_DBG_SECTION</span> in the SOURCES 
+    file, though even this is undocumented. The only way I ever knew before the 
+    WDK for Windows 7 was to put into a file named MAKEFILE.INC one or more NMAKE 
+    statements that remove various forms of <span class="switch">/debug</span> switch 
+    from the <span class="macro">LINKER_FLAGS</span> macro, and then to define the 
+    undocumented macro <span class="macro">USE_MAKEFILE_INC</span> in the SOURCES 
+    file. The builders of this driver either went to some such trouble, or avoided 
+    the WDK’s build environments and tools. </p>
+    <p><a class="FootnoteReference" name="Ftn_3" href="#FtnRef_3">[3]</a> This assumes 
+    there is some sort of honour among malware writers. An alternative strategy 
+    for the potential client is to get hold of a copy in circulation for other malware, 
+    and patch in their own names (and encryption key). But if they can do that, 
+    they probably can write their own and were never truly in the market for a kernel-mode 
+    malware loader as specialist assistance. </p>
+    <p><a class="FootnoteReference" name="Ftn_4" href="#FtnRef_4">[4]</a> The casts 
+    to <span class="type">char</span> are at best redundant. Some would call them 
+    errors, not of syntax but of programming, since their intended application is 
+    surely to the whole sum of products or to each term or to each factor, rather 
+    than just the first factor. Yet these casts do seem to be what the MRXCLS writers 
+    have coded. Remove them and the reproduction of binary code is close but no 
+    longer exact. </p>
+    <p><a class="FootnoteReference" name="Ftn_5" href="#FtnRef_5">[5]</a> For a 
+    real-world example of what I mean, think of WINTERNL.H from the Windows Software 
+    Development Kit (SDK). It accurately describes what it chooses to reveal about 
+    NTDLL, but it plainly isn’t used for building NTDLL. </p>
+  </div>
+  <div class="Footer">
+    <p class="Dates">This page was created on 14th October 2010 and was last modified 
+    on 21st October 2010. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c10.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="40296" -->
+  </div>
+</div>
+
+</body>
+
+</html>

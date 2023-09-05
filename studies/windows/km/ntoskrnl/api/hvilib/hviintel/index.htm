@@ -1,0 +1,170 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Hypervisor Interface</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>Hypervisor Interface </h1>
+  <p>Windows 10 added to the <a href="../../index.htm">Windows Kernel Exports</a> 
+  a new set of functions whose names have the <span class="functionprefix">Hvi</span> 
+  prefix. Whether this stands for Hypervisor Interface or Hypervisor Implementation 
+  or for something else entirely is unknown from the binary or symbol files or anything 
+  else that has yet occurred to me as a likely source of evidence. </p>
+  <p>These newly exported but undocumented functions are: </p>
+  <ul>
+    <li><span class="undocumented function"><a href="getdebugdeviceoptions.htm">
+    HviGetDebugDeviceOptions</a></span> </li>
+    <li><span class="undocumented function">
+    <a href="getenlightenmentinformation.htm">HviGetEnlightenmentInformation</a></span>
+    </li>
+    <li><span class="undocumented function"><a href="gethardwarefeatures.htm">HviGetHardwareFeatures</a></span>
+    </li>
+    <li><span class="undocumented function"><a href="gethypervisorfeatures.htm">
+    HviGetHypervisorFeatures</a></span> </li>
+    <li><span class="undocumented function">
+    <a href="gethypervisorinterface.htm">HviGetHypervisorInterface</a></span>
+    </li>
+    <li><span class="undocumented function">
+    <a href="gethypervisorvendorandmaxfunction.htm">HviGetHypervisorVendorAndMaxFunction</a></span>
+    </li>
+    <li><span class="undocumented function"><a href="gethypervisorversion.htm">HviGetHypervisorVersion</a></span>
+    </li>
+    <li><span class="undocumented function">
+    <a href="getimplementationlimits.htm">HviGetImplementationLimits</a></span>
+    </li>
+    <li><span class="undocumented function">
+    <a href="isanyhypervisorpresent.htm">HviIsAnyHypervisorPresent</a></span>
+    </li>
+    <li><span class="undocumented function">
+    <a href="ishypervisormicrosoftcompatible.htm">HviIsHypervisorMicrosoftCompatible</a></span>
+    </li>
+    <li><span class="undocumented function">
+    <a href="ishypervisorvendormicrosoft.htm">HviIsHypervisorVendorMicrosoft</a></span>
+    </li>
+    <li><span class="undocumented function"><a href="isiommuinuse.htm">HviIsIommuInUse</a></span>
+    </li>
+  </ul>
+  <p>Each obtains the results of executing the <span class="instruction">cpuid</span> 
+  instruction. For all but one of the functions with “Get” in their name, each of 
+  the functions produces the 16 bytes of output from one
+  <span class="instruction">cpuid</span> leaf in the hypervisor series that starts 
+  at 0x40000000. The other functions, especially those that ask an “Is” question, 
+  interpret such output. </p>
+  <p>Beware of something that always must be borne in mind with using
+  <span class="instruction">cpuid</span> but which is overlooked by almost everyone 
+  who writes about it. Almost all of these functions are compounds in the sense 
+  that they get their result by executing <span class="instruction">cpuid</span> 
+  not just once but twice or even thrice. For instance: they first check
+  <a href="../../../../cpu/cpuid/00000001h/ecx.htm"><span class="register">ecx</span> 
+  from <span class="instruction">cpuid</span> leaf 1</a> for assurance that some 
+  hypervisor is present; they then check <span class="instruction">cpuid</span> 
+  leaf 0x40000001 for whether the hypervisor is Microsoft-compatible and thus has
+  <span class="instruction">cpuid</span> leaves 0x40000002 to 0x40000005; and only 
+  then do they proceed to whichever of these <span class="instruction">cpuid</span> 
+  leaves is wanted for the function’s output. The functions themselves do nothing 
+  to arrange that all their executions of <span class="instruction">cpuid</span> 
+  are on the same processor. Call these functions in arbitrary circumstances and 
+  you do not know which processor(s) the output was obtained from. </p>
+  <h2>Source </h2>
+  <p>The public symbol file NTKRPAMP.PDB for the original release of Windows 10 
+  shows that these functions have a common source. All got into the kernel from 
+  a statically linked library named <span class="highlight">hvikm.lib</span> at
+  </p>
+  <blockquote>
+    d:\th.obj.x86fre\minkernel\hvilib\kern\objfre\i386
+  </blockquote>
+  <p>and into there from an object file named <span class="highlight">hviintel.obj</span> 
+  at </p>
+  <blockquote>
+    d:\th.obj.x86fre\minkernel\hvilib\kern\objfre\i386
+  </blockquote>
+  <p>The paths are similar for other releases of WIndows 10. Symbol files for binaries 
+  other than the kernel show that there is also an output tree for object files 
+  under “user” (as an alternative to “kern”) to build a library named hvium.lib. 
+  Either way, the strong suggestion is of compiling a source file named hviintel.c, 
+  though perhaps with some other extension, at </p>
+  <blockquote>
+    d:\th\minkernel\hvilib
+  </blockquote>
+  <p>Presumably, the hvilib directory has, or is at least anticipated as providing 
+  for, other source files that implement the same functions for other processor 
+  architectures. These other processors need not have any instruction that corresponds 
+  directly to <span class="instruction">cpuid</span>. The functions present an abstraction 
+  of the hypervisor’s implementation of the virtual machine’s processors. More on 
+  this point would be found from the binaries and symbol files for, say, a 32-bit 
+  or 64bit ARM build of Windows 10: looking into them would likely be informative 
+  but is beyond the scope not just of this page but of the whole website. </p>
+  <p>The hviintel source file and presumably any others that the hvilib directory 
+  has for other processors are not particular to the kernel. Indeed, the same “kern” 
+  object file that is linked into the kernel through the hvikm library is also linked 
+  into a wide range of Microsoft binaries from the EFI boot manager to KERNELBASE.DLL 
+  in user mode. Its interest to programmers outside Microsoft is that its functions 
+  are exported and are thus available to anyone’s kernel-mode drivers through dynamic 
+  linking. </p>
+  <h2>Documentation Status </h2>
+  <p>None of the <span class="functionprefix">Hvi</span> functions are documented. 
+  Moreover, Microsoft seems to have thought better of having ever exported them. 
+  Though they are not discontinued as exports, what was exported for the original 
+  Windows 10 looks to be all that ever will be. Functions that are known to be have 
+  been added—<span class="internal routine">HviIsXboxNanovisorPresent</span> and
+  <span class="internal routine">HviGetIptFeatures</span>, for the 1607 and 1903 
+  releases, respectively—are not exported. Indeed, the first of them exists in most 
+  versions only as an inline routine. </p>
+  <h2>History </h2>
+  <p>Most of the exported functions originated in Windows 8.1 as inline routines. 
+  The public symbol files for the Windows 8.1 kernel tell of this explicitly for 
+  a few and tell also of some deeper inlining. There is also the strong suggestion 
+  that some routines were defined inline for Windows 8.1 but don’t themselves show 
+  in the symbol files because they never contributed to the code. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 21st
+    <a href="../../../../../../../new/22/10.htm">November 2022</a> and was last 
+    modified on 29th November 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5890" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,476 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>NtCreatePagingFile</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+<h1>NtCreatePagingFile </h1>
+<p>This function gets a named file into use as a paging file or updates that use. 
+The file remains in use as a paging file until Windows shuts down. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+NtCreatePagingFile (
+    PUNICODE_STRING PageFileName, 
+    PLARGE_INTEGER MinimumSize,
+    PLARGE_INTEGER MaximumSize,
+    ULONG Flags);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">PageFileName</span> argument provides a case-insensitive 
+name for the file in the Object Manager’s namespace. </p>
+<p>The <span class="argument">MinimumSize</span> and <span class="argument">MaximumSize</span> 
+arguments specify minimum and maximum sizes, in bytes, for the file. </p>
+<p>Other configuration is allowed through the <span class="argument">Flags</span> 
+argument. </p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+<h2>Availability </h2>
+<p>The <span class="function">NtCreatePagingFile</span> function and its alias
+<span class="function">ZwCreatePagingFile</span> are exported by name from NTDLL 
+in version 3.51 and higher. In kernel mode, where <span class="function">ZwCreatePagingFile</span> 
+is a stub and <span class="function">NtCreatePagingFile</span> is the implementation, 
+neither is exported. </p>
+<p>The ordinary caller of the function is SMSS.EXE, i.e., the Session Manager, which 
+creates paging files (including, nowadays, working set swap paging files) as Windows 
+starts. Of course, SMSS, with no user interface, works from its own assessment of 
+the circumstances and from registry entries that tell it what’s wanted and how things 
+were (and which are all beyond the scope of this article). What little exposure 
+anyone ever has to the function through a user interface is from SYSDM.CPL, which 
+implements the System applet in the Control Panel. A few clicks produces the Virtual 
+Memory dialog. Perhaps nothing more is needed or would even be useful. Can anyone 
+know? It’s not as if third-party configuration tools are readily available, given 
+the poor description of this function on the Internet. </p>
+<h2>Documentation Status </h2>
+<p>Neither <span class="function">NtCreatePagingFile</span> nor its alias is documented. 
+As <span class="function">ZwCreatePagingFile</span>, it is declared in the ZWAPI.H 
+file in the Windows Driver Kit (WDK) for Windows 10. </p>
+<h2>Behaviour </h2>
+<p>The following implementation notes are from inspecting the x86 and x64 kernels 
+from the original release of Windows 10. Though earlier versions have been looked 
+at, e.g., to explore some apparent confusion at Microsoft over the
+<span class="argument">Flags</span> argument, anything given below of the history 
+is tentative, at best. </p>
+<h3>Flags </h3>
+<p>Historically, the function allowed for <span class="argument">Flags</span> but 
+ignored them. Meaningful flags start with version 6.2. The following are valid in 
+at least some circumstances. The interpretations below are presently in terms of 
+what the masked bits in the <span class="argument">Flags</span> become when the 
+function eventually translates them to members of the <span class="struct">
+<a href="mmpaging_file.htm">MMPAGING_FILE</a></span> structure that is the Memory 
+Manager’s representation of a paging file that’s in use. </p>
+<table>
+  <tr>
+    <th>Mask </th>
+    <th>Interpretation </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x80000000 </td>
+    <td>sets <span class="member">WsSwapPagefile</span>; <br>
+    and also <span class="member">NoReservations</span> in 6.3 and higher; <br>
+    and also <span class="member">SwapSupported</span> in 10.0 and higher </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x40000000 </td>
+    <td>sets <span class="member">NoReservations</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x20000000 </td>
+    <td>sets <span class="member">SwapSupported</span> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x3C000000 </td>
+    <td>becomes <span class="member">HybridPriority</span> </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x02000000 </td>
+    <td>not invalid, but ignored </td>
+    <td>10.0 and higher </td>
+  </tr>
+</table>
+<p>If any bit is set in the <span class="argument">Flags</span> argument but is 
+not among the bits that are valid for the applicable version, the function fails, 
+returning <span class="constant">STATUS_INVALID_PARAMETER_4</span>. It is similarly 
+invalid to set 0x80000000 in combination with whichever of 0x40000000 and 0x20000000 
+would otherwise be valid for the version. </p>
+<p>Note the overlap of the single 0x20000000 bit, apparently inserted for version 
+10.0, with the 4-bit hybrid priority from the version before. This is surely a coding 
+error. It looks very much as if definition of 0x20000000 as the bit that enables 
+swap support was meant as an insertion, such that the hybrid priority should shift 
+right. Perhaps the simplest explanation is that Microsoft has separate macros for 
+a mask and a shift, and the mask got updated to 0x1E000000 when defining 0x20000000 
+while the shift stayed as 0x1A. </p>
+<h3>Maximum Number </h3>
+<p>All Windows versions hard-code a limit of 0x10 paging files, although in Windows 
+10 this means 0x10 paging files in the system partition (and 1 in each other
+<a href="../partition/index.htm">memory partition</a>). In versions up to and including 
+6.0, the function checks immediately that there are not 0x10 paging files in use 
+already. If there are, the function fails, returning <span class="constant">STATUS_TOO_MANY_PAGING_FILES</span>. 
+Versions 6.1 and higher of the function do notice, but not until much later (see 
+far below). </p>
+<p>Regarding memory partitions and Windows 10, note that the
+<span class="function">NtCreatePagingFile</span> function, having no argument to 
+specify a memory partition, works only with the system partition. To create a paging 
+file for any other memory partition requires the <span class="function">
+<a href="../partition/manage.htm">NtManagePartition</a></span> function. </p>
+<h3>User-Mode Defences </h3>
+<p>If executing for a user-mode request, the function has some specific requirements 
+about privilege and some general defensiveness about addresses passed as arguments.
+</p>
+<h4>Privilege </h4>
+<p>If the caller does not have <span class="constant">SeCreatePagefilePrivilege</span>, 
+the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. 
+Windows 10 also has the function fail, also returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>, 
+if the current thread is in a server silo. </p>
+<h4>Addresses </h4>
+<p>The <span class="argument">PageFileName</span>, <span class="argument">MinimumSize</span> 
+and <span class="argument">MaximumSize</span> arguments all give addresses from 
+which the function is to read some input. These must all be user-mode addresses. 
+In 64-bit Windows, they must all have 4-byte alignment, but 32-bit Windows requires 
+this just of <span class="argument">MinimumSize</span> and
+<span class="argument">MaximumSize</span>. At each of the addresses, one byte must 
+be readable. This probing is all subject to exception handling, of course, such 
+that failure at any of these defences is failure for the function, typically showing 
+as a return of <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span> or
+<span class="constant">STATUS_ACCESS_VIOLATION</span>. </p>
+<h4>Exception Handling </h4>
+<p>When the function proceeeds to read the whole of what it wants from each argument, 
+it has yet more exception handling. The occurrence of any exception during such 
+access is fatal for the function, which returns the exception code as its own result.
+</p>
+<h3>Input </h3>
+<p>The minimum and maximum sizes that a caller of this function specifies for any 
+one paging file must fit within system-specified minimum and maximum sizes that 
+apply to all paging files. If the caller-supplied minimum size for the proposed 
+paging file is less than the system’s minimum or greater than the system’s maximum, 
+the function fails, returning <span class="constant">STATUS_INVALID_PARAMETER_2</span>. 
+The function also fails, but returning <span class="constant">STATUS_INVALID_PARAMETER_3</span>, 
+if the caller-supplied maximum is greater than the system’s maximum or is less than 
+the caller-supplied minimum. </p>
+<p>In all versions the system-specified minimum is 0x00100000 bytes, i.e., 1MB. 
+In modern versions, the system-specified maximum makes more sense in pages. For 
+64-bit Windows and for the PAE kernels in version 5.1 and higher, the upper limit 
+for paging files is 0xFFFFFFFF pages, i.e., 0x00000FFF`FFFFF000 bytes. </p>
+<p>The upper limit in early versions is a little murky. Before version 5.0, the 
+system’s maximum is simply 0xFFFFFFFF bytes. Though a <span class="union">LARGE_INTEGER</span> 
+provides for the future, these versions require the <span class="member">HighPart</span> 
+to be zero: after all, they have no means of addressing more. Version 5.0, however, 
+supports Physical Address Extension (PAE). The non-PAE kernel continues as before, 
+with 0xFFFFFFFF bytes as the upper limit, and then 0xFFFFF000 in version 5.1 and 
+higher. The PAE kernel aims for the modern maximum of 0xFFFFFFFF pages but the early 
+versions get their arithmetic wrong. The conversion of the given maximum size from 
+bytes to pages, with upward-rounding of spare bytes, uses 32-bit arithmetic to produce 
+a 32-bit result (perhaps because a cast to <span class="type">ULONG</span> was hidden 
+in a macro). Whatever the mechanics of the mistake, the result is that since the 
+computed maximum in pages never can exceed 0xFFFFFFFF, there is in effect no test 
+against any maximum at all. Microsoft had this corrected by Windows 2000 SP3 (perhaps 
+without having noticed). </p>
+<p>A name is required for the paging file. Moreover, it must not be too long. The 
+function fails, returning <span class="constant">STATUS_OBJECT_NAME_INVALID</span>, 
+if the <span class="struct">UNICODE_STRING</span> at <span class="argument">PageFileName</span> 
+gives the name’s <span class="member">Length</span>, not including any null terminator, 
+as zero or as more than 0x0100 bytes. It is not known what motivates this upper 
+limit. Even in version 3.51, the function captures the name to dynamically allocated 
+memory such that hard-coding an upper limit on its length would seem to be unnecessary. 
+If executing for a user-mode request, the <span class="member">Buffer</span> in 
+the <span class="struct">UNICODE_STRING</span> must lie wholly in user-mode address 
+space. If the function cannot get memory (from the paged pool) for a copy of the 
+name, it fails, returning <span class="constant">STATUS_INSUFFICIENT_RESOURCES</span>.
+</p>
+<p>This pretty much ends what the caller can control, except if it turns out that 
+the paging file is already in use (see below, under the heading Paging File Extension). 
+Some would say it’s more than any caller needs to know. But even if the deeper implementation 
+is only of passing interest to curious callers, they are not the only ones who are 
+affected. Paging files are rather special, such that what the kernel does when preparing 
+their use is distinctive for software that is called by the kernel. Writers of device 
+drivers for disk storage and especially of file system drivers are arguably much 
+more affected by the implementation details of this function than are any of the 
+function’s few callers. Much of the sense that file system drivers are a black art 
+is because Microsoft tends first to delay any documentation at all of what the drivers 
+can or must do and then to provide too little detail of the circumstances. </p>
+<h3>Paging File Creation </h3>
+<p>Even while a paging file is not in use, it would ideally not be accessible to 
+just anyone. In version 5.1 and higher, the function creates the paging file with 
+an ACL that allows <span class="constant">FILE_ALL_ACCESS</span> (0x001F01FF) to 
+Administrators and to the Local System account, and no access to anyone else. If 
+the function can’t prepare the ACL (in memory from the paged pool, it being only 
+a temporary need), it fails, typically returning <span class="constant">STATUS_INSUFFICIENT_RESOURCES</span>. 
+Although all versions that set an ACL for the paging file prepare the ACL before 
+creating the file, not until the build from Windows XP SP2 is the ACL presented 
+as input to the file’s creation. The way that early builds of version 5.1 set the 
+ACL is to request <span class="constant">WRITE_DAC</span> (0x00040000) permission 
+for the created file and then set the ACL via <span class="function">ZwSetSecurityObject</span> 
+once they have a file handle. Later versions both specify the ACL while creating 
+the file and then explicilty set the same ACL afterwards. </p>
+<p>To create the file, the function specifies <span class="constant">FILE_SUPERSEDE</span> 
+(0) as the disposition, the aim being to create the paging file if it doesn’t already 
+exist else to replace whatever’s there. Notable details that can be seen easily 
+by users are that the file gets the minimum size as its initial allocation, and 
+gets the hidden and system attributes (in version 5.0 and higher). Less obvious 
+is that the file is opened with no intermediate buffering and with no compression 
+(starting with version 4.0) and with the intention that it be deleted when closed 
+(in version 5.1 and higher), not that paging files typically do get closed before 
+Windows shuts down. </p>
+<p>Two options for the creation have consequences underneath the kernel, because 
+file system drivers, including filter drivers, need to recognise at least one of 
+them in the <span class="member">Flags</span> member of the
+<span class="constant">IRP_MJ_CREATE</span> (0x00) request’s
+<span class="struct">IO_STACK_LOCATION</span>. Of the two,
+<span class="constant">SL_OPEN_PAGING_FILE</span> (0x02) is defined in WDM.H and 
+is well known—as much as anything about file system drivers is well known—from Microsoft’s 
+source-code samples, e.g., of FASTFAT.SYS, if not from smatterings of documentation. 
+The other, which starts from version 6.0, is numerically 0x10. Microsoft’s name 
+for it may be <span class="constant">SL_MM_PAGING_FILE</span>, which would match 
+the <span class="constant">IO_MM_PAGING_FILE</span> that is passed in to
+<span class="function">IoCreateFile</span> and which is defined in NTIFS.H but is 
+apparently not otherwise documented. Plausibly, the reason this second flag exists 
+is that <span class="constant">IO_OPEN_PAGING_FILE</span> is also used for various 
+other sorts of special file, e.g., hibernation files, but <span class="constant">
+IO_MM_PAGING_FILE</span> truly is just for the Memory Manager’s paging files.
+</p>
+<p>Since pages will be both written to the file and read back, the function asks 
+for both read and write access. Originally, the function did not share any access. 
+Starting with version 5.0, however, the function anticipates being called again 
+to change the minimum and maximum sizes of a paging file that is already in use. 
+This requires that the file, as named in subsequent calls, be opened to see if it 
+is in fact among the paging files that are already in use. Exclusive access had 
+to go. The function shares write access in version 5.0 and higher. Once a file is 
+created by a first call to this function, the normal rules of file sharing then 
+apply in two ways when the same file is named in subsequent calls. First, a repeated 
+attempt to create the file will fail for wanting read access that isn’t shared. 
+Second, the file can be opened if read access isn’t sought but is shared. </p>
+<p>With these considerations, failure to create the file (or replace it) is not 
+of itself failure for the function but instead puts the function into essentially 
+a different mode, that of falling back to opening the file to see whether it is 
+already in use as a paging file and can be given what the caller apparently wants 
+as new minimum and maximum sizes. This update mode is described separately, some 
+distance below, under the heading Paging File Extension. For now, take it that the 
+named file gets created or replaced. </p>
+<p>If the function cannot set its ACL for the newly created paging file, it fails.
+</p>
+<p>In versions 5.0 and 5.1, the function checks now that the maximum capacity in 
+pages that is allowed for this newly created paging file is not so great that adding 
+it to the total commit limit would overflow the 32 bits that are allowed for that. 
+If the wanted maximum size is indeed too much in this sense, the function fails, 
+returning <span class="constant">STATUS_INVALID_PARAMETER_3</span>. It is not known 
+why this is checked only after opening the file. </p>
+<p>If the function cannot set the file’s size to the given minimum size rouned up 
+to whole pages, it fails. </p>
+<h4>Validating the File </h4>
+<p>Continued preparation of the file as specifically a paging file, and eventually 
+its efficent use, requires access to the file object not just the file handle. If 
+the function can’t reference the file object from the handle, it fails. </p>
+<p>In version 5.0 and higher, the first inspection of the file object is to check 
+that the file has been created on an acceptable type of device. If it has not, the 
+function fails, returning <span class="constant">STATUS_UNRECOGNIZED_VOLUME</span>. 
+The acceptable device types are: </p>
+<ul>
+  <li><span class="constant">FILE_DEVICE_DISK_FILE_SYSTEM</span> (0x08); </li>
+  <li><span class="constant">FILE_DEVICE_NETWORK_FILE_SYSTEM</span> (0x14); </li>
+  <li><span class="constant">FILE_DEVICE_DFS_FILE_SYSTEM</span> (0x35); </li>
+  <li><span class="constant">FILE_DEVICE_DFS_VOLUME</span> (0x36). </li>
+</ul>
+<p>It’s vital that the paging file be entirely the Memory Manager’s to use. Ideally, 
+the file should not already have been open. Even in the early versions that have 
+the kernel obtain exclusive access to the file, in terms of file sharing, it is 
+not acceptable if the file system driver or some filter driver looks like having 
+done file I/O while opening the file, and the function checks that nothing of the 
+paging file is yet in memory. Specifically, the file object must either have no
+<span class="member">SectionObjectPointer</span> or the latter must have neither 
+a <span class="member">DataSectionObject</span> nor an <span class="member">ImageSectionObject</span>. 
+Otherwise, the function fails, returning <span class="constant">STATUS_INCOMPATIBLE_FILE_MAP</span>. 
+(Versions before 5.0 assume that <span class="member">SectionObjectPointer</span> 
+is not <span class="constant">NULL</span>.) </p>
+<p>Improbable as it sounds that anyone might even try to create a paging file on 
+a floppy diskette, Windows has always defended against it. There is even a dedicated 
+error code for this, <span class="constant">STATUS_FLOPPY_VOLUME</span>, which all 
+versions return if the file is on a volume that’s on a floppy disk device. Note 
+that what’s defended against is not that the device is removable but specifically 
+that it’s a floppy diskette: this error code means a device driver answered the
+<span class="constant">FileFsDeviceInformation</span> case of a query for volume 
+information by setting the <span class="constant">FILE_FLOPPY_DISKETTE</span> bit 
+(0x04) in its report of the device characteristics. </p>
+<h4>Device Usage Notification </h4>
+<p>Having established that the created file, in terms of its properties as a file, 
+looks to be usable as a paging file, the function asks all the applicable drivers 
+to prepare for the possibility of paging I/O. Much of the point to paging I/O is 
+to resolve page faults. Especially important is that drivers that handle paging 
+I/O do not cause more page faults. All the code and data that each driver might 
+ever use for access to the paging file must be locked into physical memory. This 
+can’t be left until paging I/O actually occurs. It must be done in advance. </p>
+<p>The notification has the form of an <span class="constant">IRP_MN_DEVICE_USAGE_NOTIFICATION</span> 
+(0x16) case of an <span class="constant">IRP_MJ_PNP</span> (0x1B) request, with
+<span class="member">Type</span> set to <span class="constant">DeviceUsageTypePaging</span> 
+(1). Here, with the paging file ready as a file but with the Memory Manager not 
+yet configured to use the file specifically as a paging file, the notification has
+<span class="member">InPath</span> set to <span class="constant">TRUE</span>. If 
+the Memory Manager finds it can’t configure after all, a balancing notification 
+will be sent with <span class="member">InPath</span> set to
+<span class="constant">FALSE</span>. Because each notification speaks only for one 
+paging file and a device may be in the I/O path for multiple paging files, each 
+driver that gets any of these notifications must keep a per-device tally of
+<span class="constant">TRUE</span> against <span class="constant">FALSE</span>, 
+and act on the first of the former but only the last of the latter. </p>
+<p>Device drivers, including filter drivers, have needed to be aware of this notification 
+since Windows 2000. Because Microsoft wants that Windows has a paging file and doesn’t 
+want this to be frustrated by lack of driver support, the requirements have long 
+been documented, even well. Especially important about the notification is that 
+each driver is required to cooperate with passing the notification to drivers beneath 
+them and even to different device-object stacks. </p>
+<p>If the function can’t set up the notification, it fails, typically returning
+<span class="constant">STATUS_NO_MEMORY</span>. If the notification fails, which 
+can be arranged by any driver that receives it, then the function fails—in modern 
+versions. Though documentation of <span class="constant">IRP_MN_DEVICE_USAGE_NOTIFICATION</span> 
+in the Windows 2000 DDK starts “System components send this IRP to ask the drivers 
+for a device whether the device can support a special file”, the Windows 2000 coding 
+of this function ignores the answer. </p>
+<h4>File System Control </h4>
+<p>Starting with version 6.1, the function sends another type of notification. Microsoft 
+has apparently cared less that programmers know of this: it’s another of those interfaces 
+that has declarations (in NTIFS.H) but apparently no documentation. This notification 
+goes to the same driver as does the other, but as an <span class="constant">IRP_MJ_FILE_SYSTEM_CONTROL</span> 
+(0x0D) request with <span class="constant">FSCTL_FILE_TYPE_NOTIFICATION</span> (0x00090204) 
+as the control code. The <span class="member">SystemBuffer</span> in the request 
+points to a <span class="struct">FILE_TYPE_NOTIFICATION_INPUT</span> that has one
+<span class="struct">GUID</span> and in which the <span class="member">Flags</span> 
+are <span class="constant">FILE_TYPE_NOTIFICATION_FLAG_USAGE_BEGIN</span> (0x01). 
+The <span class="struct">GUID</span> is <span class="guid">{0D0A64A1-38FC-4DB8-9FE7-3F4352CD7C5C}</span>, 
+known symbolically as <span class="macro">FILE_TYPE_NOTIFICATION_GUID_PAGE_FILE</span>. 
+Drivers that receive this notification are presumably intended to vary their behaviour 
+according to the file object, its address being available to them from the
+<span class="member">FileObject</span> member of the <span class="struct">IO_STACK_LOCATION</span>.
+</p>
+<p>That any driver receives this file system control is apparently only desirable, 
+not necessary. The function does not check for success or failure. Also in contrast 
+to the treatment of the device usage notification, if the Memory Manager later finds 
+that it can’t configure for the paging file, then the function does not send a balancing 
+notification in which the <span class="member">Flags</span> are
+<span class="constant">FILE_TYPE_NOTIFICATION_FLAG_USAGE_END</span> (0x02). </p>
+<h4>First I/O </h4>
+<p>The function tests the I/O path by writing one page of zeros. If this fails, 
+so does the function. Synchronous page writes such as this are recognisable by drivers 
+because the <span class="member">Flags</span> member of the <span class="struct">
+IRP</span> has the <span class="constant">IRP_NOCACHE</span> (0x01),
+<span class="constant">IRP_PAGING_IO</span> (0x02) and <span class="constant">IRP_SYNCHRONOUS_PAGING_IO</span> 
+(0x40) bits set. </p>
+<h4>Memory Manager </h4>
+<p>What remains is for the Memory Manager to configure for using the paging file 
+for memory management. This is mostly a matter of preparing the various structures 
+in which the Memory Manager tracks its use. The primary representation of the Memory 
+Manager’s use of a paging file is the <span class="struct">MMPAGING_FILE</span> 
+structure. Failure to prepare it or any of its ever-changing collection of related 
+structures causes the function to fail too, returning <span class="constant">STATUS_INSUFFICIENT_RESOURCES</span>.
+</p>
+<p>As helpful as the details of that preparation may be for understanding how the 
+paging file is used once this function has set it up, they seem to have no implications 
+for drivers. If things go wrong, however, there are distinctive error codes for 
+callers to know about. </p>
+<p>First, the prepared <span class="struct">MMPAGING_FILE</span> becomes active 
+when inserted into an array of <span class="struct">MMPAGING_FILE</span> pointers. 
+If the array is full, the function fails in version 6.1 and higher, returning
+<span class="constant">STATUS_TOO_MANY_PAGING_FILES</span>. In version 6.2 and higher, 
+at most one of the active paging files can be specifically a swap file. If one is 
+already active, the function fails, also returning <span class="constant">STATUS_TOO_MANY_PAGING_FILES</span>.
+</p>
+<p>Second, except if the new paging file is a swap file, its maximum capacity in 
+pages counts towards the total commit limit. If adding the former to the latter 
+would overflow, then the function fails, returning <span class="constant">STATUS_INVALID_PARAMETER_3</span>.
+</p>
+<p><span class="alert">A LITTLE MORE STILL TO BE DONE</span> </p>
+<h3>Paging File Extension </h3>
+<p>That the function can extend a paging file that’s in use is not original behaviour. 
+Before version 5.0, if the function fails to create the file, as above, then the 
+function fails. In version 5.0 and higher, however, if the attempt to create the 
+paging file fails, the function attempts to open the file in the one way that is 
+compatible with the file being still open from a first call to this function for 
+the same file. Curiously, the function falls back to opening the file no matter 
+what error code it got from trying to create the file. If the function fails to 
+open the file, then there really is nothing to be done, and the function fails.
+</p>
+<p>To open the file, the function asks for write access, not read access, while 
+being willing to share both read and write access. If all that mattered were the 
+usual rules for file sharing, then any program could do the same, and although the 
+lack of read access would prevent it from editing paged-out pages intelligently, 
+it could make mischief by overwriting. Importantly then, the function also specifies 
+the <span class="constant">IO_OPEN_PAGING_FILE</span> option, and
+<span class="constant">IO_MM_PAGING_FILE</span> in version 6.1 and higher, as when 
+creating the file. File system drivers can see these flags and know to be stricter 
+about allowing multiple handles. If a file is already open as a paging file, then 
+a request to open this same file without these flags would better be disallowed.
+</p>
+<p>Of course, there can be many reasons that a file can’t be created but does open. 
+The function must still check that what’s opened is indeed in use as a paging file. 
+To do this it needs the file object, not just a file handle. If it cannot reference 
+the file object from the handle, it fails. To determine that the opened file is 
+in use as a paging file, the function depends on the rule that when file system 
+drivers create multiple file objects for the same file, all must have the one
+<span class="member">SectionObjectPointer</span>. If none of the active paging files 
+(that aren’t virtual store paging files, but they’re another story) have the same
+<span class="member">SectionObjectPointer</span>, the function fails, returning
+<span class="constant">STATUS_NOT_FOUND</span> for although the named file plainly 
+was found it was not found as a paging file. </p>
+<p>The function must be called with the same 0x80000000 bit in the
+<span class="argument">Flags</span> as when the paging file was created. Thus, if 
+the paging file that is found is specifically a swap file, then the 0x80000000 bit 
+must be set. If it is not, then the 0x80000000 bit must be clear. Otherwise, the 
+function fails, returning <span class="constant">STATUS_INVALID_PARAMETER</span>.
+</p>
+<p>The function can only extend the paging file. If fails, returning
+<span class="constant">STATUS_INVALID_PARAMETER_2</span>, if the proposed new minimum 
+is less than the current minimum. If the proposed new maximum is less than the current 
+maximu, the function fails, but returns <span class="constant">STATUS_INVALID_PARAMETER_3</span>.
+</p>
+<p><span class="alert">A LITTLE MORE STILL TO BE DONE</span> </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 17th July 2016 and was last modified 
+  on 29th July 2016. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c16.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6338" -->
+</div>
+
+</body>
+
+</html>

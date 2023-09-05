@@ -1,0 +1,116 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RtlValidSid</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>RtlValidSid </h1>
+<p>The <span class="function">RtlValidSid</span> function checks that a supposed 
+Security Identifier (SID) is not obviously invalid. </p>
+<h2>Declaration </h2>
+<pre class="source">BOOLEAN RtlValidSid (PSID Sid);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">Sid</span> argument provides the address of the SID 
+to validate. </p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">FALSE</span> if the SID is invalid, 
+else <span class="constant">TRUE</span>. </p>
+<h2>Availability </h2>
+<p>The <span class="function">RtlValidSid</span> function is exported by name from 
+both the kernel and NTDLL in all Windows versions, i.e., in 3.10 and higher. It 
+provides the low-level support for the documented high-level API function
+<span class="function">IsValidSid</span>, which ADVAPI32 exports by name in all 
+versions. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">RtlValidSid</span> function is documented but has 
+not always been. The first known documentation is from the Installable File System 
+(IFS) Kit for Windows 2000, which was not widely circulated. The function is declared 
+in NTIFS.H if compiling for Windows 2000 or higher. </p>
+<h2>Behaviour </h2>
+<p>In a valid <span class="struct"><a href="sid.htm">SID</a></span>, the low four bits of the <span class="member">Revision</span> 
+are <span class="constant">SID_REVISION</span> (1) and the <span class="member">SubAuthorityCount</span> 
+does not exceed <span class="constant">SID_MAX_SUBAUTHORITIES</span> (15). These 
+two points are the core of the validity check in all versions. They are also all 
+that Microsoft’s documentation says of the function. </p>
+<p>Originally, this is indeed all the function does, but with all use of
+<span class="argument">Sid</span> being subject to exception handling: occurrence 
+of an exception while accessing the SID means, of course, that the SID is invalid.
+</p>
+<h3>Variations </h3>
+<p>Version 5.0 and higher check first that <span class="argument">Sid</span> is 
+not <span class="constant">NULL</span>. Version 5.0 also introduced a differentiation 
+between the kernel and NTDLL implementations. In user mode only, unless the
+<span class="member">SubAuthorityCount</span> is zero, the validity check ends by 
+probing the variable-size <span class="member">SubAuthority</span> array to test 
+that the last subauthority identifier is readable. </p>
+<p>Starting with version 6.1, the kernel-mode implementation does away with the 
+exception handling and rejects the SID as invalid if <span class="argument">Sid</span> 
+is in user-mode address space. </p>
+<h3>Kernel-Mode Validation of User-Mode SID </h3>
+<p>The last of the preceding variations is perhaps not without practical consequence, 
+no matter that Microsoft hasn’t thought it important enough to document. In kernel 
+mode, this function regards as invalid all SIDs in user-mode address space. Yet 
+an obvious reason a programmer might think to use the function is that a supposed 
+SID is received from user mode. Of course, even if the SID is valid, further work 
+will be done with a copy that is captured into kernel-mode address space. But how 
+does the kernel-mode programmer establish that a copy is safe to take? The documented 
+way to get the size to copy is to call <span class="function">RtlLengthSid</span> 
+and you can likely see where this is going: yes, the documentation of
+<span class="function"><a href="lengthsid.htm">RtlLengthSid</a></span> says to call
+<span class="function">RtlValidSid</span> first. </p>
+<p>To keep within the documentation, you can instead follow the kernel’s technique 
+for capturing a user-mode SID. Subject to the usual exception handling and checks 
+against the <span class="variable">MmUserProbeAddress</span>, it might call
+<span class="function">RtlLengthSid</span> to read the <span class="member">SubAuthorityCount</span> 
+and compute how big the SID ought to be, and then check whether that amount of memory 
+is readable. It instead reads the <span class="member">SubAuthorityCount</span> 
+directly and feeds it to the <span class="function">
+<a href="lengthrequiredsid.htm">RtlLengthRequiredSid</a></span> function to compute 
+how big the SID ought to be. </p>
+<h3>IRQL </h3>
+<p>The kernel-mode implementation is in paged memory and must not be called at
+<span class="constant">DISPATCH_LEVEL</span> or higher. Microsoft’s documentation 
+explicitly permits as high as <span class="constant">APC_LEVEL</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 30th
+  <a href="../../../../../../../new/20/05.htm">May 2020</a> and was last modified 
+  on 31st May 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

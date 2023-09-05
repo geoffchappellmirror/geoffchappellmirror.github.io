@@ -1,0 +1,252 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Queued Spin Locks</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>Queued Spin Locks </h1>
+<p>The classic <a href="../spinlock/index.htm">spin lock</a> has problems when multiple 
+threads wait on a spin lock. The biggest immediate problem is that although one 
+contender eventually becomes the new owner, which one is a free-for-all. Simply 
+from bad luck in the scramble, a processor can be left spinning unreasonably long. 
+The solution is known as a queued spin lock because ownership is acquired in the 
+same order that the contenders asked for it. </p>
+<p>Queued spin locks first appeared in Windows 2000 but only for the kernel’s own 
+use to improve performance for some particular spin locks that get used widely through 
+the system, especially by the I/O Manager, as with the one that’s exposed through 
+the <span class="function">IoAcquireCancelSpinLock</span> function and the one that 
+supports such functions as <span class="function">IoGetLowerDeviceObject</span>. 
+Windows XP saw this solution get generalised and documented. </p>
+<p>The implementation is necessarily more complex than for classic spin locks. Acquiring 
+a queued spin lock is more than just passing its address to a kernel function which 
+then does something just to the lock. Since the processors that ever wait on a queued 
+spin lock must be kept in order, some context must be managed for each of them. 
+The particular design of that context looks to have been motivated at least in part 
+by another problem with the classic spin lock. While multiple processors spin on 
+the same lock, they each keep reading this same lock. The one address is out on 
+the bus being fought over—over and over—even just to find out that everyone has 
+to keep waiting. Better, then, is that whatever context supports the queuing also 
+has each processor provide its own signal for when its wait is over. That the processors’ 
+spin loops are largely independent of one another may even be a more important real-world 
+benefit than the determinism of queueing. </p>
+<h2>Context </h2>
+<p>The context that each contender for a queued spin lock must supply is a
+<span class="struct">KSPIN_LOCK_QUEUE</span>. The address of one, typically but 
+not necessarily embedded in a <span class="struct">KLOCK_QUEUE_HANDLE</span>, is 
+passed to the kernel when asking to acquire a queued spin lock. It must then be 
+allowed no other use until the contender has acquired the lock and released it.
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">KSPIN_LOCK_QUEUE * volatile Next;</pre>
+    </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">KSPIN_LOCK * volatile Lock;</pre>
+    </td>
+    <td>5.0 and higher </td>
+  </tr>
+</table>
+<p>The <span class="member">Lock</span> member initially tells which spin lock is 
+wanted. By requiring that the lock be naturally aligned, the low two or three bits 
+of the <span class="member">Lock</span> member are available for context. The whole 
+of the <span class="member">Next</span> member is too. </p>
+<p>The point to the <span class="member">Next</span> member is, of course, to support 
+a queue of the one owner and the possibly many waiters. At the head of the queue 
+is the <span class="struct">KSPIN_LOCK_QUEUE</span> structure for the processor 
+that owns the lock. The tail of the queue is either the head, trivially, or the
+<span class="struct">KSPIN_LOCK_QUEUE</span> for the processor that most recently 
+started waiting on the lock. The owner releases from the head. Waiters are added 
+at the tail. Because an owner will present its own <span class="struct">KSPIN_LOCK_QUEUE</span> 
+when releasing the lock, the head does not need to be tracked as context. Instead, 
+the lock is kept pointing to the tail. </p>
+<p>Note that this is a significant re-interpretation of the contents of a
+<span class="type">KSPIN_LOCK</span> when used as a queued spin lock. While a queued 
+spin lock is owned, it holds the address of the <span class="struct">KSPIN_LOCK_QUEUE</span> 
+at the tail of the queue. While a queued spin lock is available, it holds
+<span class="constant">NULL</span>. </p>
+<h2>Acquisition </h2>
+<p>Given that the IRQL is already at or above <span class="constant">DISPATCH_LEVEL</span>, 
+acquiring a queued spin lock starts with an <span class="instruction">xchg</span> 
+instruction (and its implied <span class="instruction">lock</span>) to point the 
+lock to the contender’s <span class="struct">KSPIN_LOCK_QUEUE</span> as the new 
+tail while discovering the previous tail. If the lock previously held
+<span class="constant">NULL</span>, it was unowned and the contender now owns the 
+lock. </p>
+<h3>Spinning </h3>
+<p>Given that the lock was owned, coordination is required such that the owner cannot 
+release the lock (see below) until the contender’s addition to the queue is completed. 
+Though the contender’s <span class="struct">KSPIN_LOCK_QUEUE</span> is the new tail 
+as seen from the lock for the purpose of adding waiters, it is not yet as seen from 
+the head for the purpose of eventually becoming the owner. It must yet be set into 
+the previous tail’s <span class="member">Next</span> member. The moment that it 
+is, a release (or quick succession of them) can select the contender as the new 
+owner. It therefore can’t join the queue until it has some means of being signalled 
+that it has reached the head of the queue. This signal is the
+<span class="constant">LOCK_QUEUE_WAIT</span> bit (masked by 0x01) in the
+<span class="member">Lock</span> member of the contender’s <span class="struct">
+KSPIN_LOCK_QUEUE</span>. It’s set before joining the queue. It gets cleared eventually 
+as the contender’s signal that it is the new owner. Meanwhile, the contender tests 
+this bit over and over for as long as the bit remains set. Queued spin locks have 
+the same elaborations of this spin loop as do classic spin locks. </p>
+<h2>Release </h2>
+<p>The essence of releasing a spin lock is to clear the <span class="constant">LOCK_QUEUE_WAIT</span> 
+bit in whatever <span class="struct">KSPIN_LOCK_QUEUE</span> structure is pointed 
+to by the owner’s <span class="member">Next</span> member. The processor that supplied 
+this structure can then exit its spin loop as the lock’s new owner. </p>
+<p>A complication exists when the owner’s <span class="member">Next</span> member 
+is already <span class="constant">NULL</span>. This may mean there is no waiter 
+and that the lock is returning to being unowned. But it may instead mean that a 
+processor has started trying to acquire the lock but has not yet completed its addition 
+to the queue. The owner resolves this with the <span class="instruction">lock cmpxchg</span> 
+instruction. If there is no waiter, the lock will hold the address of the owner’s
+<span class="struct">KSPIN_LOCK_QUEUE</span> and the release will be completed by 
+atomically clearing the lock to <span class="constant">NULL</span>. If there is 
+an incompletely established waiter, the lock will hold the address of its
+<span class="struct">KSPIN_LOCK_QUEUE</span>, not the owner’s, and is left alone. 
+It is then the owner that must wait for the prospective waiter to set the address 
+of a <span class="struct">KSPIN_LOCK_QUEUE</span> into the owner’s
+<span class="member">Next</span> member before the owner can clear the waiter’s
+<span class="constant">LOCK_QUEUE_WAIT</span> bit and cede ownership of the lock. 
+This spin loop by the owner has no analogue for classic spin locks. </p>
+<h2>Exported Functions </h2>
+<p>As for the classic spin lock, the exported functions for queued spin locks were 
+originally split between the kernel and the HAL. The kernel exports only the few 
+functions that work with the lock but have nothing to do with the IRQL. The many 
+compound functions that both adjust the IRQL and manage the lock are all exported 
+from the HAL. This division got reorganised for 64-bit Windows so that all x64 builds 
+have queued spin locks entirely as kernel functionality (coded in C rather than 
+assembly language). For 32-bit Windows, this reorganisation waited until version 
+6.2 adopted the coding in C. The HAL’s functions then moved to the kernel: they 
+continue to be exported from the HAL, but only as forwards to the kernel. </p>
+<table class="Functions">
+  <tr>
+    <th>Function </th>
+    <th>HAL Versions (x86 Only) </th>
+    <th>Kernel Versions </th>
+  </tr>
+  <tr>
+    <td><span class="function">
+    <a href="../../../../hal/api/mpspin/acquireinstack.htm">KeAcquireInStackQueuedSpinLock</a></span>
+    </td>
+    <td>5.1 and higher </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64 only); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td><span class="function"><a href="acquireinstackatdpclevel.htm">KeAcquireInStackQueuedSpinLockAtDpcLevel</a></span>
+    </td>
+    <td>&nbsp;</td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="undocumented function">
+    <a href="../../../../hal/api/mpspin/acquireinstackraisetosynch.htm">KeAcquireInStackQueuedSpinLockRaiseToSynch</a></span>
+    </td>
+    <td>5.1 and higher </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64 only); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td><span class="reserved function">KeAcquireQueuedSpinLock</span> </td>
+    <td>5.0 and higher </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64 only); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td><span class="undocumented function">KeAcquireQueuedSpinLockRaiseToSynch</span>
+    </td>
+    <td>5.0 and higher </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64 only); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td><span class="function">KeReleaseInStackQueuedSpinLock</span> </td>
+    <td>5.1 and higher </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64 only); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td><span class="function"><a href="releaseinstackfromdpclevel.htm">KeReleaseInStackQueuedSpinLockFromDpcLevel</a></span>
+    </td>
+    <td>&nbsp;</td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="reserved function">KeReleaseQueuedSpinLock</span> </td>
+    <td>5.0 and higher </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64 only); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td><span class="reserved function">KeTryToAcquireQueuedSpinLock</span> </td>
+    <td>5.0 and higher </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64 only); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td><span class="undocumented function">KeTryToAcquireQueuedSpinLockRaiseToSynch</span>
+    </td>
+    <td>5.0 and higher </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64 only); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 29th November 2019 and was last modified 
+  on 13th December 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

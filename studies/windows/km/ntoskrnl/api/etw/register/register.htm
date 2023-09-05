@@ -1,0 +1,219 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EtwRegister</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+<h1>EtwRegister </h1>
+<p>This function registers a kernel-mode event provider. </p>
+<h2>Declaration </h2>
+<pre>NTSTATUS
+NTKERNELAPI
+EtwRegister (
+    LPCGUID ProviderId,
+    PETWENABLECALLBACK EnableCallback,
+    PVOID CallbackContext,
+    REGHANDLE *RegHandle);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">ProviderId</span> argument is the address of a GUID 
+that represents the event provider. </p>
+<p>The <span class="argument">EnableCallback</span> argument is the address of a 
+routine that is to be called back whenever a tracing session interacts with the 
+provider. This argument can be <span class="constant">NULL</span> to mean that the 
+caller does not want to be called back. </p>
+<p>The <span class="argument">CallbackContext</span> argument is a caller-defined 
+context that is to be passed back to the caller as one of the arguments of the callback 
+routine. This argument is valid only if a callback routine is supplied. </p>
+<p>The <span class="argument">RegHandle</span> argument is the address of a 64-bit 
+variable that is to receive a registration handle to the provider. The caller may 
+use this as an argument when calling other ETW functions, notably to write events 
+through this provider, and ultimately to call <span class="function">EtwUnregister</span>.
+</p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+<h3>Callback </h3>
+<p>The callback routine has the prototype </p>
+<pre class="source">VOID
+<span class="placeholder">EnableCallback</span> (
+    LPCGUID SourceId,
+    ULONG ControlCode,      // originally named IsEnabled
+    UCHAR Level,
+    ULONGLONG MatchAnyKeyword,
+    ULONGLONG MatchAllKeyword,
+    EVENT_FILTER_DESCRIPTOR *FilterData,
+    PVOID CallbackContext);</pre>
+<p>Note that the callback routine can be called not just back, i.e., after
+<span class="function">EtwRegister</span> returns, but within. This happens when 
+the provider was already enabled in one or more tracing sessions. The
+<span class="argument">SourceId</span> in this case is null, the
+<span class="argument">ControlCode</span> is <span class="constant">EVENT_CONTROL_CODE_ENABLE_PROVIDER</span> 
+and the <span class="argument">Level</span>, <span class="argument">MatchAnyKeyword</span>,
+<span class="argument">MatchAllKeyword</span> and <span class="argument">FilterData</span> 
+arguments are aggregated over the tracing sessions. </p>
+<h2>Availability </h2>
+<p>The <span class="function">EtwRegister</span> is exported by name from the kernel 
+in version 6.0 and higher. It is documented from its start, i.e., as early as the 
+Windows Driver Kit (WDK) for Windows Vista. </p>
+<h2>Behaviour </h2>
+<p>The <span class="function">EtwRegister</span> function does much the same for 
+kernel-mode event providers as is done for user-mode event providers by the NTDLL 
+function <span class="function">EtwEventRegister</span> (which is typically accessed 
+as the ADVAPI32 function <span class="function">EventRegister</span>). That said, 
+this function is not the kernel-mode core of the user-mode functionality. The coding 
+is largely separate and there are differences in behaviour. </p>
+<p>A key point to understand is that an event provider is an abstracted entity for 
+writing a set of events. Although it will often be that an event provider is implemented 
+wholly in one executable module, this is only the simplest scheme. Multiple modules, 
+both in kernel and user mode, can each write events as if from the one event provider. 
+All tell the kernel of their intention by calling <span class="function">EtwRegister</span> 
+(or corresponding user-mode function) with the same GUID as the
+<span class="argument">ProviderId</span> argument. Each may supply their own
+<span class="argument">EnableCallback</span> and <span class="argument">CallbackContext</span>. 
+Each receives its own registration handle. </p>
+<p>Another key point is that event providers are abstracted enough to exist before 
+any module has yet registered for writing events through the provider. This is a 
+vital provision for a tracing session (or sessions) to receive events that record 
+the applicable modules' initialisation. An implication is that an event provider 
+can be known to the kernel either from being registered (for an intended writing 
+of events) or from being enabled (with the intention of reading events). </p>
+<p>Because of these two points together, the function works with two important structures. 
+It first ensures the existence of an <span class="struct">
+<a href="guid_entry.htm">ETW_GUID_ENTRY</a></span> structure that represents the 
+provider. If none exists already, the function creates one. Then it creates an
+<span class="struct"><a href="reg_entry/index.htm">ETW_REG_ENTRY</a></span> for 
+this registration. This is the structure that the caller will subsequently access 
+through the returned registration handle. Originally, this handle was an index into 
+a table. Starting with Windows 8, it is simply the address of the
+<span class="struct">ETW_REG_ENTRY</span>. </p>
+<p>The implementation details that (will) follow are from analysis up to and including 
+the original release of Window 10. Beware that the later releases rework some of 
+the details non-trivially for the increasing role of silos. It is not impossible 
+that the presentation of these details even for earlier versions will not stay here.
+</p>
+<p><span class="alert">TO BE DONE</span> </p>
+<!-- h3>Parameter Validation </h3>
+<p>The <span class="argument">ProviderId</span> must not be <span class="guid">{54849625-5478-4994-A5BA-3E3B0328C30D}</span>, 
+else the function returns <span class="constant">STATUS_ACCESS_DENIED</span>. This 
+GUID is reserved for the Microsoft-Windows-Security-Auditing provider. This provider 
+never is registered: for it, the necessary <span class="struct">ETW_GUID_ENTRY</span> 
+is instead prepared in the kernel’s own data section during ETW initialisation (before 
+Windows 10, the treatment having changed with the introduction of silos). </p>
+<p>It is also an error, returning <span class="constant">STATUS_INVALID_PARAMETER</span>, 
+to give a non-<span class="constant">NULL</span> callback context but no callback 
+function. </p>
+<h3>Provider </h3>
+<p>If the provider is not already known, then memory is required for a new
+<span class="struct">ETW_GUID_ENTRY</span> to represent the provider and may also 
+be required for a security descriptor. Failure is indicated by returning
+<span class="constant">STATUS_NO_MEMORY</span>. This is also returned, before the 
+1607 release of Windows 10, if too many providers are already known. The limit is 
+0x8000. </p>
+<p>The <span class="struct">ETW_GUID_ENTRY</span> is in non-paged pool 
+(no-execute in Windows 8 and higher) with the tag 'GwtE'. </p>
+<h4>Security </h4>
+<p>Though the kernel-mode caller of <span class="function">EtwRegister</span> is 
+not subject to access checks for the provider, user-mode registration will be, as 
+will tracing sessions that seek to enable the provider. The security descriptor 
+is read from the registry into paged pool with the tag 'PwtE', but what’s 
+retained for the
+<span class="member">SecurityDescriptor</span> in the <span class="struct">ETW_GUID_ENTRY</span> 
+is instead a copy that is either entered into or found in the Object Manager’s cache 
+of security descriptors. This too is in paged pool but with the tag 'csbO'. </p>
+<h4>Listing </h4>
+<p>That the kernel knows of a provider as being already registered or enabled is 
+because each new <span class="struct">ETW_GUID_ENTRY</span> goes into a list. The 
+kernel has separate lists for each type of provider as represented by the
+<span class="enum"><a href="guid_type.htm">ETW_GUID_TYPE</a></span> enumeration, 
+but the <span class="function">EtwRegister</span> function registers providers only 
+for tracing, i.e., providers whose type is <span class="constant">EtwTraceGuidType</span>. 
+Originally, each list was the one double-linked list but Windows 8 </p>
+<h3>Registration </h3>
+<p>Another structure (an <span class="struct">ETW_PROVIDER_TABLE_ENTRY</span>) is 
+needed to represent each registration of a kernel-mode provider. An array of these 
+structures is statically allocated. The index into this array becomes the registration 
+handle that will be returned through the <span class="argument">RegHandle</span> 
+argument if the function ends up succeeding. Space is allowed for 0x0400 of these 
+structures. Exceeding this limit causes the function to return
+<span class="constant">STATUS_INSUFFICIENT_RESOURCES</span>. </p>
+<p>Each registration of a provider is represented by an <span class="struct">ETW_REG_ENTRY</span> 
+structure that is created as an <span class="object">EtwRegistration</span> object 
+(again in non-paged pool). This is formally an object in the sense of being subject 
+to the Object Manager. Failure to create this object is fatal to the function.
+</p>
+<h3>Loggers </h3>
+<p>The provider may already be enabled for as many as eight loggers. Each has its 
+own logger mode. An undocumented mode represented by 0x01000000 is of special concern, 
+since it specifies that the logger may use paged pool. Loggers in this mode are 
+not tolerated, but neither are they fatal. The logger mode can change. Until then, 
+the function leaves the provider both registered and enabled but masks such loggers 
+from being sent events. </p>
+<p>If a callback function is supplied and the provider is already enabled, then 
+the callback function is called immediately. The <span class="argument">SourceId</span> 
+argument in this case is always for <span class="constant">GUID_NULL</span> no matter 
+what <span class="argument">SourceId</span> was given by any of the loggers that 
+enabled the provider. The <span class="argument">IsEnabled</span> argument is trivially 
+TRUE. The <span class="argument">FilterData</span> argument is always NULL. The
+<span class="argument">CallbackContext</span> argument is the same as given to the
+<span class="function">EtwRegister</span> function. For the other arguments, remember 
+that the different loggers for which the provider is enabled each specify their 
+own settings. The callback function receives an aggregate: the highest
+<span class="argument">Level</span>; the bit-wise OR of the
+<span class="argument">MatchAnyKeyword</span> from each logger; and the bit-wise 
+AND of the <span class="argument">MatchAllKeyword</span>. </p>
+<p>Whether or not the provider is already enabled for any logger, the callback function 
+will be called each time that the provider subsequently is enabled or disabled for 
+any logger. </p -->
+<div class="Footer">
+  <p class="Dates">This page was created on 16th November 2008 but was not published 
+  until 28th <a href="../../../../../../../new/20/05.htm">May 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

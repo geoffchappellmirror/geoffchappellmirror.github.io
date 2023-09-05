@@ -1,0 +1,209 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>OBJECT_HEADER_NAME_INFO</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>OBJECT_HEADER_NAME_INFO </h1>
+  <p>The <span class="struct">OBJECT_HEADER_NAME_INFO</span> structure (formally
+  <span class="struct">_OBJECT_HEADER_NAME_INFO</span>) is one of several structures 
+  that may precede an <span class="struct"><a href="object_header/index.htm">OBJECT_HEADER</a></span> 
+  in a memory block that contains an Object Manager object. It is the definitive 
+  record of the object’s name and of where the object sits in the namespace. </p>
+  <h2>Access </h2>
+  <p>The point to making a separate structure of the <span class="struct">OBJECT_HEADER_NAME_INFO</span> 
+  is, of course, that the object need not have a name. The object’s memory overhead 
+  is then reduced by having the <span class="struct">OBJECT_HEADER</span> record 
+  just the absence. </p>
+  <p>This saving was first implemented in version 3.50. For this and many versions 
+  after, the <span class="struct">OBJECT_HEADER_NAME_INFO</span> is located by the 
+  byte-sized <span class="member">NameInfoOffset</span> member of the
+  <span class="struct">OBJECT_HEADER</span>. If this is zero, then the object has 
+  no <span class="struct">OBJECT_HEADER_NAME_INFO</span>. Otherwise, it is the offset 
+  in bytes from the start of the <span class="struct">OBJECT_HEADER_NAME_INFO</span> 
+  to the start of the <span class="struct">OBJECT_HEADER</span>. A programmer might 
+  write this as </p>
+  <pre class="source">OBJECT_HEADER_NAME_INFO *
+OBJECT_HEADER_TO_NAME_INFO_EXISTS (
+    OBJECT_HEADER *ObjectHeader)
+{
+    return (OBJECT_HEADER_NAME_INFO *) 
+        ((PCHAR) ObjectHeader - ObjectHeader -&gt; NameInfoOffset);
+}</pre>
+  <pre class="source">OBJECT_HEADER_NAME_INFO *
+OBJECT_HEADER_TO_NAME_INFO (
+    OBJECT_HEADER *ObjectHeader)
+{
+    return ObjectHeader -&gt; NameInfoOffset != 0
+        ? OBJECT_HEADER_TO_NAME_INFO_EXISTS (ObjectHeader)
+        : NULL;
+}</pre>
+  <p>The location algorithm changed for version 6.1. It had by then been realised 
+  that if the various information structures that can precede the
+  <span class="struct">OBJECT_HEADER</span> are always laid out in the same order, 
+  then the offset to any one of them can be computed from knowing which others are 
+  present. This knowledge costs only one bit for each of the possible information 
+  structures. The <span class="struct">OBJECT_HEADER</span> has these bits as the 
+  single-byte <span class="member"><a href="object_header/infomask.htm">InfoMask</a></span>. 
+  The kernel has as an internal variable an array of pre-computed offsets for the 
+  possible combinations of <span class="member">InfoMask</span> bits. The bit that 
+  tells if an <span class="struct">OBJECT_HEADER_NAME_INFO</span> is present is 
+  0x02. The only information structure that can sit between the
+  <span class="struct">OBJECT_HEADER_NAME_INFO</span> and the
+  <span class="struct">OBJECT_HEADER</span> is the <span class="struct">
+  <a href="object_header_creator_info.htm">OBJECT_HEADER_CREATOR_INFO</a></span>, 
+  whose presence is represented by the 0x01 bit. Public symbol files for the kernel, 
+  starting with Windows 8, suggest strongly that Microsoft’s programmers have the 
+  computation as something very like </p>
+  <pre class="source">OBJECT_HEADER_NAME_INFO *
+OBJECT_HEADER_TO_NAME_INFO_EXISTS (
+    OBJECT_HEADER *ObjectHeader)
+{
+    return (OBJECT_HEADER_NAME_INFO *) ((PCHAR) ObjectHeader 
+        - ObpInfoMaskToOffset [ObjectHeader -&gt; InfoMask &amp; 0x03]);
+}</pre>
+  <pre class="source">OBJECT_HEADER_NAME_INFO *
+OBJECT_HEADER_TO_NAME_INFO (
+    OBJECT_HEADER *ObjectHeader)
+{
+    return ObjectHeader -&gt; InfoMask &amp; 0x02
+        ? OBJECT_HEADER_TO_NAME_INFO_EXISTS (ObjectHeader)
+        : NULL;
+}</pre>
+  <h2>Layout </h2>
+  <p>The <span class="struct">OBJECT_HEADER_NAME_INFO</span> structure is 0x10 or 
+  0x20 bytes in 32-bit and 64-bit Windows, respectively. Microsoft’s names and types 
+  are known from type information in public symbol files for the kernel, starting 
+  with Windows 2000 SP3. Names are known with slightly less certainty as far back 
+  as version 4.0 from the output of the <span class="command">
+  <a href="../../../../debug/userexts/dso.htm">!dso</a></span> command as implemented 
+  by the debugger extension USEREXTS.DLL from the Windows NT 4.0 Device Driver Kit 
+  (DDK). </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source"><a href="object_directory.htm">OBJECT_DIRECTORY</a> *Directory;</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">UNICODE_STRING Name;</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0C </td>
+        <td rowspan="3">0x18 </td>
+        <td>
+        <pre class="source">ULONG Reserved;</pre>
+        </td>
+        <td>3.50 to early 5.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG QueryReferences;</pre>
+        </td>
+        <td>late 5.0 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LONG ReferenceCount;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x1C </td>
+        <td>
+        <pre class="source">ULONG Reserved;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">Directory</span> and <span class="member">Name</span> 
+  are previously at offsets 0x48 and 0x5C in the <span class="struct">OBJECT_CREATE_INFORMATION</span> 
+  structure (or whatever it was called in version 3.10). As with later versions, 
+  this structure’s address is in the <span class="struct">OBJECT_HEADER</span> as 
+  the <span class="member">ObjectCreateInfo</span>. Version 3.10, however, keeps 
+  this structure for the life of the object. </p>
+  <p>Both the original <span class="member">Reserved</span> and its addition for 
+  later releases of Windows 10 make explicit that the <span class="struct">OBJECT_HEADER_NAME_INFO</span> 
+  must be a multiple of 0x08 or 0x10 bytes for 32-bit and 64-bit Windows, respectively, 
+  as must all the object header’s headers. </p>
+  <p>The <span class="command">!dso</span> command for Windows 2000 still labels 
+  the dword at offset 0x0C as <span class="member">Reserved</span>. Use as
+  <span class="member">QueryReferences</span> is seen in the kernel for Windows 
+  2000 SP3 but not in SP1. No kernel for Windows 2000 SP2 has been found for inspection.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 17th June 2020 but was not published 
+    until 30th <a href="../../../../../../../new/20/06.htm">June 2020</a>. It was 
+    last modified on 23rd <a href="../../../../../../../new/22/07.htm">August 2022</a>.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c2022.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4221" -->
+  </div>
+</div>
+
+</body>
+
+</html>

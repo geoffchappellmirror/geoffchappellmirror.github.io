@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Personal Web Manager Causes Page Fault on Exit</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Personal Web Manager Causes Page Fault on Exit </h1>
+  <p>Windows 98 includes a Personal Web Server (PWS) version 4.0 which the
+  <span class="citation">Windows 98 Resource Kit</span> describes as “the answer 
+  to your personal information sharing and Web development needs.” A notable use 
+  is that “you can create your site in the office or at home and test it by using 
+  Personal Web Server before hosting it on the corporate server or an Internet service 
+  provider.” PWS is supplied in an ADD-ONS directory on the Windows 98 CD. Instructions 
+  for installation are given in the Windows 98 Help. </p>
+  <p>The Personal Web Server includes a program for administration. This program 
+  is named the Personal Web Manager and is implemented in the PWS.EXE file. The 
+  PWS setup program prepares two methods for easy access to this PWS administrator 
+  program. First, there is ordinarily a shortcut named Personal Web Manager for 
+  use from the Start menu (via Programs, Internet Explorer and Personal Web Server). 
+  Second, registry entries are ordinarily set so that a program named PWSTRAY.EXE 
+  will run automatically at startup. This leaves an icon in the system tray. The 
+  Personal Web Manager can then be run easily by double-clicking that icon (or by 
+  right-clicking on the icon and selecting Properties). </p>
+  <p>The PWS.EXE file is ordinarily in the INETSRV subdirectory of the Windows SYSTEM 
+  directory, but it can be elsewhere. PWSTRAY finds PWS.EXE via the registry:
+  </p>
+  <table class="Registry">
+    <tr>
+      <td>Key </td>
+      <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\INetStp</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value </td>
+      <td><span class="regvalue">InstallPath</span> </td>
+    </tr>
+  </table>
+  <h2>Problem </h2>
+  <p>Closing the Personal Web Manager—even just opening and closing, without doing 
+  anything in the program—may produce the following error message: </p>
+  <blockquote>
+    <p>This program has performed an illegal operation <br>
+    and will be shut down. </p>
+    <p>If the problem persists, contact the program <br>
+    vendor. </p>
+  </blockquote>
+  <p>The title of this message box is simply Pws. Clicking the Details button reveals 
+  something like: </p>
+  <blockquote>
+    <p>PWS caused an invalid page fault in <br>
+    module MSVCRT.DLL at 015F:78001799. </p>
+  </blockquote>
+  <p>along with Registers, Bytes at CS:EIP and a Stack dump. </p>
+  <h2>Cause </h2>
+  <p>Inspection reveals a coding error in the PWS.EXE program (described in detail 
+  below). In its essence, the error is that when cleaning up on exit, PWS calls 
+  the C Run-Time Library (CRT) function named <strong>free</strong> twice for the 
+  same address. </p>
+  <p>In the design of PWS.EXE, the <strong>free</strong> function is obtained through 
+  dynamic linking with MSVCRT.DLL. Some MSVCRT versions are highly susceptible to 
+  this particular programming error of attempting to free a heap block twice. See 
+  the Microsoft Knowledge Base article
+  <a target="_top" href="http://support.microsoft.com/kb/149550">FIX: Freeing memory 
+  multiple times may cause an application error in Visual C++</a>. </p>
+  <h3>Applicable Versions </h3>
+  <p>The coding error has been identified in two PWS.EXE versions. Details such 
+  as file sizes, time stamps and known distribution packages are given in the following 
+  table. </p>
+  <table class="FileVersions">
+    <colgroup>
+      <col class="Version"><col class="Size"><col class="Date">
+      <col class="Package">
+    </colgroup>
+    <tr>
+      <th>Version </th>
+      <th>Size </th>
+      <th>Date and Time </th>
+      <th>Package </th>
+    </tr>
+    <tr>
+      <td>4.02.0622 </td>
+      <td>396,576 </td>
+      <td>15:25, 16th November 1997 </td>
+      <td>Windows NT Option Pack 4.0 </td>
+    </tr>
+    <tr>
+      <td>4.02.0634 </td>
+      <td>397,600 </td>
+      <td>17:28, 25th February 1998 </td>
+      <td>Windows 98 </td>
+    </tr>
+  </table>
+  <p>The coding error may go unnoticed, depending on the MSVCRT version. Detailed 
+  examination of different MSVCRT versions for their susceptibility to PWS’s coding 
+  error is beyond the scope of this article, but the following summary seems reasonable. 
+  The MSVCRT versions supplied in the same package as PWS are not highly susceptible. 
+  Symptoms such as invalid page faults are likely to occur only if a more recent 
+  MSVCRT has been acquired by installing other software. The Knowledge Base article
+  <a target="_top" href="http://support.microsoft.com/kb/190536">FIX: You receive 
+  an “invalid page fault in module MSVCRT.DLL” error message after you install the 
+  run-time libraries from Visual C++ 6.0</a> is relevant, despite being directed 
+  at users of Visual Studio rather than users of the affected programs. </p>
+  <h3>Coding Error Details </h3>
+  <p>Among much other work, PWS defines a simple class, named
+  <span class="class">CImpIMSAdminBaseSink</span>, that implements an
+  <span class="interface">IMSAdminBaseSinkW</span> interface and a reference count. 
+  The interface is defined in IADMW.H, as supplied with the Platform SDK. Microsoft’s 
+  name for the class is knowable from Run-Time Type Information (RTTI) in the executable, 
+  but anyway follows a naming convention in Microsoft’s COM and OLE literature.
+  </p>
+  <p>As usual for objects in the Component Object Model (COM), a virtual function 
+  named <span class="method">AddRef</span> increments the given object’s reference 
+  count. A virtual function named <span class="method">Release</span> decrements 
+  the reference count. If this brings the reference count to zero, then
+  <span class="method">Release</span> destroys the object. </p>
+  <p>A new <span class="class">CImpIMSAdminBaseSink</span> comes from the heap, 
+  as implemented in MSVCRT. The <span class="class">CImpIMSAdminBaseSink</span> 
+  constructor sets zero as the initial reference count. </p>
+  <p>A <span class="class">CImpIMSAdminBaseSink</span> object is created to help 
+  with the implementation of a more complex class that is named
+  <span class="class">CPwsDoc</span>. This name is known not only from RTTI but 
+  also because PWS registers it for MFC run-time class information. When a
+  <span class="class">CPwsDoc</span> object is to be destroyed and a
+  <span class="class">CImpIMSAdminBaseSink</span> object remains associated with 
+  the <span class="class">CPwsDoc</span> object, then the <span class="class">CPwsDoc</span> 
+  destructor also destroys and deletes the associated <span class="class">CImpIMSAdminBaseSink</span> 
+  object. </p>
+  <p>A <span class="class">CPwsDoc</span> object may pass its associated
+  <span class="class">CImpIMSAdminBaseSink</span> object elsewhere, through the
+  <span class="method">Advise</span> method of an <span class="interface">IConnectionPoint</span> 
+  interface. The first part of the coding error is that when a
+  <span class="class">CImpIMSAdminBaseSink</span> object is passed outside PWS, 
+  the object’s reference count is still zero. The recipient may legitimately call 
+  the <span class="class">CImpIMSAdminBaseSink</span> object’s
+  <span class="method">AddRef</span> function and match these with calls to the 
+  object’s <span class="method">Release</span> function. Because PWS has let the 
+  reference count start as zero for these operations, the last call to the object’s
+  <span class="method">Release</span> function will bring the object’s reference 
+  count back to zero and cause the object to destroy itself. The space the object 
+  occupied on the heap will be freed. This is the first of the two calls to the
+  <span class="function">free</span> function in MSVCRT. </p>
+  <p>For the second part of the error, consider the effect on the
+  <span class="class">CPwsDoc</span> object with which the <span class="class">CImpIMSAdminBaseSink</span> 
+  object had been associated. Neither the recipient of the <span class="class">CImpIMSAdminBaseSink</span> 
+  object nor the object itself knows anything of the pointer that the
+  <span class="class">CPwsDoc</span> object keeps to the <span class="class">CImpIMSAdminBaseSink</span> 
+  object. The latter object exists no more, but the pointer in the
+  <span class="class">CPwsDoc</span> object remains. When the time eventually comes 
+  to destroy the <span class="class">CPwsDoc</span> object, there will seem to be 
+  an associated <span class="class">CImpIMSAdminBaseSink</span> object that should 
+  be destroyed also. This is the second of the two calls to the
+  <span class="function">free</span> function. </p>
+  <h2>Fix </h2>
+  <p>If the association of <span class="class">CImpIMSAdminBaseSink</span> object 
+  to <span class="class">CPwsDoc</span> object persists while the
+  <span class="class">CImpIMSAdminBaseSink</span> object is passed to essentially 
+  unknowable code outside PWS, then the <span class="class">CImpIMSAdminBaseSink</span> 
+  object’s reference count should be at least one by the time the object is passed 
+  outside. The easiest way to achieve this, given the impossibility of modifying 
+  the source code to fix the problem properly, is to have the object’s constructor 
+  initialise the reference count to one, not zero. </p>
+  <p>The constructor begins: </p>
+  <pre class="source">mov     eax,ecx
+and     dword ptr [eax+4],0</pre>
+  <p>Here, <span class="register">ecx</span> is the constructor’s
+  <span class="keyword">this</span> argument, being the address of a new (but uninitialised)
+  <span class="class">CImpIMSAdminBaseSink</span> object. The address of this object 
+  is also to be returned by the function, hence the copy from
+  <span class="register">ecx</span> to <span class="register">eax</span>. The second 
+  instruction initialises the object’s reference count to zero. After this, it remains 
+  only to set the object’s pointer to its virtual function table, and then to return.
+  </p>
+  <p>To have the constructor set 1 as the initial reference count, the ideal would 
+  be to patch just the second instruction. The difficulty here is that the existing 
+  coding saves space by doing the initialisation to zero as an
+  <span class="instruction">and</span> (rather than the immediately obvious
+  <span class="instruction">mov</span>), making good use of a short form in which 
+  sign extension of the immediate operand from a byte to a dword is implied. Done 
+  this way, the instruction for initialising to 0 takes just four bytes. An initialisation 
+  of a dword to 1 does not seem possible in just four bytes. The best seems to be 
+  five. </p>
+  <p>Since the constructor is not required to preserve <span class="register">ecx</span>, 
+  one extra byte can be taken from the first instruction. This produces the patch. 
+  The six bytes of the two instructions above are to be replaced by the six bytes 
+  of the three instructions below: </p>
+  <pre class="source">xchg    eax,ecx
+push    1
+pop     dword ptr [eax+4]</pre>
+  <p>The problem can be corrected by patching six bytes in the PWS.EXE file. The 
+  patch site, given as an offset in bytes from the start of the file, varies with 
+  the version: </p>
+  <table class="FileOffsets">
+    <colgroup>
+      <col class="Version"><col class="Offset">
+    </colgroup>
+    <tr>
+      <th>Version </th>
+      <th>File Offset </th>
+    </tr>
+    <tr>
+      <td>4.02.0622 </td>
+      <td>A8D1h </td>
+    </tr>
+    <tr>
+      <td>4.02.0634 </td>
+      <td>AB3Ch </td>
+    </tr>
+  </table>
+  <p>The expected bytes at the site are 8B C1 83 60 04 00. They are to be changed 
+  to 91 6A 01 8F 40 04. If you are even slightly uncertain how to patch a file, 
+  do not try it. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 16th May 1999 and was last modified 
+    on 15th September 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9908.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1999-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63783" -->
+  </div>
+</div>
+
+</body>
+
+</html>

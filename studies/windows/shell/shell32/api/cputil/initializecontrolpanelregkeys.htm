@@ -1,0 +1,209 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SHInitializeControlPanelRegkeys</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>SHInitializeControlPanelRegkeys </h1>
+<h2>Declaration </h2>
+<pre class="source">VOID SHInitializeControlPanelRegkeys (VOID);</pre>
+<h3>Return Value </h3>
+<p>The function reliably returns 0 or 1 (from the <span class="enum">CPVIEW</span> 
+enumeration) depending on whether the Control Panel is set for the classic or category 
+view. However, this seems likely to be an implementation detail, not the functional 
+design. </p>
+<h2>Behaviour </h2>
+<p>As presently implemented, the function gets the current Control Panel view. Indeed, 
+except for not having to create an <span class="class">OpenControlPanel</span> object, 
+it is essentially equivalent to calling the <span class="method">GetCurrentView</span> 
+method of that object’s <span class="interface">IOpenControlPanel</span> interface. 
+The attitude of these notes is that the point to exporting this function is not 
+to get the current view but to ensure that it is well-defined. </p>
+<p>In any sort of Safe Mode, the Control Panel is necessarily in Classic View and 
+there is nothing to check or initialise. The function simply returns
+<span class="constant">CPVIEW_CLASSIC</span>. </p>
+<p>Ordinarily, the record of the chosen Control Panel view is supported from a registry 
+value </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\ControlPanel</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">RecentView</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Data: </td>
+    <td>1 to use Category View, else 0 </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 if running on a server, else 1 </td>
+  </tr>
+</table>
+<p>and the function makes sure that this value is correctly set. This value is meant 
+to be a boolean indicator of whether the Control Panel is in Category View. Unlike 
+many registry values, this one actually is checked for strict conformance to expectations. 
+It must have the <span class="constant">REG_DWORD</span> type and its dword of data 
+must be 0 or 1. Otherwise, it is treated as undefined and will have to be set anew. 
+The function chooses Classic View if running on a server edition of Windows, else 
+Category View. </p>
+<p>Whether the <span class="regvalue">RecentView</span> value is well-defined or 
+not, it may be overridden by an administrative policy to force either view: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer</span>
+    <br>
+    <span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ForceClassicControlPanel</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td>dword </td>
+  </tr>
+  <tr>
+    <td>Data: </td>
+    <td>0 to force Category View; <br>
+    1 to force Classic View; <br>
+    else do not force a view </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>-1 </td>
+  </tr>
+</table>
+<p>If the data for this setting is 0 or 1, then the <span class="regvalue">RecentView</span> 
+value will have to be set to 1 or 0, respectively. </p>
+<p>Incidentally, the <span class="regvalue">ForceClassicControlPanel</span> setting 
+has user-interface support through the Group Policy Object Editor, as “Force classic 
+Control Panel view” in the Control Panel administrative template (in the User Configuration 
+branch only). </p>
+<p>If the <span class="regvalue">RecentView</span> setting is well-defined and there 
+is no (valid) <span class="regvalue">ForceClassicControlPanel</span> policy, then 
+the function returns <span class="constant">CPVIEW_CLASSIC</span> (0) or
+<span class="constant">CPVIEW_CATEGORY</span> (1) according to whether
+<span class="regvalue">RecentView</span> is already 0 or 1, respectively. If the
+<span class="regvalue">RecentView</span> setting is not well-defined or a view is 
+forced by policy and disagrees with what’s presently in <span class="regvalue">RecentView</span>, 
+then the function rewrites the <span class="regvalue">RecentView</span> value. If 
+this succeeds, then the function has two other values to update and a notification 
+to send. </p>
+<p>The two other values are the attributes for the two Control Panel views as shell 
+folders. The <span class="constant">SFGAO_NONENUMERATED</span> attribute must be 
+set for whichever is not the current view and be clear for whichever is. Keeping 
+this right is particularly important for the desktop, since both Control Panel views 
+are required items in the <span class="class">
+<a href="../../classes/shelldesktop.htm">ShellDesktop</a></span> class. Indeed, 
+if the Control Panel is configured to show as an icon on the desktop, then to set 
+this attribute is effectively to delete the icon. (This is why the Control Panel 
+icon may move when you change the Control Panel view. The icon for the old view 
+is deleted and the icon for the new view is added, and is given a default position.) 
+The attributes are set in the per-user CLSID key (in the sense of the
+<span class="function"><a href="../../../shlwapi/api/reg/reggetclsidkey.htm">SHRegGetCLSIDKey</a></span> 
+function): </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{<span class="placeholder">clsid</span>}\ShellFolder</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Attributes</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>in which <span class="placeholder">clsid</span> stands for </p>
+<ul>
+  <li><span class="clsid">21EC2020-3AEA-1069-A2DD-08002B30309D</span>, for Classic 
+  View </li>
+  <li><span class="clsid">26EE0668-A00A-44D7-9371-BEB064C98683</span>, for Category 
+  View </li>
+</ul>
+<p>The <span class="constant">SFGAO_NONENUMERATED</span> attribute is just one bit 
+(0x01000000) in the dword of data. Other bits are preserved either from this same 
+value, if it can be read, else from the machine value: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CLASSES_ROOT\CLSID\{<span class="placeholder">clsid</span>}\ShellFolder</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Attributes</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>Provided that attibutes are set for both the Control Panel classes, the function 
+then sends an <span class="constant">SHCNE_UPDATEDIR</span> notification, to tell 
+anyone who cares that the desktop folder has changed. </p>
+<h2>Availability </h2>
+<p>The <span class="function">SHInitializeControlPanelRegkeys</span> function is 
+exported from SHELL32.DLL as ordinal 852 in the version 6.00 from Windows Vista, 
+and higher. </p>
+<!--webbot bot="Include" U-Include="../_include/undoc600-vista.htm" TAG="BODY" startspan -->
+
+<p>This function was not documented by 
+Microsoft for the January 2007 edition of the Windows Vista Software 
+Development Kit (SDK). </p>
+
+<!--webbot bot="Include" i-checksum="46729" endspan -->
+<div class="Footer">
+  <p class="Dates">This page was created on 15th August 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="50766" endspan -->
+</div>
+
+</body>
+
+</html>

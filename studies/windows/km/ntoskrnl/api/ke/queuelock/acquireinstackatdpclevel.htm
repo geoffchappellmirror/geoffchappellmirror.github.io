@@ -1,0 +1,175 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KeAcquireInStackQueuedSpinLockAtDpcLevel</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KeAcquireInStackQueuedSpinLockAtDpcLevel </h1>
+<p>This function acquires a <a href="index.htm">queued spin lock</a> at high IRQL.
+</p>
+<h2>Declaration </h2>
+<pre class="source">VOID 
+FASTCALL 
+KeAcquireInStackQueuedSpinLockAtDpcLevel (
+    KSPIN_LOCK *SpinLock, 
+    KLOCK_QUEUE_HANDLE *LockHandle);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SpinLock</span> argument provides the address of the 
+spin lock that is to be acquired. </p>
+<p>The <span class="argument">LockHandle</span> argument provides the address of 
+an opaque context structure. This address is re-presented when releasing the lock. 
+The context must have no other use until the lock has been released. </p>
+<h3>Constraints </h3>
+<p>The <span class="function">KeAcquireInStackQueuedSpinLockAtDpcLevel</span> function 
+assumes that the IRQL is at least <span class="constant">DISPATCH_LEVEL</span>. 
+The spin lock and the context structure must be in non-paged memory when this function 
+begins and must remain so until the lock is released. </p>
+<h2>Availability </h2>
+<p>The <span class="function">KeAcquireInStackQueuedSpinLockAtDpcLevel</span> function 
+is exported by name from the kernel in version 5.1 and higher. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">KeAcquireInStackQueuedSpinLockAtDpcLevel</span> function 
+is documented. </p>
+<p>Not until the Windows Driver Kit (WDK) for Windows 7 does the documentation explicitly 
+allow the function’s use at IRQL above <span class="constant">DISPATCH_LEVEL</span>.
+</p>
+<h2>Behaviour </h2>
+<p>The <span class="function">KeAcquireInStackQueuedSpinLockAtDpcLevel</span> function 
+begins by initialising the <span class="struct">KLOCK_QUEUE_HANDLE</span>. Since 
+the function does not change the IRQL, it makes no use of the
+<span class="member">OldIrql</span> member. Its interest is only in the
+<span class="member">LockQueue</span>. This it initialises by clearing the
+<span class="member">Next</span> member to <span class="constant">NULL</span> and 
+pointing the <span class="member">Lock</span> member to the spin lock. </p>
+<h3>Inlined Common Code </h3>
+<p>The remainder of the function is an inlining of an internal routine </p>
+<pre class="source">VOID FASTCALL KeAcquireQueuedSpinLockAtDpcLevel (KSPIN_LOCK_QUEUE *);</pre>
+<p>This might pass unmentioned as an implementation detail except that this internal 
+routine is the common code for acquiring a queued spin lock at high IRQL through 
+other exported functions, notably <span class="function">KeAcquireQueuedSpinLock</span>, 
+the notes for which refer here for the details. </p>
+<h3>General Mechanism </h3>
+<p>If the spin lock is not already owned, it will hold zero either from its initialisation 
+by <span class="function">KeInitializeSpinLock</span> or from being reset when its 
+last release left it with no owner. While the spin lock is owned, it has a queue 
+of one owner and zero or more waiters. Each provides its own
+<span class="struct">KSPIN_LOCK_QUEUE</span>. The owner’s is the head of the queue. 
+Its <span class="member">Next</span> member points to the <span class="struct">KSPIN_LOCK_QUEUE</span> 
+for the first waiter. Successive <span class="member">Next</span> members link successive 
+waiters until the last has <span class="constant">NULL</span> for
+<span class="member">Next</span>. The queue is never followed from head to tail. 
+Releasing removes from the head. This function appends to the tail. The head is 
+known, when it needs to be, because the owner re-presents its
+<span class="struct">KSPIN_LOCK_QUEUE</span> when releasing the lock. The tail is 
+known because the lock always points to it. </p>
+<p>Appending the caller to the lock’s queue may need multiple steps. The first is 
+to update the lock. The function uses an <span class="instruction">xchg</span> instruction 
+(and its implied <span class="instruction">lock</span>) to point the lock to the 
+caller’s <span class="struct">KSPIN_LOCK_QUEUE</span> as the queue’s new tail while 
+discovering the previous tail. If this exchange had the lock previously containing
+<span class="constant">NULL</span>, then there was no queue to append to: the caller 
+is the new owner and the function is done. </p>
+<p>Otherwise, the caller must expect to wait its turn. The lock has a queue but 
+the caller is not yet linked into it. The moment that it is, the caller can become 
+the new owner. It must before then have a signal that its wait can end. The function 
+sets the <span class="constant">LOCK_QUEUE_WAIT</span> bit (0x01) in the
+<span class="member">Lock</span> member of the caller’s <span class="struct">KSPIN_LOCK_QUEUE</span>, 
+expecting that it will get cleared on some subsequent release that would transfer 
+ownership to the caller. The function then links the previous tail’s
+<span class="member">Next</span> to the caller’s <span class="struct">KSPIN_LOCK_QUEUE</span>. 
+Now the caller waits in the spin loop until the <span class="constant">LOCK_QUEUE_WAIT</span> 
+bit in the caller’s <span class="struct">KSPIN_LOCK_QUEUE</span> gets cleared. When 
+that eventually happens, the caller is the new owner and the function is done.
+</p>
+<p>See that when multiple processors contend for the same queued spin lock, each 
+waits for a clear <span class="constant">LOCK_QUEUE_WAIT</span> bit in a different
+<span class="struct">KSPIN_LOCK_QUEUE</span>. That each processor’s spin loop polls 
+a different address, which will ideally be close to the processor, may not be the 
+greatest advantage that queued spin locks have over the classic kind, but it may 
+be the most understated. </p>
+<h3>Variations </h3>
+<p>The 32-bit implementation is in assembly language before version 6.2. It keeps 
+two bits in the <span class="member">Lock</span> member: <span class="constant">
+LOCK_QUEUE_WAIT</span> as above but also <span class="constant">LOCK_QUEUE_OWNER</span> 
+(0x02). When this function sees that the caller becomes the new owner immediately, 
+this function sets the <span class="constant">LOCK_QUEUE_OWNER</span> bit before 
+returning. When the caller instead goes into a spin loop, the
+<span class="constant">LOCK_QUEUE_OWNER</span> bit is set concurrently with the 
+clearing of the <span class="constant">LOCK_QUEUE_WAIT</span> bit by whichever function 
+releases the lock to make this function’s caller the new owner. </p>
+<p>Between its tests for whether <span class="constant">LOCK_QUEUE_WAIT</span> is 
+yet clear, the spin loop is originally just a <span class="instruction">pause</span> 
+instruction. The version 6.0 from Windows Vista SP1 adds hypervisor notification. 
+How many spins pass between notifications depends on a <span class="member">LongSpinWaitCount</span> 
+parameter that is learnt from the <span class="instruction">cpuid</span> instruction’s 
+0x40000004 leaf during the kernel’s initialisation. (See <span class="struct">
+<a href="../../hvilib/hviintel/x64_enlightenment_information.htm">HV_X64_ENLIGHTENMENT_INFORMATION</a></span>). 
+To the assembly-language implementation, such notification is extra to the
+<span class="instruction">pause</span>. To the C-language implementation, it’s an 
+alternative to the <span class="instruction">pause</span>. </p>
+<p>Version 6.1 introduces performance counting. Each <span class="struct">
+<a href="../../../inc/ntos/kprcb.htm">KPRCB</a></span> has three counters whose 
+repeated sampling may give some sense of overall demand for spin locks. Attempting 
+to acquire any type of spin lock increments a <span class="member">SpinLockAcquireCount</span>. 
+Each acquisition that is not satisfied immediately is a contention and increments 
+a <span class="member">SpinLockContentionCount</span>. However many times the processor 
+then spins in its loop before acquiring the lock gets added to a
+<span class="member">SpinLockSpinCount</span>. Note that each count is only 32 bits 
+wide. In version 6.2 and higher, these counts are maintained only if the
+<span class="constant">PERF_SPINLOCK_CNTRS</span>
+<a href="../../../inc/api/ntwmi/perfinfo_groupmask.htm">group mask</a> is enabled for 
+at least one system logger session. </p>
+<p>More sophisticated event tracing for system logger sessions also dates from version 
+6.1 but only in the C-language coding: the x86 builds don’t get it until version 
+6.2. This event tracing requires that the <span class="constant">PERF_SPINLOCK</span> 
+group mask be enabled. Its effect on this function is to record into the
+<span class="member">EtwSupport</span> area of the processor’s
+<span class="struct">KPRCB</span> a little information about the function’s entry 
+and exit. When the caller eventually releases the lock, information from the acquisition 
+is retrieved. If sampling conditions are satisfied, information about the acquisition 
+and release are put into a <span class="struct">
+<a href="../../etw/locktrace/wmi_spinlock.htm">WMI_SPINLOCK</a></span> and written 
+as a <span class="constant">PERFINFO_LOG_TYPE_SPINLOCK</span> event. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 12th
+  <a href="../../../../../../../new/19/12.htm">December 2019</a> and was last modified 
+  on 13th December 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

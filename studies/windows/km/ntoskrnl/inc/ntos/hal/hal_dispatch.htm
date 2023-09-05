@@ -1,0 +1,613 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>HAL_DISPATCH</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>HAL_DISPATCH </h1>
+  <p>The <span class="struct">HAL_DISPATCH</span> structure is a table of pointers 
+  to optional HAL functionality. The kernel keeps the one instance of this table. 
+  It’s in the kernel’s read-write data section and its address is exported as
+  <span class="variable">HalDispatchTable</span>. The table initially has the kernel’s 
+  built-in implementations of most (but not all) functions. Many are trivial. Some 
+  are substantial. The HAL overrides some. No known HAL overrides all. Functionality 
+  that has no meaning to a particular HAL is left to the kernel’s default (and HAL 
+  programmers are spared from writing even dummy code for nothing that matters to 
+  them). Moreover, since the address is exported, rather than communicated specifically 
+  to the HAL, it seems to have been intended all along that the functionality is 
+  exposed to other kernel-mode modules such as drivers not only for them to call 
+  but also to override further. </p>
+  <h2>Documentation Status and Variability </h2>
+  <p>Neither the <span class="struct">HAL_DISPATCH</span> nor the
+  <span class="variable">HalDispatchTable</span> are formally documented. Or so 
+  I wrote in 2016. Since then Microsoft has published documentation online. What’s 
+  there today, 29th October 2022, is dated 05/31/22 in plain sight and 03/07/2022 
+  in an HTML <span class="tag">&lt;meta&gt;</span> tag named “ms.date”. Recent or 
+  not, it’s a superb example of documentation that exists for no more reason than 
+  to allow that someone might say its subject is documented—not usefully, but documented 
+  nonetheless. It adds nothing to a comment-free C-language definition. Indeed, 
+  it starts with a comment-free C-language definition and then the remainder of 
+  this so-called documentation is just a (possibly automated) restatement in plain 
+  language. For instance, what’s expressed in C as </p>
+  <blockquote>
+    <pre class="source">pHalQuerySystemInformation HalQuerySystemInformation;</pre>
+  </blockquote>
+  <p>is then re-expressed in English as </p>
+  <blockquote>
+    Defines the <span class="type">pHalQuerySystemInformation</span> member
+    <span class="member">HalQuerySystemInformation</span>.
+  </blockquote>
+  <p>This, repeated for all the structure’s members, is the whole of the documentation. 
+  Perhaps it’s a placeholder for work in progress. </p>
+  <p>Whatever’s to be made of what a supposedly more open Microsoft now passes off 
+  as documentation, the <span class="struct">HAL_DISPATCH</span> and
+  <span class="variable">HalDispatchTable</span> have always been semi-documented: 
+  a C-language definition appears in every NTDDK.H even from as far back as the 
+  Device Driver Kit (DDK) for Windows NT 3.51. In each DDK or Windows Driver Kit 
+  (WDK), the definition is true for the Windows version that the kit is released 
+  for, but with no explicit indication that the definition might not be correct 
+  for other versions. This would be unremarkable if the history were just of extending 
+  the structure and incrementing the <span class="member">Version</span> member 
+  at the very beginning. Instead, members have been added, or their types changed, 
+  without increasing the <span class="member">Version</span>. One change of
+  <span class="member">Version</span> removes a member, thus shifting all subsequent 
+  ones. That said, since then, meaning Windows 7, the structure has not changed 
+  up to and including the 2004 edition of Windows 10, and may now be stable. </p>
+  <p>Microsoft’s C-language definitions don’t list what to expect as the
+  <span class="member">Version</span> member for each Windows version or what to 
+  expect in the structure for any given <span class="member">Version</span>. The 
+  following table shows what correspondence is known from inspection: </p>
+  <table class="Sizes ForTwoVersions">
+    <colgroup>
+      <col class="Version" span="2"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Windows Versions </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">1 </td>
+        <td>3.51 </td>
+        <td>0x28 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr class="VersionImplied">
+        <td>4.0 </td>
+        <td>0x34 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>2 </td>
+        <td>5.0 </td>
+        <td>0x44 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3 </td>
+        <td>5.1 to 6.0 </td>
+        <td>0x58 </td>
+        <td>0xB0 </td>
+      </tr>
+      <tr>
+        <td>4 </td>
+        <td>6.1 to 2004 </td>
+        <td>0x5C </td>
+        <td>0xB8 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout </h2>
+  <p>These sizes in the preceding table, and the offsets, types and names in the 
+  table that follows, are from Microsoft’s C-language definitions in NTDDK.H, checked 
+  against (some) inspection of what the kernel actually does have as its
+  <span class="variable">HalDispatchTable</span>. It is left as understood that 
+  x64 offsets are meaningful only for those versions that have x64 builds, i.e., 
+  5.2 from Windows Server 2003 SP1, and higher. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">ULONG Version;</pre>
+        </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalQuerySystemInformation) (
+    HAL_QUERY_INFORMATION_CLASS,
+    ULONG,
+    PVOID,
+    ULONG *);</pre>
+        </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>0x10 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalSetSystemInformation) (
+    HAL_SET_INFORMATION_CLASS,
+    ULONG,
+    PVOID);</pre>
+        </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0C </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalQueryBusSlots) (
+    INTERFACE_TYPE,
+    ULONG,
+    ULONG,
+    ULONG *,
+    ULONG *);</pre>
+        </td>
+        <td>3.51 only </td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalQueryBusSlots) (
+    BUS_HANDLER *,
+    ULONG,
+    ULONG *,
+    ULONG *);</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x10 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalSlotControl) (
+    INTERFACE_TYPE,
+    ULONG,
+    ULONG,
+    DEVICE_OBJECT *,
+    ULONG,
+    PVOID,
+    ULONG *,
+    PVOID,
+    PSLOT_CONTROL_COMPLETION);</pre>
+        </td>
+        <td>3.51 only </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalDeviceControl) (
+    DEVICE_HANDLER_OBJECT *,
+    DEVICE_OBJECT *,
+    ULONG,
+    PVOID,
+    ULONG *,
+    PVOID,
+    PDEVICE_CONTROL_COMPLETION);</pre>
+        </td>
+        <td>4.0 only </td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">ULONG Spare1;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x14 </td>
+        <td>0x28 </td>
+        <td>
+        <pre class="source">VOID
+(FASTCALL *HalExamineMBR) (
+    DEVICE_OBJECT *,
+    ULONG,
+    ULONG,
+    PVOID *);</pre>
+        </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td>0x18 (3.51 to 6.0) </td>
+        <td>0x30 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">VOID
+(FASTCALL *HalIoAssignDriveLetters) (
+    <a href="../../api/arc/loader_parameter_block.htm">LOADER_PARAMETER_BLOCK</a> *,
+    STRING *,
+    UCHAR *,
+    STRING *);</pre>
+        </td>
+        <td>3.51 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>0x1C (3.51 to 6.0); <br>
+        0x18 </td>
+        <td>0x38 (5.2 to 6.0); <br>
+        0x30 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(FASTCALL *HalIoReadPartitionTable) (
+    DEVICE_OBJECT *,
+    ULONG,
+    BOOLEAN,
+    DRIVE_LAYOUT_INFORMATION **);</pre>
+        </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td>0x20 (3.51 to 6.0); <br>
+        0x1C </td>
+        <td>0x40 (5.2 to 6.0); <br>
+        0x38 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(FASTCALL *HalIoSetPartitionInformation) (
+    DEVICE_OBJECT *,
+    ULONG,
+    ULONG,
+    ULONG);</pre>
+        </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td>0x24 (3.51 to 6.0); <br>
+        0x20 </td>
+        <td>0x48 (5.2 to 6.0); <br>
+        0x40 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(FASTCALL *HalIoWritePartitionTable) (
+    DEVICE_OBJECT *,
+    ULONG,
+    ULONG,
+    ULONG,
+    DRIVE_LAYOUT_INFORMATION *);</pre>
+        </td>
+        <td>3.51 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows NT 4.0 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x28 (4.0 to 6.0); <br>
+        0x24 </td>
+        <td>0x50 (5.2 to 6.0); <br>
+        0x48 </td>
+        <td>
+        <pre class="source">BUS_HANDLER *
+(FASTCALL *HalReferenceHandlerForBus) (
+    INTERFACE_TYPE,
+    ULONG);</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x2C (4.0 to 6.0); <br>
+        0x28 </td>
+        <td>0x58 (5.2 to 6.0); <br>
+        0x50 </td>
+        <td>
+        <pre class="source">VOID
+(FASTCALL *HalReferenceBusHandler) (
+    BUS_HANDLER *);</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x30 (4.0 to 6.0); <br>
+        0x2C </td>
+        <td>0x60 (5.2 to 6.0); <br>
+        0x58 </td>
+        <td>
+        <pre class="source">VOID
+(FASTCALL *HalDereferenceBusHandler) (
+    BUS_HANDLER *);</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 2000 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x34 (5.0 to 6.0); <br>
+        0x30 </td>
+        <td>0x68 (5.2 to 6.0); <br>
+        0x60 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalInitPnpDriver) (
+    VOID);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x38 (5.0 to 6.0); <br>
+        0x34 </td>
+        <td>0x70 (5.2 to 6.0); <br>
+        0x68 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalInitPowerManagement) (
+    PM_DISPATCH_TABLE *,
+    PM_DISPATCH_TABLE *);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3C (5.0 to 6.0); <br>
+        0x38 </td>
+        <td>0x78 (5.2 to 6.0); <br>
+        0x70 </td>
+        <td>
+        <pre class="source">DMA_ADAPTER *
+(*HalGetDmaAdapter) (
+    PVOID,
+    DEVICE_DESCRIPTION *,
+    ULONG *);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x40 (5.0 to 6.0); <br>
+        0x3C </td>
+        <td>0x80 (5.2 to 6.0); <br>
+        0x78 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalGetInterruptTranslator) (
+    INTERFACE_TYPE,
+    ULONG,
+    INTERFACE_TYPE,
+    USHORT,
+    USHORT,
+    TRANSLATOR_INTERFACE *,
+    ULONG *);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows XP </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x44 (5.1 to 6.0); <br>
+        0x40 </td>
+        <td>0x88 (5.2 to 6.0); <br>
+        0x80 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalStartMirroring) (
+    VOID);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x48 (5.1 to 6.0); <br>
+        0x44 </td>
+        <td>0x90 (5.2 to 6.0); <br>
+        0x88 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalEndMirroring) (
+    ULONG);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x4C (5.1 to 6.0); <br>
+        0x48 </td>
+        <td>0x98 (5.2 to 6.0); <br>
+        0x90 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalMirrorPhysicalMemory) (
+    PHYSICAL_ADDRESS,
+    LARGE_INTEGER);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x50 (5.1 to 6.0); <br>
+        0x4C </td>
+        <td>0xA0 (5.2 to 6.0); <br>
+        0x98 </td>
+        <td>
+        <pre class="source">VOID
+(*HalEndOfBoot) (
+    VOID);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x54 (5.1 to 6.0); <br>
+        0x50 </td>
+        <td>0xA8 (5.2 to 6.0); <br>
+        0xA0 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalMirrorVerify) (
+    PHYSICAL_ADDRESS,
+    LARGE_INTEGER);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 7 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x54 </td>
+        <td>0xA8 </td>
+        <td>
+        <pre class="source">PVOID
+(*HalGetCachedAcpiTable) (
+    ULONG,
+    PCSTR,
+    PCSTR);</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x58 </td>
+        <td>0xB0 </td>
+        <td>
+        <pre class="source">VOID
+(*HalSetPciErrorHandlerCallback) (
+    PCI_ERROR_HANDLER_CALLBACK);</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>no default </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Function Pointers </h3>
+  <p>All non-obvious types in the preceding tables are structures or enumerations 
+  except for the following function pointers: </p>
+  <pre class="source">typedef VOID (*PSLOT_CONTROL_COMPLETION) (SLOT_CONTROL_CONTEXT *);
+typedef VOID (*PDEVICE_CONTROL_COMPLETION) (DEVICE_CONTROL_CONTEXT *);
+typedef VOID (*PCI_ERROR_HANDLER_CALLBACK) (VOID);</pre>
+  <p>Of course, almost all members of the <span class="struct">HAL_DISPATCH</span> 
+  are function pointers, and Microsoft’s NTDDK.H defines types for them too. Those 
+  that I use here are just the ones that can be given as arguments: function pointers 
+  in function pointers get just a bit too complicated for easy presentation. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 8th
+    <a href="../../../../../../../new/16/05.htm">May 2016</a> and was last modified 
+    on 28th <a href="../../../../../../../new/22/10.htm">October 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4925" -->
+  </div>
+</div>
+
+</body>
+
+</html>

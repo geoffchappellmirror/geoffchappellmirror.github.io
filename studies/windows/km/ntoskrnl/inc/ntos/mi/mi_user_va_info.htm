@@ -1,0 +1,862 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MI_USER_VA_INFO</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>MI_USER_VA_INFO </h1>
+  <p>The <span class="struct">MI_USER_VA_INFO</span> structure (formally
+  <span class="struct">_MI_USER_VA_INFO</span>) is a vital part of the implementation 
+  of the Working Set List (WSL) in Windows 8 and higher. Indeed, it’s the largest 
+  and most complex of all the implementation’s structures. Some measure of its importance 
+  as an implementation detail—or its deserved obscurity, depending on perspective—is 
+  that the <span class="struct">MI_USER_VA_INFO</span> disappears entirely from 
+  Microsoft’s public symbol files for the 1607 release of Windows 10, and is not 
+  known in any since. </p>
+  <h2>History </h2>
+  <p>From all the way back at Windows NT 3.1, the Working Set List is modelled by 
+  the <span class="struct"><a href="mmwsl.htm">MMWSL</a></span> structure. Each 
+  process has one, pointed to by the <span class="member">VmWorkingSetList</span> 
+  member of the <span class="struct"><a href="../ps/mmsupport.htm">MMSUPPORT</a></span> 
+  that’s nested in the <span class="struct"><a href="../ps/eprocess/index.htm">EPROCESS</a></span> 
+  as the latter’s <span class="member">Vm</span> member. </p>
+  <p>The <span class="struct">MI_USER_VA_INFO</span> looks to have been introduced 
+  to tidy the implementation of the Working Set List in Windows 8. An assortment 
+  of <span class="struct">MMWSL</span> members, some long-standing and some very 
+  large, were collected into the new structure as a new member named
+  <span class="member">UserVaInfo</span> at the end of the <span class="struct">
+  MMWSL</span>. The splitting of the <span class="struct">MMWSL</span> for the 1607 
+  release of Windows 10, into an <span class="struct">
+  <a href="mmwsl_instance.htm">MMWSL_INSTANCE</a></span> and
+  <span class="struct"><a href="mmwsl_shared.htm">MMWSL_SHARED</a></span>, also 
+  split off the <span class="struct">MI_USER_VA_INFO</span>: it is not nested in 
+  either. Better, perhaps, would be to say the <span class="struct">MMWSL</span> 
+  was split in three. </p>
+  <p>In the 1607 release itself, the <span class="struct">MI_USER_VA_INFO</span> 
+  precedes the <span class="struct"><a href="mmwsl_full.htm">MMWSL_FULL</a></span> 
+  (which in turn has the <span class="member">Instance</span> and
+  <span class="member">Shared</span> parts). All these parts of the Working Set 
+  List are in hyperspace, as for earlier versions. For 32-bit Windows, hyperspace 
+  continues to have the fixed address 0xC0800000 and the <span class="struct">MI_USER_VA_INFO</span> 
+  has the fixed address 0xC0802000. For 64-bit Windows, however, the 1607 release 
+  allows that hyperspace can vary. What can be said in common about the positioning 
+  of the <span class="struct">MI_USER_VA_INFO</span> is that it has a fixed
+  <span class="emphasis">offset</span> into hyperspace: 0x2000 and 0x10804000 bytes 
+  in 32-bit and 64-bit Windows, respectively. </p>
+  <p>The 1703 release reverses the order: the <span class="struct">MI_USER_VA_INFO</span> 
+  begins immediately where the <span class="struct">MMWSL_INSTANCE</span> ends. 
+  Neither is in hyperspace. Both are instead in one allocation of non-paged pool. 
+  The <span class="struct">MMWSL_INSTANCE</span> at its start is pointed to from 
+  the <span class="member">VmWorkingSetList</span> member of the
+  <span class="struct"><a href="../ps/mmsupport_full.htm">MMSUPPORT_FULL</a></span> 
+  structure that is embedded in the <span class="struct">EPROCESS</span> as its
+  <span class="member">Vm</span> member. </p>
+  <h2>Variability </h2>
+  <p>As an internal structure with little, if any, visibility outside the kernel, 
+  the <span class="struct">MI_USER_VA_INFO</span> varies greatly between versions 
+  and even between builds. The following changes of size give a rough measure of 
+  this variability so far: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>6.2 </td>
+        <td>0x0CFC </td>
+        <td>0x0478 </td>
+      </tr>
+      <tr>
+        <td>6.3 </td>
+        <td>0x0D1C </td>
+        <td>0x0128 </td>
+      </tr>
+      <tr>
+        <td>10.0 </td>
+        <td>0x0D20 </td>
+        <td>0x0108 </td>
+      </tr>
+      <tr>
+        <td>1511 </td>
+        <td>0x0D48 </td>
+        <td>0x0158 </td>
+      </tr>
+      <tr>
+        <td>1607 </td>
+        <td>0x0D50 </td>
+        <td>0x0168 </td>
+      </tr>
+      <tr>
+        <td>1703 to 1709 </td>
+        <td>0x0D58 </td>
+        <td>0x0178 </td>
+      </tr>
+      <tr>
+        <td>1803 </td>
+        <td>0x0F68 </td>
+        <td>0x01E8 </td>
+      </tr>
+      <tr>
+        <td>1809 </td>
+        <td>0x0F78 </td>
+        <td>0x0208 </td>
+      </tr>
+      <tr>
+        <td>1903 to 2004 </td>
+        <td>0x0F80 </td>
+        <td>0x0248 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The size for the 1607 release of 64-bit Windows is uncertain. The kernel’s 
+  own use that is yet known reaches up to but not including offset 0x0164. With 
+  8-byte alignment the structure then is 0x0168 bytes. But the
+  <span class="struct">MMWSL_FULL</span> that follows the structure is at offset 
+  0x0170. In the difference may be use that is not yet accounted for. What is here 
+  thought more likely is that the <span class="struct">MMWSL_FULL</span> has 16-byte 
+  alignment, apparently picked up from its nesting of <span class="struct">MMWSL_SHARED</span>.
+  </p>
+  <h2>Layout </h2>
+  <p>These sizes, and the offsets, names and types in the tables that follow, are 
+  from Microsoft’s symbol files for the kernel from version 6.2 up to and includng 
+  the 1511 release of Windows 10. What’s known for later versions is something of 
+  a guess, or at least a work in progress, pending discovery of type information 
+  in public symbol files (or some similarly authoritative but public disclosure).
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 (6.2 to 1607) </td>
+        <td>0x00 (6.2 to 1607) </td>
+        <td>
+        <pre class="source">ULONG NumberOfCommittedPageTables;</pre>
+        </td>
+        <td>6.2 to 1607 </td>
+        <td>previously at 0x20 and 0x28 in <span class="struct">MMWSL</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x04 (6.2 to 6.3) </td>
+        <td>0x04 (6.2 to 6.3) </td>
+        <td>
+        <pre class="source">ULONG PhysicalMappingCount;</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+        <td>next at 0x24 and 0x28 </td>
+      </tr>
+      <tr>
+        <td>0x08 (6.2 to 6.3); <br>
+        0x04 (10.0) </td>
+        <td>0x08 (6.2 to 6.3); <br>
+        0x04 (10.0) </td>
+        <td>
+        <pre class="source">ULONG VadBitMapHint;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>previously at 0x24 and 0x2C in <span class="struct">MMWSL</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x0C (6.2 to 6.3); <br>
+        0x08 (10.0) </td>
+        <td>0x0C (6.2 to 6.3); <br>
+        0x08 (10.0) </td>
+        <td>
+        <pre class="source">ULONG LastAllocationSizeHint;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>previously at 0x34 and 0x3C in <span class="struct">MMWSL</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x10 (6.2 to 6.3); <br>
+        0x0C (10.0) </td>
+        <td>0x10 (6.2 to 6.3); <br>
+        0x0C (10.0) </td>
+        <td>
+        <pre class="source">ULONG LastAllocationSize;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>previously at 0x38 and 0x40 in <span class="struct">MMWSL</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x14 (6.2 to 6.3); <br>
+        0x10 (10.0) </td>
+        <td>0x14 (6.2 to 6.3); <br>
+        0x10 (10.0) </td>
+        <td>
+        <pre class="source">ULONG LowestBottomUpVadBit;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x18 (6.2 to 6.3); <br>
+        0x14 (10.0) </td>
+        <td>0x18 (6.2 to 6.3); <br>
+        0x14 (10.0) </td>
+        <td>
+        <pre class="source">ULONG VadBitMapSize;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x04 (1511 to 1607); <br>
+        0x00 (1703 to 1709) </td>
+        <td>0x08 (1511 to 1607); <br>
+        0x00 (1703 to 1709) </td>
+        <td>
+        <pre class="source">PVOID HighestTopDownAllocationAddress;</pre>
+        </td>
+        <td>1511 to 1709 </td>
+        <td>previously at 0x34 and 0x48 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x00 </td>
+        <td>unaccounted eight bytes </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x08 (1511 to 1607); <br>
+        0x04 (1703 to 1709); <br>
+        0x00 </td>
+        <td>0x10 (1511 to 1607); <br>
+        0x08 </td>
+        <td>
+        <pre class="source"><a href="mi_vad_allocation_cell.htm">MI_VAD_ALLOCATION_CELL</a> VadCell [MiVadAllocationCellMaximum];</pre>
+        </td>
+        <td>1511 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x48 </td>
+        <td rowspan="2">0xB0 (1803 to 1809); <br>
+        0xE0 <br>
+        </td>
+        <td>unknown <span class="type">ULONG</span> </td>
+        <td>1803 to 1809 </td>
+        <td rowspan="2">&nbsp;</td>
+      </tr>
+      <tr>
+        <td>unknown <span class="type">ULONG_PTR</span> </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x1C (6.3); <br>
+        0x18 (10.0); <br>
+        0x40 (1511 to 1607); <br>
+        0x3C (1703 to 1709); <br>
+        0x4C </td>
+        <td rowspan="2">0x1C (6.3); <br>
+        0x18 (10.0); <br>
+        0x60 (1511 to 1607); <br>
+        0x58 (1703 to 1709); <br>
+        0xB4 (1803 to 1809); <br>
+        0xE8 </td>
+        <td>
+        <pre class="source">ULONG VadBitMapCommitment;</pre>
+        </td>
+        <td>6.3 to 1809 </td>
+        <td rowspan="2">&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR VadBitMapCommitment;</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1C (6.2); <br>
+        0x20 (6.3); <br>
+        0x1C (10.0); <br>
+        0x44 (1511 to 1607); <br>
+        0x40 (1703 to 1709) </td>
+        <td>0x1C (6.2); <br>
+        0x20 (6.3); <br>
+        0x1C (10.0); <br>
+        0x64 (1511 to 1607); <br>
+        0x5C (1703 to 1709) </td>
+        <td>
+        <pre class="source">ULONG MaximumLastVadBit;</pre>
+        </td>
+        <td>6.2 to 1709 </td>
+        <td>previously at 0x30 and 0x38 in <span class="struct">MMWSL</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x20 (6.2); <br>
+        0x24 (6.3); <br>
+        0x20 (10.0); <br>
+        0x48 (1511 to 1607); <br>
+        0x44 (1703 to 1709); <br>
+        0x50 </td>
+        <td>0x20 (6.2); <br>
+        0x24 (6.3); <br>
+        0x20 (10.0); <br>
+        0x68 (1511 to 1607); <br>
+        0x60 (1703 to 1709); <br>
+        0xB8 (1803 to 1809); <br>
+        0xF0 </td>
+        <td>
+        <pre class="source">LONG VadsBeingDeleted;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x48 (1703 to 1709); <br>
+        0x54 </td>
+        <td>0x64 (1703 to 1709); <br>
+        0xBC (1803 to 1809); <br>
+        0xF4 </td>
+        <td>unaccounted four bytes </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0xF8 </td>
+        <td>unaccounted eight bytes </td>
+        <td>1903 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x4C (1511 to 1709); <br>
+        0x58 </td>
+        <td>0x6C (1511 to 1607); <br>
+        0x68 (1703 to 1709); <br>
+        0xC0 (1803 to 1809); <br>
+        0x0100 </td>
+        <td>
+        <pre class="source">LONG NumberOfDebugEnclaves;</pre>
+        </td>
+        <td>1511 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x24 (10.0); <br>
+        0x50 (1511 to 1709); <br>
+        0x5C </td>
+        <td>0x28 (10.0); <br>
+        0x70 (1511 to 1709); <br>
+        0xC8 (1803 to 1809); <br>
+        0x0108 </td>
+        <td>
+        <pre class="source">ULONG_PTR PhysicalMappingCount;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>previously at 0x04 </td>
+      </tr>
+      <tr>
+        <td>0x24 (6.2); <br>
+        0x28 (6.3 to 10.0); <br>
+        0x54 (1511 to 1709); <br>
+        0x60 </td>
+        <td>0x28 (6.2 to 6.3); <br>
+        0x30 (10.0); <br>
+        0x78 (1511 to 1709); <br>
+        0xD0 (1803 to 1809); <br>
+        0x0110 </td>
+        <td>
+        <pre class="source">KEVENT *LastVadDeletionEvent;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x28 (6.2); <br>
+        0x2C (6.3 to 10.0) </td>
+        <td>0x30 (6.2 to 6.3); <br>
+        0x38 (10.0) </td>
+        <td>
+        <pre class="source">ULONG *VadBitBuffer;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2C (6.2); <br>
+        0x30 (6.3 to 10.0) </td>
+        <td>0x38 (6.2 to 6.3); <br>
+        0x40 (10.0) </td>
+        <td>
+        <pre class="source">PVOID LowestBottomUpAllocationAddress;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x30 (6.2); <br>
+        0x34 (6.3 to 10.0) </td>
+        <td>0x40 (6.2 to 6.3); <br>
+        0x48 (10.0) </td>
+        <td>
+        <pre class="source">PVOID HighestTopDownAllocationAddress;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>next at 0x04 and 0x08 </td>
+      </tr>
+      <tr>
+        <td>0x34 (6.2); <br>
+        0x38 (6.3 to 10.0) </td>
+        <td>0x48 (6.2 to 6.3); <br>
+        0x50 (10.0) </td>
+        <td>
+        <pre class="source">PVOID FreeTebHint;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="6">0x58 (1511 to 1709); <br>
+        0x64 </td>
+        <td rowspan="6">0x80 (1511 to 1709); <br>
+        0xD8 (1803 to 1809); <br>
+        0x0118 </td>
+        <td>
+        <pre class="source">LIST_ENTRY SubVadRanges [1];</pre>
+        </td>
+        <td>1511 to 1607 (x86) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LIST_ENTRY SubVadRanges [2];</pre>
+        </td>
+        <td>1703 to 1803 (x86) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LIST_ENTRY SubVadRanges [1];</pre>
+        </td>
+        <td>1809 and higher (x86) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LIST_ENTRY SubVadRanges [3];</pre>
+        </td>
+        <td>1511 to 1607 (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LIST_ENTRY SubVadRanges [4];</pre>
+        </td>
+        <td>1703 to 1803 (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LIST_ENTRY SubVadRanges [2];</pre>
+        </td>
+        <td>1809 and higher (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3C (6.3 to 10.0); <br>
+        0x60 (1511 to 1607); <br>
+        0x68 (1703 to 1709); <br>
+        0x74 (1803); <br>
+        0x6C </td>
+        <td>0x50 (6.3); <br>
+        0x58 (10.0); <br>
+        0xB0 (1511 to 1607); <br>
+        0xC0 (1703 to 1709); <br>
+        0x0118 (1803); <br>
+        0x0108 (1809); <br>
+        0x0138 </td>
+        <td>
+        <pre class="source">BOOLEAN NumaAware;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x40 (10.0); <br>
+        0x68 (1511 to 1607); <br>
+        0x70 (1703 to 1709); <br>
+        0x78 (1803); <br>
+        0x70 </td>
+        <td>0x60 (10.0); <br>
+        0xB8 (1511 to 1607); <br>
+        0xC8 (1703 to 1709); <br>
+        0x0120 (1803); <br>
+        0x0110 (1809); <br>
+        0x0140 </td>
+        <td>
+        <pre class="source">ULONGLONG CloneNestingLevel;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x80 (1803); <br>
+        0x78 </td>
+        <td>0x0128 (1803); <br>
+        0x0118 (1809); <br>
+        0x0148 </td>
+        <td>unknown <span class="struct">SLIST_HEADER</span> </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x38 (6.2); <br>
+        0x40 (6.3); <br>
+        0x48 (10.0); <br>
+        0x70 (1511 to 1607); <br>
+        0x78 (1703 to 1709); <br>
+        0x88 (1803); <br>
+        0x80 </td>
+        <td>0x50 (6.2); <br>
+        0x58 (6.3); <br>
+        0x68 (10.0); <br>
+        0xC0 (1511 to 1607); <br>
+        0xD0 (1703 to 1709); <br>
+        0x0138 (1803); <br>
+        0x0128 (1809); <br>
+        0x0158 </td>
+        <td>
+        <pre class="source">ULONG_PTR PrivateFixupVadCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x58 (6.2) </td>
+        <td>
+        <pre class="source">PVOID FreeUmsTebHint;</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>next at 0x0120 </td>
+      </tr>
+      <tr>
+        <td>0x84 </td>
+        <td>0x0130 (1809); <br>
+        0x0160 </td>
+        <td>unknown pointer-sized integer </td>
+        <td>1809 and higher nd higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x88 </td>
+        <td>0x0138 (1809); <br>
+        0x0168 </td>
+        <td>unknown pointer </td>
+        <td>1809 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x8C </td>
+        <td>0x0170 </td>
+        <td>unknown <span class="struct">EX_PUSH_LOCK_AUTO_EXPAND</span> </td>
+        <td>1809 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x74 (1607); <br>
+        0x7C (1703 to 1709); <br>
+        0x8C (1803); <br>
+        0x98 </td>
+        <td>0xC8 (1607); <br>
+        0xD8 (1703 to 1709); <br>
+        0x0140 (1803); <br>
+        0x0150 (1809); <br>
+        0x0180 </td>
+        <td>unknown <span class="type">ULONG_PTR</span> count </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x78 (1607); <br>
+        0x80 (1703 to 1709); <br>
+        0x90 (1803); <br>
+        0x9C </td>
+        <td>0xD0 (1607); <br>
+        0xE0 (1703 to 1709); <br>
+        0x0148 (1803); <br>
+        0x0158 (1809); <br>
+        0x0188 </td>
+        <td>unknown <span class="type">ULONG_PTR</span> count </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x44 (6.3); <br>
+        0x4C (10.0); <br>
+        0x74 (1511); <br>
+        0x7C (1607); <br>
+        0x84 (1703 to 1709); <br>
+        0x94 (1803); <br>
+        0xA0 </td>
+        <td>0x60 (6.3); <br>
+        0x70 (10.0); <br>
+        0xC8 (1511); <br>
+        0xD8 (1607); <br>
+        0xE8 0x0150 (1803); <br>
+        0x0160 (1809); <br>
+        0x0190 </td>
+        <td>
+        <pre class="source">MI_CFG_BITMAP_INFO CfgBitMap [CfgBitMapMax - 1];</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x54 (6.3); <br>
+        0x58 (10.0); <br>
+        0x80 (1511); <br>
+        0x88 (1607); <br>
+        0x90 (1703 to 1709); <br>
+        0xA0 (1803); <br>
+        0xB0 </td>
+        <td rowspan="2">0xC0 (6.3); <br>
+        0xA0 (10.0); <br>
+        0xF8 (1511); <br>
+        0x0108 (1607); <br>
+        0x0118 (1703 to 1709); <br>
+        0x0180 (1803); <br>
+        0x01A0 (1809); <br>
+        0x01D0 </td>
+        <td>
+        <pre class="source">ULONG CommittedPageTableBufferForTopLevel [0x30];</pre>
+        </td>
+        <td>6.3 and higher (x86) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG CommittedPageTableBufferForTopLevel [8];</pre>
+        </td>
+        <td>6.3 and higher (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0114 (6.3); <br>
+        0x0118 (10.0); <br>
+        0x0140 (1511); <br>
+        0x0148 (1607); <br>
+        0x0150 (1703 to 1709); <br>
+        0x0160 (1803); <br>
+        0x0170 </td>
+        <td rowspan="3">0xE0 (6.3); <br>
+        0xC0 (10.0); <br>
+        0x0118 (1511); <br>
+        0x0128 (1607); <br>
+        0x0138 (1703 to 1709); <br>
+        0x01A0 (1803); <br>
+        0x01C0 (1809); <br>
+        0x01F0 </td>
+        <td>
+        <pre class="source">RTL_BITMAP CommittedPageTableBitmaps [1];</pre>
+        </td>
+        <td>6.3 and higher (x86) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">RTL_BITMAP CommittedPageTableBitmaps [3];</pre>
+        </td>
+        <td>6.3 to 1809 (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">RTL_BITMAP_EX CommittedPageTableBitmaps [3];</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3C (6.2); <br>
+        0x011C (6.3); <br>
+        0x0120 (10.0); <br>
+        0x0148 (1511); <br>
+        0x0150 (1607); <br>
+        0x0158 1703 to 1709); <br>
+        0x0168 (1803); <br>
+        0x0178 <br>
+        </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">USHORT UsedPageTableEntries [0x0600]; [0x0600];</pre>
+        </td>
+        <td>6.2 to 1703 </td>
+        <td>previously at 0x48 in <span class="struct">MMWSL</span> </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0C3C (6.2) </td>
+        <td rowspan="2">0x60 (6.2) </td>
+        <td>
+        <pre class="source">ULONG CommittedPageTables [0x30];</pre>
+        </td>
+        <td>6.2 only (x86) </td>
+        <td>previously at 0x0C48 in <span class="struct">MMWSL</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG *CommittedPageTables;</pre>
+        </td>
+        <td>6.2 only (x64) </td>
+        <td>previously at 0x68 in <span class="struct">MMWSL</span> </td>
+      </tr>
+      <tr>
+        <td rowspan="2">&nbsp;</td>
+        <td rowspan="2">0x68 (6.2); <br>
+        0x0110 (6.3); <br>
+        0xF0 (10.0); <br>
+        0x0148 (1511); <br>
+        0x0158 (1607); <br>
+        0x0168 (1703 to 1709); <br>
+        0x01D0 (1803); <br>
+        0x01F0 (1809); <br>
+        0x0224 </td>
+        <td>
+        <pre class="source">ULONG PageTableBitmapPages;</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG PageTableBitmapPages [3];</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x70 </td>
+        <td>
+        <pre class="source">ULONGLONG CommitedPageDirectories [0x80];</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>previously at 0x78 in <span class="struct">MMWSL</span> </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0470 </td>
+        <td>
+        <pre class="source">ULONGLONG CommitedPageDirectoryParents [1];</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>previously at 0x0480 in <span class="struct">MMWSL</span> </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0120 (6.3); <br>
+        0x0100 </td>
+        <td>
+        <pre class="source">PVOID FreeUmsTebHint;</pre>
+        </td>
+        <td>6.3 to 10.0 </td>
+        <td>previously at 0x58 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x01E0 (1803); <br>
+        0x0200 (1809); <br>
+        0x0230 </td>
+        <td>unaccounted eight bytes </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0238 </td>
+        <td>unknown pointer </td>
+        <td>1903 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F78 </td>
+        <td>0x0240 </td>
+        <td>unknown 64-bit count </td>
+        <td>1903 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">CfgBitMap</span> member is indexed by the
+  <span class="enum">MI_CFG_BITMAP_TYPE</span> enumeration. Its first element is 
+  for native addressing. This is the only element in 32-bit Windows but 64-bit Windows 
+  has a second for the 32-bit address space of WOW64 processes. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 4th May 2019 but was not published 
+    until 26th <a href="../../../../../../../new/19/05.htm">May 2019</a>. It was 
+    last modified on 31st <a href="../../../../../../../new/22/07.htm">August 2022</a>.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1922.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5309" -->
+  </div>
+</div>
+
+</body>
+
+</html>

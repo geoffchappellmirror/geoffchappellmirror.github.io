@@ -1,0 +1,135 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Visual C++ Compiler Error C3760</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="24274" endspan -->
+<h1>Visual C++ Compiler Error C3760 </h1>
+<h2>Message Text </h2>
+<pre class="output">please use __property keyword to declare property in managed &#39;<span class="placeholder">class</span>&#39;</pre>
+<h2>Circumstances </h2>
+<p>Error C3760, which the product documentation seems somehow to have overlooked, 
+arises because <span class="keyword">
+<a href="../../../language/keywords/declspec/property.htm">__declspec (property)</a></span> 
+is used when declaring a member of a managed type. The message text directs the 
+programmer to rewrite for consistency with the language of Microsoft’s managed extensions.
+</p>
+<h2>Example </h2>
+<p>For a simple example of error C3760, start with the perfectly valid </p>
+<pre class="source">class Test
+{
+    int get_x (void);
+    __declspec (property (get = get_x)) int x;
+};</pre>
+<p>The member <span class="identifier">x</span> of the class
+<span class="identifier">Test</span> is declared with a property such that references 
+to <span class="identifier">x</span> as data become interpreted by the compiler 
+as references to <span class="function">get_x</span> as a called member function. 
+Indeed, the explicit declaration of <span class="function">get_x</span> on the preceding 
+line is not required. </p>
+<p>Now compile with <span class="switch">/clr</span> after changing the code so 
+that <span class="identifier">Test</span> is a managed type: </p>
+<pre class="source">#using  &lt;mscorlib.dll&gt;
+
+__gc class Test
+{
+    int get_x (void);
+    __declspec (property (get = get_x)) int x;                  // C3760
+};</pre>
+<p>Error C3760 directs the programmer that there is further to go with the change. 
+The fragment ought be rewritten as something like </p>
+<pre class="source">#using  &lt;mscorlib.dll&gt;
+
+__gc class Test
+{
+    __property int get_x (void);
+};</pre>
+<p>with definition of the data member <span class="identifier">x</span> now implied 
+by the language. </p>
+<h2>Coding Error </h2>
+<p>Error C3760 is detected while the compiler interprets the
+<span class="keyword">__declspec (property)</span>. The compiler’s ordinary practice 
+is to interpret a specifier’s syntax in isolation and leave it to other code to 
+check the usage. For instance, in the first example above, if what should be a data 
+member is instead made a member function (perhaps because of an editing error),
+</p>
+<pre class="source">class Test
+{
+    int get_x (void);
+    __declspec (property (get = get_x)) int x (void);           // C2779
+};</pre>
+<p>the specifier is syntactically valid as a <span class="keyword">__declspec (property)</span> 
+specifier and is not rejected by the code that checks the specifier for its syntax. 
+However, even a correctly formed <span class="keyword">__declspec (property)</span> 
+specifier is not acceptable in the declaration of a member function. It therefore 
+gets rejected by the code that checks the declaration of the member function.
+</p>
+<p>In this sense, error C3760 also is concerned with the usage of the specifier 
+not its syntax. To check for error C3760 is to check the circumstances of use, specifically 
+to see if the <span class="keyword">__property</span> keyword would have been better. 
+To check for this while checking the specifier’s syntax is a departure from ordinary 
+practice. As with most departures from ordinary practice, there’s no surprise to 
+find a drop in the quality of the coding. The code that checks the syntax does not 
+know (or care about) the circumstances of use. To hack in a check on usage risks 
+assuming something of the circumstances, which is what the code turns out to do. 
+Specifically, it assumes that the <span class="keyword">__declspec (property)</span> 
+occurs inside the definition of some class object. If this assumption happens not 
+be satisfied already, the code falls into ill-defined behaviour and most likely 
+faults. </p>
+<p>Staying with the example above, it is at least plausible that a programmer might 
+think that the following fragment is reasonable </p>
+<pre class="source">class Test
+{
+    int get_x (void);
+    static int x;
+};
+
+__declspec (property (get = get_x)) int Test :: x;              // C1001</pre>
+<p>especially if done in advance of any attempt to dereference
+<span class="identifier">x</span>. Yet it produces an internal compiler error (C1001), 
+as indeed does anything of the form </p>
+<pre class="source">__declspec (property (<span class="placeholder">whatever</span>                                  // C1001</pre>
+<p>if not inside a class definition. Everything after the opening parenthesis of 
+the <span class="keyword">property</span> specifier is irrelevant. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 21st March 2006 and was last modified 
+  on 10th June 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0609.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2006-2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62552" endspan -->
+</div>
+
+</body>
+
+</html>

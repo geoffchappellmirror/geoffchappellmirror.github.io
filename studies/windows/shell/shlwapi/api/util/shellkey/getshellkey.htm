@@ -1,0 +1,183 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SHGetShellKey</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>SHGetShellKey </h1>
+<p>This function opens or creates a subkey of a <a href="index.htm">shell key</a>.
+</p>
+<h2>Declaration </h2>
+<pre class="source">HKEY
+SHGetShellKey (
+    SHELLKEY nShellKey,
+    LPCWSTR pszSubKey,
+    BOOL bCreate);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">nShellKey</span> argument specifies the shell key 
+as a constant from the <span class="enum"><a href="shellkey.htm">SHELLKEY</a></span> 
+enumeration. </p>
+<p>The <span class="argument">pszSubKey</span> argument provides the address of 
+a null-terminated string that names the subkey, or is NULL to open the shell key 
+itself. </p>
+<p>The <span class="argument">bCreate</span> argument is non-zero to permit the 
+function to create the subkey, or is FALSE if the function may only open the subkey.
+</p>
+<h3>Return Value </h3>
+<p>The function returns a handle to the opened subkey, if successful. It returns 
+NULL for failure, in which case an error code is meant to be retrievable through
+<span class="function">GetLastError</span>. </p>
+<h2>Behaviour </h2>
+<p>Starting with the SHLWAPI version 6.00 from Windows Vista, this function is implemented 
+as a call to <span class="function"><a href="getshellkeyex.htm">SHGetShellKeyEx</a></span>, 
+asking for <span class="constant">MAXIMUM_ALLOWED</span> access rights. </p>
+<h3>Earlier Builds </h3>
+<p>The original implementation interprets the <span class="argument">nShellKey</span> 
+argument through three bit masks to extract a <span class="placeholder">root</span>,
+<span class="placeholder">key</span> and <span class="placeholder">subkey</span>, 
+whose concatenation is the shell key. </p>
+<p>If the <span class="placeholder">root</span> is <span class="regkey">HKEY_CURRENT_USER</span> 
+and the calling thread has an impersonation token, then the root of the shell key 
+is instead to be the target user’s branch of <span class="regkey">HKEY_USERS</span>. 
+To open this root key, the function needs to be running on Windows 2000 or higher, 
+for the <span class="function">RegOpenCurrentUser</span> function. If the function 
+cannot open this root key, with <span class="constant">MAXIMUM_ALLOWED</span> access 
+rights, it fails (setting <span class="constant">ERROR_ACCESS_DENIED</span> as the 
+last error). </p>
+<p>To open or create the shell key, the function first gets a handle to the key 
+that is represented by the concatenation of <span class="placeholder">root</span> 
+and <span class="placeholder">key</span>. If the <span class="placeholder">key</span> 
+mask produces an unsupported value, the function fails (setting
+<span class="constant">E_INVALIDARG</span> as the last error). </p>
+<p>The function caches handles to all the possible combinations of
+<span class="placeholder">root</span> and <span class="placeholder">key</span>. 
+If the indicated combination is already cached, then provided that the root has 
+not been redirected for impersonation, the function proceeds with the cached handle. 
+Otherwise, the function opens or creates (according to the
+<span class="argument">bCreate</span> argument) the <span class="placeholder">key</span> 
+relative to the <span class="placeholder">root</span>, asking for the
+<span class="constant">MAXIMUM_ALLOWED</span> access rights. Failure at this is 
+failure for the function. If the key is <span class="regkey">Software\Microsoft\Windows\ShellNoRoam</span>, 
+some initialisation is performed (discussed below). Whatever the key, except if 
+the root is redirected for impersonation, the function caches the new handle. If 
+a handle for the same combination of <span class="placeholder">root</span> and
+<span class="placeholder">key</span> has got cached meanwhile, the function discards 
+its new handle and proceeds with the cached handle. </p>
+<p>If the <span class="placeholder">subkey</span> mask produces either 0 or an unsupported 
+value, the combination of <span class="placeholder">root</span> and
+<span class="placeholder">key</span> is the shell key. Otherwise, the function must 
+yet open or create the <span class="placeholder">subkey</span> relative to the
+<span class="placeholder">key</span>. The function caches handles to all the possible 
+combinations of <span class="placeholder">root</span> and
+<span class="placeholder">subkey</span>. If the indicated combination is already 
+cached, then provided that the root has not been redirected for impersonation, the 
+function proceeds with the cached handle. Otherwise, the function opens or creates 
+(according to the <span class="argument">bCreate</span> argument) the
+<span class="placeholder">subkey</span> relative to the
+<span class="placeholder">key</span>, asking for the <span class="constant">MAXIMUM_ALLOWED</span> 
+access rights. If the subkey is <span class="regkey">Volatile</span>, the
+<span class="constant">REG_OPTION_VOLATILE</span> option is specified. Failure to 
+open or create is failure for the function. If the subkey is
+<span class="regkey">MUICache</span>, some initialisation is performed (discussed 
+below). Whatever the <span class="placeholder">subkey</span>, except if the root 
+is redirected for impersonation, the function caches the new handle. If a handle 
+for the same combination of <span class="placeholder">root</span> and
+<span class="placeholder">subkey</span> has got cached meanwhile, the function discards 
+its new handle and proceeds with the cached handle. </p>
+<p>Having (finally) got a handle to the shell key, the function opens or creates 
+the subkey named by the <span class="argument">pszSubkey</span> argument, again 
+asking for <span class="constant">MAXIMUM_ALLOWED</span> access rights. In the special 
+case where <span class="argument">pszSubKey</span> is NULL, the function opens a 
+new handle to the shell key itself, relative to the handle it already has, and ignores
+<span class="argument">bCreate</span>. </p>
+<h4>Coding Error </h4>
+<p>The caching of handles provides for all combinations of
+<span class="placeholder">root</span> and <span class="placeholder">key</span>, 
+but each <span class="placeholder">subkey</span> is cached only for each
+<span class="placeholder">root</span>. If the function is called to open a shell 
+key selected by <span class="placeholder">root</span>, <span class="placeholder">
+key1</span> and <span class="placeholder">subkey</span>, and is then called to open 
+a shell key selected by <span class="placeholder">root</span>,
+<span class="placeholder">key2</span> and <span class="placeholder">subkey</span>, 
+it will use on the second call whatever handle was cached for the first call’s different 
+specification of shell key. </p>
+<h4>ShellNoRoam Initialisation </h4>
+<p>As noted above, the <span class="regkey">Software\Microsoft\Windows\ShellNoRoam</span> 
+key, in any root, must be initialised before its first use. If data for the default 
+value does not match the case-insensitive computer name, then the key is cleared 
+of all subkeys and values, and the default value is set afresh to have the computer 
+name as its <span class="constant">REG_SZ</span> data. </p>
+<h4>MUICache Initialisation </h4>
+<p>Also noted above is that an <span class="regkey">MUICache</span> key must be 
+initialised before its first use. The particular concern is for the
+<span class="regvalue">LangID</span> value in the key, i.e., </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey"><span class="placeholder">root</span>\<span class="placeholder">key</span>\MUICache</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">LangID</span> </td>
+  </tr>
+</table>
+<p>If the <span class="regvalue">LangID</span> value is not present with two bytes 
+of data equal to the user-interface language, then the key is cleared of all subkeys 
+and values, and a fresh <span class="regvalue">LangID</span> value is set to have 
+the user-interface language as its two bytes of <span class="constant">REG_BINARY</span> 
+data. For this purpose, the user-interface language is the result from the
+<span class="function">MLGetUILanguage</span> function if running on Windows 2000 
+or higher, else 0xFFFF. </p>
+<h2>Availability </h2>
+<p>The <span class="function">SHGetShellKey</span> function is exported from SHLWAPI.DLL 
+as ordinal 491 in version 6.00 and higher. </p>
+<!--webbot bot="Include" U-Include="../../_include/undoc600-2007.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from 2001, it was still not documented by Microsoft 
+as late as the January 2007 edition of the Windows Vista Software Development Kit 
+(SDK). </p>
+
+<!--webbot bot="Include" i-checksum="3576" endspan -->
+<div class="Footer">
+  <p class="Dates">This page was created on 21st September 2004 and was last modified 
+  on 10th July 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c0409.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2004-2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="1410" endspan -->
+</div>
+
+</body>
+
+</html>

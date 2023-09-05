@@ -1,0 +1,159 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ZwStartProfile</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>ZwStartProfile </h1>
+<p>This function starts the profiling that has been configured for a given profile 
+object. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS NtStartProfile (HANDLE ProfileHandle);</pre>
+<h3>Parameters </h3>
+<!--webbot bot="Include" U-Include="_include/start_stop.htm" TAG="BODY" startspan -->
+
+<p>The <span class="argument">ProfileHandle</span> argument is a handle to an
+<a href="eprofile.htm">executive profile object</a>, such as created by
+<span class="function"><a href="create.htm">NtCreateProfile</a></span> or
+<span class="function"><a href="createex.htm">NtCreateProfileEx</a></span>.
+</p>
+
+<!--webbot bot="Include" endspan i-checksum="55698" -->
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+<h2>Availability </h2>
+<p>The <span class="function">NtStartProfile</span> function and its alias
+<span class="function">ZwStartProfile</span> are exported by name from NTDLL in 
+version 3.10 and higher. In kernel mode, where <span class="function">ZwStartProfile</span> 
+is a stub and <span class="function">NtStartProfile</span> is the implementation, 
+neither is exported until the 1607 release of Windows 10 exports the stub. </p>
+<h2>Documentation Status </h2>
+<p>Neither <span class="function">NtStartProfile</span> nor its alias is documented. 
+As <span class="function">ZwStartProfile</span>, it is declared in the ZWAPI.H file 
+from an Enterprise edition of the Windows Driver Kit (WDK) for Windows 10. </p>
+<p>Unusually for native API functions, no repackaging of <span class="function">
+NtStartProfile</span>, documented or not, is known in any higher-level user-mode 
+module that is distributed as standard with Windows. </p>
+<h2>Behaviour </h2>
+<!--webbot bot="Include" U-Include="../../_include/win10.htm" TAG="BODY" startspan -->
+
+<p>The following implementation notes come mainly from inspection of the kernel 
+from the original release of Windows 10. They may some day get revised to account 
+for other versions. Where anything is written about earlier versions, take it not 
+as an attempt at presenting a comprehensive history but as a bonus from my being 
+unable to resist a quick trip down memory lane. I have no programme of revisiting 
+this analysis for later releases. Updates mean just that I happen to have noticed 
+something and to have found time to add it. </p>
+
+<!--webbot bot="Include" endspan i-checksum="60685" -->
+<h3>Parameter Validation </h3>
+<p>The function fails unless the given handle references an executive profile object 
+(rather than any other type of object) and has whatever permission is represented 
+by the access mask 0x00000001. Microsoft’s name for this one permission that is 
+defined for profile objects is not known, but there would be no surprise if it turns 
+out to be <span class="struct">EPROFILE</span>. </p>
+<p>The profile object retains parameters that were supplied on some earlier call 
+to <span class="function">NtCreateProfile</span> or <span class="function">NtCreateProfileEx</span>. 
+Among these is the address of a buffer that is to receive the <span class="type">
+ULONG</span> counters of times that execution is discovered in successive buckets 
+that span a profiled region of address space. Because the counters will be incremented 
+while handling a hardware interrupt, that part of the buffer that will be needed 
+for the counters must be locked into physical memory and mapped into system address 
+space at all times that profiling is started but not yet stopped. This mapped address 
+for the buffer is also kept with the profile object. If it’s present, then profiling 
+is deemed to have started already, and the function returns
+<span class="constant">STATUS_PROFILING_NOT_STOPPED</span>. </p>
+<p>There is a system-wide limit to the number of profile objects that can at any 
+one time be started but not yet stopped. If this limit is reached, the function 
+returns <span class="constant">STATUS_PROFILING_AT_LIMIT</span>. Up to and including 
+version 5.0, this limit seems intended to have been 8 but is ineffective since the 
+started profiles are not counted. The limit was then dropped, but since its restoration 
+for version 6.1 it is 8,192 times the number of processors (which seems implausibly 
+large). </p>
+<h3>Kernel Profile Object </h3>
+<p>Given that the executive profile object is in order, the function links it to 
+a kernel profile object. Microsoft’s name for this as a structure is not known, 
+though there would be no surprise if it turns out to be <span class="struct">
+<a href="../../ke/profobj/kprofile.htm">KPROFILE</a></span>. It is a kernel object 
+in the sense of beginning with a type and size. The type, from the
+<span class="enum"><a href="../../../inc/ntos/ke/kobjects.htm">KOBJECTS</a></span> enumeration, 
+is specifically <span class="constant">ProfileObject</span> (0x17 in most versions). 
+The structure itself is followed immediately by an <span class="struct">MDL</span> 
+to describe the buffer that is to receive the execution counts. If the function 
+cannot get memory for this profile object, it returns <span class="constant">STATUS_INSUFFICIENT_RESOURCES</span>.
+</p>
+<p>This <span class="struct">MDL</span> is not just a re-description. The executions 
+counts that this buffer exists to receive will be updated by the
+<span class="function">
+<a href="../../ke/profobj/profileinterruptwithsource.htm">KeProfileInterruptWithSource</a></span> 
+function when it is called from the Hardware Abstraction Layer (HAL) once profiling 
+is started. Because this will happen while handling hardware interrupts, paging 
+I/O is not even close to being possible and the buffer must therefore be locked 
+into physical memory. Failure at this is failure for the function. Moreover, the 
+interruption can be of arbitrary threads, including for other processes and so the 
+buffer must be mapped into system address space. If the function fails at this, 
+it returns <span class="constant">STATUS_INSUFFICIENT_RESOURCES</span>. </p>
+<p>Note that the function locks and maps the whole of the buffer, not just the possibly 
+very small part that actually is needed. It’s surely not an important vulnerability, 
+but it does allow that an under-privileged user-mode program that would otherwise 
+be unable to lock arbitrary amounts of memory can do so by abusing
+<span class="function">NtStartProfile</span>. </p>
+<p>The locking and mapping is the last work that may fail. Parameters that the function 
+received in the executive profile object are transferred to the kernel profile object, 
+which the function then inserts into a double-linked list so that its parameters 
+can be acted on when interrupts occur. The function has a choice of two lists. If 
+a process was specified for the profiling, the kernel profile object goes into a 
+list for that process, else into a global list. The function ends by directing the 
+HAL, via its exported <span class="function">HalStartProfileInterrupt</span> function, 
+to start a profile interrupt on each processor that was specified for the profiling. 
+This continues until profiling is stopped by the <span class="function">
+<a href="stop.htm">NtStopProfile</a></span> function or by deleting the executive 
+profile object. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 23rd
+  <a href="../../../../../../../new/16/12.htm">December 2016</a> and was last modified 
+  on 6th October 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1618.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5013" -->
+</div>
+
+</body>
+
+</html>

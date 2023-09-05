@@ -1,0 +1,1058 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KTHREAD (3.51 to 5.1)</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<h1>KTHREAD (3.51 to 5.1) </h1>
+<div class="Main">
+  <!--webbot bot="Include" U-Include="_include/intro.htm" TAG="BODY" startspan -->
+
+<p>The <span class="struct">KTHREAD</span> structure is the Kernel Core’s portion 
+of the <span class="struct"><a href="../../ps/ethread/index.htm">ETHREAD</a></span> 
+structure. The latter <span class="emphasis">is</span> the thread object as exposed 
+through the Object Manager. The <span class="struct">KTHREAD</span> is the core 
+of it. </p>
+
+<!--webbot bot="Include" endspan i-checksum="54584" -->
+  <h2>Variability </h2>
+  <p>The <span class="struct">KTHREAD</span> structure is plainly internal to the 
+  kernel and its layout varies greatly between Windows versions and even between 
+  builds. Indeed, it is the most highly variable of all significant kernel-mode 
+  structures—so much so that tracking its history looks to be imposisble on one 
+  page and is therefore spread over several: </p>
+  <ul>
+    <li><a href="310.htm">versions 3.10 to 3.50</a>; </li>
+    <li>versions 3.51 to 5.1; </li>
+    <li><a href="early52.htm">version 5.2 before SP1</a>; </li>
+    <li><a href="late52.htm">versions 5.2 SP1 to 6.1</a>; </li>
+    <li><a href="62.htm">versions 6.2 and higher</a>. </li>
+  </ul>
+  <p>For a good run of the early Windows versions, however, the
+  <span class="struct">KTHREAD</span> is very stable. Through versions 3.51, 
+  4.0, 5.0 and 5.1, the size hardly changes: 0x01B0 
+  bytes until the first growth, to 0x01C0 bytes, for version 5.1. Within the structure, 
+  there is some reordering—for instance, <span class="member">KernelStack</span> 
+  and <span class="member">Teb</span> get swapped for version 4.0 (plausibly as 
+  a side-effect of inserting <span class="member">TlsArray</span>)—but not enough 
+  to confound presentation. In the layout table below, a handful of members each 
+  make two appearances because of reordering. These duplications are indicated in 
+  the Remarks column. </p>
+  <p>The progression to version 5.2 rearranges the structure on another scale. It 
+  does happen, of course, that even large sequences are kept together. More common, 
+  however, are such examples as the single-byte members <span class="member">Iopl</span>,
+  <span class="member">NpxState</span>, <span class="member">Saturation</span> and
+  <span class="member">Priority</span>, which are consecutive in versions 3.51 to 
+  5.1 but are scattered throughout the structure—to offsets 0x01B9, 0x2D, 0x010D, 
+  0x5B, respectively—for the first build of version 5.2. Extending the layout to 
+  version 5.2 can only produce a hopeless jumble. Instead, for each member that 
+  survives to version 5.2 the Future column points the way to that member’s appearance 
+  on the separate page for early builds of version 5.2. </p>
+  <h2>Layout </h2>
+  <p>Offsets, types and names in the tables that follow, are from Microsoft’s symbol 
+  files for the kernel starting with Windows 2000 SP3. Since symbol files for earlier 
+  versions do not contain type information for the <span class="struct">KTHREAD</span>, 
+  Microsoft’s names and types are something of a guess from inspection of how the 
+  kernel in those versions uses the <span class="struct">KTHREAD</span>. Where use 
+  of a member corresponds closely with that of a version for which type information 
+  is available in Microsoft’s symbol files, it seems reasonable to suppose continuity. 
+  Some use, however, has no correspondence, the code having changed too much. Even 
+  where the use hasn’t changed so much, tracking down the correspondence exhaustively 
+  would be difficult, if not impossible, even with source code. </p>
+  <p>It is well known that the <span class="struct">KTHREAD</span> is a kernel object 
+  that can be waited on until it gets signalled, as happens when the thread ends 
+  its execution. In the <span class="struct">
+  <a href="../../ntosdef_x/dispatcher_header/index.htm">DISPATCHER_HEADER</a></span> 
+  at the beginning of a <span class="struct">KTHREAD</span>, the
+  <span class="member">Type</span> is <span class="constant">ThreadObject</span> 
+  (6) in the <span class="enum"><a href="../kobjects.htm">KOBJECTS</a></span> enumeration. 
+  In these early versions, only the <span class="member">Type</span> and
+  <span class="member">Size</span> distinguish this <span class="member">Header</span> 
+  from that of any other dispatcher object. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+      <col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>Past and Future </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">DISPATCHER_HEADER Header;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x00; <br>
+        next at 0x00 </td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td>
+        <pre class="source">LIST_ENTRY MutantListHead;</pre>
+        </td>
+        <td>3.10 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x10; <br>
+        next at 0x10 </td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">PVOID InitialStack;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0168; <br>
+        next at 0x18 </td>
+      </tr>
+      <tr>
+        <td>0x1C </td>
+        <td>
+        <pre class="source">PVOID StackLimit;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x1C </td>
+      </tr>
+      <tr>
+        <td>0x20 (3.51) </td>
+        <td>
+        <pre class="source">PVOID KernelStack;</pre>
+        </td>
+        <td>3.51 only </td>
+        <td>next at 0x28 </td>
+        <td>previously at 0x016C </td>
+      </tr>
+      <tr>
+        <td>0x24 (3.51); <br>
+        0x20 </td>
+        <td>
+        <pre class="source">PVOID Teb;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0170; <br>
+        next at 0x30 </td>
+      </tr>
+      <tr>
+        <td>0x24 </td>
+        <td>
+        <pre class="source">PVOID TlsArray;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x01A4 </td>
+      </tr>
+      <tr>
+        <td>0x28 </td>
+        <td>
+        <pre class="source">PVOID KernelStack;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>previously at 0x20 </td>
+        <td>next at 0x20 </td>
+      </tr>
+      <tr>
+        <td>0x28 (3.51); <br>
+        0x2C </td>
+        <td>
+        <pre class="source">BOOLEAN DebugActive;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0199; <br>
+        next at 0x03 in <span class="member">Header</span> </td>
+      </tr>
+      <tr>
+        <td>0x29 (3.51); <br>
+        0x2D </td>
+        <td>
+        <pre class="source">UCHAR State;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A2; <br>
+        next at 0x2C </td>
+      </tr>
+      <tr>
+        <td>0x2A (3.51); <br>
+        0x2E </td>
+        <td>
+        <pre class="source">BOOLEAN Alerted [MaximumMode];</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0195; <br>
+        next at 0x5E </td>
+      </tr>
+      <tr>
+        <td>0x2C (3.51); <br>
+        0x30 </td>
+        <td>
+        <pre class="source">UCHAR Iopl;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01AC; <br>
+        next at 0x01B9 </td>
+      </tr>
+      <tr>
+        <td>0x2D (3.51); <br>
+        0x31 </td>
+        <td>
+        <pre class="source">UCHAR NpxState;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01AD; <br>
+        next at 0x2D </td>
+      </tr>
+      <tr>
+        <td>0x2E (3.51); <br>
+        0x32 </td>
+        <td>
+        <pre class="source">CHAR Saturation;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x010D </td>
+      </tr>
+      <tr>
+        <td>0x2F (3.51); <br>
+        0x33 </td>
+        <td>
+        <pre class="source">CHAR Priority;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A1; <br>
+        next at 0x5B </td>
+      </tr>
+      <tr>
+        <td>0x30 (3.51); <br>
+        0x34 </td>
+        <td>
+        <pre class="source">KAPC_STATE ApcState;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0130; <br>
+        next at 0x34 </td>
+      </tr>
+      <tr>
+        <td>0x48 (3.51); <br>
+        0x4C </td>
+        <td>
+        <pre class="source">ULONG ContextSwitches;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0174; <br>
+        next at 0x28 </td>
+      </tr>
+      <tr>
+        <td>0x50 </td>
+        <td>
+        <pre class="source">UCHAR IdleSwapBlock;</pre>
+        </td>
+        <td>5.1 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x51 </td>
+        <td>
+        <pre class="source">UCHAR Spare0 [3];</pre>
+        </td>
+        <td>5.1 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x4C (3.51); <br>
+        0x50 (4.0 to 5.0); <br>
+        0x54 </td>
+        <td>
+        <pre class="source">LONG WaitStatus;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0190; <br>
+        next at 0x50 </td>
+      </tr>
+      <tr>
+        <td>0x50 (3.51); <br>
+        0x54 (4.0 to 5.0); <br>
+        0x58 </td>
+        <td>
+        <pre class="source">KIRQL WaitIrql;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A5; <br>
+        next at 0x2E </td>
+      </tr>
+      <tr>
+        <td>0x51 (3.51); <br>
+        0x55 (4.0 to 5.0); <br>
+        0x59 </td>
+        <td>
+        <pre class="source">KPROCESSOR_MODE WaitMode;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A6; <br>
+        next at 0x2F </td>
+      </tr>
+      <tr>
+        <td>0x52 (3.51); <br>
+        0x56 (4.0 to 5.0); <br>
+        0x5A </td>
+        <td>
+        <pre class="source">BOOLEAN WaitNext;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x019D; <br>
+        next at 0x59 </td>
+      </tr>
+      <tr>
+        <td>0x53 (3.51); <br>
+        0x57 (4.0 to 5.0); <br>
+        0x5B </td>
+        <td>
+        <pre class="source">UCHAR WaitReason;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A7; <br>
+        next at 0x5A </td>
+      </tr>
+      <tr>
+        <td>0x54 (3.51); <br>
+        0x58 (4.0 to 5.0); <br>
+        0x5C </td>
+        <td>
+        <pre class="source">KWAIT_BLOCK *WaitBlockList;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x018C; <br>
+        next at 0x54 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x58 (3.51); <br>
+        0x5C (4.0 to 5.0); <br>
+        0x60 </td>
+        <td>
+        <pre class="source">LIST_ENTRY WaitListEntry;</pre>
+        </td>
+        <td>3.51 to 5.0 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x28 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    LIST_ENTRY WaitListEntry;
+    SINGLE_LIST_ENTRY SwapListEntry;
+};</pre>
+        </td>
+        <td>5.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0x60 </td>
+      </tr>
+      <tr>
+        <td>0x60 (3.51); <br>
+        0x64 (4.0 to 5.0); <br>
+        0x68 </td>
+        <td>
+        <pre class="source">ULONG WaitTime;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0180; <br>
+        next at 0x6C </td>
+      </tr>
+      <tr>
+        <td>0x64 (3.51); <br>
+        0x68 (4.0 to 5.0); <br>
+        0x6C </td>
+        <td>
+        <pre class="source">CHAR BasePriority;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A9; <br>
+        next at 0x0110 </td>
+      </tr>
+      <tr>
+        <td>0x65 (3.51); <br>
+        0x69 (4.0 to 5.0); <br>
+        0x6D </td>
+        <td>
+        <pre class="source">UCHAR DecrementCount;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x019F </td>
+      </tr>
+      <tr>
+        <td>0x66 (3.51); <br>
+        0x6A (4.0 to 5.0); <br>
+        0x6E </td>
+        <td>
+        <pre class="source">CHAR PriorityDecrement;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01AA; <br>
+        next at 0x0112 </td>
+      </tr>
+      <tr>
+        <td>0x67 (3.51); <br>
+        0x6B (4.0 to 5.0); <br>
+        0x6F </td>
+        <td>
+        <pre class="source">CHAR Quantum;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01AB; <br>
+        next at 0x0113 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x68 (3.51); <br>
+        0x6C (4.0 to 5.0); <br>
+        0x70 </td>
+        <td>
+        <pre class="source">KWAIT_BLOCK WaitBlock [5];</pre>
+        </td>
+        <td>3.51 only </td>
+        <td>&nbsp;</td>
+        <td>previously at 0xA4 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KWAIT_BLOCK WaitBlock [4];</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0xA0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>When version 4.0 brought most of the windowing functionality into the kernel-mode 
+  WIN32K.SYS from such user-mode modules as WINSRV.DLL in the CSRSS server process, 
+  it had much less need for fast server-client synchronisation. This had been supported 
+  by the fourth <span class="struct">KWAIT_BLOCK</span> in the
+  <span class="member">WaitBlock</span> array. Its removal for version 4.0 seems 
+  to have been treated as an opportunity to insert (mostly) new members. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+      <col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>Future </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xCC (4.0 to 5.0); <br>
+        0xD0 </td>
+        <td>
+        <pre class="source">PVOID LegoData;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x01A8 </td>
+      </tr>
+      <tr>
+        <td>0xD0 (4.0 to 5.0); <br>
+        0xD4 </td>
+        <td>
+        <pre class="source">ULONG KernelApcDisable;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>previously as <span class="type">UCHAR</span> at 0x0134 </td>
+        <td>next at 0x70 </td>
+      </tr>
+      <tr>
+        <td>0xD4 (4.0 to 5.0); <br>
+        0xD8 </td>
+        <td>
+        <pre class="source">KAFFINITY UserAffinity;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0118 </td>
+      </tr>
+      <tr>
+        <td>0xD8 (4.0 to 5.0); <br>
+        0xDC </td>
+        <td>
+        <pre class="source">BOOLEAN SystemAffinityActive;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0114 </td>
+      </tr>
+      <tr>
+        <td>0xD9 (5.0); <br>
+        0xDD </td>
+        <td>
+        <pre class="source">UCHAR PowerState;</pre>
+        </td>
+        <td>5.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x01B5 </td>
+      </tr>
+      <tr>
+        <td>0xDA (5.0); <br>
+        0xDE </td>
+        <td>
+        <pre class="source">KIRQL NpxIrql;</pre>
+        </td>
+        <td>5.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x01B6 </td>
+      </tr>
+      <tr>
+        <td>0xDF </td>
+        <td>
+        <pre class="source">UCHAR InitialNode;</pre>
+        </td>
+        <td>5.1 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xD9 (4.0); <br>
+        0xDB (5.0) </td>
+        <td>
+        <pre class="source">UCHAR Pad [7];</pre>
+        </td>
+        <td>4.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Pad [1];</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xDC (5.0); <br>
+        0xE0 </td>
+        <td>
+        <pre class="source">PVOID ServiceTable;</pre>
+        </td>
+        <td>5.0 to 5.1 </td>
+        <td>previously at 0x0124 </td>
+        <td>next at 0x0124 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Note that the preceding insertions for version 4.0 don’t fully reclaim the 
+  deleted <span class="struct">KWAIT_BLOCK</span>. It’s almost as if an effort was 
+  made to keep <span class="member">Queue</span> at offset 0xE0, not that it stayed 
+  there long. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+      <col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>Past and Future </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xE0 (3.51 to 5.0); <br>
+        0xE4 </td>
+        <td>
+        <pre class="source">KQUEUE *Queue;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x68 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xE4 (3.51 to 5.0); <br>
+        0xE8 </td>
+        <td>apparently unused 4 bytes </td>
+        <td>3.51 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KSPIN_LOCK ApcQueueLock;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x4C </td>
+      </tr>
+      <tr>
+        <td>0xE8 (3.51 to 5.0); <br>
+        0xF0 </td>
+        <td>
+        <pre class="source"><a href="../../ntosdef_x/ktimer.htm">KTIMER</a> Timer;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x38; <br>
+        next at 0x78 </td>
+      </tr>
+      <tr>
+        <td>0x0110 (3.51 to 5.0); <br>
+        0x0118 </td>
+        <td>
+        <pre class="source">LIST_ENTRY QueueListEntry;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0100 </td>
+      </tr>
+      <tr>
+        <td>0x0120 </td>
+        <td>
+        <pre class="source">ULONG SoftAffinity;</pre>
+        </td>
+        <td>5.1 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0118 (3.51 to 5.0); <br>
+        0x0124 </td>
+        <td>
+        <pre class="source">KAFFINITY Affinity;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0188; <br>
+        next at 0x0120 </td>
+      </tr>
+      <tr>
+        <td>0x011C (3.51 to 5.0); <br>
+        0x0128 </td>
+        <td>
+        <pre class="source">BOOLEAN Preempted;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x019A; <br>
+        next at 0x010A </td>
+      </tr>
+      <tr>
+        <td>0x011D (3.51 to 5.0); <br>
+        0x0129 </td>
+        <td>
+        <pre class="source">BOOLEAN ProcessReadyQueue;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x019B; <br>
+        next at 0x010B </td>
+      </tr>
+      <tr>
+        <td>0x011E (3.51 to 5.0); <br>
+        0x012A </td>
+        <td>
+        <pre class="source">BOOLEAN KernelStackResident;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x019C; <br>
+        next at 0x010C </td>
+      </tr>
+      <tr>
+        <td>0x011F (3.51 to 5.0); <br>
+        0x012B </td>
+        <td>
+        <pre class="source">UCHAR NextProcessor;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A0; <br>
+        next at 0x010F </td>
+      </tr>
+      <tr>
+        <td>0x0120 (3.51 to 5.0); <br>
+        0x012C </td>
+        <td>
+        <pre class="source">PVOID CallbackStack;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0148 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0124 (3.51 to 5.0); <br>
+        0x0130 </td>
+        <td>
+        <pre class="source">PVOID ServiceTable;</pre>
+        </td>
+        <td>3.51 only </td>
+        <td>next at 0xDC </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Win32Thread;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x014C </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>That <span class="member">ServiceTable</span> changes to
+  <span class="member">Win32Thread</span> for version 4.0 is more natural than first 
+  seems. The one pointer serves both purposes. What <span class="member">Win32Thread</span> 
+  points to, if anything, is a <span class="struct">
+  <a href="../../../../../win32k/structs/threadinfo/index.htm">THREADINFO</a></span>. 
+  This is what WIN32K keeps for a thread that has become a GUI thread. As first 
+  introduced, it begins with the thread’s service table. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+      <col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>Future </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0128 (3.51 to 5.0); <br>
+        0x0134 </td>
+        <td>
+        <pre class="source">KTRAP_FRAME *TrapFrame;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0150 </td>
+      </tr>
+      <tr>
+        <td>0x012C (3.51 to 5.0); <br>
+        0x0138 </td>
+        <td>
+        <pre class="source">KAPC_STATE *ApcStatePointer [2];</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0160; <br>
+        next at 0x0128 </td>
+      </tr>
+      <tr>
+        <td>0x0134 (3.51) </td>
+        <td>
+        <pre class="source">UCHAR KernelApcDisable;</pre>
+        </td>
+        <td>3.51 only </td>
+        <td>next as <span class="type">ULONG</span> at 0xD0 </td>
+        <td>previously at 0x01AE </td>
+      </tr>
+      <tr>
+        <td>0x0134 (5.0); <br>
+        0x0140 </td>
+        <td>
+        <pre class="source">KPROCESSOR_MODE PreviousMode;</pre>
+        </td>
+        <td>5.0 to 5.1 </td>
+        <td>previously at 0x0137 </td>
+        <td>next at 0x0115 </td>
+      </tr>
+      <tr>
+        <td>0x0134 (4.0); <br>
+        0x0135 (5.0); <br>
+        0x0141 </td>
+        <td>
+        <pre class="source">BOOLEAN EnableStackSwap;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x5C </td>
+      </tr>
+      <tr>
+        <td>0x0135 (3.51 to 4.0); <br>
+        0x0136 (5.0); <br>
+        0x0142 </td>
+        <td>
+        <pre class="source">BOOLEAN LargeStack;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x01B4 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0136 (3.51 to 4.0); <br>
+        0x0137 (5.0); <br>
+        0x0143 </td>
+        <td>apparently unused byte </td>
+        <td>3.51 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR ResourceIndex;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0115 </td>
+      </tr>
+      <tr>
+        <td>0x0137 (3.51 to 4.0) </td>
+        <td>
+        <pre class="source">KPROCESSOR_MODE PreviousMode;</pre>
+        </td>
+        <td>3.10 to 4.0 </td>
+        <td>next at 0x0134 </td>
+        <td>previously at 0x01A8 </td>
+      </tr>
+      <tr>
+        <td>0x0138 (3.51 to 5.0); <br>
+        0x0144 </td>
+        <td>
+        <pre class="source">ULONG KernelTime;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x30; <br>
+        next at 0x0154 </td>
+      </tr>
+      <tr>
+        <td>0x013C (3.51 to 5.0); <br>
+        0x0148 </td>
+        <td>
+        <pre class="source">ULONG UserTime;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x34; <br>
+        next at 0x0158 </td>
+      </tr>
+      <tr>
+        <td>0x0140 (3.51 to 5.0); <br>
+        0x014C </td>
+        <td>
+        <pre class="source">KAPC_STATE SavedApcState;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0148; <br>
+        next at 0x0130 </td>
+      </tr>
+      <tr>
+        <td>0x0158 (3.51 to 5.0); <br>
+        0x0164 </td>
+        <td>
+        <pre class="source">BOOLEAN Alertable;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0194; <br>
+        next at 0x58 </td>
+      </tr>
+      <tr>
+        <td>0x0159 (3.51 to 5.0); <br>
+        0x0165 </td>
+        <td>
+        <pre class="source">UCHAR ApcStateIndex;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x019E; <br>
+        next at 0x0108 </td>
+      </tr>
+      <tr>
+        <td>0x015A (3.51 to 5.0); <br>
+        0x0166 </td>
+        <td>
+        <pre class="source">BOOLEAN ApcQueueable;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0197; <br>
+        next at 0x0109 </td>
+      </tr>
+      <tr>
+        <td>0x015B (3.51 to 5.0); <br>
+        0x0167 </td>
+        <td>
+        <pre class="source">BOOLEAN AutoAlignment;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0198; <br>
+        next at 0x01B8 </td>
+      </tr>
+      <tr>
+        <td>0x015C (3.51 to 5.0); <br>
+        0x0168 </td>
+        <td>
+        <pre class="source">PVOID StackBase;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x015C </td>
+      </tr>
+      <tr>
+        <td>0x0160 (3.51 to 5.0); <br>
+        0x016C </td>
+        <td>
+        <pre class="source">KAPC SuspendApc;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x60; <br>
+        next at 0x0160 </td>
+      </tr>
+      <tr>
+        <td>0x0190 (3.51 to 5.0); <br>
+        0x019C </td>
+        <td>
+        <pre class="source">KSEMAPHORE SuspendSemaphore;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x90; <br>
+        next at 0x0190 </td>
+      </tr>
+      <tr>
+        <td>0x01A4 (3.51 to 5.0); <br>
+        0x01B0 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ThreadListEntry;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x20; <br>
+        next at 0x01AC </td>
+      </tr>
+      <tr>
+        <td>0x01AC (3.51 to 5.0); <br>
+        0x01B8 </td>
+        <td>
+        <pre class="source">CHAR FreezeCount;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A3; <br>
+        next at 0x01BA </td>
+      </tr>
+      <tr>
+        <td>0x01AD (3.51 to 5.0); <br>
+        0x01B9 </td>
+        <td>
+        <pre class="source">CHAR SuspendCount;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>last member in 3.51 </td>
+        <td>previously at 0x01A4; <br>
+        next at 0x01BB </td>
+      </tr>
+      <tr>
+        <td>0x01AE (4.0 to 5.0); <br>
+        0x01BA </td>
+        <td>
+        <pre class="source">UCHAR IdealProcessor;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x010E </td>
+      </tr>
+      <tr>
+        <td>0x01AF (4.0 to 5.0); <br>
+        0x01BB </td>
+        <td>
+        <pre class="source">BOOLEAN DisableBoost;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+        <td>last member in 4.0 to 5.1 </td>
+        <td>next at 0x0117 </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 15th
+    <a href="../../../../../../../../new/16/06.htm">June 2016</a> and was last modified 
+    on 18th July 2020. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1620.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14218" -->
+  </div>
+</div>
+
+</body>
+
+</html>

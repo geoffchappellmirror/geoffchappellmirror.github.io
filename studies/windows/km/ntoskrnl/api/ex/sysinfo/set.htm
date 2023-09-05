@@ -1,0 +1,1080 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ZwSetSystemInformation</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<!--webbot bot="Include" U-Include="../../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+<h1>ZwSetSystemInformation </h1>
+<p>This function sets a wide range of system properties and behaviour. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+ZwSetSystemInformation (
+    <a href="../../../inc/api/ntexapi/system_information_class.htm">SYSTEM_INFORMATION_CLASS</a> SystemInformationClass, 
+    PVOID SystemInformation, 
+    ULONG SystemInformationLength);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SystemInformationClass</span> argument tells what 
+sort of information to set. There are very many supported values. </p>
+<p>The <span class="argument">SystemInformation</span> and
+<span class="argument">SystemInformationLength</span> arguments are respectively 
+the address and size (in bytes) of a buffer that provides the information. The
+<span class="argument">SystemInformationLength</span> can be zero to indicate that 
+no information is provided. Interpretation of whatever information is provided depends 
+on the information class. The function treats the buffer as read-only for most information 
+classes but not all. </p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code or, unusually, a positive status or warning. </p>
+<h2>Availability </h2>
+<p>The <span class="function">ZwSetSystemInformation</span> and
+<span class="function">NtSetSystemInformation</span> functions are exported by name 
+from NTDLL in version 3.50 and higher. In user mode, the functions are aliases for 
+a stub that transfers execution to the <span class="routine">NtSetSystemInformation</span> 
+implementation in kernel mode such that the execution is recognised as originating 
+in user mode. </p>
+<p>The <span class="function">ZwSetSystemInformation</span> function is equally 
+ancient as an export from the kernel. It too is a stub that transfers execution 
+to <span class="routine">NtSetSystemInformation</span> but such that the execution 
+is recognised as originating in kernel mode. In all versions, the kernel-mode
+<span class="routine">NtSetSystemInformation</span> is just as an internal routine.
+</p>
+<h2>Documentation Status </h2>
+<p>Under any name, this function is not documented. As <span class="function">ZwSetSystemInformation</span> 
+only, it is declared in the ZWAPI.H that Microsoft published, possibly by 
+oversight, in the Enterprise edition of the Windows Driver Kit (WDK) for Windows 10 
+Version 1511. </p>
+<p>The <span class="enum">SYSTEM_INFORMATION_CLASS</span> enumeration has a C-language 
+definition in WINTERNL.H from the Software Development Kit (SDK), for use with the
+<span class="function"><a href="query.htm">NtQuerySystemInformation</a></span> function 
+(which is documented as an NTDLL export). The definition given there is plainly 
+not what Microsoft itself uses but is instead a contrivance for the relative handful 
+of cases that Microsoft discloses. One of those cases, however, is acceptable to
+<span class="function">NtSetSystemInformation</span>. </p>
+<h2>Behaviour </h2>
+<p>The following implementation notes are primarily from inspection of the kernel from the 
+original release of Windows 10. They may some day be treated to systematic 
+revision to account for earlier 
+versions. Meanwhile, where anything is added about earlier versions, take it as 
+a bonus from my being unable to resist at least a quick look into the history, not 
+as an attempt at comprehensiveness. Really, for a function such as this with so 
+many cases, these notes can’t ever be anything but a work in progress. </p>
+<h3>User-Mode Defences </h3>
+<p>If executing for a user-mode request, the function has some general defensiveness 
+about addresses passed as arguments. Failure at any of these defences is failure 
+for the function, which typically returns <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span> 
+or <span class="constant">STATUS_ACCESS_VIOLATION</span> (showing in kernel mode 
+as a raised but handled exception). </p>
+<p>If an information buffer is given, meaning here that <span class="argument">SystemInformationLength</span> 
+is non-zero, then its address <span class="argument">SystemInformation</span> must 
+be dword-aligned ordinarily but word-aligned for information class
+<span class="constant">SystemErrorPortInformation</span> (0x59), and the whole of 
+it must be in user-mode address space. </p>
+<h3>Exception Handling </h3>
+<p>Except if noted explicitly below, the function never accesses the
+<span class="argument">SystemInformation</span> without preparing for exceptions. 
+If executing for a user-mode request, the occurrence of an exception during such 
+access is fatal for the function, which returns the exception code as its own result. 
+If executing for a kernel-mode request, exceptions are handled only to continue 
+as if unhandled, which will typically be fatal to Windows. </p>
+<h3>Valid Information Classes </h3>
+<p>The large table below lists the information classes that
+<span class="function">ZwSetSystemInformation</span> does not dismiss as invalid 
+(after the preceding defences). 
+For all others, the function fails, returning <span class="constant">STATUS_INVALID_INFO_CLASS</span>.
+</p>
+<!--webbot bot="Include" U-Include="_include/names.htm" TAG="BODY" startspan -->
+
+<p>Names of the information classes and of the related structures and of their members 
+are from type information in public symbol files for various high-level user-mode 
+modules such as URLMON.DLL starting with Windows 8 and in statically linked libraries 
+from early editions of the Device Driver Kit (DDK). No symbol files for the kernel 
+or NTDLL have relevant type information in any known Windows release. </p>
+
+<!--webbot bot="Include" endspan i-checksum="12368" -->
+<!--webbot bot="Include" U-Include="_include/versions.htm" TAG="BODY" startspan -->
+
+<p>Note that the versions that are shown below for each information class are those 
+for which the function does not fail trivially as invalid. More than a few are failed 
+as trivially, but to return some other error code such as <span class="constant">
+STATUS_NOT_IMPLEMENTED</span> or <span class="constant">STATUS_NOT_SUPPORTED</span>. 
+The following shorthands are used for changes within versions: </p>
+<ul>
+  <li>late 5.0 starts with Windows 2000 SP4; </li>
+  <li>late 5.1 starts with Windows XP SP2; </li>
+  <li>very late 5.1 starts with Windows XP SP3; </li>
+  <li>late 5.2 starts with Windows Server 2003 SP1; </li>
+  <li>late 6.0 starts with Windows Vista SP1; </li>
+  <li>late 6.1 starts with Windows 7 SP1. </li>
+</ul>
+
+<!--webbot bot="Include" endspan i-checksum="11110" -->
+<table>
+  <tr>
+    <th>Numeric Value </th>
+    <th>Symbolic Name </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x09 </td>
+    <td><span class="constant">SystemFlagsInformation</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x15 </td>
+    <td><span class="constant">SystemFileCacheInformation</span> </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td><span class="constant">SystemDpcBehaviorInformation</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1A </td>
+    <td><span class="constant">SystemLoadGdiDriverInformation</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1B </td>
+    <td><span class="constant">SystemUnloadGdiDriverInformation</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td><span class="constant">SystemTimeAdjustmentInformation</span> </td>
+    <td>3.50 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1E </td>
+    <td><span class="constant">SystemMirrorMemoryInformation</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1F </td>
+    <td><span class="constant">SystemPerformanceTraceInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x22 </td>
+    <td><span class="constant">SystemCrashDumpStateInformation</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x25 </td>
+    <td><span class="constant">SystemRegistryQuotaInformation</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x26 </td>
+    <td><span class="constant">SystemExtendServiceTableInformation</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x27 </td>
+    <td><span class="constant">SystemPrioritySeparation</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td><span class="constant">SystemVerifierAddDriverInformation</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x29 </td>
+    <td><span class="constant">SystemVerifierRemoveDriverInformation</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x2E </td>
+    <td><span class="constant">SystemTimeSlipNotification</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x2F </td>
+    <td><span class="constant">SystemSessionCreate</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td><span class="constant">SystemSessionDetach</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x33 </td>
+    <td><span class="constant">SystemVerifierInformation</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x34 </td>
+    <td><span class="constant">SystemVerifierThunkExtend</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x36 </td>
+    <td><span class="constant">SystemLoadGdiDriverInSystemSpace</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x38 </td>
+    <td><span class="constant">SystemPrefetcherInformation</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x3B </td>
+    <td><span class="constant">SystemComPlusPackage</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x45 </td>
+    <td><span class="constant">SystemHotpatchInformation</span> </td>
+    <td>late 5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x47 </td>
+    <td><span class="constant">SystemWatchdogTimerHandler</span> </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x48 </td>
+    <td><span class="constant">SystemWatchdogTimerInformation</span> </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x4A </td>
+    <td><span class="constant">SystemWow64SharedInformationObsolete</span> </td>
+    <td>late 5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x4B </td>
+    <td><span class="constant">SystemRegisterFirmwareTableInformationHandler</span>
+    </td>
+    <td>late 5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x4F </td>
+    <td><span class="constant">SystemSuperfetchInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x50 </td>
+    <td><span class="constant">SystemMemoryListInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x51 </td>
+    <td><span class="constant">SystemFileCacheInformationEx</span> </td>
+    <td>late 5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x52 </td>
+    <td><span class="constant">SystemThreadPriorityClientIdInformation</span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x54 </td>
+    <td><span class="constant">SystemVerifierCancellationInformation</span>
+    </td>
+    <td>6.0 only </td>
+  </tr>
+  <tr>
+    <td>0x56 </td>
+    <td><span class="constant">SystemRefTraceInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x57 </td>
+    <td><span class="constant">SystemSpecialPoolInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x59 </td>
+    <td><span class="constant">SystemErrorPortInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x5B </td>
+    <td><span class="constant">SystemHypervisorInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x5C </td>
+    <td><span class="constant">SystemVerifierInformationEx</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x5D </td>
+    <td><span class="constant">SystemTimeZoneInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x5E </td>
+    <td><span class="constant">SystemImageFileExecutionOptionsInformation</span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x5F </td>
+    <td><span class="constant">SystemCoverageInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x61 </td>
+    <td><span class="constant">SystemVerifierFaultsInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x66 </td>
+    <td><span class="constant">SystemDynamicTimeZoneInformation</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x68 </td>
+    <td><span class="constant">SystemProcessorMicrocodeUpdateInformation</span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x6A </td>
+    <td><span class="constant">SystemVirtualAddressInformation</span> </td>
+    <td>late 6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x6D </td>
+    <td><span class="constant">SystemStoreInformation</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x6E </td>
+    <td><span class="constant">SystemRegistryAppendString</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x6F </td>
+    <td><span class="constant">SystemAitSamplingValue</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x71 </td>
+    <td><span class="constant">SystemCpuQuotaInformation</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x7F </td>
+    <td><span class="constant">SystemScrubPhysicalMemoryInformation</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x81 </td>
+    <td><span class="constant">SystemProcessorProfileControlArea</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x82 </td>
+    <td><span class="constant">SystemCombinePhysicalMemoryInformation</span>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x83 </td>
+    <td><span class="constant">SystemEntropyInterruptTimingInformation</span>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x84 </td>
+    <td><span class="constant">SystemConsoleInformation</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x86 </td>
+    <td><span class="constant">SystemThrottleNotificationInformation</span>
+    </td>
+    <td>6.2 only </td>
+  </tr>
+  <tr>
+    <td><span class="constant">SystemPolicyInformation</span> </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x8E </td>
+    <td><span class="constant">SystemCriticalProcessErrorLogInformation</span>
+    </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td>0x96 </td>
+    <td><span class="constant">SystemBootMetadataInformation</span> </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x97 </td>
+    <td><span class="constant">SystemSoftRebootInformation</span> </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x98 </td>
+    <td><span class="constant">SystemElamCertificateInformation</span> </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x9B </td>
+    <td><span class="constant">SystemRegistryReconciliationInformation</span>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x9F </td>
+    <td><span class="constant">SystemHypervisorDetailInformation</span> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0xA1 </td>
+    <td><span class="constant">SystemVmGenerationCountInformation</span> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0xA4 </td>
+    <td><span class="constant">SystemCodeIntegrityPolicyInformation</span>
+    </td>
+    <td>1709 and higher </td>
+  </tr>
+  <tr>
+    <td>0xA8 </td>
+    <td><span class="constant">SystemAllowedCpuSetsInformation</span> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0xAA </td>
+    <td><span class="constant">SystemInterruptCpuSetsInformation</span> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0xB0 </td>
+    <td><span class="constant">SystemCpuSetTagInformation</span> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0xB1 </td>
+    <td><span class="constant">SystemWin32WerStartCallout</span>
+    </td>
+    <td>1511 and higher </td>
+  </tr>
+  <tr>
+    <td>0xBB </td>
+    <td><span class="constant">SystemActivityModerationExeState</span>
+    </td>
+    <td>1703 and higher </td>
+  </tr>
+  <tr>
+    <td>0xBE </td>
+    <td><span class="constant">SystemCodeIntegrityUnlockInformation</span>
+    </td>
+    <td>1703 and higher </td>
+  </tr>
+  <tr>
+    <td>0xBF </td>
+    <td><span class="constant">SystemIntegrityQuotaInformation</span>
+    </td>
+    <td>1703 and higher </td>
+  </tr>
+  <tr>
+    <td>0xC2 </td>
+    <td><span class="constant">SystemSecureDumpEncryptionInformation</span>
+    </td>
+    <td>1709 and higher </td>
+  </tr>
+  <tr>
+    <td>0xC7 </td>
+    <td><span class="constant">SystemCodeIntegrityVerificationInformation</span> </td>
+    <td>1803 and higher </td>
+  </tr>
+</table>
+<p>All remaining behaviour varies with the information class.
+</p>
+<h3>SystemFlagsInformation (0x09) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="flags.htm">SYSTEM_FLAGS_INFORMATION</a></span> structure. There is just 
+the one member, a <span class="type">ULONG</span> named <span class="member">Flags</span>. 
+It updates the kernel’s <span class="variable">NtGlobalFlag</span> variable. Since 
+this variable is exported from all known kernel versions (and is declared in NTDDK.H, 
+originally), <span class="constant">SystemFlagsInformation</span> has little or 
+no reason to exist except to help user-mode callers. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeDebugPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>Not all bits in the given <span class="member">Flags</span> get updated in
+<span class="variable">NtGlobalFlag</span>. The handling, not just the 
+interpretation, varies greatly between versions. For details, follow the link. </p>
+<h3>SystemFileCacheInformation (0x15) </h3>
+<p>The information buffer must provide at least a <span class="struct">
+<a href="filecache.htm">SYSTEM_FILECACHE_INFORMATION</a></span> structure. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeIncreaseQuotaPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemDpcBehaviorInformation (0x18) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="dpc_behavior.htm">SYSTEM_DPC_BEHAVIOR_INFORMATION</a></span> structure.
+</p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeLoadDriverPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemLoadGdiDriverInformation (0x1A) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="gdi_driver.htm">SYSTEM_GDI_DRIVER_INFORMATION</a></span> structure. </p>
+<p>This information class is for kernel-mode use only. If executing for a user-mode 
+request, the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>.
+</p>
+<p>The <span class="member">DriverName</span> member provides the only input, specifically 
+to name the driver that the function is to load. If the function cannot load this 
+driver as a per-session system image, it fails. Otherwise, it fills in the other 
+members of the structure with a description of the loaded driver. </p>
+<h3>SystemUnloadGdiDriverInformation (0x1B) </h3>
+<p>The information buffer must provide exactly one pointer. This is to be the address 
+of the driver that the function is to unload. The caller presumably knows it from 
+what was put in the <span class="member">ImageAddress</span> member when
+<span class="constant">SystemLoadGdiDriverInformation</span> was used to load the 
+driver. </p>
+<p>This information class is for kernel-mode use only. If executing for a user-mode 
+request, the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>.
+</p>
+<h3>SystemTimeAdjustmentInformation (0x1C) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="set_time_adjust.htm">SYSTEM_SET_TIME_ADJUST_INFORMATION</a></span> structure.
+</p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeSystemtimePrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>If <span class="member">Enable</span> is <span class="constant">FALSE</span>, 
+the <span class="member">TimeAdjustment</span> must be between 0 and 10,000,000 
+(representing 1 second). Otherwise, the function fails, returning
+<span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<h3>SystemMirrorMemoryInformation (0x1E) </h3>
+<p>The information buffer is ignored. </p>
+<p>Memory mirroring is a high-end feature that Microsoft enables only in high-end 
+server editions of Windows. If the <a href="../slmem/index.htm">license value</a>
+<span class="licvalue">Kernel-MemoryMirroringSupported</span> does not evaluate 
+to <span class="constant">TRUE</span>, the function fails, returning
+<span class="constant">STATUS_LICENSE_VIOLATION</span>. If executing for a user-mode 
+request, the caller must have <span class="constant">SeShutdownPrivilege</span>, 
+else the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. 
+The function fails, returning <span class="constant">STATUS_NOT_SUPPORTED</span>, 
+unless mirroring is enabled in the registry. </p>
+<h3>SystemSystemPerformanceTraceInformation (0x1F) </h3>
+<p><span class="alert">TO BE DONE</span> </p>
+<h3>SystemCrashDumpStateInformation (0x22) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeDebugPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>Ideally, the information buffer provides exactly a <span class="struct">
+<a href="crash_dump_state.htm">SYSTEM_CRASH_DUMP_STATE_INFORMATION</a></span> structure 
+whose one member tells what configuration is wanted: </p>
+<ul>
+  <li>0 for <span class="constant">SystemCrashDumpDisable</span>; </li>
+  <li>1 for <span class="constant">SystemCrashDumpReconfigure</span>; </li>
+  <li>2 for <span class="constant">SystemCrashDumpInitializationComplete</span>.
+  </li>
+</ul>
+<p>The structure is not required, however. If <span class="argument">SystemInformationLength</span> 
+is incorrect, the function defaults to <span class="constant">SystemCrashDumpReconfigure</span>. 
+If the structure is given but with an invalid configuration, the function fails, 
+returning <span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<h3>SystemRegistryQuotaInformation (0x25) </h3>
+<p>The information buffer must provide exactly a <span class="constant">
+<a href="registry_quota.htm">SYSTEM_REGISTRY_QUOTA_INFORMATION</a></span> structure.
+</p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeIncreaseQuotaPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemExtendedServiceTableInformation (0x26) </h3>
+<p>The information buffer must provide exactly a <span class="struct">UNICODE_STRING</span> 
+structure. This is to name a driver to load as a per-session system image and to 
+initialise as the session driver. </p>
+<p>If executing for a user-mode request, the permitted circumstances and the freedom 
+to name the driver are greatly restricted. Failure on any count causes the function 
+to return <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. First, the current 
+process must be the session master. Second, the caller must have
+<span class="constant">SeLoadDriverPrivilege</span>. Third, the name can only be 
+\SystemRoot\System32\win32k.sys, as 0x3E bytes in this particular mixture of case. 
+With these requirements all met, the function reissues itself as a kernel-mode
+<span class="function">ZwSetSystemInformation</span>. </p>
+<h3>SystemPrioritySeparation (0x27) </h3>
+<p>The information buffer must provide exactly a dword. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeTcbPrivilege</span>. Without it, the function fails, returning
+<span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemVerifierAddDriverInformation (0x28) </h3>
+<p>The information buffer must provide exactly a <span class="struct">UNICODE_STRING</span> 
+structure. This is to name a driver whose operations are to be verified. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeDebugPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemVerifierRemoveDriverInformation (0x29) </h3>
+<p>The information buffer must provide exactly a <span class="struct">UNICODE_STRING</span> 
+structure. This is to name a driver whose operations are being verified but which 
+need not be. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeDebugPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemTimeSlipNotification (0x2E) </h3>
+<p>The information buffer must provide exactly a <span class="type">HANDLE</span>. 
+The intention is that the handle refer to an event that the kernel is to signal 
+when resuming execution after kernel-mode debugging. The handle can be
+<span class="constant">NULL</span> to direct that no signal is wanted. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeSystemtimePrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>Unless the given handle is <span class="constant">NULL</span>, it must be specifically 
+a handle to an event object and have the <span class="constant">EVENT_MODIFY_ACCESS</span> 
+permission. If the function cannot reference the event object for modification, 
+it fails. </p>
+<h3>SystemSessionCreate (0x2F) </h3>
+<!--webbot bot="Include" U-Include="_include/not_implemented.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="35747" -->
+<h3>SystemSessionDetach (0x30) </h3>
+<!--webbot bot="Include" U-Include="_include/not_implemented.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="35747" -->
+<h3>SystemVeriferInformation (0x33) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeDebugPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>The information buffer must provide at least a dword of bit flags to adopt as 
+Verifier options. </p>
+<h3>SystemVerifierThunkExtend (0x34) </h3>
+<p>This information class is for kernel-mode use only. If executing for a user-mode 
+request, the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>.
+</p>
+<h3>SystemLoadGdiDriverInSystemSpace (0x36) </h3>
+<p>The information buffer must provide exactly a <span class="struct">SYSTEM_GDI_DRIVER_INFORMATION</span> 
+structure. </p>
+<p>This information class is for kernel-mode use only. If executing for a user-mode 
+request, the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>.
+</p>
+<p>The <span class="member">DriverName</span> member provides the only input, specifically 
+to name the driver that the function is to load. If the function cannot load this 
+driver as a system image, it fails. Otherwise, it fills in the other members of 
+the structure with a description of the loaded driver. </p>
+<h3>SystemPrefetcherInformation (0x38) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="../../pf/prefetch/superfetch.htm">SUPERFETCH_INFORMATION</a></span> structure 
+as input. This is not certainly Microsoft’s name for the structure as expected for 
+this information class. It is, however, Microsoft’s name for a structure that has 
+the same layout and which is known to be correct for the information class
+<span class="constant">SystemSuperfetchInformation</span>. </p>
+<p>The first dword must be 0x01 and the second 0x6B756843, else the function fails, 
+returning <span class="constant">STATUS_INVALID_PARAMETER</span>. If the third dword 
+is not a valid Prefetcher information class, the function fails, returning
+<span class="constant">STATUS_INVALID_INFO_CLASS</span>. The four valid cases are 
+beyond the present scope of this review. </p>
+<h3>SystemComPlusPackage (0x3B) </h3>
+<p>The information buffer is to provide exactly a <span class="type">ULONG</span> 
+that is to be set into registry, specifically in the <span class="regvalue">Enable64Bit</span> 
+value in <span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\.NETFramework</span>, 
+and become the <span class="member">ComPlusPackage</span> in the
+<span class="struct"><a href="../../../inc/api/ntexapi_x/kuser_shared_data/index.htm">KUSER_SHARED_DATA</a></span>.
+</p>
+<h3>SystemHotpatchInformation (0x45) </h3>
+<!--webbot bot="Include" U-Include="_include/not_supported.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_SUPPORTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="40394" -->
+<h3>SystemWatchdogTimerHandler (0x47) </h3>
+<!--webbot bot="Include" U-Include="_include/not_supported.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_SUPPORTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="40394" -->
+<h3>SystemWatchdogTimerInformation (0x48) </h3>
+<p>This information class is for kernel-mode use only. If executing for a user-mode 
+request, the function fails, returning <span class="constant">STATUS_INVALID_PARAMETER</span>.
+</p>
+<p>The information buffer must provide exactly a <span class="constant">
+SYSTEM_WATCHDOG_TIMER_INFORMATION</span> structure. 
+Otherwise, the function fails, returning <span class="constant">STATUS_INVALID_PARAMETER</span>. 
+The function also returns <span class="constant">STATUS_INVALID_PARAMETER</span> 
+if the <span class="member">WdInfoClass</span> in the structure is invalid. Of the 
+defined Watchdog information classes, <span class="constant">WdInfoState</span> 
+(5) is invalid, and <span class="constant">WdInfoTimeoutValue</span> (0) and
+<span class="constant">WdInfoTriggerAction</span> (4) are valid but unsupported, 
+i.e., they case the function to return <span class="constant">STATUS_NOT_SUPPORTED</span>.
+</p>
+<p>The supported Watchdog information classes are handled by routines in the
+<span class="variable">HalPrivateDispatchTable</span>. This jump table is exported, 
+such that its routines can be diverted by anyone who knows the
+<span class="struct"><a href="../../../inc/ntos/hal/hal_private_dispatch.htm">HAL_PRIVATE_DISPATCH</a></span> 
+type. </p>
+<h3>SystemWow64SharedInformationObsolete (0x4A) </h3>
+<!--webbot bot="Include" U-Include="_include/not_implemented.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="35747" -->
+<h3>SystemRegisterFirmwareTableInformationHandler (0x4B) </h3>
+<p>This information class, which would register a callback routine to execute, is 
+for kernel-mode use only. If executing for a user-mode request, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>The information buffer must provide at least a <span class="struct">SYSTEM_FIRMWARE_TABLE_HANDLER</span>. 
+(This structure is defined in NTDDK.H, though one might wonder why, given that the 
+only way to register a firmware table handler is through this information class 
+of this undocumented function.) </p>
+<p>The kernel keeps a linked list of registered firmware table handlers. These are 
+distinguished by the <span class="member">ProviderSignature</span>. If a handler 
+is already registered for the same provider, then the function interprets
+<span class="constant">FALSE</span> for <span class="member">Registered</span> as 
+a request to unregister the handler whose address is given in
+<span class="member">FirmwareTableHandler</span>. If this is not the registered 
+handler for that provider, the function fails, returning <span class="constant">
+STATUS_INVALID_PARAMETER</span>. A registered handler can only be changed by un-registering 
+and re-registering. If <span class="member">Registered</span> is non-zero, then 
+whatever is given in <span class="member">FirmwareTableHandler</span> is ignored, 
+and the function returns the warning <span class="constant">STATUS_OBJECT_NAME_EXISTS</span>.
+</p>
+<p>If no handler is already registered for the same provider but
+<span class="member">Registered</span> is <span class="constant">FALSE</span>, there 
+is nothing to unregister, and the function fails, returning
+<span class="constant">STATUS_INVALID_PARAMETER</span>. Otherwise, the function 
+adds the provider and its handler to the list. If only in theory, this can fail 
+for lack of memory, shown by returning <span class="constant">STATUS_INSUFFICIENT_RESOURCES</span>.
+</p>
+<h3>SystemSuperfetchInformation (0x4F) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeProfileSingleProcessPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+<p>The information buffer must provide exactly a <span class="struct">SUPERFETCH_INFORMATION</span> 
+structure. </p>
+<p>The first dword must be 0x2D and the second 0x6B756843, else the function fails, 
+returning <span class="constant">STATUS_INVALID_PARAMETER</span>. If the third dword 
+is not a valid Superfetch information class, the function fails, returning
+<span class="constant">STATUS_INVALID_INFO_CLASS</span>. There are many cases, presently 
+all beyond the scope of this review. </p>
+<h3>SystemMemoryListInformation (0x50) </h3>
+<p>The information buffer must provide at least a <span class="enum">SYSTEM_MEMORY_LIST_COMMAND</span>. 
+The following are valid: </p>
+<ul>
+  <li>0 for <span class="constant">MemoryCaptureAccessedBits</span>; </li>
+  <li>1 for <span class="constant">MemoryCaptureAndResetAccessedBits</span>;
+  </li>
+  <li>2 for <span class="constant">MemoryEmptyWorkingSets</span>; </li>
+  <li>3 for <span class="constant">MemoryFlushModifiedList</span>; </li>
+  <li>4 for <span class="constant">MemoryPurgeStandbyList</span>; </li>
+  <li>5 for <span class="constant">MemoryPurgeLowPriorityStandbyList</span>.
+  </li>
+</ul>
+<p>Given anything else, the function fails, returning <span class="constant">STATUS_INVALID_PARAMETER</span>. 
+If executing for a user-mode request, commands other than <span class="constant">
+MemoryFlushModifiedList</span> require <span class="constant">SeProfileSingleProcessPrivilege</span>, 
+else the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>.
+</p>
+<h3>SystemFileCacheInformationEx (0x51) </h3>
+<p>The information buffer must provide at least a <span class="struct">SYSTEM_FILECACHE_INFORMATION</span> 
+structure. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeIncreaseQuotaPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemThreadPriorityClientIdInformation (0x52) </h3>
+<p>The information buffer must provide at least a <span class="struct">
+<a href="thread_cid_priority.htm">SYSTEM_THREAD_CID_PRIORITY_INFORMATION</a></span> 
+structure. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeIncreaseBasePriorityPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>The wanted <span class="member">Priority</span> must be greater than
+<span class="constant">LOW_PRIORITY</span> (0) and no greater than
+<span class="constant">HIGH_PRIORITY</span> (31). Otherwise, the function fails, 
+returning <span class="constant">STATUS_INVALID_PARAMETER</span>. If the
+<span class="member">ClientId</span> does not correspond to any combination of process 
+and thread, the function fails, returning <span class="constant">STATUS_INVALID_CID</span>. 
+If the identified thread is signalled, the function fails, returning
+<span class="constant">STATUS_THREAD_IS_TERMINATING</span>. </p>
+<p>After setting the given thread’s base priority, the function returns
+<span class="constant">STATUS_PENDING</span>. </p>
+<h3>SystemRefTraceInformation (0x56) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeDebugPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+<p>The information buffer must provide at least a <span class="struct">
+<a href="ref_trace.htm">SYSTEM_REF_TRACE_INFORMATION</a></span> structure, else 
+the function returns <span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<h3>SystemSpecialPoolInformation (0x57) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeDebugPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="special_pool.htm">SYSTEM_SPECIAL_POOL_INFORMATION</a></span> structure.
+</p>
+<h3>SystemErrorPortInformation (0x59) </h3>
+<p>This information class exists only for user-mode callers. If executing for a 
+kernel-mode request, the function fails, returning <span class="constant">STATUS_NOT_SUPPORTED</span>. 
+The user-mode caller must have <span class="constant">SeTcbPrivilege</span>. Without 
+it, the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>.
+</p>
+<h3>SystemHypervisorInformation (0x5B) </h3>
+<p>This information class is for kernel-mode use only. If executing for a user-mode 
+request, the function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>.
+</p>
+<p>The information buffer is not wanted. If <span class="argument">SystemInformationLength</span> 
+is not zero, the function fails, returning <span class="constant">STATUS_INVALID_PARAMETER_2</span>. 
+In fact, for this information class, the function sets nothing. The kernel simply 
+returns <span class="constant">STATUS_SUCCESS</span> or <span class="constant">STATUS_HV_NOT_PRESENT</span> 
+according to whether it knows a hypervisor is or is not present. </p>
+<h3>SystemVerifierInformationEx (0x5C) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeDebugPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="verifier_ex.htm">SYSTEM_VERIFIER_INFORMATION_EX</a></span> structure.
+</p>
+<h3>SystemTimeZoneInformation (0x5D) </h3>
+<p>The information buffer must provide exactly an <span class="struct">
+<a href="../systime/rtl_time_zone_information.htm">RTL_TIME_ZONE_INFORMATION</a></span> 
+structure. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeTimeZonePrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemImageFileExecutionOptionsInformation (0x5E) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeTcbPrivilege</span>. Without it, the function fails, returning
+<span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="image_file_execution_options.htm">SYSTEM_IMAGE_FILE_EXECUTION_OPTIONS_INFORMATION</a></span> 
+structure. There are just the two members. The <span class="member">FlagsToEnable</span> 
+are bits to set in the <span class="member">ImageFileExecutionOptions</span> in 
+the <span class="struct">KUSER_SHARED_DATA</span>, and then the
+<span class="member">FlagsToDisable</span> are bits to clear. </p>
+<h3>SystemCoverageInformation (0x5F) </h3>
+<p>This information class exists only for user-mode callers. If executing for a 
+kernel-mode request, the function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>. 
+The user-mode caller must have <span class="constant">SeDebugPrivilege</span>. Without 
+it, the function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>.
+</p>
+<p>The information buffer must provide at least a <span class="struct">
+<a href="../coverage/module_request.htm">COVERAGE_MODULE_REQUEST</a></span>. </p>
+<h3>SystemVerifierFaultsInformation (0x61) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="verifier_faults.htm">SYSTEM_VERIFIER_FAULTS_INFORMATION</a></span> structure.
+</p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeDebugPrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemDynamicTimeZoneInformation (0x66) </h3>
+<p>The information buffer must provide exactly an <span class="struct">
+<a href="../systime/rtl_dynamic_time_zone_information.htm">RTL_DYNAMIC_TIME_ZONE_INFORMATION</a></span> 
+structure. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeTimeZonePrivilege</span>. Without it, the function fails, 
+returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemProcessorMicrocodeUpdateInformation (0x68) </h3>
+<p>The information buffer must provide at least a <span class="struct">
+<a href="processor_microcode_update.htm">SYSTEM_PROCESSOR_MICROCODE_UPDATE_INFORMATION</a></span> 
+structure. There is just the one member, <span class="member">Operation</span>, 
+which can be 1 to load or 2 to unload. Anything else is rejected, as
+<span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<h3>SystemVirtualAddressInformation (0x6A) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeIncreaseQuotaPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>The information buffer must provide at least six <span class="struct">
+<a href="va_list.htm">SYSTEM_VA_LIST_INFORMATION</a></span> structures as an array, 
+one for each valid <span class="enum">SYSTEM_VA_TYPE</span>. </p>
+<p>This information class is incompatible with Safe Boot. If Windows started with 
+the SAFEBOOT boot option, then this function returns <span class="constant">STATUS_TOO_LATE</span>.
+</p>
+<h3>SystemStoreInformation (0x6D) </h3>
+<p>The information buffer must provide exactly a structure whose name in Microsoft’s 
+source code is not known. It is 0x10 or 0x18 bytes in 32-bit and 64-bit Windows, 
+respectively. The first dword must be 1, else the function fails, returning
+<span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeProfileSingleProcessPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+<p>If the second dword in the structure is not a valid Store information class, 
+the function fails, returning <span class="constant">STATUS_INVALID_INFO_CLASS</span>. 
+There are many cases, presently all beyond the scope of this review. Remaining members 
+provide the address and size of additional information. </p>
+<h3>SystemRegistryAppendString (0x6E) </h3>
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+<h3>SystemAitSamplingValue (0x6F) </h3>
+<p>The information buffer must provide exactly one <span class="type">ULONG</span> 
+that is to become the <span class="member">AitSamplingValue</span> in the
+<span class="struct">KUSER_SHARED_DATA</span>. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeProfileSingleProcessPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+<h3>SystemCpuQuotaInformation (0x71) </h3>
+<p>This information class depends on DFSS to be enabled by a registry configuration. 
+If it is not, the function fails, returning <span class="constant">STATUS_UNSUCCESSFUL</span>.
+</p>
+<p>The information buffer must provide a non-empty array of <span class="struct">
+<a href="../../ps/psquota/set.htm">PS_CPU_QUOTA_SET_INFORMATION</a></span> structures.
+</p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeIncreaseQuotaPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemScrubPhysicalMemoryInformation (0x7F) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="memory_scrub.htm">MEMORY_SCRUB_INFORMATION</a></span> structure for both 
+input and output. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeProfileSingleProcessPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemProcessorProfileControlArea (0x81) </h3>
+<p>This information class is for kernel-mode use only. If executing for a user-mode 
+request, the function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>.
+</p>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="processor_profile_control_area.htm">SYSTEM_PROCESSOR_PROFILE_CONTROL_AREA</a></span> 
+structure. </p>
+<h3>SystemCombinePhysicalMemoryInformation (0x82) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="memory_combine.htm">MEMORY_COMBINE_INFORMATION</a></span> structure for 
+both input and output. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeProfileSingleProcessPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemEntropyInterruptTimingInformation (0x83) </h3>
+<p>This information class, which would register a callback routine to execute, is 
+for kernel-mode use only. If executing for a user-mode request, the function fails, 
+returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="entropy_timing.htm">SYSTEM_ENTROPY_TIMING_INFORMATION</a></span> structure.
+</p>
+<h3>SystemConsoleInformation (0x84) </h3>
+<p>The information buffer must provide exactly a <span class="constant">
+<a href="console.htm">SYSTEM_CONSOLE_INFORMATION</a></span> structure whose one 
+meaningful member, a single bit named <span class="member">DriverLoaded</span>, 
+tells whether the function is to load or unload the console driver, meaning very 
+specifically the driver whose registry key under <span class="regkey">\Registry\Machine\System\CurrentControlSet\Services</span> 
+is <span class="regkey">condrv</span>. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeLoadDriverPrivilege</span> to unload the driver. Without 
+it, the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>.
+</p>
+<h3>SystemPolicyInformation (0x86) </h3>
+<p>The information buffer must provide exactly at <span class="struct">
+<a href="policy.htm">SYSTEM_POLICY_INFORMATION</a></span> structure. </p>
+<p>Note that type information from symbol files for Windows 8 would have it that 
+this information class is named <span class="constant">SystemThrottleNotificationInformation</span>
+    in version 6.2. Who’s to know what purpose this name may have had during 
+development (or even after release), but the implementation as released for 
+version 6.2 is already consistent with <span class="constant">
+SystemPolicyInformation</span> as known for later versions. </p>
+<h3>SystemBootMetadataInformation (0x96) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeTcbPrivilege</span>. Without it, the function fails, returning
+<span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>The information buffer is not wanted. If <span class="argument">SystemInformationLength</span> 
+is not zero, the function fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>.
+</p>
+<h3>SystemSoftRebootInformation (0x97) </h3>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeProfileSingleProcessPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<p>The information buffer must provide exactly one byte. </p>
+<p>If the one byte of input is non-zero and the function is executing for a user-mode 
+request, the caller must have <span class="constant">SeTcbPrivilege</span>, else 
+the function fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>.
+</p>
+<h3>SystemElamCertificateInformation (0x98) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="elam_certificate.htm">SYSTEM_ELAM_CERTIFICATE_INFORMATION</a></span> structure.
+</p>
+<p>This information class exists only for user-mode callers. If executing for a 
+kernel-mode request, the function fails, returning <span class="constant">STATUS_INVALID_PARAMETER</span>.
+</p>
+<h3>SystemRegistryReconciliationInformation (0x9B) </h3>
+<p>The information buffer is ignored. </p>
+<h3>SystemHypervisorDetailInformation (0x9F) </h3>
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_SUPPORTED</span>. </p>
+<h3>SystemVmGenerationCountInformation (0xA1) </h3>
+<p>This information class is for kernel-mode use only. If executing for a user-mode 
+request, the function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>.
+</p>
+<p>The information buffer must provide exactly 8 bytes of input. </p>
+<h3>SystemAllowedCpuSetsInformation (0xA8) </h3>
+<p>The information buffer must provide exactly a <span class="type">ULONGLONG</span> 
+for each CPU set that is to be allowed, up to the maximum that the platform supports, 
+i.e., 1 or 20 for 32-bit and 64-bit Windows 10, respectively. </p>
+<h3>SystemInterruptCpuSetsInformation (0xAA) </h3>
+<p>The information buffer must provide exactly a <span class="struct">
+<a href="interrupt_cpu_set.htm">SYSTEM_INTERRUPT_CPU_SET_INFORMATION</a></span> 
+structure. </p>
+<p>If executing for a user-mode request, the caller must have
+<span class="constant">SeIncreaseBasePriorityPrivilege</span>. Without it, the function 
+fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+<h3>SystemCpuSetTagInformation (0xB0) </h3>
+<p>The information buffer must provide for a <span class="struct">
+<a href="cpu_set_tag.htm">SYSTEM_CPU_SET_TAG_INFORMATION</a></span> structure whose 
+unsized <span class="member">CpuSets</span> array has exactly a
+<span class="type">ULONGLONG</span> for each CPU set that is to be allowed, up to 
+the maximum that the platform supports, i.e., 1 or 20 for 32-bit and 64-bit Windows 
+10, respectively. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th July 2016 but was not published 
+  until 24th <a href="../../../../../../../new/16/10.htm">October 2016</a> and was 
+  last modified on 27th October 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1619.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5029" -->
+</div>
+
+</body>
+
+</html>

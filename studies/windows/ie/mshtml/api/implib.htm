@@ -1,0 +1,151 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>An MSHTML Import Library</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="30135" endspan -->
+<h1>An MSHTML Import Library </h1>
+<p>Only a handful of <a href="index.htm">functions exported by MSHTML.DLL</a> are 
+formally documented in the Windows SDK. The MSHTMHST.H header file has prototypes 
+for the documented functions and for one more: </p>
+<ul>
+  <li><span class="function"><a href="htmldlg/createhtmlpropertypage.htm">CreateHTMLPropertyPage</a></span>
+  </li>
+  <li><span class="function">RunHTMLApplication</span> </li>
+  <li><span class="function"><a href="htmldlg/showhtmldialog.htm">ShowHTMLDialog</a></span>
+  </li>
+  <li><span class="function"><a href="htmldlg/showhtmldialogex.htm">ShowHTMLDialogEx</a></span>
+  </li>
+  <li><span class="function"><a href="htmldlg/showmodelesshtmldialog.htm">ShowModelessHTMLDialog</a></span>
+  </li>
+</ul>
+<p>Armed with these prototypes, a programmer who seeks to use one of these functions 
+might naturally just name the function in a function call. The linker would resolve 
+the reference from an import library, so that when the executable is loaded, the 
+system loads MSHTML.DLL, locates the function and stores its address wherever the 
+linker provided. To the programmer, it couldn’t be easier. Very likely the overwhelming 
+bulk of real-world programmers don’t even think for a moment, or even know, about 
+how any of this works. </p>
+<p>For the MSHTML functions, the SDK would instead have the programmer write some 
+supporting code that uses <span class="function">LoadLibrary</span> to load MSHTML.DLL, 
+uses <span class="function">GetProcAddress</span> to locate the function, and then 
+calls the function indirectly. For some, but not all, of the above functions, the 
+SDK helpfully defines types for the function pointers. It’s not a lot of extra work 
+and the programmer can easily enough dress it as the body of the wanted function, 
+so that the function can be called naturally wherever it is wanted elsewhere in 
+the code. For example: </p>
+<pre class="source">STDAPI 
+ShowHTMLDialogEx (
+    HWND hwndParent,
+    IMoniker *pMk,
+    DWORD dwDialogFlags,
+    VARIANT *pvarArgIn,
+    WCHAR *pchOptions,
+    VARIANT *pvarArgOut)
+{
+    static HMODULE mshtml = NULL;
+    if (mshtml == NULL) {
+        mshtml = LoadLibrary (TEXT (&quot;mshmtl.dll&quot;));
+        if (mshtml == NULL) return HRESULT_FROM_WIN32 (ERROR_DELAY_LOAD_FAILED);
+    }
+    static SHOWHTMLDIALOGEXFN *pfn = NULL;
+    if (pfn == NULL) {
+        pfn = (SHOWHTMLDIALOGEXFN *) GetProcAddress (mshtml, &quot;ShowHTMLDialogEx&quot;);
+        if (pfn == NULL) return HRESULT_FROM_WIN32 (ERROR_DELAY_LOAD_FAILED);
+    }
+    return pfn (hwndParent, pMk, dwDialogFlags, pvarArgIn, pchOptions, pvarArgOut);
+}</pre>
+<p>Especially if the programmer works a little at avoiding redundancy, the effect 
+is that the programmer writes much the same code that the linker anyway provides 
+for its Delay Load Import feature. To my mind, this is just more reason that the 
+functions should be supported so that it actually is the linker that does this work. 
+Microsoft surely thinks so, too. See that each of the documentation’s directions 
+to programmers about having to use <span class="function">LoadLibrary</span> and
+<span class="function">GetProcAddress</span> is followed by a warning—a “security 
+alert” no less—about using <span class="function">LoadLibrary</span> incorrectly.
+</p>
+<p>Obviously, the Windows SDK ought to provide an import library for the documented 
+MSHTML functions. Though no evidence is known that Microsoft has an MSHTML.LIB which 
+has somehow been omitted from the Windows SDK, the easiest way by far to work around 
+the lack of an MSHTML.LIB is to make one and then forever after proceed as if there 
+had been no omission. (By the way, it is easily established that Microsoft does 
+already have an import library to cover both the documented and undocumented MSHTML 
+functions. It is named MSHTMLP.LIB and is used for calling MSHTML functions from 
+IEFRAME.DLL and INETCPL.CPL.) </p>
+<p>Building a suitable import library does require that the programmer write some 
+code, but less than needed even in the simple example above. Create one C++ source 
+file, here named MSHTML.CPP. Include WINDOWS.H as usual and MSHTMHST.H for the prototypes. 
+Then for each of the functions that are to be importable, reproduce the prototype 
+but provide a trivial body, e.g., </p>
+<pre class="source">STDAPI 
+ShowHTMLDialogEx (
+    HWND hwndParent,
+    IMoniker *pMk,
+    DWORD dwDialogFlags,
+    VARIANT *pvarArgIn,
+    WCHAR *pchOptions,
+    VARIANT *pvarArgOut)
+{
+    return E_NOTIMPL;
+}</pre>
+<p>Create a module definition file, here called MSHTML.DEF, with the obvious content:
+</p>
+<pre class="source">EXPORTS
+    CreateHTMLPropertyPage
+    RunHTMLApplication
+    ShowHTMLDialog
+    ShowHTMLDialogEx
+    ShowModelessHTMLDialog</pre>
+<p>Now compile the source file and feed both the object file and the module definition 
+file to the librarian: </p>
+<pre class="input">cl /c mshtml.cpp
+lib mshtml.obj /def:mshtml.def /out:mshtml.lib</pre>
+<p>The output is an import library such as Microsoft might have provided all along. 
+Whether you build it yourself or <a href="_download/mshtml.lib">download an (x86) 
+import library for the documented MSHTML functions</a>, add it to the import libraries 
+for linking and you can thenceforth ignore Microsoft’s documentation where it says 
+such things as “you need to dynamically load and call this function by using the
+<span class="function">LoadLibrary</span> and <span class="function">GetProcAddress</span> 
+functions.” </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 20th March 2008 and was last modified 
+  on 18th July 2009. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c0809.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62808" endspan -->
+</div>
+
+</body>
+
+</html>

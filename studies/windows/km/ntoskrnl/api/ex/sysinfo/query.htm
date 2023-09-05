@@ -1,0 +1,2903 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ZwQuerySystemInformation</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+  <h1>ZwQuerySystemInformation </h1>
+  <p>This function gets a wide range of system properties. </p>
+  <p>Specially noteworthy is that this function in its user-mode form,
+  <span class="function">NtQuerySystemInformation</span>, is occasionally the target 
+  of malware, not just to use it but to hook it, the idea being to mislead other 
+  software about the malware’s presence. See particularly the cases where this function 
+  returns information about the running processes, loaded modules and opened handles.
+  </p>
+  <h2>Declaration </h2>
+  <pre class="source">NTSTATUS 
+ZwQuerySystemInformation (
+    <a href="class.htm">SYSTEM_INFORMATION_CLASS</a> SystemInformationClass, 
+    PVOID SystemInformation, 
+    ULONG SystemInformationLength, 
+    ULONG *ReturnLength);</pre>
+  <h3>Parameters </h3>
+  <p>The <span class="argument">SystemInformationClass</span> argument tells what 
+  sort of information is sought. There are very many supported values. </p>
+  <p>The <span class="argument">SystemInformation</span> and
+  <span class="argument">SystemInformationLength</span> arguments are respectively 
+  the address and size (in bytes) of a buffer that receives the information. What 
+  the function puts into this buffer depends on the information class. For some 
+  information classes, the function expects input from the buffer (too or instead). 
+  For some information classes, the <span class="argument">SystemInformationLength</span> 
+  argument can be 0 and the <span class="argument">SystemInformation</span> argument 
+  is then ignored. </p>
+  <p>The <span class="argument">ReturnLength</span> argument is the address of a 
+  variable whose value on output tells how much information, in bytes, the successful 
+  function has put into the buffer or may tell how much the failed function might 
+  have put into the buffer (had the buffer been large enough). This argument can 
+  be <span class="constant">NULL</span> if the caller does not want to know how 
+  much information is produced or is available. </p>
+  <h3>Return Value </h3>
+  <!--webbot bot="Include" U-Include="../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+  <p>Of particular importance are <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> 
+  and <span class="constant">STATUS_BUFFER_TOO_SMALL</span>, which are the function’s 
+  indications that the information buffer was given with the wrong size. A size 
+  that would have sufficed for a full return of available information will have 
+  been set into the variable, if any, that was specified through the
+  <span class="argument">ReturnLength</span> argument. </p>
+  <p>A size may be returned via <span class="argument">ReturnLength</span> for other 
+  error codes, but this outcome is here treated as unreliable since it looks not 
+  to be uniformly intended. Moreover, pending expansion of this article to account 
+  in detail for variations between Windows versions, it is as well to note that 
+  before version 6.0 the return of an expected size is unreliable even when the 
+  error code is <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. (Roughly, 
+  the expected size tends to be returned for information classes for which the output 
+  can vary in size, but tends not to be for information classes whose output is 
+  a fixed-size structure.) </p>
+  <p>Note that when the function succeeds, what it sets via
+  <span class="argument">ReturnLength</span> tells nothing of what more information 
+  the function might have put in a bigger buffer. </p>
+  <p>The function appears to be free to use the information buffer however it wants 
+  while it works towards its result. The understanding throughout these notes is 
+  that calling this function leaves the information buffer with undefined contents 
+  except for however many bytes the function declares as its output on success.
+  </p>
+  <p>Beware that the preceding paragraphs attempt only to describe what seems intended 
+  in general for the parameters and return value. Cases exist which do not exactly 
+  conform. This may mean that the inferred description is wrong or at least needs 
+  to be refined, but some cases seem so <span class="emphasis">special</span> that 
+  it seems reasonable to suspect that the defect is not with my interpretation but 
+  with Microsoft’s implementation. For instance, after the function’s success for 
+  the information class <span class="constant">SystemSessionProcessInformation</span> 
+  (0x35), the size in the variable at <span class="argument">ReturnLength</span> 
+  can be vastly greater than the size that was given for <span class="argument">
+  SystemInformationLength</span>. </p>
+  <h2>Availability </h2>
+  <p>The <span class="function">ZwQuerySystemInformation</span> and
+  <span class="function">NtQuerySystemInformation</span> functions were originally 
+  for the kernel’s user-mode interface only. For this purpose, they are ancient, 
+  being exported by name from NTDLL in version 3.10 and higher. In user mode, the 
+  functions are aliases for a stub that transfers execution to the
+  <span class="function">NtQuerySystemInformation</span> implementation in kernel 
+  mode such that the execution is recognised as originating in user mode. </p>
+  <p>Availability in kernel mode wasn’t long in coming: <span class="function">ZwQuerySystemInformation</span> 
+  is exported by name from the kernel in version 4.0 and higher;
+  <span class="function">NtQuerySystemInformation</span> in version 5.0 and higher. 
+  In kernel mode, <span class="function">ZwQuerySystemInformation</span> is also 
+  a stub that transfers execution to the <span class="function">NtQuerySystemInformation</span> 
+  implementation but such that the execution is recognised as originating in kernel 
+  mode. </p>
+  <h2>Documentation Status </h2>
+  <p>As <span class="function">NtQuerySystemInformation</span> only, and only then 
+  as exported from NTDLL, this function got documented at roughly the time of Microsoft’s 
+  settlement compliance in 2002. It is declared in WINTERNL.H from the Software 
+  Development Kit (SDK). The definition given there for the <span class="enum">SYSTEM_INFORMATION_CLASS</span> 
+  enumeration names a handful of the very many values that are acceptable to the 
+  function. </p>
+  <p>After a few years, certainly by 2007, this documentation of
+  <span class="function">NtQuerySystemInformation</span> was joined by slightly 
+  different documentation of <span class="function">ZwQuerySystemInformation</span>, 
+  still only as exported from NTDLL. This documentation nowadays states plainly 
+  that the function “is no longer available for use as of Windows 8.” </p>
+  <p>Though <span class="function">NtQuerySystemInformation</span> is mentioned 
+  in a comment in NTDDK.H from as long ago as the Device Driver Kit (DDK) for Windows 
+  NT 3.51, no header from a DDK or Windows Driver Kit (WDK) declares the function 
+  under either name until <span class="function">ZwQuerySystemInformation</span> 
+  is declared in the ZWAPI.H that was published, possibly by oversight, in the Enterprise 
+  WDK for Windows 10 Version 1511. </p>
+  <h2>Behaviour </h2>
+  <p>The following implementation notes are primarily from inspection of the kernel 
+  from the original release of Windows 10. They may some day be treated to systematic 
+  revision to account for earlier versions. Meanwhile, where anything is added about 
+  earlier versions, take it not as an attempt at comprehensiveness but as a bonus 
+  from my being unable to resist at least a quick look into the history. Really, 
+  for a function such as this with so many cases, these notes can’t ever be anything 
+  but a work in progress. </p>
+  <h3>Immediate Failure </h3>
+  <p>Information classes <span class="constant">SystemLogicalProcessorAndGroupInformation</span> 
+  (0x6B) and <span class="constant">SystemNodeDistanceInformation</span> (0x79) 
+  are completely invalid for this function and cause its immediate failure, returning
+  <span class="constant">STATUS_INVALID_INFO_CLASS</span>. Arguments other than
+  <span class="argument">SystemInformationClass</span> are irrelevant. These information 
+  classes need <span class="function"><a href="queryex.htm">ZwQuerySystemInformationEx</a></span> 
+  instead. </p>
+  <h3>User-Mode Defences </h3>
+  <p>If executing for a user-mode request, the function has some general defensiveness 
+  about addresses passed as arguments. Failure at any of these defences is failure 
+  for the function, which typically returns <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span> 
+  or <span class="constant">STATUS_ACCESS_VIOLATION</span> (showing in kernel mode 
+  as a raised but handled exception). </p>
+  <h4>Information Buffer </h4>
+  <p>If an information buffer is given, meaning here that <span class="argument">
+  SystemInformationLength</span> is non-zero, then its address
+  <span class="argument">SystemInformation</span> must have 4-byte alignment (in 
+  general) and the whole buffer must be in user-mode address space and be writable 
+  (at its first byte and also for one byte at each page boundary that is inside 
+  the buffer). For some information classes, the alignment requirement is effectively 
+  waived by requiring only 1-byte alignment: </p>
+  <ul>
+    <li><span class="constant">SystemKernelDebuggerInformation</span> (0x23);
+    </li>
+    <li><span class="constant">SystemPortableWorkspaceEfiLauncherInformation</span> 
+    (0x93); </li>
+    <li><span class="constant">SystemEnergyEstimationConfigInformation</span> (0x9E).
+    </li>
+  </ul>
+  <p>The x64 builds make an extra case of <span class="constant">SystemLocksInformation</span> 
+  (0x0C), which requires 8-byte alignment. </p>
+  <h4>Return Length </h4>
+  <p>If a variable is given by address in the <span class="argument">ReturnLength</span> 
+  argument for learning how much information is or could be produced, then the address 
+  must be in user-mode address space and the variable must be writable. </p>
+  <h3>Valid Information Classes </h3>
+  <p>The large table below lists the information classes that
+  <span class="function">ZwQuerySystemInformation</span> does not dismiss as invalid 
+  (after the preceding defences). For all others, the function fails, returning
+  <span class="constant">STATUS_INVALID_INFO_CLASS</span>. </p>
+  <!--webbot bot="Include" U-Include="_include/names.htm" TAG="BODY" startspan -->
+
+<p>Names of the information classes and of the related structures and of their members 
+are from type information in public symbol files for various high-level user-mode 
+modules such as URLMON.DLL starting with Windows 8 and in statically linked libraries 
+from early editions of the Device Driver Kit (DDK). No symbol files for the kernel 
+or NTDLL have relevant type information in any known Windows release. </p>
+
+<!--webbot bot="Include" endspan i-checksum="12368" -->
+  <!--webbot bot="Include" U-Include="_include/versions.htm" TAG="BODY" startspan -->
+
+<p>Note that the versions that are shown below for each information class are those 
+for which the function does not fail trivially as invalid. More than a few are failed 
+as trivially, but to return some other error code such as <span class="constant">
+STATUS_NOT_IMPLEMENTED</span> or <span class="constant">STATUS_NOT_SUPPORTED</span>. 
+The following shorthands are used for changes within versions: </p>
+<ul>
+  <li>late 5.0 starts with Windows 2000 SP4; </li>
+  <li>late 5.1 starts with Windows XP SP2; </li>
+  <li>very late 5.1 starts with Windows XP SP3; </li>
+  <li>late 5.2 starts with Windows Server 2003 SP1; </li>
+  <li>late 6.0 starts with Windows Vista SP1; </li>
+  <li>late 6.1 starts with Windows 7 SP1. </li>
+</ul>
+
+<!--webbot bot="Include" endspan i-checksum="11110" -->
+  <table>
+    <tbody>
+      <tr>
+        <th>Numeric Value </th>
+        <th>Symbolic Name </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x00 </td>
+        <td><span class="constant">SystemBasicInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01 </td>
+        <td><span class="constant">SystemProcessorInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td><span class="constant">SystemPerformanceInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td><span class="constant">SystemTimeOfDayInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td><span class="constant">SystemPathInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x05 </td>
+        <td><span class="constant">SystemProcessInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x06 </td>
+        <td><span class="constant">SystemCallCountInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x07 </td>
+        <td><span class="constant">SystemDeviceInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td><span class="constant">SystemProcessorPerformanceInformation</span>
+        </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x09 </td>
+        <td><span class="constant">SystemFlagsInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0A </td>
+        <td><span class="constant">SystemCallTimeInformation</span> </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0B </td>
+        <td><span class="constant">SystemModuleInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0C </td>
+        <td><span class="constant">SystemLocksInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0D </td>
+        <td><span class="constant">SystemStackTraceInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E </td>
+        <td><span class="constant">SystemPagedPoolInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F </td>
+        <td><span class="constant">SystemNonPagedPoolInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td><span class="constant">SystemHandleInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x11 </td>
+        <td><span class="constant">SystemObjectInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x12 </td>
+        <td><span class="constant">SystemPageFileInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x13 </td>
+        <td><span class="constant">SystemVdmInstemulInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x15 </td>
+        <td><span class="constant">SystemFileCacheInformation</span> </td>
+        <td>3.10 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x16 </td>
+        <td><span class="constant">SystemPoolTagInformation</span> </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x17 </td>
+        <td><span class="constant">SystemInterruptInformation</span> </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td><span class="constant">SystemDpcBehaviorInformation</span> </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x19 </td>
+        <td><span class="constant">SystemFullMemoryInformation</span> </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1C </td>
+        <td><span class="constant">SystemTimeAdjustmentInformation</span> </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1D </td>
+        <td><span class="constant">SystemSummaryMemoryInformation</span> </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1E </td>
+        <td><span class="constant">SystemNextEventIdInformation</span> </td>
+        <td>3.50 to 4.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x1F </td>
+        <td><span class="constant">SystemEventIdsInformation</span> </td>
+        <td>3.50 to 4.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td><span class="constant">SystemPerformanceTraceInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td><span class="constant">SystemCrashDumpInformation</span> </td>
+        <td>3.50 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x21 </td>
+        <td><span class="constant">SystemExceptionInformation</span> </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x22 </td>
+        <td><span class="constant">SystemCrashDumpStateInformation</span> </td>
+        <td>3.50 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x23 </td>
+        <td><span class="constant">SystemKernelDebuggerInformation</span> </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x24 </td>
+        <td><span class="constant">SystemContextSwitchInformation</span> </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x25 </td>
+        <td><span class="constant">SystemRegistryQuotaInformation</span> </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x28 </td>
+        <td><span class="constant">SystemPlugPlayBusInformation</span> </td>
+        <td>3.51 to 4.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x29 </td>
+        <td><span class="constant">SystemDockInformation</span> </td>
+        <td>3.51 to 4.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2A </td>
+        <td><span class="constant">SystemProcessorIdleInformation</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2B </td>
+        <td><span class="constant">SystemLegacyDriverInformation</span> </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2C </td>
+        <td><span class="constant">SystemCurrentTimeZoneInformation</span> </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2D </td>
+        <td><span class="constant">SystemLookasideInformation</span> </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x32 </td>
+        <td><span class="constant">SystemRangeStartInformation</span> </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x33 </td>
+        <td><span class="constant">SystemVerifierInformation</span> </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x35 </td>
+        <td><span class="constant">SystemSessionProcessInformation</span> </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x36 </td>
+        <td><span class="constant">SystemObjectSecurityMode</span> </td>
+        <td>late 5.0 only </td>
+        <td>next as 0x46 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x37 </td>
+        <td>unknown </td>
+        <td>late 5.0 only </td>
+        <td>next as 0x47 </td>
+      </tr>
+      <tr>
+        <td><span class="constant">SystemNumaProcessorMap</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x38 </td>
+        <td><span class="constant">SystemPrefetcherInformation</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x39 </td>
+        <td><span class="constant">SystemExtendedProcessInformation</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3A </td>
+        <td><span class="constant">SystemRecommendedSharedDataAlignment</span>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3B </td>
+        <td><span class="constant">SystemComPlusPackage</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3C </td>
+        <td><span class="constant">SystemNumaAvailableMemory</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3D </td>
+        <td><span class="constant">SystemProcessorPowerInformation</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3E </td>
+        <td><span class="constant">SystemEmulationBasicInformation</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3F </td>
+        <td><span class="constant">SystemEmulationProcessorInformation</span>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x40 </td>
+        <td><span class="constant">SystemExtendedHandleInformation</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x41 </td>
+        <td><span class="constant">SystemLostDelayedWriteInformation</span> </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x42 </td>
+        <td>unknown </td>
+        <td>late 5.1 only </td>
+        <td>also as 0x46 </td>
+      </tr>
+      <tr>
+        <td><span class="constant">SystemBigPoolInformation</span> </td>
+        <td>5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x43 </td>
+        <td><span class="constant">SystemSessionPoolTagInformation</span> </td>
+        <td>5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x44 </td>
+        <td><span class="constant">SystemSessionMappedViewInformation</span>
+        </td>
+        <td>5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x45 </td>
+        <td><span class="constant">SystemHotpatchInformation</span> </td>
+        <td>5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x46 </td>
+        <td><span class="constant">SystemObjectSecurityMode</span> </td>
+        <td>late 5.1 and higher </td>
+        <td>previously 0x36 </td>
+      </tr>
+      <tr>
+        <td>0x47 </td>
+        <td>unknown </td>
+        <td>late 5.1 only </td>
+        <td>previously 0x37 </td>
+      </tr>
+      <tr>
+        <td>0x48 </td>
+        <td><span class="constant">SystemWatchdogTimerInformation</span> </td>
+        <td>5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x49 </td>
+        <td><span class="constant">SystemLogicalProcessorInformation</span> </td>
+        <td>very late 5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x4C </td>
+        <td><span class="constant">SystemFirmwareTableInformation</span> </td>
+        <td>late 5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x4D </td>
+        <td><span class="constant">SystemModuleInformationEx</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x4F </td>
+        <td><span class="constant">SystemSuperfetchInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x50 </td>
+        <td><span class="constant">SystemMemoryListInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x51 </td>
+        <td><span class="constant">SystemFileCacheInformationEx</span> </td>
+        <td>late 5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x53 </td>
+        <td><span class="constant">SystemProcessorIdleCycleTimeInformation</span>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x54 </td>
+        <td><span class="constant">SystemVerifierCancellationInformation</span>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x56 </td>
+        <td><span class="constant">SystemRefTraceInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x57 </td>
+        <td><span class="constant">SystemSpecialPoolInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x58 </td>
+        <td><span class="constant">SystemProcessIdInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x5A </td>
+        <td><span class="constant">SystemBootEnvironmentInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x5B </td>
+        <td><span class="constant">SystemHypervisorInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x5C </td>
+        <td><span class="constant">SystemVerifierInformationEx</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x5F </td>
+        <td><span class="constant">SystemCoverageInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x60 </td>
+        <td><span class="constant">SystemPrefetchPatchInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x62 </td>
+        <td><span class="constant">SystemSystemPartitionInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x63 </td>
+        <td><span class="constant">SystemSystemDiskInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x64 </td>
+        <td><span class="constant">SystemProcessorPerformanceDistribution</span>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x65 </td>
+        <td><span class="constant">SystemNumaProximityNodeInformation</span>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x66 </td>
+        <td><span class="constant">SystemDynamicTimeZoneInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x67 </td>
+        <td><span class="constant">SystemCodeIntegrityInformation</span> </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x69 </td>
+        <td><span class="constant">SystemProcessorBrandString</span> </td>
+        <td>late 6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x6A </td>
+        <td><span class="constant">SystemVirtualAddressInformation</span> </td>
+        <td>late 6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x6C </td>
+        <td><span class="constant">SystemProcessorCycleTimeInformation</span>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x6D </td>
+        <td><span class="constant">SystemStoreInformation</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x70 </td>
+        <td><span class="constant">SystemVhdBootInformation</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x71 </td>
+        <td><span class="constant">SystemCpuQuotaInformation</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x72 </td>
+        <td><span class="constant">SystemNativeBasicInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x73 </td>
+        <td><span class="constant">SystemErrorPortTimeouts</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x74 </td>
+        <td><span class="constant">SystemLowPriorityIoInformation</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x75 </td>
+        <td><span class="constant">SystemBootEntropyInformation</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x76 </td>
+        <td><span class="constant">SystemVerifierCountersInformation</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x77 </td>
+        <td><span class="constant">SystemPagedPoolInformationEx</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x78 </td>
+        <td><span class="constant">SystemSystemPtesInformationEx</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x7A </td>
+        <td><span class="constant">SystemAcpiAuditInformation</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x7B </td>
+        <td><span class="constant">SystemBasicPerformanceInformation</span> </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x7C </td>
+        <td><span class="constant">SystemQueryPerformanceCounterInformation</span>
+        </td>
+        <td>late 6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x7D </td>
+        <td><span class="constant">SystemSessionBigPoolInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x7E </td>
+        <td><span class="constant">SystemBootGraphicsInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x80 </td>
+        <td><span class="constant">SystemBadPageInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x85 </td>
+        <td><span class="constant">SystemPlatformBinaryInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x86 </td>
+        <td><span class="constant">SystemPolicyInformation</span> </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x87 </td>
+        <td><span class="constant">SystemHypervisorProcessorCountInformation</span>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x88 </td>
+        <td><span class="constant">SystemDeviceDataInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x89 </td>
+        <td><span class="constant">SystemDeviceDataEnumerationInformation</span>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x8A </td>
+        <td><span class="constant">SystemMemoryTopologyInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x8B </td>
+        <td><span class="constant">SystemMemoryChannelInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x8C </td>
+        <td><span class="constant">SystemBootLogoInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x8D </td>
+        <td><span class="constant">SystemProcessorPerformanceInformationEx</span>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x8F </td>
+        <td><span class="constant">SystemSecureBootPolicyInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x90 </td>
+        <td><span class="constant">SystemPageFileInformationEx</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x91 </td>
+        <td><span class="constant">SystemSecureBootInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x93 </td>
+        <td><span class="constant">SystemPortableWorkspaceEfiLauncherInformation</span>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x94 </td>
+        <td><span class="constant">SystemFullProcessInformation</span> </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x95 </td>
+        <td><span class="constant">SystemKernelDebuggerInformationEx</span> </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x96 </td>
+        <td><span class="constant">SystemBootMetadataInformation</span> </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x97 </td>
+        <td><span class="constant">SystemSoftRebootInformation</span> </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x99 </td>
+        <td><span class="constant">SystemOfflineDumpConfigInformation</span>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x9A </td>
+        <td><span class="constant">SystemProcessorFeaturesInformation</span>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x9C </td>
+        <td><span class="constant">SystemEdidInformation</span> </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x9D </td>
+        <td><span class="constant">SystemManufacturingInformation</span> </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x9E </td>
+        <td><span class="constant">SystemEnergyEstimationConfigInformation</span>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x9F </td>
+        <td><span class="constant">SystemHypervisorDetailInformation</span> </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA0 </td>
+        <td><span class="constant">SystemProcessorCycleStatsInformation</span>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA2 </td>
+        <td><span class="constant">SystemTrustedPlatformModuleInformation</span>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA3 </td>
+        <td><span class="constant">SystemKernelDebuggerFlags</span> </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA4 </td>
+        <td><span class="constant">SystemCodeIntegrityPolicyInformation</span>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA5 </td>
+        <td><span class="constant">SystemIsolatedUserModeInformation</span> </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA6 </td>
+        <td><span class="constant">SystemHardwareSecurityTestInterfaceResultsInformation</span>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA7 </td>
+        <td><span class="constant">SystemSingleModuleInformation</span> </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA9 </td>
+        <td><span class="constant">SystemDmaProtectionInformation</span> </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xAB </td>
+        <td><span class="constant">SystemSecureBootPolicyFullInformation</span>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xAC </td>
+        <td><span class="constant">SystemCodeIntegrityPolicyFullInformation</span>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xAD </td>
+        <td><span class="constant">SystemAffinitizedInterruptProcessorInformation</span>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xAE </td>
+        <td><span class="constant">SystemRootSiloInformation</span> </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xAF </td>
+        <td><span class="constant">SystemCpuSetInformation</span> </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB2 </td>
+        <td><span class="constant">SystemSecureKernelProfileInformation</span>
+        </td>
+        <td>1511 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB3 </td>
+        <td><span class="constant">SystemCodeIntegrityPlatformManifestInformation</span>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB4 </td>
+        <td><span class="constant">SystemInterruptSteeringInformation</span>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB5 </td>
+        <td><span class="constant">SystemSupportedProcessorArchitectures</span>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB6 </td>
+        <td><span class="constant">SystemMemoryUsageInformation</span> </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB7 </td>
+        <td><span class="constant">SystemCodeIntegrityCertificateInformation</span>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB8 </td>
+        <td><span class="constant">SystemPhysicalMemoryInformation</span> </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB9 </td>
+        <td><span class="constant">SystemControlFlowTransition</span> </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xBA </td>
+        <td><span class="constant">SystemKernelDebuggingAllowed</span> </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xBC </td>
+        <td><span class="constant">SystemActivityModerationUserSettings</span>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xBD </td>
+        <td><span class="constant">SystemCodeIntegrityPoliciesFullInformation</span>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xBE </td>
+        <td><span class="constant">SystemCodeIntegrityUnlockInformation</span>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC0 </td>
+        <td><span class="constant">SystemFlushInformation</span> </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC1 </td>
+        <td><span class="constant">SystemProcessorIdleMaskInformation</span>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC3 </td>
+        <td><span class="constant">SystemWriteConstraintInformation</span> </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC4 </td>
+        <td><span class="constant">SystemKernelVaShadowInformation</span> </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC5 </td>
+        <td><span class="constant">SystemHypervisorSharedPageInformation</span>
+        </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC6 </td>
+        <td><span class="constant">SystemFirmwareBootPerformanceInformation</span>
+        </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC7 </td>
+        <td><span class="constant">SystemCodeIntegrityVerificationInformation</span>
+        </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC8 </td>
+        <td><span class="constant">SystemFirmwarePartitionInformation</span>
+        </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC9 </td>
+        <td><span class="constant">SystemSpeculationControlInformation</span>
+        </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xCA </td>
+        <td><span class="constant">SystemDmaGuardPolicyInformation</span> </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>For these valid information classes, all remaining behaviour varies with the 
+  information class. </p>
+  <p>Almost all information classes are associated with a structure that is at least 
+  the start of what the function produces as its output or expects as input. Mostly, 
+  the structure has no other purpose. Rather than have a separate page for each 
+  information class and then another for the corresponding structure, the remainder 
+  of this page gives for each information class a brief description of the general 
+  behaviour, and then the meaning of whatever the function puts in the structure 
+  or inteprets in it is taken up, if at all, in separate documentation of the structure.
+  </p>
+  <p>Before proceeding to the information classes one by one, it is as well to note 
+  some general points. </p>
+  <h3>Trivial Implementation </h3>
+  <p>For a few of the valid information classes, the function does little or nothing 
+  other than return an error such as <span class="constant">STATUS_NOT_IMPLEMENTED</span> 
+  or <span class="constant">STATUS_NOT_SUPPORTED</span>. For brevity, these are 
+  typically said to be <span class="definition">not implemented</span> or
+  <span class="definition">not supported</span>, respectively. Signs exist that 
+  some of these may be implemented non-trivially in debug builds, which are outside 
+  the scope of these notes. </p>
+  <h3>Exception Handling </h3>
+  <p>Except if noted explicitly below, the function never accesses the
+  <span class="argument">SystemInformation</span> or writes to the variable at
+  <span class="argument">ReturnLength</span> without preparing for exceptions. If 
+  executing for a user-mode request, the occurrence of an exception during such 
+  access is fatal for the function, which returns the exception code as its own 
+  result. If executing for a kernel-mode request, exceptions are handled only to 
+  continue as if unhandled, which will typically be fatal to Windows. </p>
+  <h3>Restricted Callers </h3>
+  <p>Some information classes are sensitive in that the corresponding information 
+  may contain kernel-mode addresses. Plainly, this is not an accidental leakage: 
+  it’s intended for user-mode processes that exist for diagnostics and instrumentation. 
+  But relatively few user-mode processes have that purpose, none should be trusted 
+  more than can’t be avoided, and some are deliberately up to no good. Revealing 
+  a kernel-mode address to a malicious user-mode caller is arguably not itself a 
+  security vulnerability, but it may help the latter’s success at attacking some 
+  other vulnerability. For version 6.3, the Windows kernel introduced the notion 
+  of a <span class="definition">restricted caller</span> that is not to be given 
+  kernel-mode addresses. When this function executes for a user-mode request from 
+  a restricted caller, it fails for some information classes rather than produce 
+  any information, and for some others it edits kernel-mode addresses out of whatever 
+  information is produced. </p>
+  <p>What counts as a restricted caller depends on the Windows version. Originally, 
+  a restricted caller is specifically a low-integrity process. In detail, a process 
+  has low integrity if an integrity level cannot be obtained from the process’s 
+  primary token or if the integrity level is less than <span class="constant">SECURITY_MANDATORY_MEDIUM_RID</span> 
+  (0x2000). Windows 10 has a wider restriction that is essentially the same as implemented 
+  for the <span class="function">RtlIsSandboxedToken</span> function: a user-mode 
+  caller is restricted unless it can pass an access check for
+  <span class="constant">READ_CONTROL</span> rights to securable objects that have 
+  medium integrity. </p>
+  <h3>Synchronisation </h3>
+  <p>The information to be produced for some information classes comes from enumerating 
+  items whose existence, state and relationships during ordinary execution are subject 
+  to instant change. The different types of item provide differently for synchronisation. 
+  Describing these in each case is too much for these notes at present, but some 
+  general caution seems in order. </p>
+  <p>Even without complications from synchronisation, the enumeration is sometimes 
+  of tens of thousands of items and can therefore take enough time in total to affect 
+  how frequently the information can usefully be polled. Because of synchronisation, 
+  however, the enumeration can have measureable effects not just on the program 
+  that calls the function but on multi-tasking performance in general and thus on 
+  other people’s software. </p>
+  <p>In the simplest but most comprehensive synchronisation, the function locks 
+  all other access to all instances of whatever is being enumerated. For the whole 
+  of the enumeration, while the function retrieves information about each item and 
+  follows links between items, no other access is possible to any of the items. 
+  In some (few) cases, this means the function holds a spin lock, with one processor 
+  at <span class="constant">DISPATCH_LEVEL</span>, for an unusually long time. Measurements 
+  in a debugger easily produce times of the order of 10ms, to compare with long-standing 
+  advice in the WDK that “no routine should hold a spin lock for longer than 25 
+  microseconds.” </p>
+  <p>Where synchronisation is more sophisticated, access to the items being enumerated 
+  is subject to multiple levels of synchronisation such that the function’s retrieval 
+  of information about one item does not prevent others’ access to other items that 
+  have been enumerated already or may soon be. This has an implication that seems 
+  not much remarked upon. The information that this function produces from enumerating 
+  a given type of item is not a snapshot of the state of all such items at any one 
+  time or during any one interval. It ordinarily is a self-consistent snapshot of 
+  each item, but at different times for different items. For instance, that two 
+  processes appear in the results from <span class="constant">SystemProcessInformation</span> 
+  (0x05) does not mean that these two processes ever coexisted. </p>
+  <h4>Locked Memory </h4>
+  <p>Somewhat related to synchronisation—indeed, sometimes demanded by the particular 
+  means of synchronisation—is that the function may, for the whole duration of the 
+  enumeration, both lock the supplied information buffer into physical memory and 
+  map it into system address space. In all such cases, the function itself has no 
+  notion of whether <span class="argument">SystemInformationLength</span> is reasonable. 
+  The whole information buffer gets locked and mapped, even if this is vastly more 
+  than turns out to be needed. When executing for a user-mode request, the function 
+  locks and maps even if the information buffer is vastly more than the user-mode 
+  caller would be able to lock without having increased its working set, and even 
+  if the user-mode caller lacks the necessary privilege to have been permitted to 
+  increase its working set. </p>
+  <h3>Shorthands </h3>
+  <p>Many information classes have similar elements to their treatment. This allows 
+  some shorthands. Notably, where the descriptions below say simply that the function 
+  sets the return length, it’s left as understood that what gets set is the variable 
+  at the address given by <span class="argument">ReturnLength</span> if the latter 
+  is not <span class="constant">NULL</span>. </p>
+  <p>Please understand that devising shorthands so that the behaviour can be described 
+  both usefully and accurately without tedious repetition is a work in progress, 
+  surely requiring multiple passes, each susceptible to error. Take more care than 
+  would be usual even for draft material. </p>
+  <h4>Fixed Information </h4>
+  <p>In the simplest cases that are well described by a shorthand, the information 
+  buffer is to receive some fixed-size structure. In the very simplest, the information 
+  buffer must provide <span class="emphasis">exactly</span> this structure. </p>
+  <table>
+    <tbody>
+      <tr>
+        <td>Shorthand: </td>
+        <td>The information buffer must provide exactly an X for the function to 
+        fill. </td>
+      </tr>
+      <tr>
+        <td>Meaning (Failure): </td>
+        <td>If the <span class="argument">SystemInformationLength</span> is not 
+        an exact fit for an X, <br>
+        the function sets the return length to the size of an X <br>
+        and returns <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>.
+        <br>
+        </td>
+      </tr>
+      <tr>
+        <td>Meaning (Success); </td>
+        <td>The function prepares an X at <span class="argument">SystemInformation</span>,
+        <br>
+        sets the return length to the size of an X <br>
+        and returns <span class="constant">STATUS_SUCCESS</span>. </td>
+      </tr>
+      <tr>
+        <td>Example: </td>
+        <td><span class="constant">SystemBasicInformation</span> (0x00) </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Only a little different is that the function tolerates a caller who provides 
+  more space than necessary. </p>
+  <table>
+    <tbody>
+      <tr>
+        <td>Shorthand: </td>
+        <td>The information buffer must provide at least an X for the function to 
+        fill. </td>
+      </tr>
+      <tr>
+        <td>Meaning (Failure): </td>
+        <td>If the <span class="argument">SystemInformationLength</span> is too 
+        small for an X, <br>
+        the function sets the return length to the size of an X <br>
+        and returns <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>.
+        </td>
+      </tr>
+      <tr>
+        <td>Meaning (Success); </td>
+        <td>The function prepares an X at <span class="argument">SystemInformation</span>,
+        <br>
+        sets the return length to the size of an X <br>
+        and returns <span class="constant">STATUS_SUCCESS</span>. </td>
+      </tr>
+      <tr>
+        <td>Example: </td>
+        <td><span class="constant">SystemProcessorInformation</span> (0x01) </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>These shorthands are in many cases the whole of the handling: nothing is checked 
+  other than the <span class="argument">SystemInformationLength</span>; and nothing 
+  can go wrong with filling in the structure. Where this is not true, variations 
+  are described under the heading Preliminaries, for applying in advance of checking 
+  the <span class="argument">SystemInformationLength</span>, else Retrieval. </p>
+  <h4>Variable Information </h4>
+  <div class="draft">
+    <p>Inevitably, the information classes for which the information can vary in 
+    size from one call to another each have very different requirements of the
+    <span class="argument">SystemInformationLength</span> and interpretations of 
+    what length they should indicate via <span class="argument">ReturnLength</span> 
+    if the information buffer is too small. Two broad categories may lend themselves 
+    to shorthands: the information is an array of fixed-size structures; or the 
+    information is a fixed-size header whose last member begins an array of fixed-size 
+    structures. </p>
+    <p>Descriptions of information classes that produce variable-size information 
+    are mostly in this faded colour to signify that they are even more just a draft 
+    than is everything else on this page. Only after the descriptions are all at 
+    least drafted is it easy to see what repeats and what thus might be condensed.
+    </p>
+    <p>Where a description below states that the information buffer is to receive 
+    some fixed-size structure A whose B array has some fixed-size structure C for 
+    each D, the following is implied as the whole behaviour. The function enumerates 
+    the D, writing to the information buffer as it goes. If an error occurs while 
+    enumerating, the function fails. For this purpose, it is not an error to find 
+    that the information buffer is too small. Without writing more to the information 
+    buffer, the function continues the enumeration to determine how much information 
+    might be produced were the buffer large enough. When the enumeration completes, 
+    the function sets the return length to this total, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. If enumeration completes 
+    such that the information buffer has all the information, the function sets 
+    the return length to this same total, and returns <span class="constant">STATUS_SUCCESS</span>. 
+    The oldest example is <span class="constant">SystemModuleInformation</span> 
+    (0x0B). </p>
+  </div>
+  <h3>SystemBasicInformation (0x00) </h3>
+  <p>The information buffer for <span class="constant">SystemBasicInformation</span> 
+  must provide exactly a <span class="struct"><a href="basic.htm">SYSTEM_BASIC_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemProcessorInformation (0x01) </h3>
+  <p>In version 3.51 and higher, the information buffer for
+  <span class="constant">SystemProcessorInformation</span> must provide at least 
+  a <span class="struct"><a href="processor.htm">SYSTEM_PROCESSOR_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <p>Exactly what’s intended before version 3.51 is unclear. The information buffer 
+  must provide at least a <span class="struct">SYSTEM_PROCESSOR_INFORMATION</span> 
+  for each processor. Perhaps as a coding error, the function fills in only the 
+  first such structure. </p>
+  <h3>SystemPerformanceInformation (0x02) </h3>
+  <p>The information buffer for <span class="constant">SystemPerformanceInformation</span> 
+  must provide at least enough for the function to fill a <span class="struct">
+  <a href="performance.htm">SYSTEM_PERFORMANCE_INFORMATION</a></span> structure 
+  up to and including its <span class="member">SystemCalls</span> member (this having 
+  been the last member in the structure’s original layout). If the
+  <span class="argument">SystemInformationLength</span> is too small for the partial 
+  structure, the function sets the return length to the size of the full structure 
+  and returns <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, 
+  the function fills in as much of the whole structure as fits, sets the return 
+  length to however many bytes are written to the buffer, and returns
+  <span class="constant">STATUS_SUCCESS</span>. </p>
+  <h3>SystemTimeOfDayInformation (0x03) </h3>
+  <p>This information class is unusual in requiring that the information buffer 
+  provides <span class="emphasis">no more than</span> the fixed-size
+  <span class="struct"><a href="timeofday.htm">SYSTEM_TIMEOFDAY_INFORMATION</a></span> 
+  structure. If given a bigger buffer, the function sets the return length to the 
+  size of the expected structure, and returns <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. 
+  Otherwise, the function fills in as much of the whole structure as fits, sets 
+  the return length to however many bytes are written to the buffer, and returns
+  <span class="constant">STATUS_SUCCESS</span>. </p>
+  <!--webbot bot="Include" U-Include="_include/oknobuffer.htm" TAG="BODY" startspan -->
+
+<p>In case it’s not clear: when given this information class but no information 
+buffer, the function succeeds! </p>
+
+<!--webbot bot="Include" endspan i-checksum="41475" -->
+  <p>Failure for being given too large an information buffer dates from the structure’s 
+  extension for version 5.0. In earlier versions, the information buffer must provide 
+  exactly a <span class="struct">SYSTEM_TIMEOFDAY_INFORMATION</span> structure for 
+  the function to fill. </p>
+  <h3>SystemPathInformation (0x04) </h3>
+  <!--webbot bot="Include" U-Include="_include/not_implemented.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="35747" -->
+  <p>In versions before 3.51 the information buffer is to receive a
+  <span class="struct">UNICODE_STRING</span> structure and the path to the Windows 
+  directory. Whether Microsoft ever wrapped this <span class="struct">UNICODE_STRING</span> 
+  into another structure, perhaps named <span class="struct">SYSTEM_PATH_INFORMATION</span>, 
+  is not known. </p>
+  <p>Version 3.51 moved the path to the <span class="struct">
+  <a href="../../../inc/api/ntexapi_x/kuser_shared_data/index.htm">KUSER_SHARED_DATA</a></span>, 
+  as the <span class="member">NtSystemRoot</span> member, presumably so that the 
+  path is readily available in user mode without the expense of calling the kernel. 
+  This change was sufficiently important that versions 3.51 to 5.0 break to the 
+  debugger to show a message before failing the function as not implemented: </p>
+  <pre class="output">EX: SystemPathInformation now available via SharedUserData</pre>
+  <h3>SystemProcessInformation (0x05) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a collection of irregularly spaced
+    <span class="struct"><a href="process.htm">SYSTEM_PROCESS_INFORMATION</a></span> 
+    structures, one per process. The spacing is irregular because each such structure 
+    can be followed by varying numbers of other fixed-size structures and by variable-size 
+    data too: an array of <span class="struct"><a href="thread.htm">SYSTEM_THREAD_INFORMATION</a></span> 
+    structures, one for each of the process’s threads; a <span class="struct">
+    <a href="process_extension.htm">SYSTEM_PROCESS_INFORMATION_EXTENSION</a></span> 
+    structure; and the process’s name. </p>
+    <!--webbot bot="Include" U-Include="_include/process_minimum.htm" TAG="BODY" startspan -->
+
+<p>The least requirement for describing even one process, with no threads and no 
+name, is a <span class="struct">SYSTEM_PROCESS_INFORMATION</span> and
+<span class="struct">SYSTEM_PROCESS_INFORMATION_EXTENSION</span> together. If given 
+less for the information buffer but without having been asked for a return length, 
+the function fails immediately, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>.
+</p>
+
+<!--webbot bot="Include" endspan i-checksum="19874" -->
+    <!--webbot bot="Include" U-Include="_include/process_enumeration.htm" TAG="BODY" startspan -->
+
+<p>Ordinarily, however, the function proceeds to enumerate processes until some 
+error occurs that must be returned. The function writes to the information buffer 
+while enumerating, for as long as space remains for each whole item. If the function 
+has an item to add that will not fit, then if no return length was asked for, the 
+function fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. 
+Otherwise, the function continues the enumeration but without writing more to the 
+information buffer. The intention is still to return <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> 
+if no other error occurs, but with the return length showing how much data the enumeration 
+would have produced had the buffer been big enough. Note that the size thus reported 
+need not suffice when the function is next called. This is not just the usual theoretical 
+point, but a practical one: the number of processes and threads not only can change 
+between calls but is highly likely to. </p>
+<p>If the enumeration completes without error and without exhausting the buffer, 
+the function sets the return length to however many bytes it put in the buffer, 
+and succeeds. </p>
+
+<!--webbot bot="Include" endspan i-checksum="43469" -->
+  </div>
+  <h3>SystemCallCountInformation (0x06) </h3>
+  <!--webbot bot="Include" U-Include="_include/not_supported.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_SUPPORTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="40394" -->
+  <p>This is recent, however. Although the function is not even valid in version 
+  3.10, all other versions before 10.0 fill the information buffer with a
+  <span class="struct"><a href="call_count.htm">SYSTEM_CALL_COUNT_INFORMATION</a></span> 
+  structure followed by variable-size data. </p>
+  <h3>SystemDeviceInformation (0x07) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="device.htm">SYSTEM_DEVICE_INFORMATION</a></span> structure for the function 
+  to fill. </p>
+  <h3>SystemProcessorPerformanceInformation (0x08) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive an array of <span class="struct">
+    <a href="processor_performance.htm">SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION</a></span> 
+    structures, one for each active processor in the current processor group. If 
+    the information buffer is not an exact fit for one or more such structures, 
+    the function sets the return length to the size of the array it could produce, 
+    and fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. 
+    Otherwise, the function copies to the buffer as many whole structures from the 
+    full array as fit, sets the return length to the size of what has been put in 
+    the buffer, and succeeds. </p>
+  </div>
+  <h3>SystemFlagsInformation (0x09) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="flags.htm">SYSTEM_FLAGS_INFORMATION</a></span> structure for the function 
+  to fill. </p>
+  <h3>SystemCallTimeInformation (0x0A) </h3>
+  <!--webbot bot="Include" U-Include="_include/not_implemented.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="35747" -->
+  <p>Rejection of this information class as unimplemented dates from version 3.50. 
+  Before then, this information class is instead rejected as invalid. Might it be 
+  implemented non-trivially in debug builds of some sort, even if only for Microsoft’s 
+  own testing during development? Microsoft has published symbol files that define 
+  a <span class="struct"><a href="call_time.htm">SYSTEM_CALL_TIME_INFORMATION</a></span> 
+  structure, which would be curiously named if not to support this information class.
+  </p>
+  <h3>SystemModuleInformation (0x0B) </h3>
+  <div class="draft">
+    <!--webbot bot="Include" U-Include="_include/restricted_caller.htm" TAG="BODY" startspan -->
+
+<p>If executing for a user-mode request from a restricted caller, the function fails, 
+returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="21317" -->
+    <p>The information buffer is to receive an <span class="struct">
+    <a href="../../rtl/ldrreloc/process_modules.htm">RTL_PROCESS_MODULES</a></span> 
+    structure whose <span class="member">Modules</span> array has an
+    <span class="struct">
+    <a href="../../rtl/ldrreloc/process_module_information.htm">RTL_PROCESS_MODULE_INFORMATION</a></span> 
+    for each module. </p>
+  </div>
+  <h3>SystemLocksInformation (0x0C) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive an <span class="struct">
+    <a href="../resource/process_locks.htm">RTL_PROCESS_LOCKS</a></span> structure 
+    whose <span class="member">Locks</span> array has an <span class="struct">
+    <a href="../resource/process_lock_information.htm">RTL_PROCESS_LOCK_INFORMATION</a></span> 
+    for each lock. Before the function sets about producing this information, There 
+    are two variations from this shorthand: </p>
+    <ul>
+      <li>If the buffer is too small even for the formally defined structure, with 
+      its capacity for describing just one lock, the function sets the return length 
+      to the size of the formal structure, and fails, returning
+      <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </li>
+      <li>
+      <!--webbot bot="Include" U-Include="_include/restricted_caller.htm" TAG="BODY" startspan -->
+
+<p>If executing for a user-mode request from a restricted caller, the function fails, 
+returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="21317" -->
+      </li>
+    </ul>
+    <p>With these preliminaries out of the way, the information class is handled 
+    as implied by the shorthand. </p>
+    <p>The locks in question are what kernel-mode programmers know as system resources, 
+    each implemented as an <span class="struct">ERESOURCE</span> structure (declared 
+    in WDM.H). Beware that there can be very many locks. Expect tens of thousands 
+    even on a computer that has only just started. Beware also that their number 
+    not only can change between calls to the function but is highly likely to—indeed, 
+    almost always will. </p>
+  </div>
+  <h3>SystemStackTraceInformation (0x0D) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive an <span class="struct">
+    <a href="../../rtl/stktrace/process_backtraces.htm">RTL_PROCESS_BACKTRACES</a></span> 
+    structure whose <span class="member">BackTraces</span> array has an
+    <span class="struct">
+    <a href="../../rtl/stktrace/process_backtrace_information.htm">RTL_PROCESS_BACKTRACE_INFORMATION</a></span> 
+    for each stack. There are several variations from this shorthand. </p>
+    <ul>
+      <li>If the buffer is too small even for the formally defined structure, with 
+      its capacity for describing one stack, the function sets the return length 
+      to the size of the formal structure, and fails, returning
+      <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </li>
+      <li>
+      <!--webbot bot="Include" U-Include="_include/restricted_caller.htm" TAG="BODY" startspan -->
+
+<p>If executing for a user-mode request from a restricted caller, the function fails, 
+returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="21317" -->
+      </li>
+      <li>There is anyway no information to produce unless the kernel-mode stack 
+      trace database is enabled (via the 0x00002000 bit in
+      <span class="variable">NtGlobalFlag</span> at startup). If it is not, the 
+      function fails, returning the ever-helpful <span class="constant">STATUS_UNSUCCESSFUL</span>.
+      </li>
+    </ul>
+    <p>With these preliminaries out of the way, the information class is handled 
+    as implied by the shorthand. </p>
+  </div>
+  <h3>SystemPagedPoolInformation (0x0E) </h3>
+  <p>This information class is only trivially valid. The function sets the return 
+  length to zero and returns <span class="constant">STATUS_NOT_IMPLEMENTED</span>.
+  </p>
+  <p>Versions before 5.1 first check for a minimum expectation and then have a subroutine 
+  complain of being not implemented. In versions before 3.51, the subroutine does 
+  non-trivial work, notably to lock the information buffer in anticipation of producing 
+  a snapshot of the pool, before concluding that there is no implementation. The 
+  expectation in all these old versions appears to be that the information buffer 
+  is to receive a <span class="struct"><a href="pool.htm">SYSTEM_POOL_INFORMATION</a></span> 
+  structure whose <span class="member">Entries</span> member has a
+  <span class="struct">SYSTEM_POOL_ENTRY</span> for each pool entry, allocated or 
+  not. Perhaps this information class was implemented non-trivially in debug builds.
+  </p>
+  <h3>SystemNonPagedPoolInformation (0x0F) </h3>
+  <p>This information class is only trivially valid. The function sets the return 
+  length to zero and returns <span class="constant">STATUS_NOT_IMPLEMENTED</span>.
+  </p>
+  <p>Versions before 5.1 first check for a minimum expectation and then have a subroutine 
+  complain of being not implemented. In versions before 3.51, the subroutine does 
+  non-trivial work, notably to lock the information buffer in anticipation of producing 
+  a snapshot of the pool, before concluding that there is no implementation. The 
+  expectation in all these old versions appears to be that the information buffer 
+  is to receive a <span class="struct">SYSTEM_POOL_INFORMATION</span> structure 
+  whose <span class="member">Entries</span> member has a <span class="struct">SYSTEM_POOL_ENTRY</span> 
+  for each pool entry, allocated or not. Perhaps this information class was implemented 
+  non-trivially in debug builds. </p>
+  <h3>SystemHandleInformation (0x10) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a <span class="struct">
+    <a href="handle.htm">SYSTEM_HANDLE_INFORMATION</a></span> structure whose
+    <span class="member">Handles</span> array has a <span class="struct">
+    <a href="handle_table_entry.htm">SYSTEM_HANDLE_TABLE_ENTRY_INFO</a></span> for 
+    each handle. If the buffer is too small even for the formally defined structure, 
+    with its capacity for describing one handle, the function sets the return length 
+    to the size of the formal structure, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. The function also 
+    returns <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> if the buffer 
+    is large enough for describing one handle but not large enough to receive the 
+    whole array. In this case, the function sets the return length to the size that 
+    would be needed for the full description. Beware that there can be very many 
+    handles and that their number not only can change between calls to the function 
+    but is highly likely to. </p>
+    <p>The information buffer must be pointer-aligned. If it is not, the function 
+    fails, returning <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span>.
+    </p>
+    <!--webbot bot="Include" U-Include="_include/restricted_caller.htm" TAG="BODY" startspan -->
+
+<p>If executing for a user-mode request from a restricted caller, the function fails, 
+returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="21317" -->
+  </div>
+  <h3>SystemObjectInformation (0x11) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a collection of irregularly spaced
+    <span class="struct"><a href="objecttype.htm">SYSTEM_OBJECTTYPE_INFORMATION</a></span> 
+    structures, one for each type of object. Each of these can be followed by some 
+    number of <span class="struct"><a href="object.htm">SYSTEM_OBJECT_INFORMATION</a></span> 
+    structures, one for each object of the corresponding type. These too are irregularly 
+    spaced because each can be followed by the object’s name. If the buffer is too 
+    small even for one <span class="struct">SYSTEM_OBJECTTYPE_INFORMATION</span>, 
+    the function sets the return length to show this minimal expectation, and fails, 
+    returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </p>
+    <!--webbot bot="Include" U-Include="_include/restricted_caller.htm" TAG="BODY" startspan -->
+
+<p>If executing for a user-mode request from a restricted caller, the function fails, 
+returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="21317" -->
+  </div>
+  <h3>SystemPageFileInformation (0x12) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a collection of irregularly spaced
+    <span class="struct"><a href="pagefile.htm">SYSTEM_PAGEFILE_INFORMATION</a></span> 
+    structures, one for each paging file (not counting swap files and virtual stores). 
+    If the buffer is too small even for the first of these structures, the function 
+    sets the return length to show this minimal expectation, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+    fills the buffer with as many structures and other data as fits, and sets the 
+    return length to the size of what has been put in the buffer. </p>
+  </div>
+  <h3>SystemVdmInstemulInformation (0x13) </h3>
+  <p>In 64-bit Windows, which has no Virtual DOS Machine (VDM) support, this information 
+  class is only trivially valid. The function sets the return length to zero and 
+  returns <span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+  <p>In 32-bit Windows, the information buffer must provide at least a
+  <span class="struct"><a href="vdm_instemul.htm">SYSTEM_VDM_INSTEMUL_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemFileCacheInformation (0x15) </h3>
+  <p>In 64-bit Windows, the information buffer must provide at least a
+  <span class="struct"><a href="filecache.htm">SYSTEM_FILECACHE_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <p>The 32-bit Windows implementation allows a smaller information buffer, to account 
+  for an original definition that reached only to the <span class="member">PageFaultCount</span> 
+  member. If the information buffer is not large enough for the original structure, 
+  the function sets the return length to this smaller requirement, and returns
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+  fills in either the partial structure or the whole structure, if the latter fits, 
+  sets the return length to however many bytes were written to the buffer, and returns
+  <span class="constant">STATUS_SUCCESS</span>. </p>
+  <h3>SystemPoolTagInformation (0x16) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a <span class="struct">
+    <a href="pooltag.htm">SYSTEM_POOLTAG_INFORMATION</a></span> structure whose
+    <span class="member">TagInfo</span> array has a <span class="struct">SYSTEM_POOLTAG</span> 
+    for each tag. If the buffer is too small even for the formally defined structure, 
+    with its capacity for describing one tag, the function sets the return length 
+    to the size of the formal structure, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </p>
+  </div>
+  <h3>SystemInterruptInformation (0x17) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive an array of <span class="struct">
+    <a href="interrupt.htm">SYSTEM_INTERRUPT_INFORMATION</a></span> structures, 
+    one for each active processor in the current processor group. If the information 
+    buffer is not large enough for them all, the function sets the return length 
+    to the size of the array it could produce, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </p>
+  </div>
+  <h3>SystemDpcBehaviorInformation (0x18) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="dpc_behavior.htm">SYSTEM_DPC_BEHAVIOR_INFORMATION</a></span> structure 
+  for the function to fill. </p>
+  <h3>SystemFullMemoryInformation (0x19) </h3>
+  <!--webbot bot="Include" U-Include="_include/not_implemented.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="35747" -->
+  <p>In versions 4.0 to 5.1, the information buffer must provide at least a
+  <span class="struct"><a href="memory.htm">SYSTEM_MEMORY_INFORMATION</a></span>. 
+  Assuming it does, the information class is handled by an internal routine which 
+  symbol files name as <span class="internal routine">MmMemoryUsage</span>. In builds 
+  that have been inspected, but perhaps not in debug builds, this routine also is 
+  trivial: the function still returns as if not implemented. </p>
+  <h3>SystemTimeAdjustmentInformation (0x1C) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="query_time_adjust.htm">SYSTEM_QUERY_TIME_ADJUST_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemSummaryMemoryInformation (0x1D) </h3>
+  <!--webbot bot="Include" U-Include="_include/not_implemented.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="35747" -->
+  <p>In versions 4.0 to 5.1, the information buffer must provide at least a
+  <span class="struct">SYSTEM_MEMORY_INFORMATION</span>. Assuming it does, the information 
+  class is handled by an internal routine which symbol files name as
+  <span class="internal routine">MmMemoryUsage</span>. In builds that have been 
+  inspected, but perhaps not in debug builds, this routine also is trivial: the 
+  function still returns as if not implemented. </p>
+  <h3>SystemNextEventIdInformation (Early 0x1E) </h3>
+  <p>This information class is valid in versions 3.50 to 4.0 but only trivially. 
+  The function returns <span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+  <h3>SystemEventIdsInformation (Early 0x1F) </h3>
+  <p>This information class is valid in versions 3.50 to 4.0 but only trivially. 
+  The function returns <span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+  <h3>SystemPerformanceTraceInformation (0x1F) </h3>
+  <p>The information buffer not only receives output but provides input. Moreover, 
+  the input begins with a secondary information class that subdivides the behaviour. 
+  If the information buffer is too small to provide this <span class="enum">
+  <a href="../../etw/tracesup/class.htm">EVENT_TRACE_INFORMATION_CLASS</a></span> 
+  as input, the function returns <span class="constant">STATUS_INVALID_PARAMETER</span>. 
+  Remaining behaviour varies with the second information class. </p>
+  <h3>SystemCrashDumpInformation (0x20) </h3>
+  <p>This information class is nowadays invalid. In versions 3.50 to 5.0, however, 
+  the information buffer must provide at least a <span class="struct">
+  <a href="crash_dump.htm">SYSTEM_CRASH_DUMP_INFORMATION</a></span> structure for 
+  the function to fill. </p>
+  <h3>SystemExceptionInformation (0x21) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="exception.htm">SYSTEM_EXCEPTION_INFORMATION</a></span> structure for 
+  the function to fill. </p>
+  <h3>SystemCrashDumpStateInformation (0x22) </h3>
+  <p>This information class is nowadays invalid for queries. In versions 3.50 to 
+  5.0, however, the information buffer must provide at least a
+  <span class="struct"><a href="crash_state.htm">SYSTEM_CRASH_STATE_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemKernelDebuggerInformation (0x23) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="kernel_debugger.htm">SYSTEM_KERNEL_DEBUGGER_INFORMATION</a></span> structure 
+  for the function to fill. </p>
+  <h3>SystemContextSwitchInformation (0x24) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="context_switch.htm">SYSTEM_CONTEXT_SWITCH_INFORMATION</a></span> structure 
+  for the function to fill. </p>
+  <h3>SystemRegistryQuotaInformation (0x25) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="registry_quota.htm">SYSTEM_REGISTRY_QUOTA_INFORMATION</a></span> structure 
+  for the function to fill. </p>
+  <h3>SystemPlugPlayBusInformation (Early 0x28) </h3>
+  <p>This information class is valid in versions 3.51 to 4.0 but only trivially. 
+  The function returns <span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+  <p>Microsoft is known to have defined a <span class="struct">
+  <a href="plugplay_bus.htm">SYSTEM_PLUGPLAY_BUS_INFORMATION</a></span> structure, 
+  which would be curiously named if it was never at least intended for supporting 
+  this information class. </p>
+  <h3>SystemDockInformation (Early 0x29) </h3>
+  <p>This information class is valid in versions 3.51 to 4.0 but only trivially. 
+  The function returns <span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+  <p>Microsoft is known to have defined a <span class="struct">
+  <a href="dock.htm">SYSTEM_DOCK_INFORMATION</a></span> structure, which would be 
+  curiously named if it was never at least intended for supporting this information 
+  class. </p>
+  <h3>SystemProcessorIdleInformation (0x2A) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive an array of <span class="struct">
+    <a href="processor_idle.htm">SYSTEM_PROCESSOR_IDLE_INFORMATION</a></span> structures, 
+    one for each active processor in the current processor group. If the information 
+    buffer is not large enough for them all, the function sets the return length 
+    to the size of the array it could produce, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </p>
+  </div>
+  <p>This information class is invalid before version 5.1 but Microsoft is known 
+  to have defined it differently, as <span class="constant">SystemPowerInformation</span>, 
+  in versions 3.51 and 4.0. Though the information class with this name is not known 
+  ever to have been valid, Microsoft is known to have defined a
+  <span class="struct"><a href="power.htm">SYSTEM_POWER_INFORMATION</a></span> structure 
+  at the time, well ahead of and very differently from the documented structure 
+  that later has this name. It seems safe to speculate that this
+  <span class="struct">SYSTEM_POWER_INFORMATION</span> was at least intended for 
+  supporting this information class while it was named <span class="constant">SystemPowerInformation</span>.
+  </p>
+  <h3>SystemLegacyDriverInformation (0x2B) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a fixed-size <span class="struct">
+    <a href="legacy_driver.htm">SYSTEM_LEGACY_DRIVER_INFORMATION</a></span> structure 
+    and a variable-size string. If the information buffer is too small even for 
+    the fixed-size structure, the function sets the return length to show the minimal 
+    expectation, and fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. 
+    If it’s too small for all that the function would copy, the function sets the 
+    return length to show what it could produce, and fails, returning
+    <span class="constant">STATUS_BUFFER_OVERFLOW</span>. </p>
+  </div>
+  <p>This information class is invalid before version 5.0 but Microsoft is known 
+  to have defined it differently, as <span class="constant">SystemProcessorSpeedInformation</span>, 
+  in versions 3.51 and 4.0. Though the information class with this name is not known 
+  ever to have been valid, Microsoft is known to have defined a
+  <span class="struct"><a href="processor_speed.htm">SYSTEM_PROCESSOR_SPEED_INFORMATION</a></span> 
+  structure, which would be curiously named if it was never at least intended for 
+  supporting this information class while it was named <span class="constant">SystemProcessorSpeedInformation</span>.
+  </p>
+  <h3>SystemCurrentTimeZoneInformation (0x2C) </h3>
+  <p>The information buffer must provide at least an <span class="struct">
+  <a href="../systime/rtl_time_zone_information.htm">RTL_TIME_ZONE_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemLookasideInformation (0x2D) </h3>
+  <p>The information buffer is to receive an array of <span class="struct">
+  <a href="lookaside.htm">SYSTEM_LOOKASIDE_INFORMATION</a></span> structures, one 
+  for each lookaside list in four sets. Broadly, these sets are: </p>
+  <ol>
+    <li>per-processor pool lookaside lists that help with small pool allocations;
+    </li>
+    <li>per-processor and shared system lookaside lists dedicated to management 
+    of memory for particular system structures; </li>
+    <li>general lookaside lists for non-paged allocations, as when initialised through
+    <span class="function">ExInitializeNPagedLookasideList</span>; </li>
+    <li>general lookaside lists for paged allocations, as when initialised through
+    <span class="function">ExInitializePagedLookasideList</span>. </li>
+  </ol>
+  <p>Finer resolution of the lookaside lists that can be enumerated would necessarily 
+  be a separate article (or articles). For present purposes it must suffice to know 
+  that there typically exist very many lookaside lists: easily in the thousands. 
+  The function fills the buffer with as many whole structures as there are lists 
+  to describe and which fit. It then sets the return length to show how much has 
+  been put there, and succeeds. </p>
+  <!--webbot bot="Include" U-Include="_include/oknobuffer.htm" TAG="BODY" startspan -->
+
+<p>In case it’s not clear: when given this information class but no information 
+buffer, the function succeeds! </p>
+
+<!--webbot bot="Include" endspan i-checksum="41475" -->
+  <!--webbot bot="Include" U-Include="_include/oknotall.htm" TAG="BODY" startspan -->
+
+<p>In case it’s not clear: when given this information class, the function can succeed 
+without having produced all the possible information and without indicating how 
+much it could have produced. </p>
+
+<!--webbot bot="Include" endspan i-checksum="42214" -->
+  <h4>Buffering </h4>
+  <p>Except when succeeding trivially because the information buffer is too small 
+  for even one structure, the function expects to write at least something into 
+  the information buffer. So that enumerating the lookaside lists does not itself 
+  cause allocations from and frees to lookaside lists because of paging I/O or exception 
+  handling, the function locks the information buffer into physical memory and maps 
+  it into system address space. Failure at this is failure for the function. </p>
+  <h4>Synchronisation </h4>
+  <p>The function does not synchronise its enumeration of either the pool or system 
+  lookaside lists with code that would initialise more such lists for a newly added 
+  processor. These lookaside lists are themselves in two double-linked lists, one 
+  for each set. Is it possible that addition of a processor could disturb a link 
+  just as it gets followed by this function for the enumeration? </p>
+  <p>The other sets of lookaside lists each have a corresponding spin lock which 
+  is held while any lookaside list of the same type is initialised or deleted. The 
+  function holds each lock in turn, thus running the current processor at
+  <span class="constant">DISPATCH_LEVEL</span> while enumerating these sets. </p>
+  <h3>SystemRangeStartInformation (0x32) </h3>
+  <p>The information buffer must provide exactly a pointer for the function to set. 
+  If Microsoft has a structure for this, Microsoft’s name for it is not known.
+  </p>
+  <p>The buffer receives a copy of the kernel’s <span class="variable">MmSystemRangeStart</span> 
+  variable. The kernel exports this variable in version 4.0 from Windows NT 4.0 
+  SP3, and higher. It is declared in NTDDK.H as far back as the DDK for Windows 
+  2000. Since this variable is exported from all known kernel versions that support
+  <span class="constant">SystemRangeStartInformation</span>, this information class 
+  has little or no reason to exist except to help user-mode callers. </p>
+  <p>Exposure of <span class="variable">MmSystemRangeStart</span> in user mode anyway 
+  predates this information class. Again starting with Windows NT 4.0 SP3, the kernel 
+  copies the <span class="variable">MmSystemRangeStart</span> to the
+  <span class="struct">KUSER_SHARED_DATA</span>, albeit to a member whose only known 
+  name is <span class="member">Reserved3</span>. </p>
+  <h3>SystemVerifierInformation (0x33) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a collection of irregularly spaced
+    <span class="struct"><a href="verifier.htm">SYSTEM_VERIFIER_INFORMATION</a></span> 
+    structures. If the buffer is too small even for the first of these structures, 
+    the function sets the return length to show this minimal expectation, and fails, 
+    returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, 
+    the function fills the buffer with as many structures and other data as it can 
+    generate and fit within the buffer, to a maximum of 10MB, and sets the return 
+    length to the size of what has been put in the buffer. </p>
+    <p>In case it’s not clear, when given this information class but no information 
+    buffer, the function may fail, telling of a minimum size that is required for 
+    the buffer, and then when given that size of buffer, the function may succeed 
+    but say it put nothing in the buffer. </p>
+  </div>
+  <h3>SystemSessionProcessInformation (0x35) </h3>
+  <div class="draft">
+    <p>The information buffer must provide at least a <span class="struct">
+    <a href="session_process.htm">SYSTEM_SESSION_PROCESS_INFORMATION</a></span> 
+    structure as input. Given less, the function sets the return length to the size 
+    of the structure, and fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>.
+    </p>
+    <p>As input, the structure provides a session ID and the address and size of 
+    a secondary information buffer for the function to use as if for
+    <span class="constant">SystemProcessInformation</span> but refined to query 
+    just for processes in the given session. This secondary information buffer must 
+    have four-byte alignment, lie wholly in user-mode address space and be writable.
+    </p>
+    <p><span class="alert">DETAILS IN PREPARATION</span> </p>
+    <p>For this information class, the size returned via <span class="argument">
+    ReturnLength</span> need not be the amount of information that has been or might 
+    have been put in the information buffer as described by
+    <span class="argument">SystemInformation</span> and <span class="argument">SystemInformationLength</span>. 
+    The output value of the variable at <span class="argument">ReturnLength</span> 
+    may instead describe the secondary information buffer. Whether this is by design 
+    or oversight is unclear. Oversight seems more plausible, however. See especially 
+    that it is inconsistent with the annotations on Microsoft’s one published declaration 
+    of the function (in ZWAPI.H from the WDK for Windows 10). </p>
+  </div>
+  <h3>SystemNumaProcessorMap (0x37) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive as much of a <span class="struct">
+    <a href="numa.htm">SYSTEM_NUMA_INFORMATION</a></span> structure as there are 
+    nodes to describe. If the buffer is too small for the function to fill in at 
+    least the <span class="member">HighestNodeNumber</span> at the structure’s start, 
+    then the function sets the return length to that member’s size, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. If the buffer is 
+    too small for even one <span class="struct">GROUP_AFFINITY</span> in the
+    <span class="member">ActiveProcessorsGroupAffinity</span> array, the function 
+    sets the <span class="member">HighestNodeNumber</span> in the buffer, sets the 
+    return length to that member’s size and declares success. Otherwise, it fills 
+    as many <span class="struct">GROUP_AFFINITY</span> structures as there are nodes 
+    to describe and which fit in the buffer, and sets the return length to the size 
+    of what has been put in the buffer. </p>
+  </div>
+  <h3>SystemPrefetcherInformation (0x38) </h3>
+  <div class="draft">
+    <p>If executing for a user-mode request, the caller must have
+    <span class="constant">SeProfileSingleProcessPrivilege</span>. Without it, the 
+    function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>.
+    </p>
+    <p>The information buffer must provide exactly a <span class="struct">
+    <a href="../../pf/prefetch/superfetch.htm">SUPERFETCH_INFORMATION</a></span> 
+    structure as input. This is not certainly Microsoft’s name for the structure 
+    as expected for this information class. It is, however, Microsoft’s name for 
+    a structure that has the same layout and which is known to be correct for the 
+    information class <span class="constant">SystemSuperfetchInformation</span>.
+    </p>
+    <p>The first dword must be 0x01 and the second 0x6B756843, else the function 
+    fails, returning <span class="constant">STATUS_INVALID_PARAMETER</span>. If 
+    the third dword is not a valid Prefetcher information class, the function fails, 
+    returning <span class="constant">STATUS_INVALID_INFO_CLASS</span>. The valid 
+    cases are beyond the present scope of this review. </p>
+  </div>
+  <h3>SystemExtendedProcessInformation (0x39) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a collection of irregularly spaced
+    <span class="struct">SYSTEM_PROCESS_INFORMATION</span> structures, one per process. 
+    The spacing is irregular because each such structure can be followed by varying 
+    numbers of other fixed-size structures and by variable-size data too: an array 
+    of <span class="struct"><a href="extended_thread.htm">SYSTEM_EXTENDED_THREAD_INFORMATION</a></span> 
+    structures, one for each of the process’s threads; a <span class="struct">SYSTEM_PROCESS_INFORMATION_EXTENSION</span> 
+    structure; and the process’s name. </p>
+    <!--webbot bot="Include" U-Include="_include/process_minimum.htm" TAG="BODY" startspan -->
+
+<p>The least requirement for describing even one process, with no threads and no 
+name, is a <span class="struct">SYSTEM_PROCESS_INFORMATION</span> and
+<span class="struct">SYSTEM_PROCESS_INFORMATION_EXTENSION</span> together. If given 
+less for the information buffer but without having been asked for a return length, 
+the function fails immediately, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>.
+</p>
+
+<!--webbot bot="Include" endspan i-checksum="19874" -->
+    <!--webbot bot="Include" U-Include="_include/process_enumeration.htm" TAG="BODY" startspan -->
+
+<p>Ordinarily, however, the function proceeds to enumerate processes until some 
+error occurs that must be returned. The function writes to the information buffer 
+while enumerating, for as long as space remains for each whole item. If the function 
+has an item to add that will not fit, then if no return length was asked for, the 
+function fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. 
+Otherwise, the function continues the enumeration but without writing more to the 
+information buffer. The intention is still to return <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> 
+if no other error occurs, but with the return length showing how much data the enumeration 
+would have produced had the buffer been big enough. Note that the size thus reported 
+need not suffice when the function is next called. This is not just the usual theoretical 
+point, but a practical one: the number of processes and threads not only can change 
+between calls but is highly likely to. </p>
+<p>If the enumeration completes without error and without exhausting the buffer, 
+the function sets the return length to however many bytes it put in the buffer, 
+and succeeds. </p>
+
+<!--webbot bot="Include" endspan i-checksum="43469" -->
+  </div>
+  <h3>SystemRecommendedSharedDataAlignment (0x3A) </h3>
+  <p>The information buffer must provide at least a <span class="type">ULONG</span> 
+  for the function to set. If this is dressed as a structure, Microsoft’s name for 
+  it is not known. </p>
+  <p>What the buffer receives is simply the result of the documented kernel function
+  <span class="function">KeGetRecommendedSharedDataAlignment</span>. This is the 
+  size of the largest cache line of any processor, which the kernel will have determined 
+  from initialising its <a href="../../../../cpu/l2cache.htm">Second-Level Cache 
+  Support</a> for successive processors. </p>
+  <h3>SystemComPlusPackage (0x3B) </h3>
+  <p>The information buffer must provide exactly a <span class="type">ULONG</span> 
+  for the function to set. If this is dressed as a structure, Microsoft’s name for 
+  it is not known. </p>
+  <p>The buffer receives a copy of the <span class="member">ComPlusPackage</span> 
+  from the <span class="struct">KUSER_SHARED_DATA</span> except that if what’s there 
+  is (still) 0xFFFFFFFF, the kernel first clears it to 0 and then tries to load 
+  it from the registry: </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\.NETFramework</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">Enable64Bit</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Failure to read the data for any reason other than absence of the key or value 
+  is failure for the function, which returns the error from the registry operation. 
+  If the key or value is not found or if the data is not a dword of
+  <span class="constant">REG_DWORD</span> data, the result of this and future queries 
+  is zero. </p>
+  <p>Microsoft documents one meaningful value: <span class="constant">COMPLUS_ENABLE_64BIT</span> 
+  (1). The documented KERNEL32 function <span class="function">GetComPlusPackageInstallStatus</span> 
+  ordinarily reads from the <span class="struct">KUSER_SHARED_DATA</span>, presumably 
+  for efficiency, but queries via <span class="constant">SystemComPlusPackage</span> 
+  if the cached value is 0xFFFFFFFF. Though Microsoft documents the KERNEL32 function 
+  only for Windows Vista and higher, it is exported as early as version 5.1. What 
+  it can mean to have the 64-bit Common Language Runtime installed in version 5.1 
+  is unclear but immaterial: for what looks to be the lack of a
+  <span class="statement">break</span> statement, all builds of version 5.1 fill 
+  the information buffer for <span class="constant">SystemComPlusPackage</span> 
+  as if for <span class="constant">SystemLostDelayedWriteInformation</span>. </p>
+  <h3>SystemNumaAvailableMemory (0x3C) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive as much of a <span class="struct">SYSTEM_NUMA_INFORMATION</span> 
+    structure as there are nodes to describe. If the buffer is too small for the 
+    function to fill in at least the <span class="member">HighestNodeNumber</span> 
+    at the structure’s start, then the function sets the return length to that member’s 
+    size, and fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. 
+    If the buffer is too small for even one <span class="type">ULONGLONG</span> 
+    in the <span class="member">AvailableMemory</span> array, the function sets 
+    the <span class="member">HighestNodeNumber</span> in the buffer, sets the return 
+    length to that member’s size and declares success. Otherwise, it fills as many 
+    array members as there are nodes to describe and which fit in the buffer and 
+    sets the return length to the size of what has been put in the buffer. </p>
+  </div>
+  <h3>SystemProcessorPowerInformation (0x3D) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive an array of <span class="struct">
+    <a href="processor_power.htm">SYSTEM_PROCESSOR_POWER_INFORMATION</a></span> 
+    structures, one for each active processor in the current processor group. If 
+    the information buffer is not large enough for them all, the function sets the 
+    return length to the size of the array it could produce, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </p>
+  </div>
+  <h3>SystemEmulationBasicInformation (0x3E) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">SYSTEM_BASIC_INFORMATION</span> 
+  structure for the function to fill. </p>
+  <h3>SystemEmulationProcessorInformation (0x3F) </h3>
+  <p>The information buffer must provide at least a <span class="struct">SYSTEM_PROCESSOR_INFORMATION</span> 
+  structure for the function to fill. </p>
+  <h3>SystemExtendedHandleInformation (0x40) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a <span class="struct">
+    <a href="handle_ex.htm">SYSTEM_HANDLE_INFORMATION_EX</a></span> structure whose
+    <span class="member">Handles</span> array has a <span class="struct">
+    <a href="handle_table_entry_ex.htm">SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX</a></span> 
+    for each handle. If the buffer is too small even for the formally defined structure, 
+    with its capacity for describing one handle, the function sets the return length 
+    to the size of the formal structure, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </p>
+    <p>The information buffer must be pointer-aligned. If it is not, the function 
+    fails, returning <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span>.
+    </p>
+    <!--webbot bot="Include" U-Include="_include/restricted_caller.htm" TAG="BODY" startspan -->
+
+<p>If executing for a user-mode request from a restricted caller, the function fails, 
+returning <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="21317" -->
+  </div>
+  <h3>SystemLostDelayedWriteInformation (0x41) </h3>
+  <p>The information buffer must provide at least a <span class="type">ULONG</span> 
+  for the function to set. If this is dressed as a structure, Microsoft’s name for 
+  it is not known. </p>
+  <p>What the buffer receives is the total of the per-processor
+  <span class="member">CcLostDelayedWrites</span> counters, one per
+  <span class="struct"><a href="../../../inc/ntos/kprcb.htm">KPRCB</a></span>.
+  </p>
+  <h3>SystemBigPoolInformation (0x42) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a <span class="struct">
+    <a href="bigpool.htm">SYSTEM_BIGPOOL_INFORMATION</a></span> structure whose
+    <span class="member">AllocatedInfo</span> array has a <span class="struct">
+    <a href="bigpool_entry.htm">SYSTEM_BIGPOOL_ENTRY</a></span> for each allocation. 
+    If the buffer is too small even for the formally defined structure, with its 
+    capacity for describing one allocation, the function sets the return length 
+    to the size of the formal structure, and fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </p>
+  </div>
+  <h3>SystemSessionPoolTagInformation (0x43) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemSessionMappedViewInformation (0x44) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="session_mapped_view.htm">SYSTEM_SESSION_MAPPED_VIEW_INFORMATION</a></span> 
+  structure for both input and output. Given less, the function sets the return 
+  length to the size of the structure, and fails, returning
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </p>
+  <p>As input, the structure provides a session ID. This can be 0xFFFFFFFF to mean 
+  all sessions. </p>
+  <p>For output, the information buffer is to receive an array of these structures. 
+  If the information buffer does not have 8-byte alignment, the function fails, 
+  returning <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span>. </p>
+  <h3>SystemHotpatchInformation (0x45) </h3>
+  <p>This information class is only trivially valid. The function sets the return 
+  length to zero and returns <span class="constant">STATUS_NOT_SUPPORTED</span>.
+  </p>
+  <h3>SystemObjectSecurityMode (0x46) </h3>
+  <p>The information buffer must provide exactly a 32-bit integer for the function 
+  to set. If Microsoft has a structure for this, Microsoft’s name for it is not 
+  known. </p>
+  <p>What the buffer receives is a copy of an internal variable that the kernel 
+  initialises from the registry but does not otherwise use: </p>
+  <table>
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session 
+        Manager</span> </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">ObjectSecurityMode</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The kernel merely holds the value for callers of this function, presumably 
+  so that their interpretation of it at different times cannot be made inconsistent 
+  by changes to the registry value. (Changes take effect only after Windows restarts.) 
+  A known interpretation is by BASESRV.DLL for setting the access that Everyone 
+  (S-1-1-0) is allowed to the per-session <span class="object">\Session\<span class="placeholder">id</span>\BaseNamedObjects</span> 
+  and <span class="object">\Session\<span class="placeholder">id</span>\BaseNamedObjects\Restricted</span> 
+  directories in the object namespace. Protection is stronger when the mode is non-zero, 
+  for Everyone is permitted only <span class="constant">DIRECTORY_QUERY</span> and
+  <span class="constant">DIRECTORY_TRAVERSE</span> instead of also getting
+  <span class="constant">DIRECTORY_CREATE_OBJECT</span>, <span class="constant">
+  DIRECTORY_CREATE_SUBDIRECTORY</span> and <span class="constant">READ_CONTROL</span>.
+  </p>
+  <p>Introducing <span class="constant">SystemObjectSecurityMode</span> was evidently 
+  some trouble. It has three different numerical values: 0x36 in the version 5.0 
+  from Windows 2000 SP4; 0x42 in the version 5.1 from Windows XP SP2; and 0x46 in 
+  that and all later versions. </p>
+  <h3>SystemWatchdogTimerInformation (0x48) </h3>
+  <p>This information class is only trivially valid. The function returns
+  <span class="constant">STATUS_NOT_SUPPORTED</span>. </p>
+  <h3>SystemLogicalProcessorInformation (0x49) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive an array of <span class="struct">SYSTEM_LOGICAL_PROCESSOR_INFORMATION</span> 
+    structures, one for each active processor in processor group 0. (The structure 
+    is declared in WDM.H and WINNT.H, for kernel-mode and user-mode programming, 
+    respectively.) </p>
+  </div>
+  <h3>SystemFirmwareTableInformation (0x4C) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemModuleInformationEx (0x4D) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemSuperfetchInformation (0x4F) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemMemoryListInformation (0x50) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemFileCacheInformationEx (0x51) </h3>
+  <p>In 64-bit Windows, the information buffer must provide at least a
+  <span class="struct">SYSTEM_FILECACHE_INFORMATION</span> structure for the function 
+  to fill. </p>
+  <p>The 32-bit Windows implementation allows a smaller information buffer, to account 
+  for an original definition that reached only to the <span class="member">PageFaultCount</span> 
+  member. If the information buffer is too small for the original structure, the 
+  function sets the return length to this smaller requirement, and returns
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+  fills in either the partial structure or the whole structure, if the latter fits, 
+  sets the return length to however many bytes were written to the buffer, and returns
+  <span class="constant">STATUS_SUCCESS</span>. </p>
+  <h3>SystemProcessorIdleCycleTimeInformation (0x53) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive an array of <span class="struct">
+    <a href="processor_idle_cycle_time.htm">SYSTEM_PROCESSOR_IDLE_CYCLE_TIME</a></span> 
+    structures, one for each active processor in the current processor group. If 
+    the information buffer is too small for even one such structure, the function 
+    sets the return length to the size of the array it could produce, and fails, 
+    returning <span class="constant">STATUS_BUFFER_TOO_SMALL</span>. Otherwise, 
+    the function fills the buffer with as many structures as fit, up to the number 
+    of processors, and sets the return length to the size of the whole array. If 
+    the buffer is too small for the whole array, the function fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> (but with meaningful 
+    data in the buffer). </p>
+  </div>
+  <h3>SystemRefTraceInformation (0x56) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemSpecialPoolInformation (0x57) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="special_pool.htm">SYSTEM_SPECIAL_POOL_INFORMATION</a></span> structure 
+  for the function to fill. </p>
+  <h3>SystemProcessIdInformation (0x58) </h3>
+  <div class="draft">
+    <p>The information buffer must provide exactly a <span class="struct">
+    <a href="process_id.htm">SYSTEM_PROCESS_ID_INFORMATION</a></span> structure 
+    for both input and output. </p>
+    <p>The essence of the function is to get the full image name of a process, given 
+    the process ID. The structure must provide as input both the
+    <span class="member">ProcessId</span> and the address and size of a buffer that 
+    is to receive&nbsp; the name. A <span class="struct">UNICODE_STRING</span> named
+    <span class="member">ImageName</span> describes the buffer with the usual interpretations. 
+    The address and size are in <span class="member">Buffer</span> and
+    <span class="member">MaximumLength</span>, respectively, and
+    <span class="member">Length</span> tells how many bytes hold meaningful content. 
+    If the buffer is already in use, i.e., <span class="member">Length</span> is 
+    not zero, or if its capacity is not a whole number of Unicode characters, i.e.,
+    <span class="member">MaximumLength</span> is not a multiple of two, then the 
+    function returns <span class="constant">STATUS_INVALID_PARAMETER</span>. If 
+    executing for a user-mode request and <span class="member">MaximumLength</span> 
+    is non-zero, the buffer must be word-aligned and must lie wholly in user-mode 
+    address space. Failure at these defences causes the function to return
+    <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span> or
+    <span class="constant">STATUS_ACCESS_VIOLATION</span> (as raised but handled 
+    exceptions). </p>
+    <p>If no process can be found for the given <span class="member">ProcessId</span> 
+    or if whatever is found is not in the current silo, the function returns
+    <span class="constant">STATUS_INVALID_CID</span>. </p>
+    <p>If the process’s image name (meaning what the <span class="struct">
+    <a href="../../../inc/ntos/ps/eprocess/index.htm">EPROCESS</a></span> has in 
+    its <span class="member">SeAuditProcessCreationInfo</span>) is too large for 
+    the given buffer, the function returns <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>, 
+    having set the <span class="member">MaximumLength</span> to the size required 
+    and the return length to the size of the input structure. </p>
+    <p>Ordinarily, the function copies the image name to the given
+    <span class="member">Buffer</span>, updates <span class="member">Length</span> 
+    and <span class="member">MaximumLength</span> to fit the new content, sets the 
+    return length to the size of the input structure, and succeeds. One variation 
+    is that the process may have no image name, as with the system process. In such 
+    a case, there is nothing to copy and the function instead clears
+    <span class="member">MaximumLength</span> to 0 and <span class="member">Buffer</span> 
+    to <span class="constant">NULL</span>. </p>
+    <p>Note the absence of any check for privilege or access rights. The information 
+    class <span class="constant">SystemProcessIdInformation</span> lets user-mode 
+    callers of <span class="function">NtQuerySystemInformation</span> get the names 
+    of processes that they cannot open. </p>
+  </div>
+  <h3>SystemBootEnvironmentInformation (0x5A) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="boot_environment.htm">SYSTEM_BOOT_ENVIRONMENT_INFORMATION</a></span> 
+  structure up to and including its <span class="member">FirmwareType</span> member. 
+  If the information buffer is too small for the partial structure, the function 
+  sets the return length to the size of the full structure and returns
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+  fills in either the partial structure or the whole structure, if the latter fits, 
+  sets the return length to however many bytes were written to the buffer, and returns
+  <span class="constant">STATUS_SUCCESS</span>. </p>
+  <h3>SystemHypervisorInformation (0x5B) </h3>
+  <p>This information class is for kernel-mode use only. If executing for a user-mode 
+  request, the function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>.
+  </p>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="hypervisor_query.htm">SYSTEM_HYPERVISOR_QUERY_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemVerifierInformationEx (0x5C) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="verifier_ex.htm">SYSTEM_VERIFIER_INFORMATION_EX</a></span> structure 
+  for the function to fill. </p>
+  <h3>SystemCoverageInformation (0x5F) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemPrefetchPatchInformation (0x60) </h3>
+  <!--webbot bot="Include" U-Include="_include/not_implemented.htm" TAG="BODY" startspan -->
+
+<p>This information class is only trivially valid. The function returns
+<span class="constant">STATUS_NOT_IMPLEMENTED</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="35747" -->
+  <p>In older versions whose x64 builds support this information class, the information 
+  buffer must supply at least a <span class="struct">
+  <a href="prefetch_patch.htm">SYSTEM_PREFETCH_PATCH_INFORMATION</a></span> structure 
+  for the function to fill. </p>
+  <h3>SystemSystemPartitionInformation (0x62) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemSystemDiskInformation (0x63) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemProcessorPerformanceDistribution (0x64) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemNumaProximityNodeInformation (0x65) </h3>
+  <div class="draft">
+    <p>The information buffer must provide at least a <span class="struct">
+    <a href="numa_proximity_map.htm">SYSTEM_NUMA_PROXIMITY_MAP</a></span> structure 
+    for both input and output. </p>
+  </div>
+  <h3>SystemDynamicTimeZoneInformation (0x66) </h3>
+  <p>The information buffer must provide at least an <span class="struct">
+  <a href="../systime/rtl_time_zone_information.htm">RTL_DYNAMIC_TIME_ZONE_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemCodeIntegrityInformation (0x67) </h3>
+  <!--webbot bot="Include" U-Include="_include/ci.htm" TAG="BODY" startspan -->
+
+<p>This information class is handled outside the kernel, by a callback that the 
+kernel learns from CI.DLL via the <span class="function">CiInitialize</span> function. 
+If the callback is not yet known, this function fails, setting the return length 
+to zero and returning <span class="constant">STATUS_UNSUCCESSFUL</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="65303" -->
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="codeintegrity.htm">SYSTEM_CODEINTEGRITY_INFORMATION</a></span> structure 
+  for both input to and output from the CI callback function. (This structure is 
+  nowadays documented by Microsoft, apparently in full.) </p>
+  <p>As input, the structure provides only its <span class="member">Length</span> 
+  member, which must hold the structure’s size, presumably to allow for expansion 
+  in future without having to define a new information class. </p>
+  <h3>SystemProcessorBrandString (0x69) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemVirtualAddressInformation (0x6A) </h3>
+  <p>The information buffer must provide at least an array of six
+  <span class="struct"><a href="va_list.htm">SYSTEM_VA_LIST_INFORMATION</a></span> 
+  structures for the function to fill. </p>
+  <h3>SystemProcessorCycleTimeInformation (0x6C) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive an array of <span class="struct">SYSTEM_PROCESSOR_CYCLE_TIME</span> 
+    structures, one for each active processor in the current processor group. If 
+    the information buffer is too small for even one such structure, the function 
+    sets the return length to the size of the array it could produce, and fails, 
+    returning <span class="constant">STATUS_BUFFER_TOO_SMALL</span>. Otherwise, 
+    the function fills the buffer with as many structures as fit, up to the number 
+    of processors, and sets the return length to the size of the whole array. If 
+    the buffer is too small for the whole array, the function fails, returning
+    <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> (but with meaningful 
+    data in the buffer). </p>
+  </div>
+  <h3>SystemStoreInformation (0x6D) </h3>
+  <p>The information buffer must provide exactly some structure for both input and 
+  output. Microsoft’s name for this structure is not known. The structure is 0x10 
+  or 0x18 bytes in 32-bit and 64-bit Windows, respectively. </p>
+  <p>On input, the first dword must be 1, else the function fails, returning
+  <span class="constant">STATUS_INVALID_PARAMETER</span>. A second dword provides 
+  a store information class. For values other than 2, 5, 8, 13 and 16, a user-mode 
+  caller must have <span class="constant">SeProfileSingleProcessPrivilege</span>, 
+  else the function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>. 
+  The valid store information classes are 2, 5, 8, 13, 15 and 16. Given anything 
+  else, the function fails, returning <span class="constant">STATUS_INVALID_INFO_CLASS</span>.
+  </p>
+  <p>The third and fourth members of the input structure are the address and size 
+  of a secondary buffer which is to receive the function’s output. This output varies 
+  with the store information class. The meaning of each store information class 
+  is presently beyond the scope of these notes. </p>
+  <h3>SystemVhdBootInformation (0x70) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a <span class="struct">
+    <a href="vhd_boot.htm">SYSTEM_VHD_BOOT_INFORMATION</a></span> structure whose
+    <span class="member">OsVhdParentVolume</span> array is a null-terminated Unicode 
+    string to be followed by another null-terminated Unicode string. If the information 
+    buffer is too small for the total, the function sets the return length to the 
+    total and returns <span class="constant">STATUS_BUFFER_TOO_SMALL</span>. </p>
+  </div>
+  <h3>SystemCpuQuotaInformation (0x71) </h3>
+  <p>The information buffer is to receive a <span class="struct">
+  <a href="../../ps/psquota/query.htm">PS_CPU_QUOTA_QUERY_INFORMATION</a></span> 
+  structure whose <span class="member">SessionInformation</span> array has a
+  <span class="struct">PS_CPU_QUOTA_QUERY_ENTRY</span> for each session. </p>
+  <h4>Preliminaries </h4>
+  <p>This information class depends on DFSS to be enabled by a registry configuration 
+  (details of which are presently beyond the scope of this note). If it is not, 
+  the function fails, returning <span class="constant">STATUS_QUOTA_NOT_ENABLED</span>.
+  </p>
+  <p>If executing for a user-mode request, the caller must have
+  <span class="constant">SeIncreaseQuotaPrivilege</span>. Without it, the function 
+  fails, returning <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+  <h4>Length </h4>
+  <p>The function allows that <span class="argument">SystemInformationLength</span> 
+  can be zero. Otherwise, the information buffer must provide at least for fixed-size 
+  part of the structure, i.e., up to but not including the <span class="member">
+  SessionInformation</span> array, and the excess must provide exactly a whole number 
+  of <span class="struct">PS_CPU_QUOTA_QUERY_ENTRY</span> structures that the function 
+  might fill. If either expectation is not met, the function returns
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> but without having set 
+  the return length. </p>
+  <h4>Enumeration </h4>
+  <p>The function enumerates sessions. Details are beyond the scope of this note. 
+  For each that has a scheduling group, the function fills the next
+  <span class="struct">PS_CPU_QUOTA_QUERY_ENTRY</span> in the array, if space remains. 
+  When enumeration is complete, the function sets the <span class="member">SessionCount</span> 
+  in the <span class="member">PS_CPU_QUOTA_QUERY_INFORMATION</span>, again if space 
+  is sufficient. If space does not suffice for all the available information, the 
+  function sets the return length to match what it might have put in the buffer, 
+  and returns <span class="constant">STATUS_BUFFER_TOO_SMALL</span>. If space did 
+  suffice, the function sets the return length to match what it did put in the buffer, 
+  and returns <span class="constant">STATUS_SUCCESS</span>. </p>
+  <h3>SystemNativeBasicInformation (0x72) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">SYSTEM_BASIC_INFORMATION</span> 
+  structure for the function to fill. </p>
+  <p>It is not known why this information class exists separately from
+  <span class="constant">SystemBasicInformation</span>. Perhaps the reason is nothing 
+  more than to make an explicit contrast with <span class="constant">SystemEmulationBasicInformation</span>.
+  </p>
+  <h3>SystemErrorPortTimeouts (0x73) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemLowPriorityIoInformation (0x74) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="low_priority_io.htm">SYSTEM_LOW_PRIORITY_IO_INFORMATION</a></span> structure 
+  for the function to fill. </p>
+  <p>If the information buffer is too small, the function sets the return length 
+  to the expected size and returns <span class="constant">STATUS_BUFFER_TOO_SMALL</span>.
+  </p>
+  <h3>SystemBootEntropyInformation (0x75) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="boot_entropy.htm">BOOT_ENTROPY_NT_RESULT</a></span> structure for the 
+  function to fill. </p>
+  <p>This information class is for kernel-mode use only. If executing for a user-mode 
+  request, the function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>. 
+  Even in kernel mode, the boot entropy information can be successfully queried 
+  at most once, and no later than phase 1 of the kernel’s initialisation. The intended 
+  error code for a call that is too late is <span class="constant">STATUS_UNSUCCESSFUL</span>.
+  </p>
+  <h3>SystemVerifierCountersInformation (0x76) </h3>
+  <div class="draft">
+    <p>The information buffer is to receive a collection of irregularly spaced
+    <span class="struct"><a href="verifier_counters.htm">SYSTEM_VERIFIER_COUNTERS_INFORMATION</a></span> 
+    structures. If the buffer is too small even for the first of these structures, 
+    the function sets the return length to show this minimal expectation, and fails, 
+    returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, 
+    the function fills the buffer with as many structures and other data as fits, 
+    to a maximum of 10MB, and sets the return length to the size of what has been 
+    put in the buffer. </p>
+  </div>
+  <h3>SystemPagedPoolInformationEx (0x77) </h3>
+  <p>In 64-bit Windows, the information buffer must provide at least a
+  <span class="struct">SYSTEM_FILECACHE_INFORMATION</span> structure for the function 
+  to fill. </p>
+  <p>The 32-bit Windows implementation allows a smaller information buffer, to account 
+  for an original definition that reached only to the <span class="member">PageFaultCount</span> 
+  member. If the information buffer is too small for the original structure, the 
+  function sets the return length to this smaller requirement, and returns
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+  fills in either the partial structure or the whole structure, if the latter fits, 
+  sets the return length to however many bytes were written to the buffer, and returns
+  <span class="constant">STATUS_SUCCESS</span>. </p>
+  <h3>SystemSystemPtesInformationEx (0x78) </h3>
+  <p>In 64-bit Windows, the information buffer must provide at least a
+  <span class="struct">SYSTEM_FILECACHE_INFORMATION</span> structure for the function 
+  to fill. </p>
+  <p>The 32-bit Windows implementation allows a smaller information buffer, to account 
+  for an original definition that reached only to the <span class="member">PageFaultCount</span> 
+  member. If the information buffer is too small for the original structure, the 
+  function sets the return length to this smaller requirement, and returns
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+  fills in either the partial structure or the whole structure, if the latter fits, 
+  sets the return length to however many bytes were written to the buffer, and returns
+  <span class="constant">STATUS_SUCCESS</span>. </p>
+  <h3>SystemAcpiAuditInformation (0x7A) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="acpi_audit.htm">SYSTEM_ACPI_AUDIT_INFORMATION</a></span> structure for 
+  the function to fill. </p>
+  <h3>SystemBasicPerformanceInformation (0x7B) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="basic_performance.htm">SYSTEM_BASIC_PERFORMANCE_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemQueryPerformanceCounterInformation (0x7C) </h3>
+  <div class="draft">
+    <p>The information buffer must provide at least a <span class="struct">
+    <a href="query_performance_counter.htm">SYSTEM_QUERY_PERFORMANCE_COUNTER_INFORMATION</a></span> 
+    structure for both input and output. </p>
+    <p>The <span class="member">Version</span> member is expected as input. If the 
+    information buffer is not at least large enough to provide this member, the 
+    function sets the return length to the size of the expected structure and fails, 
+    returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. If the
+    <span class="member">Version</span> member is not 1 on input, the function fails, 
+    returning <span class="constant">STATUS_NOT_SUPPORTED</span>. Apparently, the
+    <span class="struct">SYSTEM_QUERY_PERFORMANCE_COUNTER_INFORMATION</span> as 
+    presently defined is only for version 1. The information buffer must provide 
+    at least this structure for the function to fill. </p>
+  </div>
+  <h3>SystemSessionBigPoolInformation (0x7D) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemBootGraphicsInformation (0x7E) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="boot_graphics.htm">SYSTEM_BOOT_GRAPHICS_INFORMATION</a></span> structure 
+  for the function to fill. </p>
+  <h3>SystemBadPageInformation (0x80) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemPlatformBinaryInformation (0x85) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemPolicyInformation (0x86) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="policy.htm">SYSTEM_POLICY_INFORMATION</a></span> structure for both input 
+  and output. Details are presently beyond the scope of this article. </p>
+  <h3>SystemHypervisorProcessorCountInformation (0x87) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="hypervisor_processor_count.htm">SYSTEM_HYPERVISOR_PROCESSOR_COUNT_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemDeviceDataInformation (0x88) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="device_data.htm">SYSTEM_DEVICE_DATA_INFORMATION</a></span> structure 
+  for both input and output. </p>
+  <p>If <span class="argument">SystemInformationLength</span> is correct but
+  <span class="argument">SystemInformation</span> is <span class="constant">NULL</span>, 
+  the function returns <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> 
+  but without setting the return length. The information buffer must have 4-byte 
+  alignment and lie wholly in user-mode address space (even if the request originated 
+  in kernel mode). </p>
+  <h3>SystemDeviceDataEnumerationInformation (0x89) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">SYSTEM_DEVICE_DATA_INFORMATION</span> 
+  structure for both input and output. </p>
+  <p>If <span class="argument">SystemInformationLength</span> is correct but
+  <span class="argument">SystemInformation</span> is <span class="constant">NULL</span>, 
+  the function returns <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> 
+  but without setting the return length. The information buffer must have 4-byte 
+  alignment and lie wholly in user-mode address space (even if the request originated 
+  in kernel mode). </p>
+  <h3>SystemMemoryTopologyInformation (0x8A) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemMemoryChannelInformation (0x8B) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemBootLogoInformation (0x8C) </h3>
+  <p>The information buffer is to receive a <span class="struct">
+  <a href="boot_logo.htm">SYSTEM_BOOT_LOGO_INFORMATION</a></span> structure and 
+  a variable-size bitmap for the boot logo. </p>
+  <p>If the information buffer is too small even for the formally defined structure 
+  but the function is not asked for a return length, the function fails, returning
+  <span class="constant">STATUS_INVALID_PARAMETER</span>. If the information buffer 
+  is too small for the structure and bitmap, the function sets the return length 
+  to the total and returns <span class="constant">STATUS_BUFFER_TOO_SMALL</span>. 
+  Along the way, the function may fail for other reasons and return other errors, 
+  such as <span class="constant">STATUS_UNSUCCESSFUL</span>. </p>
+  <p>If the information buffer is large enough for the structure and bitmap, the 
+  function copies both to the buffer, sets the return length to the total, and succeeds.
+  </p>
+  <h3>SystemProcessorPerformanceInformationEx (0x8D) </h3>
+  <p>The information buffer is to receive an array of <span class="struct">
+  <a href="processor_performance_ex.htm">SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION_EX</a></span> 
+  structures, one for each active processor in the current processor group. If the 
+  information buffer is not an exact fit for one or more such structures, the function 
+  sets the return length to the size of the array it could produce, and fails, returning
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+  fills the buffer with as many structures as fit, up to the number of processors, 
+  and sets the return length to the size of what has been put in the buffer. Even 
+  if this is not the whole array that the function could have put in the buffer, 
+  the function declares success. </p>
+  <h3>SystemSecureBootPolicyInformation (0x8F) </h3>
+  <p>If the kernel has not correctly received a Secure Boot policy from the loader, 
+  the function can do nothing with this information class: it fails, returning
+  <span class="constant">STATUS_SECUREBOOT_NOT_ENABLED</span>. </p>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="secureboot_policy.htm">SYSTEM_SECUREBOOT_POLICY_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemPageFileInformationEx (0x90) </h3>
+  <p>The information buffer is to receive a collection of irregularly spaced
+  <span class="struct"><a href="pagefile_ex.htm">SYSTEM_PAGEFILE_INFORMATION_EX</a></span> 
+  structures, one for each paging file (not counting swap files and virtual stores). 
+  If the buffer is too small even for the first of these structures, the function 
+  sets the return length to show this minimal expectation, and fails, returning
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+  fills the buffer with as many structures and other data as fits, and sets the 
+  return length to the size of what has been put in the buffer. </p>
+  <h3>SystemSecureBootInformation (0x91) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="secureboot.htm">SYSTEM_SECUREBOOT_INFORMATION</a></span> structure for 
+  the function to fill. </p>
+  <p>Beware that the expected structure is naturally byte-aligned but the function’s 
+  user-mode defences for this information class require four-byte alignment. </p>
+  <h3>SystemPortableWorkspaceEfiLauncherInformation (0x93) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemFullProcessInformation (0x94) </h3>
+  <p>The information buffer is to receive a collection of irregularly spaced
+  <span class="struct">SYSTEM_PROCESS_INFORMATION</span> structures, one per process. 
+  The spacing is irregular because each such structure can be followed by varying 
+  numbers of other fixed-size structures and by variable-size data too: an array 
+  of <span class="struct">SYSTEM_EXTENDED_THREAD_INFORMATION</span> structures, 
+  one for each of the process’s threads; a <span class="struct">SYSTEM_PROCESS_INFORMATION_EXTENSION</span> 
+  structure; and as many as four variable-size items including the user SID, the 
+  package name and application ID, and the process’s name. </p>
+  <h4>Minimum </h4>
+  <!--webbot bot="Include" U-Include="_include/process_minimum.htm" TAG="BODY" startspan -->
+
+<p>The least requirement for describing even one process, with no threads and no 
+name, is a <span class="struct">SYSTEM_PROCESS_INFORMATION</span> and
+<span class="struct">SYSTEM_PROCESS_INFORMATION_EXTENSION</span> together. If given 
+less for the information buffer but without having been asked for a return length, 
+the function fails immediately, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>.
+</p>
+
+<!--webbot bot="Include" endspan i-checksum="19874" -->
+  <h4>Permissions </h4>
+  <p>Unlike its earlier forms, <span class="constant">SystemProcessInformation</span> 
+  and <span class="constant">SystemExtendedProcessInformation</span>, this information 
+  class has access restrictions. First, it is available only for user-mode requests. 
+  If the function is instead executing for a kernel-mode request, it fails, returning
+  <span class="constant">STATUS_ACCESS_DENIED</span>. A permitted user-mode caller 
+  (or group) can be configured in the registry: </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Windows</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">FullProcessInformationSID</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The expected data is a SID in binary form. (The type is not checked. Any data 
+  is accepted provided there is not more of it than is possible for a SID, i.e., 
+  0x44 bytes.) The SID designates the one user or group that is, along with all 
+  members of the Administrators group, permitted to use this information class. 
+  For all other user-mode callers, the function fails, returning
+  <span class="constant">STATUS_ACCESS_DENIED</span>. </p>
+  <h4>Enumeration </h4>
+  <!--webbot bot="Include" U-Include="_include/process_enumeration.htm" TAG="BODY" startspan -->
+
+<p>Ordinarily, however, the function proceeds to enumerate processes until some 
+error occurs that must be returned. The function writes to the information buffer 
+while enumerating, for as long as space remains for each whole item. If the function 
+has an item to add that will not fit, then if no return length was asked for, the 
+function fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. 
+Otherwise, the function continues the enumeration but without writing more to the 
+information buffer. The intention is still to return <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> 
+if no other error occurs, but with the return length showing how much data the enumeration 
+would have produced had the buffer been big enough. Note that the size thus reported 
+need not suffice when the function is next called. This is not just the usual theoretical 
+point, but a practical one: the number of processes and threads not only can change 
+between calls but is highly likely to. </p>
+<p>If the enumeration completes without error and without exhausting the buffer, 
+the function sets the return length to however many bytes it put in the buffer, 
+and succeeds. </p>
+
+<!--webbot bot="Include" endspan i-checksum="43469" -->
+  <h3>SystemKernelDebuggerInformationEx (0x95) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="kernel_debugger_ex.htm">SYSTEM_KERNEL_DEBUGGER_INFORMATION_EX</a></span> 
+  structure for the function to fill. </p>
+  <p>Beware that the expected structure is naturally byte-aligned but the function’s 
+  user-mode defences for this information class require four-byte alignment. </p>
+  <h3>SystemBootMetadataInformation (0x96) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemSoftRebootInformation (0x97) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemOfflineDumpConfigInformation (0x99) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemProcessorFeaturesInformation (0x9A) </h3>
+  <p>The information buffer must provide at least a <span class="struct">
+  <a href="processor_features.htm">SYSTEM_PROCESSOR_FEATURES_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemEdidInformation (0x9C) </h3>
+  <p>The information buffer must provide exactly 0x80 bytes for the function to 
+  fill. If Microsoft has a structure for this, Microsoft’s name for it is not known.
+  </p>
+  <p>What the buffer receives is a 128-byte Extended Display Identification Data 
+  (EDID), as defined by the Video Electronics Standards Association (VESA). Details 
+  of how the kernel gets the EDID from the loader (via the <span class="member">
+  BgContext</span> member of the <span class="struct">
+  <a href="../../../inc/api/arc/loader_parameter_extension/index.htm">LOADER_PARAMETER_EXTENSION</a></span>) 
+  are beyond the scope of this article. </p>
+  <h3>SystemManufacturingInformation (0x9D) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemEnergyEstimationConfigInformation (0x9E) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemHypervisorDetailInformation (0x9F) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="hypervisor_detail.htm">SYSTEM_HYPERVISOR_DETAIL_INFORMATION</a></span> 
+  structure for the function to fill, but with the variation that if the information 
+  buffer is not the expected size, the function sets the return length to zero and 
+  returns <span class="constant">STATUS_INVALID_PARAMETER_1</span>. </p>
+  <h3>SystemProcessorCycleStatsInformation (0xA0) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemTrustedPlatformModuleInformation (0xA2) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemKernelDebuggerFlags (0xA3) </h3>
+  <p>The information buffer must provide at least a <span class="type">BOOLEAN</span> 
+  for the function to set. If this is dressed as a structure, Microsoft’s name for 
+  it is not known. What the buffer receives is simply the kernel’s record of whether 
+  to ignore user-mode exceptions. </p>
+  <h3>SystemCodeIntegrityPolicyInformation (0xA4) </h3>
+  <!--webbot bot="Include" U-Include="_include/ci.htm" TAG="BODY" startspan -->
+
+<p>This information class is handled outside the kernel, by a callback that the 
+kernel learns from CI.DLL via the <span class="function">CiInitialize</span> function. 
+If the callback is not yet known, this function fails, setting the return length 
+to zero and returning <span class="constant">STATUS_UNSUCCESSFUL</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="65303" -->
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="codeintegritypolicy.htm">SYSTEM_CODEINTEGRITYPOLICY_INFORMATION</a></span> 
+  structure for the CI callback function to fill. </p>
+  <h3>SystemIsolatedUserModeInformation (0xA5) </h3>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="isolated_user_mode.htm">SYSTEM_ISOLATED_USER_MODE_INFORMATION</a></span> 
+  structure for the function to fill. </p>
+  <h3>SystemHardwareSecurityTestInterfaceResultsInformation (0xA6) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemSingleModuleInformation (0xA7) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemDmaProtectionInformation (0xA9) </h3>
+  <p><span class="alert">TO BE DONE</span> </p>
+  <h3>SystemSecureBootPolicyFullInformation (0xAB) </h3>
+  <p>If the kernel has not correctly received a Secure Boot policy from the loader, 
+  the function can do nothing with this information class: it fails, returning
+  <span class="constant">STATUS_SECUREBOOT_NOT_ENABLED</span>. </p>
+  <p>The information buffer must provide at least enough for the function to fill 
+  a <span class="struct"><a href="secureboot_policy_full.htm">SYSTEM_SECUREBOOT_POLICY_FULL_INFORMATION</a></span> 
+  structure with a variable-size <span class="member">Policy</span> member at its 
+  end. </p>
+  <h3>SystemCodeIntegrityPolicyFullInformation (0xAC) </h3>
+  <!--webbot bot="Include" U-Include="_include/ci.htm" TAG="BODY" startspan -->
+
+<p>This information class is handled outside the kernel, by a callback that the 
+kernel learns from CI.DLL via the <span class="function">CiInitialize</span> function. 
+If the callback is not yet known, this function fails, setting the return length 
+to zero and returning <span class="constant">STATUS_UNSUCCESSFUL</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="65303" -->
+  <h3>SystemAffinitizedInterruptProcessorInformation (0xAD) </h3>
+  <p>If executing for a user-mode request, the function fails unless the caller 
+  has <span class="constant">SeIncreaseBasePriorityPrivilege</span> or is running 
+  as Local System or as a particular service that has not yet been identified.
+  </p>
+  <p>The information buffer must provide exactly a <span class="struct">
+  <a href="../../ke/affinity/kaffinity_ex.htm">KAFFINITY_EX</a></span> structure 
+  for the function to fill. Each set bit in that structure’s
+  <span class="member">Bitmap</span> signifies that the corresponding processor 
+  has at least some interrupt <span class="definition">steered</span> to it for 
+  handling. </p>
+  <h3>SystemRootSiloInformation (0xAE) </h3>
+  <p>The information buffer is to receive a <span class="struct">
+  <a href="root_silo.htm">SYSTEM_ROOT_SILO_INFORMATION</a></span> structure whose
+  <span class="member">SiloIdList</span> array has an identifier for each root silo, 
+  i.e., each silo that is not itself in a silo. If the buffer is too small even 
+  for the <span class="member">NumberOfSilos</span> member, the function sets the 
+  return length to zero, and fails, returning <span class="constant">STATUS_BUFFER_TOO_SMALL</span>. 
+  The function also returns <span class="constant">STATUS_BUFFER_TOO_SMALL</span> 
+  if the buffer is not large enough for the whole array, however big that turns 
+  out to be. In this case too, here suspected of being coded defectively, the function 
+  sets the return length to zero. The only way the function sets the return length 
+  to anything but zero is if it succeeds. </p>
+  <h3>SystemCpuSetInformation (0xAF) </h3>
+  <!--webbot bot="Include" U-Include="_include/cpu_set.htm" TAG="BODY" startspan -->
+
+<p>The information buffer is to receive an array of <span class="struct">SYSTEM_CPU_SET_INFORMATION</span> 
+structures, one for each CPU set. (The structure is defined in WDM.H and WINNT.H, 
+for kernel-mode and user-mode programming, respectively.) If the information buffer 
+is not large enough for them all, the function sets the return length to the size 
+of the array it could produce, and fails, returning <span class="constant">STATUS_BUFFER_TOO_SMALL</span>.
+</p>
+
+<!--webbot bot="Include" endspan i-checksum="10951" -->
+  <div class="Footer">
+    <p class="Dates">This page was created on 9th July 2016 but was not published 
+    until 24th <a href="../../../../../../../new/16/10.htm">October 2016</a>. It 
+    was last modified on 29th December 2019. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1619.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5029" -->
+  </div>
+</div>
+
+</body>
+
+</html>

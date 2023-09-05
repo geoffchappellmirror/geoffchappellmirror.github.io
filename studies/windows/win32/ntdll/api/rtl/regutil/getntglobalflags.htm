@@ -1,0 +1,671 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RtlGetNtGlobalFlags</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+<h1>RtlGetNtGlobalFlags </h1>
+<p>The <span class="function">RtlGetNtGlobalFlags</span> function gets a set of 
+flags that govern advanced diagnostics and troubleshooting. </p>
+<h2>Declaration </h2>
+<pre class="source">ULONG RtlGetNtGlobalFlags (VOID);</pre>
+<h3>Return Value </h3>
+<p>The function returns the flags as bits in one dword. </p>
+<h2>Availability </h2>
+<p>The <span class="function">RtlGetNtGlobalFlags</span> function is exported by 
+name from NTDLL in all known Windows versions, i.e., 3.10 and higher. </p>
+<p>All versions of the kernel also have the <span class="function">RtlGetNtGlobalFlags</span> 
+function, but originally only as an internal routine. It is exported by name from 
+the kernel in version 5.0 and higher. Kernel-mode callers anyway have the address 
+of the <span class="variable">NtGlobalFlag</span> variable, which is exported by 
+name from the kernel in all versions. </p>
+<h2>Documentation Status </h2>
+<p>Though the <span class="function">RtlGetNtGlobalFlags</span> function itself 
+is not documented, the flags that the function returns have long been documented, 
+most notably with the GFLAGS.EXE utility in Microsoft’s package of Debugging Tools 
+for Windows. </p>
+<p>The first list that I know Microsoft published of the defined flags is Knowledge 
+Base article Q147314: <span class="citation">GlobalFlags for Windows NT 3.51</span>. 
+Metadata in the HTML source code has it that the article was created in February 
+1996. As with many such articles from the time, this is long gone from Microsoft’s 
+websites. It has symbolic names such as <span class="constant">FLG_STOP_ON_EXECUTION</span> 
+for all flags that version 3.51 of the kernel accepts as valid. </p>
+<p>The NTDDK.H from the Device Driver Kit (DDK) for Windows NT 3.51, from May 1995, 
+has a C-language declaration of the kernel’s <span class="variable">NtGlobalFlag</span> 
+variable and a macro named <span class="macro">IF_NTOS_DEBUG</span> whose definition 
+shows that Microsoft’s names for the defined bits start with
+<span class="constant">FLG_</span> but without any whole name appearing in any header. 
+To this day, the flags are not defined in any header that Microsoft publishes with 
+any Software Development Kit (SDK) or Windows Driver Kit (WDK) and the WDK for the 
+1709 release of Windows 10 (build 16299) withdraws the macro that discloses the
+<span class="constant">FLG_</span> prefix. </p>
+<h2>Behaviour </h2>
+<p>The whole work of the <span class="function">RtlGetNtGlobalFlags</span> function 
+is to return one dword of flags as they currently apply to the kernel or to the 
+current process. The immediate source of these flags is different for the kernel-mode 
+and user-mode implementations. So too is their ultimate source as a registry value. 
+Bits within the flags may may affect kernel-mode execution or user-mode execution 
+or both. </p>
+<h3>Kernel Mode </h3>
+<p>The kernel-mode <span class="function">RtlGetNtGlobalFlags</span> function returns 
+the current contents of the kernel’s <span class="variable">NtGlobalFlag</span> 
+variable. This is an exported variable in the kernel’s read-write data section. 
+No kernel-mode code needs to call this function to read the contents. The kernel-mode 
+function is here thought to exist only to simplify Run Time Library (RTL) code that 
+is written for both kernel-mode and user-mode execution. </p>
+<h4>Initialisation </h4>
+<p>The kernel’s <span class="variable">NtGlobalFlag</span> is set initially from 
+the registry: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session 
+    Manager</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">GlobalFlag</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>As with many registry values that the kernel reads while initialising, the type 
+is irrelevant. As many as four bytes are read: <span class="constant">REG_DWORD</span> 
+is at best a guess at what seems to be intended. In versions 3.51 to 4.0, the presence 
+of any undefined bit in the registry data means the whole dword defaults to zero. 
+In versions 5.0 and higher, undefined bits are instead ignored—but in the sense 
+that this is trivial starting with version 6.1, since by then all bits are defined.
+</p>
+<h4>Changes </h4>
+<p>Though any kernel-mode module can import the address of
+<span class="variable">NtGlobalFlag</span>, no use of this to change the variable 
+is known in any version except through the kernel-mode debugger. Indeed, Microsoft 
+even documents that its KD debugger’s <span class="switch">-x</span> switch edits
+<span class="variable">NtGlobalFlag</span>. </p>
+<p>Subsequent change of <span class="variable">NtGlobalFlag</span> is mostly directed 
+from user mode through the <span class="function">
+<a href="../../../../../km/ntoskrnl/api/ex/sysinfo/set.htm">NtSetSystemInformation</a></span> 
+function, by specifying the information class <span class="constant">SystemFlagsInformation</span> 
+(0x09) and providing new flags in a <span class="struct">
+<a href="../../../../../km/ntoskrnl/api/ex/sysinfo/flags.htm">SYSTEM_FLAGS_INFORMATION</a></span> 
+structure. Different versions provide very differently for which flags can change.
+</p>
+<p>For some flags that affect kernel-mode execution, a change that sets the flag 
+is not useful (or is even dangerous) since the behaviour that the set flag might 
+enable depends on preparation to have been done while the kernel initialised. For 
+flags whose only effect is on user-mode execution, changing the kernel’s settings 
+affects all new user-mode processes. </p>
+<h3>User Mode </h3>
+<p>In versions before 5.0, the user-mode <span class="function">RtlGetNtGlobalFlags</span> 
+function returns the current contents of an internal NTDLL variable that public 
+symbol files confirm is also named <span class="variable">NtGlobalFlag</span>. In 
+version 5.0 and higher, the function returns the current contents of the
+<span class="member">NtGlobalFlag</span> member of the <span class="struct">
+<a href="../../../structs/peb/index.htm">PEB</a></span>. </p>
+<h4>Initialisation </h4>
+<p>Wherever the function gets what it returns, the initialisation of this source 
+when the process is created in kernel mode and then as it starts in user mode is 
+subject to several layers of configurability. Broadly speaking, in increasing order 
+of precedence, these can be: </p>
+<ul>
+  <li>the kernel’s <span class="variable">NtGlobalFlag</span>; </li>
+  <li>the registry value <span class="regvalue">GlobalFlag</span> among the process’s 
+  Image File Execution Options (IFEO); </li>
+  <li>flags that may be forced on or off, either because the process is being debugged 
+  or to reconcile with other flags; </li>
+  <li>overrides from the Load Configuration Directory in the process’s executable.
+  </li>
+</ul>
+<p>The kernel’s <span class="variable">NtGlobalFlag</span> can be learnt from user 
+mode through the <span class="function">
+<a href="../../../../../km/ntoskrnl/api/ex/sysinfo/query.htm">NtQuerySystemInformation</a></span> 
+function again by specifying the information class <span class="constant">SystemFlagsInformation</span> 
+(0x09) and providing a <span class="struct">SYSTEM_FLAGS_INFORMATION</span> to receive 
+the current flags. Originally, this was the only way but version 3.51 introduced 
+the <span class="member">NtGlobalFlag</span> member in the <span class="struct">
+PEB</span>. In all versions since, the kernel’s <span class="variable">NtGlobalFlag</span> 
+variable is the seed for the <span class="member">NtGlobalFlag</span> member when 
+the kernel creates the <span class="struct">PEB</span>. </p>
+<p>Historically, the per-process <span class="regvalue">GlobalFlag</span> value 
+is in one and only one registry key whose name is selected from the process’s filename:
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Image 
+    File Execution Options\<span class="placeholder">filename</span></span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">GlobalFlag</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> (all versions) or
+    <span class="constant">REG_DWORD</span> (5.1 and higher) </td>
+  </tr>
+</table>
+<p>String data can be decimal, hexadecimal or even binary or octal according to 
+the parsing rules for <span class="function">
+<a href="../../../../../km/ntoskrnl/api/rtl/cnvint/unicodestringtointeger.htm">RtlUnicodeStringToInteger</a></span>. 
+Version 6.1 and higher allow that the value can instead be read from a subkey that 
+is chosen indirectly from the whole of the process’s pathname: see
+<span class="function"><a href="../rtlexec/openimagefileoptionskey.htm">LdrOpenImageFileOptionsKey</a></span> 
+for details. </p>
+<p>The Load Configuration Directory in the process’s executable is an
+<span class="struct">IMAGE_LOAD_CONFIG_DIRECTORY</span> structure whose RVA and 
+size can be set into the PE header as the <span class="constant">IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG</span> 
+(10) entry in the <span class="member">DataDirectory</span>. Microsoft’s linkers 
+know to set this up for a structure that has the C-language label
+<span class="variable">_load_config_used</span>. The structure has always provided
+<span class="member">GlobalFlagsClear</span> and <span class="member">GlobalFlagsSet</span> 
+members with which a process can specify flags that are to be clear or set (in that 
+order) no matter what NTDLL picks up from the other sources. </p>
+<p>How these other sources interact, and even which of them can matter, varies (widely) 
+with the Windows version. </p>
+<h4>Changes </h4>
+<p>No interface is known for changing the per-process <span class="member">NtGlobalFlag</span> 
+after NTDLL’s initialisation. As a <span class="struct">PEB</span> member, it is 
+in read-write memory but changing it does not look to be intended except perhaps 
+when debugging. For some flags, a change that sets the flag is not useful (or is 
+even dangerous) since the behaviour that the set flag might enable depends on preparation 
+to have been done while NTDLL initialised. </p>
+<!-- p>In versions before 3.51, the process’s flags such as will be returned by
+<span class="function">RtlGetNtGlobalFlags</span> are from the IFEO, defaulting 
+to the kernel’s flags (from a query for system information). </p>
+<p>In versions 3.51 to 4.0, the kernel’s flags (now from the
+<span class="struct">PEB</span>) are ordinarily all that matters. The IFEO value 
+applies only if the <span class="struct">PEB</span> already has a non-zero
+<span class="member">BeingDebugged</span> or <span class="member">
+ReadImageFileExecOptions</span> member. The kernel will have set the former if 
+the process is being created for debugging. If in these cases the IFEO value 
+can’t be read, then the kernel’s flags apply by default but with some bits 
+forced on if <span class="member">BeingDebugged</span> is non-zero. (See below 
+for which.) </p>
+<p>Version 5.0 simplifies a little. The kernel’s flags are the default but the 
+IFEO value always has precedence. If the IFEO value can’t be read, then some 
+bits are forced on if the <span class="member">BeingDebugged</span> is non-zero. </p -->
+<h2>Flags </h2>
+<p>For the following table’s reckoning of which flags are defined in which version, 
+each bit is regarded as a defined flag if the kernel accepts it for initialising 
+the <span class="variable">NtGlobalFlag</span> variable from the
+<span class="regvalue">GlobalFlag</span> registry value. This seems appropriate 
+for the <span class="function">RtlGetNtGlobalFlags</span> function since it allows 
+that the bit can appear in the returned dword. </p>
+<p>Version 3.51 brought a large-scale reorganisation of the flags. Only the first 
+retains its numerical value from version 3.10. A few others have continuity but 
+with numerical values that are resequenced enough so that it seems better to present 
+the early history in a separate table. </p>
+<table>
+  <tr>
+    <th>Mask </th>
+    <th>Name </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00000001 </td>
+    <td><span class="constant">FLG_STOP_ON_EXCEPTION</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td>0x00000002 </td>
+    <td><span class="constant">FLG_SHOW_LDR_SNAPS</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td><span class="constant">FLG_DEBUG_INITIAL_COMMAND</span> </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000008 </td>
+    <td><span class="constant">FLG_STOP_ON_HUNG_GUI</span> </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000010 </td>
+    <td><span class="constant">FLG_HEAP_ENABLE_TAIL_CHECK</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td>0x00000020 </td>
+    <td><span class="constant">FLG_HEAP_ENABLE_FREE_CHECK</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td>0x00000040 </td>
+    <td><span class="constant">FLG_HEAP_VALIDATE_PARAMETERS</span> </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000080 </td>
+    <td><span class="constant">FLG_HEAP_VALIDATE_ALL</span> </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00000100 </td>
+    <td><span class="constant">FLG_POOL_ENABLE_TAIL_CHECK</span> </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="constant">FLG_APPLICATION_VERIFIER</span> </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x00000200 </td>
+    <td><span class="constant">FLG_POOL_ENABLE_FREE_CHECK</span> </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>undefined </td>
+    <td>5.1 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="constant">FLG_MONITOR_SILENT_PROCESS_EXIT</span> </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000400 </td>
+    <td><span class="constant">FLG_POOL_ENABLE_TAGGING</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td>0x00000800 </td>
+    <td><span class="constant">FLG_HEAP_ENABLE_TAGGING</span> </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00001000 </td>
+    <td><span class="constant">FLG_USER_STACK_TRACE_DB</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td>0x00002000 </td>
+    <td><span class="constant">FLG_KERNEL_STACK_TRACE_DB</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td>0x00004000 </td>
+    <td><span class="constant">FLG_MAINTAIN_OBJECT_TYPELIST</span> </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00008000 </td>
+    <td><span class="constant">FLG_HEAP_ENABLE_TAG_BY_DLL</span> </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x00010000 </td>
+    <td><span class="constant">FLG_IGNORE_DEBUG_PRIV</span> </td>
+    <td>3.51 to 4.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>undefined </td>
+    <td>5.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="constant">FLG_DISABLE_STACK_EXTENSION</span> </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00020000 </td>
+    <td><span class="constant">FLG_ENABLE_CSRDEBUG</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td>0x00040000 </td>
+    <td><span class="constant">FLG_ENABLE_KDEBUG_SYMBOL_LOAD</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td>0x00080000 </td>
+    <td><span class="constant">FLG_DISABLE_PAGE_KERNEL_STACKS</span> </td>
+    <td>3.51 and higher </td>
+    <td>see below for early history </td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x00100000 </td>
+    <td><span class="constant">FLG_HEAP_ENABLE_CALL_TRACING</span> </td>
+    <td>3.51 to 4.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>undefined </td>
+    <td>5.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="constant">FLG_ENABLE_SYSTEM_CRIT_BREAKS</span> </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00200000 </td>
+    <td><span class="constant">FLG_HEAP_DISABLE_COALESCING</span> </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00400000 </td>
+    <td><span class="constant">FLG_ENABLE_CLOSE_EXCEPTIONS</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00800000 </td>
+    <td><span class="constant">FLG_ENABLE_EXCEPTION_LOGGING</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x01000000 </td>
+    <td><span class="constant">FLG_ENABLE_HANDLE_TYPE_TAGGING</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02000000 </td>
+    <td><span class="constant">FLG_HEAP_PAGE_ALLOCS</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04000000 </td>
+    <td><span class="constant">FLG_DEBUG_INITIAL_COMMAND_EX</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08000000 </td>
+    <td><span class="constant">FLG_DISABLE_DBGPRINT</span> </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10000000 </td>
+    <td><span class="constant">FLG_CRITSEC_EVENT_CREATION</span> </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x20000000 </td>
+    <td><span class="constant">FLG_LDR_TOP_DOWN</span> </td>
+    <td>5.1 to 6.2 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="constant">FLG_STOP_ON_UNHANDLED_EXCEPTION</span> </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x40000000 </td>
+    <td><span class="constant">FLG_ENABLE_HANDLE_EXCEPTIONS</span> </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x80000000 </td>
+    <td><span class="constant">FLG_DISABLE_PROTDLLS</span> </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Versions from 3.51 to 5.2 before Windows Server 2003 SP1 have both an
+<span class="variable">NtGlobalFlag</span> as an internal NTDLL variable and an
+<span class="member">NtGlobalFlag</span> member of the <span class="struct">PEB</span>. 
+Before version 5.0, the member merely provides for easy initialisation of the variable 
+without a call to kernel mode. The internal variable is what matters, both for NTDLL’s 
+own testing of whether to apply the features that are represented by these flags 
+and also for what the function reveals to its callers for their own tests. The later 
+versions get confused. The internal variable remains in use for NTDLL’s own testing 
+for <span class="constant">FLG_ENABLE_EXCEPTION_LOGGING</span> but the variable 
+is never initialised. This feature does not work in these versions. </p>
+<h3>Early History </h3>
+<p>In versions before version 3.51 the kernel accepts the <span class="regvalue">
+GlobalFlag</span> value in its entirety and the only sense in which bits are valid 
+or not is whether any use is known. </p>
+<p>A few of the bits have direct continuity with flags for which Microsoft’s names 
+are known in version 3.51 and higher. One even continues without a change in numerical 
+value. A few more have less continuity. A factor in this seems to have been a rethink 
+regarding the default for the <span class="regvalue">GlobalFlag</span> value. Version 
+3.10 is installed with a system hive in which <span class="regvalue">GlobalFlag</span> 
+is already 0x211A0000. Three of the set bits in these installation values act to 
+disable the corresponding features. This means that by default, as when
+<span class="regvalue">GlobalFlag</span> is missing, these features are enabled. 
+Version 3.51 flips this so that these features, which impose overheads, are enabled 
+only if <span class="regvalue">GlobalFlag</span> is present and non-zero. </p>
+<p>Three flags are referenced one way or another but with no non-trivial effect 
+that is yet known. </p>
+<table>
+  <tr>
+    <th>Mask </th>
+    <th>Description </th>
+    <th>Known Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00000001 </td>
+    <td><span class="constant">FLG_STOP_ON_EXCEPTION</span> </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000004 (3.10) </td>
+    <td>validate heap on call </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000008 (3.10 to 3.50) </td>
+    <td>&nbsp;</td>
+    <td>3.10 to 3.50 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000010 (3.10 to 3.50) </td>
+    <td><span class="constant">FLG_SHOW_LDR_SNAPS</span> </td>
+    <td>3.10 to 3.50 </td>
+    <td>next as 0x00000002 </td>
+  </tr>
+  <tr>
+    <td>0x00000040 (3.10 to 3.50) </td>
+    <td>disable paging the executive </td>
+    <td>3.10 to 3.50 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000200 (3.10 to 3.50) </td>
+    <td>&nbsp;</td>
+    <td>3.10 to 3.50 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00020000 (3.10 to 3.50) </td>
+    <td>&nbsp;</td>
+    <td>3.10 only </td>
+    <td>set at installation (3.10) </td>
+  </tr>
+  <tr>
+    <td>show memory descriptor list </td>
+    <td>3.50 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00040000 (3.10 to 3.50) </td>
+    <td><span class="constant">FLG_DISABLE_PAGE_KERNEL_STACKS</span> </td>
+    <td>3.10 to 3.50 </td>
+    <td>next as 0x00080000 </td>
+  </tr>
+  <tr>
+    <td>0x00080000 (3.10 to 3.50) </td>
+    <td>inverted <span class="constant">FLG_ENABLE_CSRDEBUG</span> </td>
+    <td>3.10 to 3.50 </td>
+    <td>set at installation (3.10) </td>
+  </tr>
+  <tr>
+    <td>0x00100000 (3.10 to 3.50) </td>
+    <td>inverted <span class="constant">FLG_HEAP_ENABLE_TAIL_CHECK</span> </td>
+    <td>3.10 to 3.50 </td>
+    <td>set at installation (3.10) </td>
+  </tr>
+  <tr>
+    <td>0x00200000 (3.10 to 3.50) </td>
+    <td><span class="constant">FLG_USER_STACK_TRACE_DB</span> <br>
+    <span class="constant">FLG_KERNEL_STACK_TRACE_DB</span> </td>
+    <td>3.10 to 3.50 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x01000000 (3.10 to 3.50) </td>
+    <td>enable OS/2 subsystem </td>
+    <td>3.10 only </td>
+    <td>set at installation (3.10) </td>
+  </tr>
+  <tr>
+    <td><span class="constant">FLG_POOL_ENABLE_TAGGING</span> </td>
+    <td>3.50 only </td>
+    <td>next as 0x00000400 </td>
+  </tr>
+  <tr>
+    <td>0x04000000 (3.10 to 3.50) </td>
+    <td>&nbsp;</td>
+    <td>3.10 to 3.50 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08000000 (3.10 to 3.50) </td>
+    <td><span class="constant">FLG_ENABLE_KDEBUG_SYMBOL_LOAD</span> </td>
+    <td>3.10 to 3.50 </td>
+    <td>next as 0x00040000 </td>
+  </tr>
+  <tr>
+    <td>0x20000000 (3.10 to 3.50) </td>
+    <td>inverted <span class="constant">FLG_HEAP_ENABLE_FREE_CHECK</span> </td>
+    <td>3.10 to 3.50 </td>
+    <td>set at installation (3.10) </td>
+  </tr>
+  <tr>
+    <td>0x80000000 (3.10) </td>
+    <td>enable <span class="regvalue">BreakOnDllLoad</span> </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>The description above for the original 0x00000004 bit is at best a guess at the 
+intention. If this bit is set, then in both the kernel and NTDLL an internal routine 
+for initialising the Heap Manager sets an internal variable that symbol files name 
+as <span class="variable">RtlpHeapValidateOnCall</span> but which seems otherwise 
+to be unreferenced. More research may be needed. </p>
+<p>The original 0x00000040 bit was given its own registry value in version 3.51: 
+as <span class="regvalue">DisablePagingExecutive</span> in the
+<span class="regkey">Memory Management</span> subkey. </p>
+<p>Though it gets ever harder to see, all versions of the kernel even to Windows 
+10 provide for a plain-text display while starting. Version 3.50 interprets the 
+0x00020000 bit as directing that the usual summary of processors and memory should 
+be followed with a detailed dump of the memory map that the kernel received from 
+the loader. Why this shows in this one version of the kernel, with no trace of it 
+in any other, I don’t know. The provenance of the version 3.50 kernel that I have 
+for inspection is anyway uncertain. </p>
+<p>These early versions have just the one bit, 0x00200000, for what later versions 
+separate into <span class="constant">FLG_USER_STACK_TRACE_DB</span> and
+<span class="constant">FLG_KERNEL_STACK_TRACE_DB</span>. This has the problem that 
+enabling the stack trace database for kernel mode imposes it as a user-mode overhead 
+on all processes for which it isn’t explicitly disabled, e.g., through Image File 
+Execution Options. </p>
+<p>Debugging CSRSS was originally something that <span class="regvalue">GlobalFlag</span> 
+could disable. The flip to something that needed a non-zero
+<span class="regvalue">GlobalFlag</span> to enable came with version 3.51. The original 
+0x00080000 bit had informal documentation as Knowledge Base article Q105677:
+<span class="citation">Debugging the Win32 Subsystem</span>. </p>
+<p>The original 0x01000000 bit is needed for KERNEL32 version 3.10 to recognise 
+OS/2 binaries as things to “execute” through the OS2.EXE program. Without it, they 
+are treated as DOS applications. The kernel reuses the 0x01000000 bit in version 
+3.50 to enable what was then the new feature of tagging all pool allocations. Reorganisation 
+for version 3.51 reassigned the new meaning to 0x00000400 and left 0x01000000 unused. 
+This change from 3.50 to 3.51 had informal documentation as Knowledge Base article 
+Q164933: <span class="citation">How to Allow Poolmon.exe to Run by Setting GlobalFlag 
+Value</span>. This article also notes indirectly that setting 0x01000000 to enable 
+pool tagging conflicts with other advice about clearing it to disable the OS/2 subsystem. 
+KERNEL32 version 3.51 treats the OS/2 subsystem as always enabled. Versions 4.0 
+and 5.0 leave the choice to the <span class="function">CreateProcess</span> caller: 
+the <span class="constant">CREATE_FORCEDOS</span> flag causes an OS/2 binary to 
+be treated as a DOS application. Version 5.1 withdrew OS/2 support. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 17th
+  <a href="../../../../../../../new/19/04.htm">April 2019</a> but was not published 
+  until 26th May 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

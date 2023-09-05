@@ -1,0 +1,322 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CPUID Leaf 13</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<div class="Main">
+  <h1>CPUID Leaf 13 </h1>
+  <p>On a sufficiently advanced processor, executing the <a href="../index.htm">
+  <span class="instruction">cpuid</span></a> instruction with 13 as the leaf number 
+  in <span class="register">eax</span> and with a sub-leaf number in
+  <span class="register">ecx</span> produces well-defined output in all four of
+  <span class="register">eax</span>, <span class="register">ebx</span>,
+  <span class="register">ecx</span> and <span class="register">edx</span>. For sub-leaf 
+  0 the output in all four registers is meaningful. For others, mostly depending 
+  on the output from sub-leaf 0, the output in all four registers is either meaningful 
+  or zero. </p>
+  <p>The purpose to the whole leaf is to report on extended processor features. 
+  Unlike the features that are reported by bits in
+  <a href="../00000001h/edx.htm"><span class="register">edx</span> from
+  <span class="instruction">cpuid</span> leaf 1</a>, many of which tell of the availability 
+  of just one instruction, these extended features are large enough to have their 
+  own sets of registers. If operating systems (such as Windows) are to provide multiple 
+  execution contexts (such as threads) with the illusion that each has independent 
+  use of these features, then the processor must provide an efficient means for 
+  the system to save and restore the registers when switching contexts. What Intel 
+  eventually came up with is generalised, configurable and extensible. It is generalised 
+  in the sense that the operating system learns of each feature’s support and storage 
+  requirements in essentially the same way. It is configurable in that the operating 
+  system can choose which features are enabled for saving and restoring, and can 
+  then select from these when doing each save or restore. It is extensible in that 
+  an old operating system on a new processor can learn of new features, and although 
+  the operating system won’t know how to use these features for itself, it can at 
+  least not get in the way of their use by new applications, since the system’s 
+  old code for the vital work of context-switching can still be good for features 
+  both old and new. </p>
+  <p>Registers that need to be saved and restored are organised into
+  <span class="definition">state components</span>. An extended feature may spread 
+  over multiple state components. What <span class="instruction">cpuid</span> leaf 
+  13 enumerates are the state components. What the <span class="instruction">xsetbv</span> 
+  instruction enables and what the <span class="instruction">xsave</span> instruction 
+  saves is a selection of state components. Intel’s literature tends to talk of 
+  the state components and Microsoft’s of extended features, though both sometimes 
+  seek to have it all ways with such constructions as “processor extended states” 
+  and even “extended processor feature states”. </p>
+  <p>State components are numbered from 0 up to and including 62 (if only for now). 
+  Which state components exist for any one processor, which are enabled by the operating 
+  system and which are included when asking the <span class="instruction">xsave</span> 
+  and <span class="instruction">xrstor</span> family of instructions to save and 
+  restoring state is conveniently represented by the set bits in a 64-bit register 
+  or in a pair of 32-bit registers. Such a collection is a
+  <span class="definition">state-component bitmap</span>. The first two bits represent
+  <span class="definition">legacy components</span> which the scheme manages compatibly 
+  with the <span class="instruction">fxsave</span> and <span class="instruction">
+  fxrstor</span> instructions. </p>
+  <p>State is saved to and restored from an <span class="definition">XSAVE area</span>. 
+  Each state component has its own storage in the XSAVE area. The first two sub-leaves 
+  of <span class="instruction">cpuid</span> leaf 13 report generally about state 
+  components and the XSAVE area. The higher sub-leaves each report about the corresponding 
+  state component, including to describe the component’s storage within the XSAVE 
+  area. The two legacy components do not need sub-leaves because their properties 
+  are fixed by compatibility. </p>
+  <p>The entry for <span class="instruction">cpuid</span> in the
+  <span class="citation">Instruction Set Reference, A-M</span> of the
+  <span class="citation">Intel® 64 and IA-32 Architectures Software Developer’s 
+  Manual</span> first lists leaf 13 in Order Number 253666-026, dated February 2008. 
+  The Windows kernel first uses <span class="instruction">cpuid</span> leaf 13 in 
+  version 6.1, which was built for release in July 2009. </p>
+  <h2>Existence </h2>
+  <p>For testing whether <span class="instruction">cpuid</span> leaf 13 is even 
+  available, the kernel makes a rare exception to comparing against the maximum 
+  leaf number reported by <a href="../00000000h/eax.htm"><span class="register">
+  eax</span> from <span class="instruction">cpuid</span> leaf 0</a>. What it checks 
+  instead is the 0x04000000 bit (<span class="bit">XSAVE</span>) in
+  <a href="../00000001h/ecx.htm"><span class="register">ecx</span> from
+  <span class="instruction">cpuid</span> leaf 1</a>. In this, Microsoft follows 
+  the first of Intel’s directions in what was then the newly written guidance on
+  <span class="citation">Detection, Enumeration, Enabling Processor Extended State 
+  Support</span> in the <span class="citation">System Programming Guide, Part 1</span> 
+  of the <span class="citation">Intel® 64 and IA-32 Architectures Software Developer’s 
+  Manual</span> (Order Number 253668-026, dated February 2008). The thinking is 
+  apparently that the <span class="bit">XSAVE</span> bit ensures the existence not 
+  just of the <span class="instruction">xsave</span> instruction family but of the 
+  new control register <span class="register">xcr0</span> which is in turn “architected 
+  to allow software to use CPUID leaf function 0DH”. </p>
+  <h2>Architecture </h2>
+  <p>Intel’s first listing of <span class="instruction">cpuid</span> leaf 13 in 
+  the <span class="citation">Instruction Set Reference</span> is plain that the 
+  “Leaf 0DH output depends on the initial value in ECX.” It also proceeds to describe 
+  sub-leaves in three sets. Sub-leaf 0 has its own ouput. Sub-leaf 1 has too, though 
+  with all its output documented as Reserved. Sub-leaves 2 and higher are documented 
+  together because they all have the same output except for describing different 
+  components. The architecture seems clear from the start, then: one sub-leaf for 
+  each of the possible state components, with the exception that sub-leaves 0 and 
+  1, which would represent the legacy components, are free for wider purposes.
+  </p>
+  <p>It is perhaps only a historical curiosity now, but some indications survive 
+  that <span class="instruction">cpuid</span> leaf 13 had an early design that anticipated 
+  sub-leaves but with no correspondence yet between sub-leaves and state components. 
+  The first few appearances of <span class="instruction">cpuid</span> leaf 13 in
+  <span class="citation">Intel® Processor Identification and the CPUID Instruction</span>, 
+  also known as <span class="citation">Application Note 485</span>, from November 
+  2008 (Order Number 241618-033) through to August 2009 (Order Number 241618-036), 
+  present 0 as the only valid sub-leaf, i.e., with no mention of others except to 
+  say they are invalid and therefore return zero in all the applicable registers. 
+  Since <span class="instruction">cpuid</span> leaf 13 had by then been documented 
+  in the <span class="citation">Instruction Set Reference</span> for most of a year 
+  and since the next revision of the Application Note (Order Number 241618-037, 
+  dated January 2011) was a long time coming, Intel was arguably just not giving 
+  this note enough attention for it to count as definitive, whether for programmers 
+  at the time or for historians now. Also possibly stale is the guidance in the
+  <span class="citation">System Programming Guide, Part 1</span>. Not until Order 
+  Number 253668-037, also dated January 2011, does it mention any sub-leaf other 
+  than 0. </p>
+  <p>In some sense, the difference between an early architecture with only the one 
+  defined sub-leaf and the finished architecture that defines sub-leaves for each 
+  state component is just a theoretical point of architecture. The whole scheme 
+  of <span class="instruction">cpuid</span> leaf 13, the
+  <span class="instruction">xcr0</span> register and the
+  <span class="instruction">xsave</span> instruction family predates by several 
+  years the (public) existence of any processor that had any state component other 
+  than the two legacy components. January 2011 is not just when Intel’s various 
+  manuals and notes all get onto the one page, so to speak, about sub-leaves: it’s 
+  also when these manuals start documenting that a state component 2 exists. Before 
+  then, while nobody’s code could encounter a processor whose
+  <span class="instruction">cpuid</span> leaf 13 has a sub-leaf 2 that’s worth executing, 
+  would it matter if a note here or some guidance there hadn’t been updated from 
+  a time when only sub-leaf 0 was yet architected? In another sense, though, the 
+  whole point was the advance planning. </p>
+  <h3>Sub-Leaf 0 </h3>
+  <p>The only interest that any version of the Windows kernel has in the result 
+  of executing <span class="instruction">cpuid</span> with 13 in
+  <span class="register">eax</span> and 0 in <span class="register">ecx</span> is 
+  for the state-component bitmap that is produced in <span class="register">edx</span>:<span class="register">eax</span>.
+  </p>
+  <p>The kernel requires that the two bits for legacy components are both set. If 
+  they are not, the kernel dismisses the whole of <span class="instruction">cpuid</span> 
+  leaf 13 as unreliable, in effect as if <span class="bit">XSAVE</span> had been 
+  clear. Whether this defence was Microsoft’s from observation or was supported 
+  by Intel from the start is unclear. Intel nowadays guarantees that “Every processor 
+  that supports the XSAVE feature set will set” both these bits, but the earliest 
+  I have yet found of this comes from when Intel moved its guidance on
+  <span class="instruction">xsave</span> to <span class="citation">Volume 1: Basic 
+  Architecture</span> (Order Number 253665-048, dated September 2013). </p>
+  <p>Of the sizes that sub-leaf 0 produces in <span class="register">ebx</span> 
+  and <span class="register">ecx</span>, the kernel ignores one entirely and treats 
+  the other as immaterial. The kernel instead learns and remembers the storage requirements 
+  for each component (see below) and aggregates them according to which features 
+  end up being enabled. </p>
+  <h3>Sub-Leaf 1 </h3>
+  <p>Right from version 6.1, released in 2009, the kernel knows that sub-leaf 1 
+  of <span class="instruction">cpuid</span> leaf 13 loads at least one bit flag 
+  in to <span class="register">eax</span>. This is notable because even as late 
+  as Order Number 235666-037, dated January 2011, Intel’s documentation of
+  <span class="instruction">cpuid</span> in the <span class="citation">Instruction 
+  Set Reference, A-M</span> had it that <span class="register">eax</span>,
+  <span class="register">ebx</span>, <span class="register">ecx</span> and
+  <span class="register">edx</span> as output from sub-leaf 1 are all Reserved.
+  </p>
+  <h4>Optimisation </h4>
+  <p>The particular interest that the Windows 7 kernel has in sub-leaf 1 is whether 
+  the 0x00000001 bit (<span class="bit">XSAVEOPT</span>) gets set in
+  <span class="register">eax</span>. This indicates that the
+  <span class="instruction">xsaveopt</span> instruction is available. If it is, 
+  and no configurable option tells the kernel to disregard it, then the kernel uses 
+  it in preference to plain ordinary <span class="instruction">xsave</span> when 
+  switching threads. </p>
+  <p>The <span class="instruction">xsaveopt</span> instruction is first listed in 
+  the <span class="citation">Instruction Set Reference, N-Z</span> of the
+  <span class="citation">Intel® 64 and IA-32 Architectures Software Developer’s 
+  Manual</span> (Order Number 253667-037, dated January 2011). That it is said, 
+  both there and in the contemporaneous <span class="citation">System Programming 
+  Guide, Part 1</span> (Order Number 253668-037), to need the <span class="bit">
+  XSAVEOPT</span> bit in <span class="register">eax</span> from sub-leaf 1 surely 
+  means just that this bit’s omission from the <span class="instruction">cpuid</span> 
+  documentation was an oversight. It was anyway put right in the next revision (Order 
+  Number 235666-038, dated April 2011). Still, do not miss that Microsoft had coded 
+  for both the bit and the instruction a year and a half before either appeared 
+  in Intel’s published manuals. </p>
+  <h4>Compaction and Supervisor State Components </h4>
+  <p>Starting with Windows 10, the kernel knows of two more bits in
+  <span class="register">eax</span> and also that <span class="register">edx</span>:<span class="register">ecx</span> 
+  is loaded with another state-component bitmap. These enhancements to sub-leaf 
+  1 had been in Intel’s published manuals for a while. They are not in the 048 revisions, 
+  dated September 2013, but are in the 050 revisions, dated February 2014. (The 
+  page <a href="http://www.os2museum.com/wp/missing-intel-sdm-documents/">Missing 
+  Intel SDM Documents</a> by Michal Necasek of the
+  <a href="http://www.os2museum.com/wp/">OS/2 Museum</a> notes that revision 049 
+  was “short lived”.) </p>
+  <p>The 0x00000002 (<span class="bit">XSAVEC</span>) and 0x00000008 (<span class="bit">XSS</span>) 
+  bits in <span class="register">eax</span> indicate that the processor has two 
+  more <span class="instruction">xsave</span> variants:
+  <span class="instruction">xsavec</span> and <span class="instruction">xsaves</span>, 
+  respectively. As far as Windows is concerned, both may as well be absent unless 
+  both are present. Right from these bits’ first mention in Intel’s manuals, Intel 
+  has documented that every processor that sets the <span class="bit">XSS</span> 
+  bit will also set the <span class="bit">XSAVEC</span> bit. This is necessary, 
+  since the <span class="instruction">xsaves</span> instruction saves state in the 
+  same compacted form as does the <span class="instruction">xsavec</span> instruction, 
+  but the necessity does not go the other way: Intel leaves open that
+  <span class="bit">XSAVEC</span> may be set on its own. The kernel, however, is 
+  entirely uninterested in using <span class="instruction">xsavec</span> without
+  <span class="instruction">xsaves</span>. Given that both are available, and again 
+  that no configurable option acts to the contrary, the kernel uses
+  <span class="instruction">xsaves</span> and <span class="instruction">xrstors</span> 
+  where it would have used <span class="instruction">xsave</span> (or
+  <span class="instruction">xsaveopt</span>) and <span class="instruction">xrstor</span> 
+  when switching threads and in some other situations it uses
+  <span class="instruction">xsavec</span> in preference to
+  <span class="instruction">xsave</span>. </p>
+  <p>What’s distinctive about <span class="instruction">xsaves</span> and
+  <span class="instruction">xrstors</span> is that they execute only in ring 0. 
+  They can save and restore the same <span class="definition">user state components</span> 
+  as can the other variants, but they also can save and restore
+  <span class="definition">supervisor state components</span>. The state-component 
+  bitmap that sub-leaf 0 produces in <span class="register">edx</span>:<span class="register">eax</span> 
+  (see above) is just of user components. A set <span class="bit">XSS</span> bit 
+  in <span class="register">eax</span> from sub-leaf 1 indicates that there are 
+  also supervisor components. The state-component bitmap of supervisor components 
+  is in <span class="register">edx</span>:<span class="register">ecx</span> from 
+  sub-leaf 1. </p>
+  <h3>State-Component Sub-Leaves </h3>
+  <p>Right from version 6.1, the kernel executes <span class="instruction">cpuid</span> 
+  with 13 in <span class="register">eax</span> and a state component number in
+  <span class="register">ecx</span> once for each state component that is numbered 
+  2 or higher and is in the state-component bitmap obtained from sub-leaf 0. Starting 
+  with version 10.0, the kernel does this also for each of the supervisor state 
+  components that are learnt from sub-leaf 1. (The kernel just assumes that the 
+  legacy components are not supervisor components.) </p>
+  <p>The kernel has three interests in what a state-component sub-leaf tells about 
+  the corresponding state component: </p>
+  <ul>
+    <li><span class="register">eax</span> for all state components (6.1 and higher);
+    </li>
+    <li><span class="register">ebx</span> for user state components (6.1 and higher);
+    </li>
+    <li><span class="register">ecx</span> bit 1 for all state components (10.0 and 
+    higher). </li>
+  </ul>
+  <p>For any non-legacy component, what the corresponding sub-leaf produces in
+  <span class="register">eax</span> is the size in bytes of the component’s part 
+  of the XSAVE area. Where this part goes in the XSAVE area depends on whether the 
+  area is saved in standard or compacted form. What a state-component sub-leaf produces 
+  in <span class="register">ebx</span> is the offset in bytes from the beginning 
+  of the XSAVE area to the component’s part of the XSAVE area, if the XSAVE area 
+  has the standard form. It is irrelevant to an XSAVE area in compacted form. The
+  <span class="instruction">xsaves</span> instruction, which is needed for supervisor 
+  components, saves in compacted form and so the kernel ignores
+  <span class="register">ebx</span> when enumerating supervisor components. </p>
+  <p>When enumerating user state components, the kernel records both the offsets 
+  and sizes for the components’ parts in standard form for later computation of 
+  the total size of an XSAVE area for which components are eventually enabled. This 
+  total size is at least the 0x0200 bytes that are required for legacy components 
+  and another 0x40 bytes for the XSAVE header. The total size must reach from there 
+  to the end of whichever component’s part ends furthest from the start of the XSAVE 
+  area. Note that the XSAVE area’s size is not simply a sum of the enabled parts’ 
+  sizes. An XSAVE area in standard form may have holes for state components that 
+  are not enabled. </p>
+  <p>The compaction for the compacted form is that the processor removes such holes 
+  by downwardly relocating the parts for higher-numbered enabled compoonents. By 
+  default, each enabled component’s part in a compacted XSAVE area follows immediately 
+  from that of the next lower-numbered enabled component (else from the XSAVE header). 
+  If a state component needs that its part in the XSAVE area has 64-byte alignment, 
+  even after compaction, its sub-leaf sets the 0x00000002 bit in
+  <span class="register">ecx</span>. Its part in a compacted XSAVE area is then 
+  at the first 64-byte boundary at or after that of the next lower-numbered enabled 
+  component. </p>
+  <p>The first <span class="citation">Instruction Set Reference</span> that documents 
+  this alignment indicator in <span class="register">ecx</span> for state-component 
+  sub-leaves of <span class="instruction">cpuid</span> leaf 13 is Order Number 253666-055, 
+  dated June 2015, the month before Windows 10 was released. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 24th
+    <a href="../../../../../../new/21/01.htm">January 2021</a> and was last modified 
+    on 26th January 2021. </p>
+    <!--webbot bot="Include" U-Include="../../../_include/c21.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="61973" -->
+  </div>
+</div>
+
+</body>
+
+</html>

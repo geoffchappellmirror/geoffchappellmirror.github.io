@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The SYSENTER and SYSEXIT Instructions</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <h1>SYSENTER and SYSEXIT in Windows </h1>
+  <p>Windows XP introduced support for the <span class="instruction">SYSENTER</span> 
+  instruction as a fast way to ring 0 and <span class="instruction">SYSEXIT</span> 
+  as a fast way back to ring 3. </p>
+  <h2>First Draft </h2>
+  <p>In the original implementation, code for entering the system is assembled by 
+  the kernel in memory that is shared with user mode. This memory is the page that 
+  is addressed at 0xFFDF0000 in kernel mode and at 0x7FFE0000 in user mode. The 
+  kernel-mode address is defined for programming (in WDM.H) as
+  <span class="symbol">SharedUserData</span> and the layout of the shared data is 
+  given programmatically (in NTDDK.H) as a <span class="struct">
+  <a href="../ntoskrnl/inc/api/ntexapi_x/kuser_shared_data/index.htm">KUSER_SHARED_DATA</a></span> 
+  structure. A substantial extension to this structure for Windows XP provided 32 
+  bytes for a <span class="member">SystemCall</span> member (at offset 0x0300) to 
+  which the kernel copies suitable code. </p>
+  <p>Any user-mode software can call a kernel function simply by putting the function’s 
+  C-style arguments on the stack, loading <span class="register">EAX</span> with 
+  the function number and calling the address 0x7FFE0300, as long as it is done 
+  such that the arguments are 8 bytes above <span class="register">ESP</span> when 
+  the instruction at 0x7FFE0300 executes. The kernel, through the little bit of 
+  code it placed at that address, returns with <span class="register">eip</span> 
+  addressing the instruction after the <span class="instruction">CALL</span> and 
+  with <span class="register">esp</span> again pointing 8 bytes below the stacked 
+  arguments. Other registers may have changed depending on the calling convention 
+  of the function. The function numbers, as is well known, vary with the Windows 
+  version and are plainly not intended for general use. In practice, the only user-mode 
+  software that is involved so closely with calling the kernel is NTDLL, which wraps 
+  this magic into stub functions that other user-mode software may import. For instance, 
+  the stub </p>
+  <pre class="source">                        mov     eax,<span class="placeholder">funcnum</span>
+                        mov     edx,7FFE0300h
+                        call    edx
+                        ret     <span class="placeholder">argbytes</span></pre>
+  <p>(which is what NTDLL actually codes) looks to its caller like a
+  <span class="keyword">__stdcall</span> function that takes
+  <span class="placeholder">argbytes</span> of arguments on the stack and returns 
+  with those arguments removed from the stack. How the code at 0x7FFE0300 gets to 
+  the kernel, how the kernel gets back to user mode, and how the code at 0x7FFE0300 
+  gets back to the stub, is nobody’s business but the kernel’s. </p>
+  <h2>Revision </h2>
+  <p>Though neat in the sense of interface design, the original implementation did 
+  not last long. A change came with the version 5.1 from Windows XP SP2 and the 
+  version 5.2 from Windows Server 2003 SP1, and continues for version 6.0. </p>
+  <p>Instead of the shared user data containing as much as 32 bytes of code, it 
+  provides for two pointers, named <span class="member">SystemCall</span> (at offset 
+  0x0300) and <span class="member">SystemCallReturn</span> (at offset 0x0304). Instead 
+  of the kernel copying its choice of its own code to the shared user data, it chooses 
+  from codings in NTDLL and sets the pointers accordingly. Whatever is chosen, the 
+  way to call the kernel is now a little different: put the function’s arguments 
+  on the stack, load <span class="register">EAX</span> with the function number 
+  and call whatever address is stored at 0x7FFE0300. The following very slightly 
+  different stub </p>
+  <pre class="source">                        mov     eax,<span class="placeholder">funcnum</span>
+                        mov     edx,dword ptr [7FFE0300h]
+                        call    edx
+                        ret     <span class="placeholder">argbytes</span></pre>
+  <p>(which is again how NTDLL actually codes it) has exactly the same effect as 
+  before, as far as concerns its callers. </p>
+  <p>NTDLL’s code for calling the kernel and for handling the return are knowable 
+  to the kernel because they are named exports from NTDLL. There are
+  <span class="function">KiFastSystemCall</span> and <span class="function">KiIntSystemCall</span> 
+  as a choice of codings for calling the kernel. The <span class="function">KiFastSystemCall</span> 
+  function may use <span class="instruction">SYSENTER</span>, and the kernel chooses 
+  it—indeed, requires it—if <span class="instruction">SYSENTER</span> is available 
+  on all processors. The <span class="function">KiIntSystemCall</span> function 
+  must be able to work without support for <span class="instruction">SYSENTER</span>. 
+  Whichever is chosen, its absence (e.g., from an old NTDLL) is fatal to Windows, 
+  causing the bug check <span class="constant"><a href="../bugchecks/6b.htm">PROCESS1_INITIALIZATION_FAILED</a></span>. 
+  Otherwise, the address of the chosen entry function goes in the
+  <span class="member">SystemCall</span> member of the shared user data. In case
+  <span class="function">KiFastSystemCall</span> does use
+  <span class="instruction">SYSENTER</span>, it has a companion, named
+  <span class="function">KiFastSystemCallRet</span>. If the kernel chooses to use
+  <span class="function">KiFastSystemCall</span>, then <span class="function">KiFastSystemCallRet</span> 
+  must also be exported and its address goes in the <span class="member">SystemCallReturn</span> 
+  member of the shared user data. </p>
+  <p>Note that <span class="function">KiFastSystemCall</span> is not required to 
+  use <span class="instruction">SYSENTER</span>, and that even if it does use
+  <span class="instruction">SYSENTER</span>, the kernel does not necessarily return 
+  by executing <span class="instruction">SYSEXIT</span>. What concerns the kernel 
+  is only that if it is entered at the address it has programmed into the machine-specific 
+  registers as the ring 0 target address for <span class="instruction">SYSENTER</span>, 
+  then it returns to user mode at whatever address is in the
+  <span class="member">SystemCallReturn</span> member. How it gets there is nobody’s 
+  business but the kernel’s. If it wants to get there by executing an
+  <span class="instruction">IRET</span>, it may. </p>
+  <p>That last remark is not just theoretical speculation, nor even an attempt at 
+  inferring the design of an interface from inspection of its implementation. There 
+  is a significant problem for the kernel’s actual practice: the
+  <span class="instruction">SYSENTER</span> instruction does not clear the trap 
+  flag on the way to ring 0. If an attempt to trace through
+  <span class="instruction">SYSENTER</span> from user mode is not to frustrate kernel-mode 
+  debugging, then the kernel needs to defend against a set trap flag at the instruction 
+  that first executes in ring 0. The original implementation does not notice this 
+  unless it causes a double fault. The defence in later versions acts earlier, in 
+  the debug exception handler, and is correspondingly tidier. Whichever method is 
+  used for clearing the trap flag for the kernel’s execution, there remains the 
+  problem of restoring it for the debugger in user mode. The original implementation 
+  attends to this on returning to user mode, in the code that the kernel has copied 
+  to the shared user data. The new implementation does not have this luxury, short 
+  of having NTDLL either export yet another function just for this case or vary
+  <span class="function">KiFastSystemCallRet</span> to distinguish whether the trap 
+  flag is to be restored. Instead, the kernel actually does return with an
+  <span class="instruction">IRET</span>, which may indeed be the only way to do 
+  it without executing more code in user mode. </p>
+  <h3>Calling Convention </h3>
+  <p>Note that the new implementation requires NTDLL to know something of the machinery 
+  for reaching the kernel (as it did for Windows 2000 and earlier). The old-fashioned 
+  way is to execute interrupt 0x2E, with the function number in
+  <span class="register">EAX</span> and with <span class="register">EDX</span> addressing 
+  the stacked arguments. When called from stubs such as those shown above, suitable 
+  code is </p>
+  <pre class="source">KiIntSystemCall         PROC    NEAR STDCALL PUBLIC
+
+                        lea     edx,[esp+8]
+                        int     2Eh
+                        ret
+
+KiIntSystemCall         ENDP</pre>
+  <p>If calling through <span class="instruction">SYSENTER</span> instead of
+  <span class="instruction">INT</span>, some means is needed for the kernel to know 
+  what was in <span class="register">ESP</span> when <span class="instruction">SYSENTER</span> 
+  was executed and what should be again in <span class="register">ESP</span> when 
+  execution resumes in user mode. The convention is to pass this in
+  <span class="register">EDX</span> with the understanding that the stacked arguments 
+  begin 8 bytes above. Suitable code for calling from the same stubs is: </p>
+  <pre class="source">KiFastSystemCall        PROC    NEAR STDCALL PUBLIC
+
+                        mov     edx,esp
+                        sysenter
+
+KiFastSystemCallRet     PROC    NEAR STDCALL PUBLIC
+
+                        ret
+
+KiFastSystemCallRet     ENDP
+KiFastSystemCall        ENDP</pre>
+  <p>Note that the <span class="instruction">RET</span> instruction for
+  <span class="function">KiFastSystemCallRet</span> could be anywhere. The nesting 
+  within <span class="function">KiFastSystemCall</span> is just a neatness, to model 
+  that the return will appear to have come from <span class="function">KiFastSystemCall</span>.
+  </p>
+  <h2>Security </h2>
+  <p>It probably does not escape the attention of hackers that accommodation of
+  <span class="instruction">SYSENTER</span> means that each process’s system calls 
+  are all made from one place and all return to another one place, and that both 
+  places are either at fixed addresses or are easily learnt from fixed addresses.
+  </p>
+  <p>Of the two implementations, the original is more secure in one sense. The places 
+  for call and return are at fixed addresses but both are in the shared user data, 
+  which is read-only to user-mode code. Moreover, the kernel defends against attempts 
+  to change this protection. See for instance that a user-mode debugger cannot set 
+  breakpoints on this code. On the down side is that this implementation has the 
+  machine execute code on a page that is otherwise all data. </p>
+  <p>Executing data is generally not desirable and there is hardware support for 
+  protecting against it. In introducing Data Execution Prevention (DEP) as a feature 
+  for Windows XP SP2 and Windows Server 2003 SP1, Microsoft will have picked up 
+  a choice: exempt the page of shared user data from DEP or recode how user mode 
+  calls kernel mode. So, now, the shared user data is not just read-only in user 
+  mode but also no-execute (if this feature is enabled). But the places for all 
+  calls and returns are both in the NTDLL code, where they have no particular protection 
+  and can be discovered very easily from the pointers in the shared user data.
+  </p>
+  <p>In the rush for security that consumed Microsoft’s attention in the mid-2000s, 
+  did Microsoft actually create an opportunity for hackers? It might have been better 
+  had Microsoft kept more to the first implementation but with a new page of shared 
+  user <span class="emphasis">code</span>. </p>
+  <h2>Presence </h2>
+  <p>Testing for the <span class="instruction">SYSENTER</span> and
+  <span class="instruction">SYSEXIT</span> instructions is not quite the simple 
+  matter of executing the <span class="instruction">CPUID</span> instruction with 
+  1 in <span class="register">EAX</span> and testing for the <span class="bit">SEP</span> 
+  bit (0x0800) in the feature flags that are returned in <span class="register">
+  edx</span>. Intel’s literature is plain that more is required, though vague about 
+  why. (See for instance the
+  <a target="_top" href="http://www.intel.com/design/processor/manuals/253667.pdf">
+  Intel 64 and IA-32 Architectures Software Developer’s Manual Volume 2B: Instruction 
+  Set Reference N-Z</a> or section 3.1.2.4 of the application note
+  <a target="_top" href="http://www.intel.com/design/processor/applnots/24161832.pdf">
+  Intel Processor Identification and the CPUID Instruction</a>.) What is stated 
+  is that the Pentium Pro may indicate support for the feature without actually 
+  having it, and a test is recommended which suggests that the problem also affects 
+  early steppings of the Pentium II. It may now be long past mattering, but what 
+  isn’t said is whether these processors mean the set <span class="bit">SEP</span> 
+  bit to indicate some other feature (which was perhaps subsequently dropped) or 
+  whether the feature is implemented but defective. Either way, the Windows kernel 
+  does not use <span class="instruction">SYSENTER</span> and
+  <span class="instruction">SYSEXIT</span> on a GenuineIntel processor that is not 
+  at least family 6, model 3, stepping 3. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 19th November 2008 and was last modified 
+    on 6th May 2009 (except for a link added on 1st June 2016). </p>
+    <!--webbot bot="Include" U-Include="../_include/c0816.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="49224" -->
+  </div>
+</div>
+
+</body>
+
+</html>

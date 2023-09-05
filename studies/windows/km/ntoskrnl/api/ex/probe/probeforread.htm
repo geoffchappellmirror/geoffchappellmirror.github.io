@@ -1,0 +1,227 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ProbeForRead</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <p class="alert">This page is a placeholder for future writing of thoughts and 
+  recommendations. Treat as a work in progress. </p>
+  <h1>ProbeForRead </h1>
+  <p>This function tests whether a user-mode buffer is not immediately unsuitable 
+  for reading from kernel mode. </p>
+  <h2>Declaration </h2>
+  <p>The modern declaration appears first in WDM.H from the Windows Driver Kit (WDK) 
+  for Windows 8: </p>
+  <pre class="source">VOID 
+ProbeForRead (
+    VOID volatile *Address, 
+    SIZE_T Length, 
+    ULONG Alignment);</pre>
+  <p>In the same header from the Device Driver Kit (DDK) for Windows Server 2003 
+  through to the WDK for Windows 7, the declaration does not yet use the
+  <span class="keyword">volatile</span> keyword: </p>
+  <pre class="source">VOID 
+ProbeForRead (
+    VOID *Address, 
+    SIZE_T Length, 
+    ULONG Alignment);</pre>
+  <p>This, however, had lost the <span class="keyword">const</span> keyword that 
+  shows in both WDM.H and NTDDK.H from the DDKs for Windows 2000 and for Windows 
+  XP: </p>
+  <pre class="source">VOID 
+ProbeForRead (
+    VOID const *Address, 
+    SIZE_T Length, 
+    ULONG Alignment);</pre>
+  <h3>Parameters </h3>
+  <p>The <span class="argument">Address</span> and <span class="argument">Length</span> 
+  arguments are respectively the address and size, in bytes, of what’s presented 
+  to the kernel as a readable buffer in user-mode address space. </p>
+  <p>The <span class="argument">Alignment</span> argument is the least power of 
+  two to which the buffer’s address must be aligned. It is perhaps as well to spell 
+  out that 1 is equivalent to there being no alignment requirement. </p>
+  <h3>Return Value </h3>
+  <p>Any return from the function is a success. Failure is indicated by raising 
+  an exception. </p>
+  <h2>Availability </h2>
+  <p>The <span class="function">ProbeForRead</span> function is exported by name 
+  from the kernel in version 3.10 and then again in version 5.0 and higher. In versions 
+  3.50 to 4.0, the kernel has the code but only as a macro or inlined routine.
+  </p>
+  <h2>Behaviour </h2>
+  <p>The function fits a design in which user-mode software is never permitted any 
+  access to addresses outside some range that is constant through the whole execution 
+  of Windows. In the intended use of the function, an <span class="argument">Address</span> 
+  and <span class="argument">Length</span> are received somehow from user-mode software 
+  that proposes the <span class="argument">Length</span> bytes at
+  <span class="argument">Address</span> as inputs to some service from kernel-mode 
+  software. Performing this service may require interpretation of the bytes, e.g., 
+  for directions about what the user-mode client asks be done. It may instead be 
+  able to treat the bytes as a black box, e.g., for mapping or copying to another 
+  user-mode address space for inter-process messaging. Either way, reading these 
+  addresses would be done on behalf of some user-mode client and must be rejected 
+  if any of the given addresses lie outside the range of address space that can 
+  ever be accessible to user-mode software. </p>
+  <p>If <span class="argument">Length</span> is zero, as when a buffer might be 
+  provided but is not, then since the caller has no reading of any sort to proceed 
+  to, the <span class="argument">Address</span> and its <span class="argument">Alignment</span> 
+  requirement are irrelevant and the function succeeds trivially. </p>
+  <p>Although the <span class="argument">Address</span> and
+  <span class="argument">Length</span> are typically obtained from a user-mode client, 
+  the <span class="argument">Alignment</span> is just as typically the kernel-mode 
+  caller’s requirement. It may be chosen for mere plausibility or convenience, as 
+  with expecting that an array of 64-bit integers has 64-bit alignment. It may be 
+  a property that the caller regards as necessary for performing some requested 
+  service, as with page-alignment for a buffer that’s to be mapped (rather than 
+  copied) to another process’s address space. If the <span class="argument">Address</span> 
+  is not a whole multiple of the <span class="argument">Alignment</span>, then the 
+  function raises an alignment exception, i.e., with <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span> 
+  as the exception code. Behaviour is undefined if <span class="argument">Alignment</span> 
+  is not a power of two. </p>
+  <p>Beyond these preparations, the essence of the function is that if any of the 
+  buffer lies in the constantly prohibited range, then the function raises an access 
+  violation, i.e., an exception with <span class="constant">STATUS_ACCESS_VIOLATION</span> 
+  as the exception code. </p>
+  <h3>Implementation Details </h3>
+  <p>The enforced range is that none of the buffer may lie at or above the address 
+  that is represented symbolically as the <span class="constant">MM_USER_PROBE_ADDRESS</span>. 
+  Proper use of the function does not require knowledge of what the
+  <span class="macro">MM_USER_PROBE_ADDRESS</span> is—or that it has this name or 
+  even that the acceptable range is from zero up to but not including some upper 
+  bound. Still, some concreteness is helpful, if not for programming, then at least 
+  for immediate recognition when debugging. </p>
+  <p>The <span class="macro">MM_USER_PROBE_ADDRESS</span> macro has long been defined 
+  as the address given by the kernel’s exported <span class="variable">MmUserProbeAddress</span> 
+  variable. Originally, the <span class="macro">MM_USER_PROBE_ADDRESS</span> was 
+  defined as a constant, specifically as 0x7FFF0000. This appears to have been chosen 
+  for allowing 64KB before the start of address space that is exclusively for kernel-mode 
+  use—which was then exactly the upper half of the whole address space. Windows 
+  NT 4.0 SP3 introduced a configurable boot option for raising the start of kernel-mode 
+  address space and correspondingly allowing more for user mode, hence the introduction 
+  of <span class="variable">MmUserProbeAddress</span> as a variable. Still the probe 
+  address is set to 64KB below whatever the kernel’s initialisation establishes 
+  as the start of kernel-mode address space. </p>
+  <p>The x64 processor’s translation from its theoretical 64-bit address space to 
+  physical memory is in effect a 48-bit algorithm. Addresses are invalid unless 
+  the high 16 bits are sign-extended from bit 47. This creates an architectural 
+  separation of the address space into disjoint low and high regions. Windows restricts 
+  user-mode access to the low region. This runs from zero up to but not including 
+  0x00008000`00000000. Before version 6.3, the constraint is much tighter, up to 
+  but not including 0x00000800`00000000. All x64 versions set the
+  <span class="variable">MmUserProbeAddress</span> to 64KB below whatever they use 
+  as their theoretical upper bound on user-mode address space. </p>
+  <p>In assessing whether the buffer extends beyond the probe address, all versions 
+  defend against overflow. Version 3.10 computes the address of the buffer’s last 
+  byte, and rejects the buffer if either the addition has wrapped around or the 
+  last byte is not below the probe address. All later versions reject the buffer 
+  if its non-inclusive end is either above the probe address or below the start 
+  address. </p>
+  <p>There has been variation in how the function raises an access violation. Early 
+  versions raise it explicitly, originally by calling <span class="function">ExRaiseStatus</span>, 
+  later by <span class="function">ExRaiseAccessViolation</span>. The latter was 
+  introduced for version 3.51, plausibly to reduce all the space used by pushing 
+  the exception code in all of the kernel’s numerous inlinings of
+  <span class="function">ProbeForRead</span> and <span class="function">ProbeForWrite</span>. 
+  Starting with Windows Server 2003 SP1, the function does not itself raise the 
+  exception but instead reads deliberately from the probe address, presumably expecting 
+  that this invalid access will be handled by raising the expected exception. For 
+  reasons that are not understood, what the function reads from the probe address 
+  is a dword in version 6.3 and higher but only a byte in earlier versions. </p>
+  <p>Modern implementations return, i.e., succeed, on verifying that the buffer 
+  lies wholly below the <span class="macro">MM_USER_PROBE_ADDRESS</span>. The original 
+  implementation, for version 3.10, instead continues such that it truly does probe 
+  the buffer. It reads one byte at the start of every page in the buffer, expecting 
+  to cause an exception, in effect as the probe’s failure, if any of these page-aligned 
+  addresses in the buffer are somehow invalid for reading. This may have been seen 
+  as redundant. After all, if the kernel-mode caller will read the buffer, e.g., 
+  for interpreting inputs, it can do so in its own good time—by when it may find 
+  that the buffer is not still readable. </p>
+  <h2>IRQL </h2>
+  <p>The whole point to the <span class="function">ProbeForRead</span> function 
+  is that it works with addresses that may have come from user mode. Rejection certainly 
+  causes an exception, which is incompatible with execution at high IRQL. Even if 
+  the addresses are not rejected for user-mode access, the probe may in principle 
+  be implemented as reading from the address and thus cause paging. Except in version 
+  3.10, the function is itself implemented in a paged-code section. The function 
+  cannot safely be called at <span class="constant">DISPATCH_LEVEL</span> or higher.
+  </p>
+  <h2>Documentation Status </h2>
+  <p>The earliest that <span class="function">ProbeForRead</span> is known to have 
+  been documented is the DDK for Windows 2000. The history, then, is that not until 
+  version 5.0 did Microsoft care (or realise) that non-Microsoft programmers would 
+  better have easy access to a standard way to test the plausibility of addresses 
+  received from user mode as inputs to kernel-mode services. The early history of 
+  this function, which exists only for security, may thus be useful as a data point 
+  in assessing modern perceptions of security’s early neglect. </p>
+  <p>Even with the function newly exported in Windows 2000, documentation for the 
+  function’s use by kernel-mode programmers in general was not without quirks and 
+  delays. It seems safe to say that MIcrosoft did not regard this use as very important 
+  to establish, at least not by demonstrating that Microsoft itself takes care. 
+  As late as the WDK for Windows 7, documentation still had
+  <span class="keyword">CONST</span> in the <span class="argument">Address</span> 
+  argument’s type though it had been removed from the declaration in WDM.H years 
+  before. Documentation in the Windows 8 WDK caught up on this point only to miss 
+  that the declaration had by then added <span class="keyword">volatile</span>. 
+  As if to make up for this omission, the documentation’s presentation of Syntax 
+  was changed again, years after the original Windows 10, so that
+  <span class="argument">Address</span> now has both <span class="keyword">const</span> 
+  and <span class="keyword">volatile</span>. This is not without grounds, but it 
+  cannot count as correctly describing the behaviour that programmers will get. 
+  Starting with the WDK for Windows 8.1, WDM.H has two declarations for
+  <span class="function">ProbeForRead</span>. The first does indeed have both
+  <span class="keyword">const</span> and <span class="keyword">volatile</span> but 
+  it is specialised for use in static code analysis. The declaration that the compiler 
+  works from for generating code has only <span class="keyword">volatile</span>.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 4th February 2023 but was not published 
+    until 22nd <a href="../../../../../../../new/23/02.htm">February 2023</a>.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c23.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6018" -->
+  </div>
+</div>
+
+</body>
+
+</html>

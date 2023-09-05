@@ -1,0 +1,913 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Security-Policy" content="base-uri 'none'; default-src 'none'; form-action 'none'; frame-src 'self'; img-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+<title>Interrupt 21h Function 30h</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/notes.css">
+<style type="text/css">
+td {
+  white-space: nowrap;
+}
+</style>
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/notes.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="20600" -->
+<div class="Main">
+  <h1>Interrupt 21h Function 30h </h1>
+  <p>This function gets the DOS version and related identifiers. </p>
+  <h2>Availability </h2>
+  <p>The function is implemented in version 2.00 and higher. </p>
+  <p>The source code for version 2.11 that Microsoft published in 2014 at the
+  <a href="https://computerhistory.org/blog/microsoft-ms-dos-early-source-code/">
+  Computer History Museum</a> and in 2018 on
+  <a href="https://github.com/microsoft/ms-dos">GitHub</a> tells something of the 
+  function’s development in apparently unreleased builds of version 1. According 
+  to a comment in GETSET.ASM, the function was introduced for a version 1.28. A 
+  comment in MSHEAD.ASM suggests the function number was first brought into use 
+  for a version 1.27 but with “Assign CON AUX LIST” as its very different purpose.
+  </p>
+  <h2>Parameters </h2>
+  <p>The function uses registers for both input and output. </p>
+  <h3>Input (version 5.00 and higher) </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ah</span> </td>
+        <td>30h </td>
+      </tr>
+      <tr>
+        <td><span class="register">al</span> </td>
+        <td>00h to query OEM number; <br>
+        01h to query for flags </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>That querying the OEM number is selected by zero in <span class="register">
+  al</span> is only what Microsoft documents: the implementation accepts anything 
+  other than 01h. </p>
+  <h3>Input (before version 5.00) </h3>
+  <p>Earlier versions do not interpret <span class="register">al</span> on input:
+  </p>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ah</span> </td>
+        <td>30h </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Since Microsoft is not known ever to have documented a meaning for
+  <span class="register">al</span> on input before DOS 5.00, older software exists 
+  that does not explicitly set <span class="register">al</span> on input and which 
+  may therefore get flags for what they expected would be an OEM number. </p>
+  <h3>Output </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>version number; <br>
+        major version in low byte </td>
+      </tr>
+      <tr>
+        <td><span class="register">bl</span>:<span class="register">cx</span>
+        </td>
+        <td>user serial number </td>
+      </tr>
+      <tr>
+        <td><span class="register">bh</span> </td>
+        <td>OEM number; <br>
+        or, depending on input in version 5.00 and higher, flags </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Before version 4.00, the version number is returned from a corresponding word 
+  in the kernel’s data. The published source code for version 2.11 names this word 
+  as <span class="internal variable">MSVERS</span>, defined as two bytes named
+  <span class="internal variable">MSMAJOR</span> and
+  <span class="internal variable">MSMINOR</span>. No callable interface is known 
+  for changing this variable, which is in effect the kernel’s hard-coded version 
+  number. </p>
+  <p>Starting with version 4.00, the version number reported by this function can 
+  be just about anything. The scheme for version 4.00 in particular may fairly be 
+  described as bizarre. In version 5.00 and higher, the function reliably returns 
+  the version number from the word at offset 40h in the current Program Segment 
+  Prefix (PSP). </p>
+  <p>All known implementations return <span class="register">bx</span>:<span class="register">cx</span> 
+  from four consecutive bytes in the kernel’s data. The published source code for 
+  version 2.11 names these as <span class="internal variable">USERNUM</span>, defined 
+  as a word with an unlabelled byte to follow, and then
+  <span class="internal variable">OEMNUM</span> for the last byte. No callable interface 
+  is known for changing any of these four bytes. For the last to be meaningful as 
+  distinguishing one OEM build from any other of the same version, it might be set 
+  by the OEM’s editing of a source file, but this would be impractical for setting 
+  the low 24 bits as some sort of serial number, its point being presumably that 
+  it varies from copy to copy. In the published source code, a file named DOSPATCH.TXT 
+  has a paragraph that directs OEMs to patch the binary. History shows that many 
+  OEMs didn’t bother patching in an OEM number. Whether any OEM ever patched different 
+  serial numbers into different copies, I have no idea. </p>
+  <p>Starting with version 5.00, the function can be called as if it has two subfunctions: 
+  3000h to return the OEM number in <span class="register">bh</span>, but 3001h 
+  to return flags instead. These flags look to be a hard-coded description of different 
+  types of build of what is otherwise the same kernel. Notably, the kernel can be 
+  built slightly differently so that it can be loaded from ROM and its code segment 
+  can execute in ROM (all data within it being read-only). For such a build, the 
+  flags in <span class="register">bh</span> have the 08h bit set. </p>
+  <h3>Failure (before version 2.00) </h3>
+  <p>Early versions do not implement <span class="instruction">int 21h</span> function 
+  30h and thus return zero in <span class="register">al</span>: </p>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">al</span> </td>
+        <td>00h </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This behaviour for all unimplemented <span class="instruction">int 21h</span> 
+  functions is conveniently consistent with indicating a major version that is less 
+  than any that ever existed (assuming a start at version 1.0). </p>
+  <h2>Fake DOS Versions </h2>
+  <p>Whatever may have motivated the configurability that PC DOS 4.00 introduced 
+  to what this function returns as the DOS version number, it was done, it’s a fact 
+  of history, and it can’t be avoided. In version 5.00 and higher, callers who want 
+  a DOS version number that’s hard-coded into the kernel can instead call
+  <span class="instruction">int 21h</span> function 3306h. </p>
+  <h3>Version 4.00 </h3>
+  <p>In version 4.00, the version number that <span class="instruction">int 21h</span> 
+  function 30h returns in <span class="register">ax</span> ordinarily does come 
+  from the unchanging internal variable <span class="internal variable">MSVERS</span>, 
+  as with earlier versions, but it can instead come from a different variable that 
+  can have been changed and can keep changing. Moreover, whether the function returns 
+  this fake version number or the true version can change too, including to depend 
+  on how often the function is called. </p>
+  <p>The function does still default to returning the true version. It may never 
+  learn of a fake version to return. If a fake version was known but is now cleared, 
+  the function returns the true version. (The function cannot be made to return 
+  version zero.) The kernel learns of a fake version in two ways. One is when loading 
+  a program or overlay. If the filename is in a table (see below), then the kernel 
+  adopts the corresponding fake version and a duration for its use: </p>
+  <ul>
+    <li>on all queries until the next process termination; </li>
+    <li>or for the next <span class="placeholder">n</span> queries, where 0 &lt;
+    <span class="placeholder">n</span> &lt; 255. </li>
+  </ul>
+  <p>The other way of learning a fake version number is through
+  <a href="../../2Fh/12h/2Fh.htm"><span class="instruction">int 2Fh</span> function 
+  122Fh</a>. Curiously, this sets the fake version but cannot change the duration. 
+  The only known use of this is by the system initialisation in IO.SYS to clear 
+  the fake version after loading device drivers (which, remember, are overlays).
+  </p>
+  <p>A table of filenames, fake versions and durations is hard-coded at the end 
+  of the kernel, immediately after a null-terminated string “ADD SPECIAL ENTRIES” 
+  which is here thought to be some sort of marker for finding the table in the kernel 
+  as a file: </p>
+  <table>
+    <thead>
+      <tr>
+        <th>File Name </th>
+        <th>Version </th>
+        <th>Duration </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>IBMCACHE.COM </td>
+        <td>3.40 </td>
+        <td>until next process termination </td>
+      </tr>
+      <tr>
+        <td>IBMCACHE.SYS </td>
+        <td>3.40 </td>
+        <td>until next process termination </td>
+      </tr>
+      <tr>
+        <td>DXMA0MOD.SYS </td>
+        <td>3.40 </td>
+        <td>until next process termination </td>
+      </tr>
+      <tr>
+        <td>WIN200.BIN </td>
+        <td>3.40 </td>
+        <td>until next process termination </td>
+      </tr>
+      <tr>
+        <td>PSCPG.COM </td>
+        <td>3.40 </td>
+        <td>until next process termination </td>
+      </tr>
+      <tr>
+        <td>DCJSS02.EXE </td>
+        <td>3.40 </td>
+        <td>until next process termination </td>
+      </tr>
+      <tr>
+        <td>ISAM.EXE </td>
+        <td>3.40 </td>
+        <td>until next process termination </td>
+      </tr>
+      <tr>
+        <td>ISAM2.EXE </td>
+        <td>3.40 </td>
+        <td>until next process termination </td>
+      </tr>
+      <tr>
+        <td>DFIA0MOD.SYS </td>
+        <td>3.40 </td>
+        <td>until next process termination </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Yes, all are set to show the same fake version, but they needn’t have been. 
+  This configuration is only what’s hard-coded into known releases of MS-DOS and 
+  PC DOS that report as version 4.00. Whether Microsoft or IBM ever provided a tool 
+  for reconfiguring the fake version, I don’t know, but certainly the feature’s 
+  design allows for reconfiguration. </p>
+  <p>The kernel’s initialisation moves the table of fake version numbers from the 
+  end of the kernel as loaded to the end of what memory the kernel retains. It then 
+  keeps the address in the <span class="struct">SYSINITVAR</span> structure that 
+  the kernel exposes through <span class="instruction">int 21h</span> function 52h. 
+  Specifically, the table is pointed to by the word at offset 35h. See that this 
+  is only a near pointer. Most pointers in this structure are far pointers because 
+  the structures and tables that they point to are built by the system initialisation 
+  in IO.SYS after interpreting the CONFIG.SYS file for configurable settings. That 
+  the table of fake version numbers is addressed relative to the kernel’s code and 
+  data limits its configurability after the kernel’s initialisation. The only gain 
+  from keeping its address in this structure, in contrast to an internal variable, 
+  is that it can be consulted by an external tool but not changed for immediate 
+  effect. </p>
+  <p>More likely perhaps is that the table is intended to be changed, if at all, 
+  either by an OEM when building the kernel (including to patch it after assembling 
+  and linking) or by some tool that patches the table at the end of the kernel as 
+  a file (to take effect when DOS next starts). This is here thought to be the reason 
+  that the table is introduced by what looks to be an identifying string. </p>
+  <p>Whether the table is in memory for active use or is still in the file to be 
+  inspected or patched, it is a sequence of variable-size entries, each of the form:
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Size </th>
+        <th>Description </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>00h </td>
+        <td>byte </td>
+        <td>number of characters, <span class="placeholder">cch</span>, in name 
+        that follows; <br>
+        else zero to end the table </td>
+      </tr>
+      <tr>
+        <td>01h </td>
+        <td><span class="placeholder">cch</span> </td>
+        <td>name of program or overlay </td>
+      </tr>
+      <tr>
+        <td><span class="placeholder">cch</span> + 01h </td>
+        <td>word </td>
+        <td>fake version number, major version in low byte; <br>
+        but zero to stand for true version </td>
+      </tr>
+      <tr>
+        <td><span class="placeholder">cch</span> + 03h </td>
+        <td>byte </td>
+        <td>count of queries to be answered with fake version; <br>
+        but FFh to use fake version until next process termination; <br>
+        00h to use true version </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Whether the scheme is configurable or not, it’s defective even for a single-tasking 
+  operating system that only ever runs on single-processor computers. Because the 
+  countdown is not stopped by process termination, a fake version that’s picked 
+  up for one process can apply also to arbitrary other processes just in their ordinary 
+  execution. It is unsafe to specify except for a program that is known to call 
+  the function exactly this number of times in all the possible circumstances of 
+  its execution. Perhaps the best that can be said is that the configuration as 
+  hard-coded into the kernel, which is perhaps the only configuration in real-world 
+  use, does not specify any countdown. </p>
+  <p>Even the specification of a fake version to last only until the next process 
+  termination risks making nonsense of <span class="instruction">int 21h</span> 
+  function 30h unless this function is only ever queried in ordinary execution in 
+  contrast to intercepted and interrupted execution. In practice, of course, programs 
+  that intercept or interrupt the execution of other programs plausibly always do 
+  confine their use of <span class="instruction">int 21h</span> function 30h to 
+  their own initialisation, and so perhaps nothing was ever seen to go very wrong.
+  </p>
+  <h3>Version 5.00 and Higher </h3>
+  <p>Whether anything was seen to go wrong in version 4.00, the next version reworked 
+  the design in several ways. </p>
+  <h4>True DOS Version </h4>
+  <p>As noted above, version 5.00 added <span class="instruction">int 21h</span> 
+  function 3306h which the kernel implements by returning the hard-coded true version—not 
+  from a variable but from immediate data in the code that handles the function. 
+  The choice of this function number may or may not be significant. Returning the 
+  true DOS version might have been built into DOS as a new function or into any 
+  old function that already has subfunctions for returning simple information—37h 
+  would seem as good a candidate as 33h—but as a subfunction of function 33h specifically, 
+  it can be called at essentially any time in any situation, including from code 
+  that intercepts or interrupts other execution. </p>
+  <h4>Per-Process DOS Version </h4>
+  <p>The most notable change for <span class="instruction">int 21h</span> function 
+  30h is that if a fake version is determined for a program or for an overlay (though 
+  now specialised to the loading of device drivers), then instead of remembering 
+  the fake version as kernel data and trying to judge how long to keep reporting 
+  it, the fake version is placed in the current Program Segment Prefix (PSP) as 
+  per-process data. It is held specifically at offset 40h. If there is no fake version 
+  for the process, then this word at offset 40h in the PSP is defaulted to the true 
+  DOS version. In version 5.00 and higher, the version number that
+  <span class="instruction">int 21h</span> function 30h returns in
+  <span class="register">ax</span> is always this word from offset 40h in the current 
+  PSP. It couldn’t be simpler. </p>
+  <p>Or could it? There may have been a bit of a bother over where exactly to place 
+  this version number in the PSP. Roughly, the defined members near the start of 
+  the PSP had been growing organically. Version 2.00 had extended the defined members 
+  to a far pointer at offset 2Eh. Version 3.00 added a word and a far pointer at 
+  offsets 32h and 34h. Version 3.10 added a far pointer at offset 38h. According 
+  to the <a href="https://www.cs.cmu.edu/~ralf/files.html">Interrupt List</a>, the 
+  byte at offset 3Ch is managed by <span class="struct">int 21h</span> function 
+  6301h in version 4.00 or even some 3.<span class="placeholder">xx</span>, in editions 
+  that have Double Byte Character Set (DBCS) support, not that I have any to check. 
+  The word at offset 3Dh is used by Microsoft’s APPEND.EXE tool in version 4.00 
+  and 5.00, if not also higher. Only the lowest bit is used and it’s not impossible 
+  that what’s defined for APPEND is just one byte and that accessing the whole word 
+  is a side-effect of some macro. Development for version 5.00 thus looks to have 
+  started with either offset 3Eh or 3Fh as next in line for definition. Yet the 
+  per-process version number was placed at offset 40h. It could be that some other 
+  prior definition by Microsoft is not yet known. Perhaps skipping offset 3Fh signifies 
+  nothing more than the neatness of word alignment for a word. But there is a plausible 
+  alternative explanation. </p>
+  <p>As related in <span class="citation">Undocumented DOS, Second Edition</span>, 
+  ISBN 0-201-63287-X, by Andrew Schulman and others for Addison-Wesley in 1994, 
+  on pages 199 to 204, the NETX.EXE program from Novell Netware treats the two bytes 
+  at offset 3Eh as its own. At least one of the book’s authors and presumably also 
+  a programmer at Novell thought “this is all fine and dandy”, not just for claiming 
+  seemingly free space in a system structure but even for writing to it while intercepting 
+  other software’s use of the re-entrant <span class="instruction">int 21h</span> 
+  function 50h that is plainly designed to be free of side-effects. The book speculates 
+  that the word at offset 3Eh “was apparently reserved for Novell by
+  <span class="emphasis">Microsoft</span>” (the book’s emphasis), this being inferred 
+  from Microsoft’s name <span class="member">PDB_Novell_Used</span> and a corresponding 
+  comment, as known from an OEM Adaptation Kit (OAK). A different interpretation 
+  is that “Used” is Microsoft recording the fact of Novell’s use, not a reservation 
+  by Microsoft. However it came about, it was done, and the per-process version 
+  could not safely have been defined any lower than offset 40h. </p>
+  <h4>The SETVER Tool </h4>
+  <p>More visible to users was the configurability’s elevation to a documented tool, 
+  named SETVER.EXE, that was supplied in the DOS package to load as a device driver 
+  with a <span class="keyword">device</span> statement in CONFIG.SYS and to run 
+  as a program with command-line options for inspecting or editing the version table. 
+  Underneath, the implementation is not so very much different from version 4.00. 
+  Instead of having the table in the kernel, perhaps to be edited with a separate 
+  tool, version 5.00 has the table in the separate tool and makes a point of giving 
+  this tool to users. Running SETVER.EXE to edit the version table rewrites SETVER.EXE. 
+  Within SETVER.EXE, the table has the same form as in the kernel for version 4.00 
+  except that each entry is one byte smaller for not specifying a count. </p>
+  <p>What’s coded into the SETVER.EXE for MS-DOS 5.00 on the installation discs 
+  is: </p>
+  <table>
+    <thead>
+      <tr>
+        <th>File Name </th>
+        <th>Version </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>WIN200.BIN </td>
+        <td>3.40 </td>
+      </tr>
+      <tr>
+        <td>WIN100.BIN </td>
+        <td>3.40 </td>
+      </tr>
+      <tr>
+        <td>WINWORD.EXE </td>
+        <td>4.10 </td>
+      </tr>
+      <tr>
+        <td>EXCEL.EXE </td>
+        <td>4.10 </td>
+      </tr>
+      <tr>
+        <td>HITACHI.SYS </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>MSCDEX.EXE </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>REDIR4.EXE </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>NET.EXE </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>NET.COM </td>
+        <td>3.30 </td>
+      </tr>
+      <tr>
+        <td>NETWKSTA.EXE </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>DXMA0MOD.SYS </td>
+        <td>3.30 </td>
+      </tr>
+      <tr>
+        <td>BAN.EXE </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>BAN.COM </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>MSREDIR.EXE </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>METRO.EXE </td>
+        <td>3.31 </td>
+      </tr>
+      <tr>
+        <td>IBMCACHE.SYS </td>
+        <td>3.40 </td>
+      </tr>
+      <tr>
+        <td>REDIR40.EXE </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>DD.EXE </td>
+        <td>4.01 </td>
+      </tr>
+      <tr>
+        <td>DD.BIN </td>
+        <td>4.01 </td>
+      </tr>
+      <tr>
+        <td>LL3.EXE </td>
+        <td>4.01 </td>
+      </tr>
+      <tr>
+        <td>REDIR.EXE </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>SYQ55.EXE </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>SSTDRIVE.SYS </td>
+        <td>4.00 </td>
+      </tr>
+      <tr>
+        <td>ZDRV.SYS </td>
+        <td>4.01 </td>
+      </tr>
+      <tr>
+        <td>ZFMT.SYS </td>
+        <td>4.01 </td>
+      </tr>
+      <tr>
+        <td>TOPSRDR.EXE </td>
+        <td>4.00 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>System Initialisation Variables </h4>
+  <p>Whatever’s configured for the fake versions, the kernel learns of it when SETVER.EXE 
+  executes as a device driver. Wherever SETVER gets loaded is where its table remains 
+  in memory. SETVER itself sets the address into the <span class="struct">SYSINITVAR</span> 
+  structure that the kernel exposes through <span class="instruction">int 21h</span> 
+  function 52h. Now, however, the address is kept as a far pointer at offset 37h, 
+  not a near pointer at offset 35h. </p>
+  <h2>OEM Numbers </h2>
+  <p>Depending on the version, an Original Equipment Manufacturer (OEM) who supplied 
+  MS-DOS to use with the computer equipment had more or less freedom to modify this 
+  MS-DOS. Most obviously, the OEM could re-badge MS-DOS as the OEM’s own. Famously, 
+  the first version was only ever distributed by IBM, not as MS-DOS but as IBM Personal 
+  Computer DOS, widely called PC DOS. This rebadging extends to the system files 
+  too, which are IBMBIO.COM and IBMDOS.COM instead of the generic IO.SYS and MSDOS.SYS. 
+  These IBM names were used by other OEMs. Some rebadging kept the MS-DOS name for 
+  the product but invented yet more names for the system files, as with Toshiba’s 
+  TBIOS.SYS and TDOS.SYS. </p>
+  <p>Less obviously to modern eyes, early MS-DOS versions needed that IO.SYS could 
+  be specially written for computer hardware that was not PC-compatible. Above this 
+  hardware-specific layer, the kernel ideally needs little or no change, but adaptation 
+  here and even at higher levels certainly did happen, at least for branding and 
+  even for adding value in the form of utility programs. Each OEM got source code 
+  to the DOS kernel to assemble and link. How much this provision of source code 
+  licensed an OEM to edit the source code before building the kernel is unclear. 
+  IBM was a special case from the start: the kernel in PC DOS 1.00 has code that 
+  is specific to the IBM PC. For other OEMs, the published source code for early 
+  versions confirms that Microsoft provided for some variation through macros for 
+  conditional assembly, but some OEMs plainly did go further and edit the source 
+  code, even substantially, as did COMPAQ for its version 2.11. </p>
+  <h3>DOS Patch </h3>
+  <p>The plan for distinguishing DOS not just by its version but by which OEM it 
+  was built for was that Microsoft would assign to each OEM an 8-bit identifier 
+  to stamp into all the OEM’s adaptations of the kernel. This is confirmed by a 
+  DOSPATCH.TXT file in the directory of binaries that comes with the published source 
+  code for version 2.11: </p>
+  <pre>The user number is 3 bytes starting at
+debug location 683, The OEM number is one byte at debug location
+686. The user number is initialized to 0, the OEM number to -1
+and they immediatly follow the Microsoft Copyright message. If these
+bytes are not zero, look for the four bytes following the
+Copyright message which should be in the vacinity of 683.
+OEMs should request an OEM number from Microsoft if they
+want one of their very own, this prevents selecting one someone
+else already has.</pre>
+  <p>Put aside that the highly variable line length suggests the text was edited, 
+  as if there may be context for historians to find. See that the directions for 
+  patching an OEM number into the binary take as their starting point that FFh is 
+  the OEM number in the binary as assembled and linked by Microsoft or by the OEM 
+  who has source-code access but doesn’t edit it. The published source code for 
+  version 2.11 gives OEMs a choice of just 00h or FFh through conditional assembly. 
+  With <span class="macro">IBM</span> defined as non-zero, assembling GETSET.ASM 
+  sets 00h for the OEM number. Otherwise, the OEM number defaults to FFh. Plainly, 
+  IBM builds the kernel (or has it built for them) with a non-zero
+  <span class="macro">IBM</span>. Every known build of PC DOS has 00h as the OEM 
+  number: DOSPATCH.TXT is not for IBM. Everyone else gets FFh unless they edit the 
+  source code or build it like IBM or patch the binary. </p>
+  <p>Among the outcomes is that 00h for the OEM number does not imply PC DOS from 
+  IBM. At least some OEMs understood a non-zero <span class="macro">IBM</span> as 
+  doing double duty to signify that the OEM’s computers are PC-compatible. Kernels 
+  from COMPAQ at least as far back as version 2.11 are so built, and thus have 00h 
+  as the OEM number. </p>
+  <p>Though the DOSPATCH.TXT directions quoted above were revealed to the world 
+  with source code for version 2.11, they wre written for version 2.00. They match 
+  exactly the version 2.00 MSDOS.SYS binary that’s in the same directory. Its
+  <span class="internal variable">USERNUM</span> is at file offset 0583h, which 
+  would show in DEBUG as 0683h from loading the kernel at offset 0100h as if to 
+  execute a .COM program. That this variable and <span class="internal variable">
+  MSVERS</span> “immediately follow the Microsoft Copyright message” continued to 
+  version 2.10 but not to version 2.11, which places both variables immediately 
+  in front of the code for handling <span class="instruction">int 21h</span> function 
+  30h. (Comparison of the binaries shows that this code had only recently been separated 
+  from MSCODE.ASM to GETSET.ASM. The variables moved with the code, breaking the 
+  relationship with the copyright notice that was left behind.) </p>
+  <p>What the directions changed to for version 2.11 and beyond is not known with 
+  certainty. Among the possibilities is that they didn’t change, no reason having 
+  been noticed. That OEMs would then have been left with directions that did not 
+  in fact identify the patch site would go some way to explaining why so many OEM 
+  builds were left with FFh as their OEM number. Still, that directions for patching 
+  did get updated remains likely, if not immediately then eventually. It will have 
+  become easier in version 3.10, since the sharing of kernel data with extensions 
+  such as SHARE.EXE stabilised the first several KB of kernel data, including
+  <span class="internal variable">USERNUM</span>, which is reliably at offset 0352h 
+  through the rest of version 3 and then changes to being just as reliably at offset 
+  03B2h. </p>
+  <p>For the intervening versions, <span class="internal variable">USERNUM</span> 
+  and <span class="internal variable">MSVERS</span> are kept together, and so a 
+  default build will have produced a sequence to search for, e.g., 00 00 00 FF 02 
+  0B for version 2.11. That such a search-and-patch was done for version 2.11 is 
+  supported by inspection of OEM builds such as can be found as abandon-ware at
+  <a href="https://winworldpc.com/product/ms-dos/2x">WinWorld</a>. I haven’t examined 
+  exhaustively, but at least six OEM packages have an identical kernel with FFh 
+  for the OEM number in a <span class="internal variable">USERNUM</span> at offset 
+  0BEFh. This kernel looks to be the default build, produced from assembling and 
+  linking Microsoft’s source code exactly as given, without a non-zero
+  <span class="macro">IBM</span>. A few others differ by only one or two bytes, 
+  just as would be expected if a handful of OEMs followed directions in an updated 
+  DOSPATCH.TXT, for patching not just the OEM number but the so-called template 
+  definition too. </p>
+  <h3>Known OEM Numbers </h3>
+  <p>Microsoft is not known ever to have published a list of OEM numbers. They have 
+  instead been left to circulate as foklore. I don’t mean to add to folklore and 
+  neither can I hope for completeness. If nothing else, the Internet’s record of 
+  early OEM builds does not make it easy. The retro-computing hobbyists who keep 
+  them, circulate them, and even install them for fun, understandably prefer file 
+  formats that are well suited to creating disks that are special to the corresponding 
+  hardware, which need not be PC-compatible. These disk images, inevitably in a 
+  variety of file formats, are something of a chore when all that’s wanted is one 
+  file to inspect with a hex editor! Still, an occasional rainy afternoon spent 
+  collecting OEM builds of MS-DOS from an abandon-ware site turns up enough examples 
+  to be usefully illustrative. Unlike with folklore, the following list of kernels 
+  with OEM numbers other than 00h and FFh does at least tell where the numbers came 
+  from: </p>
+  <table>
+    <thead>
+      <tr>
+        <th>OEM Number </th>
+        <th>Package </th>
+        <th>DOS Version </th>
+        <th>USERNUM Offset </th>
+        <th>File Date </th>
+        <th>File Size </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">01h </td>
+        <td>
+        <a href="https://winworldpc.com/download/410c4166-18c3-9a11-c3a4-e284a2c3a570">
+        2.10 [Wang Professional Computer OEM r1.</a> </td>
+        <td>2.01 </td>
+        <td>0801h </td>
+        <td>22nd December 1983 </td>
+        <td>17,521 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/020331c2-a925-c387-11c3-a6e280947e52">
+        2.10a [Wang Professional Computer OEM r2</a> </td>
+        <td>2.01 </td>
+        <td>0801h </td>
+        <td>11th November 1984 </td>
+        <td>17,521 </td>
+      </tr>
+      <tr>
+        <td>02h </td>
+        <td>
+        <a href="https://winworldpc.com/download/3c580e15-45c2-a211-c3a4-c28d587054ef">
+        2.00 [SCP OEM] [SCP Tarbell S-100]</a> </td>
+        <td>2.00 </td>
+        <td>0583h </td>
+        <td>22nd March 1983 </td>
+        <td>20,480 </td>
+      </tr>
+      <tr>
+        <td rowspan="6">05h </td>
+        <td>
+        <a href="https://winworldpc.com/download/c3a8e282-ac03-5b47-6711-c3a4c28d5870">
+        3.10 [Zenith Z-100 PC OEM]</a> </td>
+        <td>3.10 </td>
+        <td>0352h </td>
+        <td>28th May 1985 </td>
+        <td>27,808 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/6f6a4ac5-a412-11e8-893a-fa163e9022f0">
+        3.20 [Zenith PC OEM]</a> </td>
+        <td>3.20 </td>
+        <td>0352h </td>
+        <td>30th July 1986 </td>
+        <td>28,480 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/e7b788e6-c3ee-11ea-8b14-fa163e9022f0">
+        3.20 [Zenith Eazy PC OEM]</a> </td>
+        <td>3.20 </td>
+        <td>0352h </td>
+        <td>4th June 1987 </td>
+        <td>28,480 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/4e70c399-62e2-84a2-c3b4-11c3a6e28094">
+        3.21 [Zenith Z100 PC]</a> </td>
+        <td>3.21 </td>
+        <td>0352h </td>
+        <td>28th September 1987 </td>
+        <td>28,480 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/79444940-c5a1-0111-c3a6-e280947e5254">
+        3.30 Plus [Zenith Z100 PC]</a> </td>
+        <td>3.30 </td>
+        <td>0352h </td>
+        <td>26th August 1988 </td>
+        <td>30,576 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/e280bac3-a81b-0b3e-0311-c3a6e280947e">
+        4.01 [Zenith OEM]</a> </td>
+        <td>4.00 </td>
+        <td>03B2h </td>
+        <td>11th January 1990 </td>
+        <td>37,376 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">16h </td>
+        <td>
+        <a href="https://winworldpc.com/download/40c2a7c3-8f14-18c3-9a11-c3a4e284a2ef">
+        2.05 [DEC Rainbow OEM]</a> </td>
+        <td>2.05 </td>
+        <td>05ABh </td>
+        <td>28th September 1983 </td>
+        <td>17,126 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/1dc39275-03c2-af6e-11c3-a5c28f135254">
+        2.11 [DEC Rainbow]</a> </td>
+        <td>2.11 </td>
+        <td>0C7Eh </td>
+        <td>5th September 1984 </td>
+        <td>17,339 </td>
+      </tr>
+      <tr>
+        <td>1Eh </td>
+        <td>
+        <a href="https://winworldpc.com/download/c3ace280-ba41-e280-9ac3-98c2b211c3a5">
+        2.11 [NCR Decision Mate V]</a> </td>
+        <td>2.11 </td>
+        <td>0CD3h </td>
+        <td>29th August 1984 </td>
+        <td>17,404 </td>
+      </tr>
+      <tr>
+        <td>1Fh </td>
+        <td>
+        <a href="https://winworldpc.com/download/58c2b87f-c3ad-5002-11c3-a5c28fc2a3ef">
+        2.11 [NEC APC r01]</a> </td>
+        <td>2.11 </td>
+        <td>0B41h </td>
+        <td>4th October 1983 </td>
+        <td>17,152 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">23h </td>
+        <td>
+        <a href="https://winworldpc.com/download/c3b51b15-5c56-5111-c3a4-c2a90f7054ef">
+        2.11 [Olivetti OEM]</a> </td>
+        <td>2.11 </td>
+        <td>0BEFh </td>
+        <td>3rd May 1985 </td>
+        <td>17,176 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/66092b5d-b6db-11e7-b8e6-fa163e9022f0">
+        3.20 [Olivetti OEM]</a> </td>
+        <td>3.20 </td>
+        <td>0352h </td>
+        <td>22nd December 1986 </td>
+        <td>28,480 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/fecfd328-5cb1-11e9-9db4-fa163e9022f0">
+        3.30 [Olivetti OEM]</a> </td>
+        <td>3.30 </td>
+        <td>0352h </td>
+        <td>12th February 1988 </td>
+        <td>30,144 </td>
+      </tr>
+      <tr>
+        <td>25h </td>
+        <td>
+        <a href="https://winworldpc.com/download/189e3296-3515-11e8-a4ce-fa163e9022f0">
+        2.11 [ITT XTRA OEM r2.00]</a> </td>
+        <td>2.11 </td>
+        <td>10DEh </td>
+        <td>29th April 1985 </td>
+        <td>17,257 </td>
+      </tr>
+      <tr>
+        <td>28h </td>
+        <td>
+        <a href="https://winworldpc.com/download/7ec3bb65-c5bd-45c2-a411-c3a4c28d5870">
+        2.11 [TI Professional Computer OEM r2.11</a> </td>
+        <td>2.11 </td>
+        <td>0B4Bh </td>
+        <td>17th November 1983 </td>
+        <td>17,012 </td>
+      </tr>
+      <tr>
+        <td>29h </td>
+        <td>
+        <a href="https://winworldpc.com/download/4dc3a8c3-a62b-5652-11c3-a4c2a90f7054">
+        2.11 [Toshiba OEM R2A]</a> </td>
+        <td>2.11 </td>
+        <td>0C99h </td>
+        <td>17th March 1987 </td>
+        <td>17,353 </td>
+      </tr>
+      <tr>
+        <td>2Eh </td>
+        <td>
+        <a href="https://winworldpc.com/download/37fbb033-b6df-11e7-b8e6-fa163e9022f0">
+        3.30 [GRiD OEM]</a> </td>
+        <td>3.30 </td>
+        <td>0352h </td>
+        <td>27th May 1988 </td>
+        <td>30,128 </td>
+      </tr>
+      <tr>
+        <td>3Bh </td>
+        <td>
+        <a href="https://winworldpc.com/download/1c4110e8-97be-11e9-ab10-fa163e9022f0">
+        2.11 [Corona Data Systems OEM]</a> </td>
+        <td>2.11 </td>
+        <td>0BEFh </td>
+        <td>29th May 1984 </td>
+        <td>17,176 </td>
+      </tr>
+      <tr>
+        <td>3Ch </td>
+        <td>
+        <a href="https://winworldpc.com/download/26b1cc71-fad3-11ea-8197-fa163e9022f0">
+        2.11 [DATAVUE OEM]</a> </td>
+        <td>2.11 </td>
+        <td>0BEFh </td>
+        <td>&nbsp;</td>
+        <td>17,176 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">4Dh </td>
+        <td>
+        <a href="https://winworldpc.com/download/c3993dc3-b1c2-bf56-5111-c3a4c2a90f70">
+        2.11 [NCR OEM]</a> </td>
+        <td>2.11 </td>
+        <td>0C59h </td>
+        <td>&nbsp;</td>
+        <td>17,282 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/147be280-bac2-a2c2-ae6c-11c3a4c2ac5a">
+        3.30 [HP OEM]</a> </td>
+        <td>3.30 </td>
+        <td>0352h </td>
+        <td>10th June 1988 </td>
+        <td>30,272 </td>
+      </tr>
+      <tr>
+        <td>
+        <a href="https://winworldpc.com/download/c38308c2-b514-58c3-9311-c3a6e280947e">
+        4.01 [HP Vectra OEM]</a> </td>
+        <td>4.00 </td>
+        <td>03B2h </td>
+        <td>25th July 1989 </td>
+        <td>37,552 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The DOS Version shown for each kernel is from its implementation of
+  <span class="instruction">int 21h</span> function 30h. It is well known that some 
+  early OEM builds were badged as one version but are really another. It also looks 
+  as if all builds that are badged as DOS 4.01 report as 4.00. Possibly less well 
+  known is that the report from <span class="instruction">int 21h</span> function 
+  30h can be wrong. For instance, the Wang kernel that has OEM number 01h was built 
+  from source code for version 2.11—it implements <span class="instruction">int 
+  21h</span> function 58h, which is in no known version 2.10—but it reports as version 
+  2.01, not just through the interface but in its Microsoft copyright notice.
+  </p>
+  <p>The date for each kernel is from the file’s directory entry in the disk image. 
+  Where none is shown, it’s because none looks to have been set, perhaps but not 
+  certainly as an oversight in the OEM’s preparation, and the default of 1st January 
+  1980 is better dismissed as meaningless. </p>
+  <p>The NEC build with OEM number 1Fh is remarkable for having a non-zero user 
+  serial number: 010000h. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 29th
+    <a href="../../../../../new/21/08.htm">September 2021</a> and was last modified 
+    on 3rd February 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c2122.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2021-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4739" -->
+  </div>
+</div>
+
+</body>
+
+</html>

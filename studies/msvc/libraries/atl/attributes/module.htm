@@ -1,0 +1,257 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ATL Attributes: module</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="24274" endspan -->
+<!--webbot bot="Include" U-Include="../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED 
+- PREVIEW ONLY </p>
+
+<!--webbot bot="Include" i-checksum="42246" endspan -->
+<h1>ATL Attributes: module </h1>
+<p>This is a listen-to attribute for ATLPROV. It is handled first by the 
+compiler as a built-in attribute and then by such other attribute providers that 
+“listen to” it. The following notes assume familiarity with the syntax and 
+behaviour of the <span class="attribute">
+<a href="../../../language/attributes/providers/builtin/module.htm">module</a></span> 
+attribute as built in to the compiler. The arguments of interest to ATLPROV are
+<span class="argument">type</span>, <span class="argument">name</span>,
+<span class="argument">uuid</span> and <span class="argument">resource_name</span>.
+</p>
+<h2>Behaviour </h2>
+<p>The <span class="attribute">module</span> attribute may cause ATLPROV to 
+inject code that would define variables and functions at global scope. It is an 
+error (<a href="../errors/atl2070.htm">ATL2070</a>) if any of these objects that 
+seem likely to get defined are already defined, meaning specifically if any of 
+the following are true: </p>
+<ul>
+  <li><span class="symbol">_Module</span> or <span class="symbol">_AtlModule</span> 
+  is already defined, </li>
+  <li>the <span class="argument">type</span> argument is <span class="value">dll</span>, 
+  and <span class="symbol">DllCanUnloadNow</span>, <span class="symbol">
+  DllGetClassObject</span>,
+  <span class="symbol">DllMain</span>, <span class="symbol">DllRegisterServer</span> 
+  or <span class="symbol">DllUnregisterServer</span> is already defined, </li>
+  <li>the <span class="argument">type</span> argument is <span class="value">exe</span> 
+  or <span class="value">service</span>, and <span class="symbol">WinMain</span> 
+  is already defined. </li>
+</ul>
+<h3>Module Class </h3>
+<p>The <span class="attribute">module</span> attribute may be applied 
+anonymously, else to a target <span class="keyword">class</span> or <span class="keyword">
+struct</span> 
+(hereafter referred to just as a class). If the attribute has a target, then 
+ATLPROV adds to the target class whatever is needed for representing the module. 
+If the attribute is anonymous, ATLPROV defines a module class from scratch. </p>
+<p>Either way, ATLPROV defines an instance of this module class, and names this 
+instance <span class="symbol">_AtlModule</span>. </p>
+<h4>Injected Module Class </h4>
+<p>When ATLPROV is left to define the module class, the name it constructs is
+<span class="class">C</span><span class="argument">name</span><span class="class">Module</span>, 
+using the <span class="argument">name</span> argument of the
+<span class="attribute">module</span> attribute. The definition varies with the
+<span class="argument">type</span> argument. </p>
+<p>If the <span class="argument">type</span> is <span class="value">dll</span> 
+or
+<span class="value">exe</span>, the module class is defined as </p>
+<pre class="source">class <span class="placeholder">moduleclass</span> : public CAtlDllModuleT &lt;<span class="placeholder">moduleclass</span>&gt;
+{
+    public:
+    DECLARE_LIBID (__uuidof (<span class="argument">name</span>))
+    DECLARE_REGISTRY_APPID_RESOURCEID (<span class="argument">resource_name</span>, &quot;<span class="argument">uuid</span>&quot;)
+};</pre>
+<p>or </p>
+<pre class="source">class <span class="placeholder">moduleclass</span> : public CAtlExeModuleT &lt;<span class="placeholder">moduleclass</span>&gt;
+{
+    public:
+    DECLARE_LIBID (__uuidof (<span class="argument">name</span>))
+    DECLARE_REGISTRY_APPID_RESOURCEID (<span class="argument">resource_name</span>, &quot;<span class="argument">uuid</span>&quot;)
+};</pre>
+<p>respectively. The line with the <span class="macro">
+DECLARE_REGISTRY_APPID_RESOURCEID</span> 
+macro is omitted unless the <span class="argument">resource_name</span> argument 
+is given and non-empty. </p>
+<p>The module class is defined similarly when the <span class="argument">type</span> 
+is <span class="value">service</span>, but a non-empty <span class="argument">
+resource_name</span> 
+is simply assumed: </p>
+<pre class="source">class <span class="placeholder">moduleclass</span> : public CAtlServiceModuleT &lt;<span class="placeholder">moduleclass</span>, <span class="argument">resource_name</span>&gt;
+{
+    public:
+    DECLARE_LIBID (__uuidof (<span class="argument">name</span>))
+    DECLARE_REGISTRY_APPID_RESOURCEID (<span class="argument">resource_name</span>, &quot;<span class="argument">uuid</span>&quot;)
+};</pre>
+<p>Failure to supply a non-empty <span class="argument">resource_name</span> 
+brings no complaint from ATLPROV but the injected code is defective (not that 
+the hapless user can obtain it for inspection) and does not compile without 
+error. Indeed, compiling the simple fragment </p>
+<pre class="source">#define     _WIN32_WINNT    0x0400
+#define     _ATL_ATTRIBUTES
+#include    &lt;atlbase.h&gt;
+#include    &lt;atlisapi.h&gt;
+
+[
+    module (type = &quot;service&quot;, name = &quot;Test&quot;)    // various errors, plus fatal error C1004
+];</pre>
+<p>produces not just 17 errors and then a fatal error, but also </p>
+<pre class="output">This application has requested the Runtime to terminate it in an unusual way.
+Please contact the application&#39;s support team for more information.</pre>
+<p>Better, one might think, would be that the “application’s support team” at 
+Microsoft be given the time and discipline to check such very nearly trivial 
+examples before the product is released and promoted (and contributing to 
+Microsoft’s earnings). The point to injecting code at the direction of 
+attributes is surely to reduce not just the work for programmers but also the 
+inevitability of silly coding oversights by programmers hurrying through their 
+cutting and pasting of boilerplate code. It’s not obviously any help to anyone 
+if a programmer’s syntactically correct use of attributes instead picks up silly 
+coding oversights from Microsoft (with cryptic error messages as a bonus). </p>
+<h4>Modified Target Class </h4>
+<p>When the <span class="attribute">module</span> attribute has a target, 
+ATLPROV tries to make the target into the module class by adding a base class 
+and members corresponding to those that would otherwise have been defined for 
+the new class
+<span class="class">C</span><span class="argument">name</span><span class="class">Module</span>. 
+Bases and members already defined for the target are respected. Bases and 
+members shown above for <span class="class">C</span><span class="argument">name</span><span class="class">Module</span> 
+are added, but with <span class="class">C</span><span class="argument">name</span><span class="class">Module</span> 
+now replaced by the name of the target class. </p>
+<p>Were the correspondence exact, there would no difference between an anonymous 
+application and a targeted one in which the target class happens to be named
+<span class="class">C</span><span class="argument">name</span><span class="class">Module</span> 
+and to have an empty definition. Instead, there are slight differences, and it 
+is not known whether these exist by design. </p>
+<p>In all cases, the added base class derives from <span class="class">
+CAtlModule</span>. If the target already derives from <span class="class">
+CAtlModule</span>, then all additions to the target are skipped, with a warning 
+(ATL4071). </p>
+<p><font color="#FF0000">THIS PAGE IS IN THE PROCESS OF BEING EDITED </font></p>
+<p>Members are added without setting an access specifier. When the type is dll, 
+the <span class="macro">DECLARE_REGISTRY_APPID_RESOURCEID</span> macro is 
+omitted.
+</p>
+<p>in the opposite order, i.e., with <span class="macro">
+DECLARE_REGISTRY_APPID_RESOURCEID</span> 
+before <span class="macro">DECLARE_LIBID</span>. The additions accept whatever 
+is the current access specifier. </p>
+<p>no <span class="macro">DECLARE_REGISTRY_APPID_RESOURCEID</span> macro is 
+added when the type is dll. </p>
+<table border="1" cellspacing="1" cellpadding="10" id="AutoNumber2">
+  <tr>
+    <td><span class="argument">type</span> argument </td>
+    <td>added members </td>
+  </tr>
+  <tr>
+    <td><span class="value">exe</span> if <span class="argument">resource_name</span> 
+    is not empty </td>
+    <td rowspan="2"><span class="macro">DECLARE_REGISTRY_APPID_RESOURCEID (</span><span class="argument">resource_name</span><span class="macro">, 
+    &quot;</span><span class="argument">uuid</span><span class="macro">&quot;)</span> </td>
+  </tr>
+  <tr>
+    <td><span class="value">service</span> </td>
+  </tr>
+  <tr>
+    <td>all <span class="argument">type</span> values </td>
+    <td><span class="macro">DECLARE_LIBID (</span><span class="keyword">__uuidof</span><span class="macro"> 
+    (</span><span class="argument">name</span><span class="macro">))</span> </td>
+  </tr>
+</table>
+<p>Were the correspondence exact, then there would be no difference between an 
+anonymous application and a targeted one in which the target class happens to be 
+named
+<span class="class">C</span><span class="argument">name</span><span class="class">Module</span>. 
+Instead, there are differences and it is not known whether they exist by design 
+or oversight. </p>
+<h3>Exported Functions </h3>
+<p>A DLL written with the ATL is expected to export The most entry points are 
+needed when the <span class="argument">type</span> is <span class="value">dll</span>.
+</p>
+<pre class="source">extern &quot;C&quot; STDAPI DllGetClassObject (REFCLSID rclsid, REFIID riid, void **ppv)
+{
+    return _AtlModule.DllGetClassObject (rclsid, riid, ppv);
+}</pre>
+<pre class="source">extern &quot;C&quot; STDAPI DllRegisterServer (void)
+{
+    return _AtlModule.DllRegisterServer ();
+}</pre>
+<pre class="source">extern &quot;C&quot; STDAPI DllUnregisterServer (void)
+{
+    return _AtlModule.DllUnregisterServer ();
+}</pre>
+<pre class="source">extern &quot;C&quot; STDAPI DllCanUnloadNow (void)
+{
+    return _AtlModule.DllCanUnloadNow ();
+}</pre>
+<pre class="source">BOOL WINAPI DllMain (HINSTANCE hInstance, DWORD dwReason, LPVOID lpReserved)
+{
+    hInstance;<br>
+    return _AtlModule.DllMain (dwReason, lpReserved);<br>
+}</pre>
+<p>Moreover, the linker has to be told of them: </p>
+<pre class="source">#if defined (_M_IX86)
+#pragma comment (linker, &quot;/EXPORT:DllMain=_DllMain@12,PRIVATE&quot;)
+#pragma comment (linker, &quot;/EXPORT:DllRegisterServer=_DllRegisterServer@0,PRIVATE&quot;)
+#pragma comment (linker, &quot;/EXPORT:DllUnregisterServer=_DllUnregisterServer@0,PRIVATE&quot;)
+#pragma comment (linker, &quot;/EXPORT:DllGetClassObject=_DllGetClassObject@12,PRIVATE&quot;)
+#pragma comment (linker, &quot;/EXPORT:DllCanUnloadNow=_DllCanUnloadNow@0,PRIVATE&quot;)
+#elif defined (_M_IA64)
+#pragma comment (linker, &quot;/EXPORT:DllMain,PRIVATE&quot;)
+#pragma comment (linker, &quot;/EXPORT:DllRegisterServer,PRIVATE&quot;)
+#pragma comment (linker, &quot;/EXPORT:DllUnregisterServer,PRIVATE&quot;)
+#pragma comment (linker, &quot;/EXPORT:DllGetClassObject,PRIVATE&quot;)
+#pragma comment (linker, &quot;/EXPORT:DllCanUnloadNow,PRIVATE&quot;)
+#endif</pre>
+<p>If the <span class="argument">type</span> is either <span class="value">exe</span> 
+or <span class="value">service</span>, there is one global function to define:
+</p>
+<pre class="source">extern &quot;C&quot; int WINAPI _tWinMain (
+    HINSTANCE hInstance,
+    HINSTANCE /* hPrevInstance */,
+    LPTSTR lpCmdLine,
+    int nShowCmd)
+{
+    return _AtlModule.WinMain (nShowCmd);
+}</pre>
+<div class="Footer">
+  <p class="Dates">This page was created on 13th August 2006 and was last 
+  modified on 6th January 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0610.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2006-2010. Geoff Chappell. All rights reserved.
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62416" endspan -->
+</div>
+
+</body>
+
+</html>

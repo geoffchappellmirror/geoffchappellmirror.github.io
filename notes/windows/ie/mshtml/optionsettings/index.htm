@@ -1,0 +1,413 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MSHTML Options</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/controls.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/box.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/controls.js" defer></script>
+<script type="text/javascript" src="../../../../../_scripts/box.js" defer></script>
+<script type="text/javascript" src="../../../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="20600" -->
+<div class="Main">
+  <h1>MSHTML Options </h1>
+  <p>As a large program, Internet Explorer has numerous options for its behaviour. 
+  This article is concerned with a relative handful of registry values that MSHTML 
+  treats specially. First, they have common handling, which alone might make it 
+  useful to document them as a group. Second, part of the detail to this common 
+  handling is that MSHTML is uniquely interested in always working from the most 
+  up-to-date settings of these registry values. Finally, there is a very real sense 
+  in which these particular registry values are the essence of what’s configurable 
+  about the HTML services that Internet Explorer provides to other programs: these 
+  are the Internet Explorer settings that MSHTML allows to be different for different 
+  programs. </p>
+  <p>A technical description of this article’s scope is: the options that are handled 
+  by MSHTML in its internal class <span class="class">COptionSettings</span> (called
+  <span class="class">OPTIONSETTINGS</span> before version 7.0), specifically through 
+  tables of <span class="struct">REGKEYINFORMATION</span> structures. These names 
+  are known from Microsoft’s symbol files. Analysis is primarily of MSHTML.DLL as 
+  distributed with Windows XP SP1 and Windows Vista. Earlier versions have been 
+  looked at for these notes, but only cursorily. </p>
+  <h2>Registry Locations </h2>
+  <p>The MSHTML options fall into two sets according to their location in different 
+  parts of the registry: </p>
+  <ul>
+    <li><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer</span>
+    </li>
+    <li><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion</span>
+    </li>
+  </ul>
+  <p>These are here referred to as the <a href="ie.htm">Internet Explorer options</a> 
+  and the <a href="windows.htm">Windows options</a>, respectively. That they are 
+  on different paths in the registry is not the reason for distinguishing them. 
+  Indeed, to say that the options are on those paths is not quite true. Those are 
+  merely the ordinary locations. Almost all the MSHTML options can be at multiple 
+  locations in the registry. Two mechanisms are involved, but the Windows options 
+  are subject to only one of them. </p>
+  <h3>Document Hosts </h3>
+  <p>For the chronologically first mechanism, consider that potentially very many 
+  programs, for an unknowable generality of reasons, may be interested in using 
+  MSHTML as a service provider for presenting HTML pages. A user might not like 
+  it if all these programs are constrained to the same presentation. Neither might 
+  the writers of each program care to have their presentation exposed to whimsical 
+  reconfigurations of Internet Explorer. The more that MSHTML provides a service 
+  for multiple, unrelated programs, the more that it’s not enough for MSHTML to 
+  maintain separate options just for each user. It becomes desirable that options 
+  can apply per user per program. </p>
+  <p>The way that MSHTML supports this is that any program that hosts an HTML document 
+  may specify either or both of two other paths for MSHTML options. The document 
+  host does this by implementing the <span class="interface">IDocHostUIHandler2</span> 
+  interface, particularly for the <span class="method">GetOptionKeyPath</span> and
+  <span class="method">GetOverrideKeyPath</span> methods. (The older
+  <span class="interface">IDocHostUIHandler</span> suffices if an override path 
+  is not wanted.) Whenever MSHTML reads its option settings, it calls these methods 
+  to learn the paths. As an aside, note that where the relevant Microsoft documentation 
+  talks of “the WebBrowser Control” in this context, it must mean MSHTML. Microsoft’s 
+  documentation states elsewhere that “Shdocvw.dll… is commonly referred to as the 
+  WebBrowser control”, but it is MSHTML that makes the calls and acts on whatever 
+  paths are returned. </p>
+  <p>These paths apply only to the Internet Explorer options, not the Windows options. 
+  The option key replaces the ordinary key for Internet Explorer options. The override 
+  key is extra to the ordinary key. </p>
+  <p>Let <span class="placeholder">ordinary</span> stand for
+  <span class="regkey">Software\Microsoft\Internet Explorer</span>, and let
+  <span class="placeholder">option</span> and <span class="placeholder">override</span> 
+  stand for a document host’s option and override paths. Suppose that a particular 
+  option would ordinarily be some registry value in the key <span class="regkey">
+  HKEY_CURRENT_USER\<span class="placeholder">ordinary</span>\<span class="placeholder">subkey</span></span>. 
+  If an option key is given, then MSHTML looks instead for the value with the same 
+  name but in the key <span class="regkey">HKEY_CURRENT_USER\<span class="placeholder">option</span>\<span class="placeholder">subkey</span></span>. 
+  The value in the ordinary location becomes irrelevant. If an override key is given, 
+  then MSHTML looks first at whichever is applicable of <span class="regkey">HKEY_CURRENT_USER\<span class="placeholder">ordinary</span>\<span class="placeholder">subkey</span></span> 
+  and <span class="regkey">HKEY_CURRENT_USER\<span class="placeholder">option</span>\<span class="placeholder">subkey</span></span>, 
+  and then looks for the same value in <span class="regkey">HKEY_CURRENT_USER\<span class="placeholder">override</span>\<span class="placeholder">subkey</span></span>, 
+  giving precedence to the latter. </p>
+  <p>An option path therefore allows a document host to provide a complete collection 
+  of Internet Explorer options. Anything omitted from this collection is defaulted. 
+  The settings for Internet Explorer become irrelevant. An override path allows 
+  a document host to provide a selection of options to build on a base collection. 
+  Anything omitted from the selection is instead taken from the base collection. 
+  In particular, when there is just an override path but no option path, anything 
+  omitted from the override selection is instead taken from the settings for Internet 
+  Explorer. </p>
+  <h4>Examples </h4>
+  <p>Now, Microsoft typically does not extend functionality unless Microsoft needs 
+  it, or at least imagines it, for Microsoft’s purposes or for those of someone 
+  close to Microsoft. So, it should not surprise that there are ready examples in 
+  the Windows package. The registry keys </p>
+  <ul>
+    <li><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows Mail\Trident</span>
+    </li>
+    <li><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows Sidebar\IEOverride</span>
+    </li>
+  </ul>
+  <p>in Windows Vista are respectively an option key and an override key. Other 
+  examples are found easily enough in other Microsoft products. </p>
+  <p>There presumably do exist document hosts that are not written by Microsoft 
+  but which implement an option key or override key for Internet Explorer options. 
+  However, some cynicism seems warranted. Consider the following from Microsoft’s 
+  page
+  <a target="_top" href="http://msdn.microsoft.com/en-us/library/aa770041.aspx">
+  WebBrowser Customization</a>: </p>
+  <blockquote>
+    <p>Telling the <b>WebBrowser Control</b> where to look for your registry settings 
+    is the first step—actually, it’s the second step as far as program execution 
+    is concerned. Your program must set the keys at the location specified by <b>
+    IDocHostUIHandler::GetOptionKeyPath</b> so the <b>WebBrowser Control</b> can 
+    read them. There are a variety of ways to do this. One way would be with a registry 
+    script that runs when the application is installed. Another way might be to 
+    do it programmatically when the application starts. Here’s a function that sets 
+    keys to change the default font, size, and color. </p>
+  </blockquote>
+  <p>This may seem all well and good. Microsoft has not only designed the functionality 
+  but is thorough enough to point out that programmers who use it must “set the 
+  keys” themselves. But where does Microsoft document those “keys” so that non-Microsoft 
+  programmers of non-Microsoft document hosts can know what “keys” can meaningfully 
+  be set? </p>
+  <div id="Microsoft Visual Studio" class="Digression">
+    <div class="Box">
+      <h4>Internet Explorer as Middleware for Microsoft Visual Studio </h4>
+      <p>On this matter, consider a product that Microsoft sells separately from 
+      Windows and in competition with products made by others. The programming suite 
+      Microsoft Visual Studio has long included an HTML Editor in its Integrated 
+      Development Environment (IDE). In Visual Studio .NET 2002, also known as Visual 
+      Studio 7, the actual rendering and editing is done by MSHTML, i.e., by Internet 
+      Explorer. This makes Visual Studio as good an example as any of a program 
+      that uses Internet Explorer as “middleware”, which is a term that many first 
+      (and perhaps have only ever) encountered in legal documents arising from a 
+      prominent anti-trust case against Microsoft. </p>
+      <p>Seen from the operating system looking out beyond the shell, Internet Explorer 
+      is an application, like any other end-user of operating-systerm functionality. 
+      It happens to be distributed in competition with other applications, collectively 
+      known as web browsers, made by hands other than Microsoft’s. Because these 
+      web browsers that compete with one another all depend on the operating system 
+      and Microsoft has monopoly control in the market for operating systems (at 
+      least on a particular set of target machines), legislation applies with some 
+      sort of intention of keeping the competition fair in the market for web browsers. 
+      Among the ways that Microsoft has been accused of being unfair in this competition 
+      is that Internet Explorer is built with operating-system knowledge that is 
+      unavailable to Internet Explorer’s competitors. </p>
+      <p>However, Internet Explorer is not entirely an end-user of operating-system 
+      functionality. Though it is an application, some of its modules are more like 
+      those of an operating system. You can look outwards from Internet Explorer 
+      and see Visual Studio as a higher-level application. Visual Studio happens 
+      also to be distributed in competition with other applications which may do 
+      all or (more likely) some of the same things that Visual Studio uses Internet 
+      Explorer for. Indeed, these competing products may also use Internet Explorer 
+      for the same HTML functionality. Again, because Microsoft has monopoly control 
+      in the market for web browsers, the competition among products that use Internet 
+      Explorer for its shared functionality is supposed to be fair. Among the ways 
+      that Microsoft has been accused of being unfair in this competition is that 
+      some Microsoft applications are built with Internet-Explorer knowledge that 
+      is unavailable to those applications’ competitors. </p>
+      <p>In Visual Studio 7, the relevant components are an HTML Editor (HTMED.DLL) 
+      and a design component (TRIDSN.DLL). HMTED asks TRIDSN to create an instance 
+      of the <span class="class">TriDesignDocument</span> class. The class is registered 
+      not under <span class="regkey">HKEY_CLASSES_ROOT\CLSID</span> as a class that 
+      any COM program might find, but as one of Visual Studio’s own under
+      <span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\VisualStudio\7.0\CLSID</span>. 
+      HTMED does not care where TRIDSN gets its HTML functionality to support a
+      <span class="class">TriDesignDocument</span>, only that TRIDSN provides HTML 
+      interfaces such as Microsoft documents for <span class="citation">Hosting 
+      and Reusing</span>. </p>
+      <p>That much is internal to Visual Studio, but then TRIDSN gets its HTML functionality 
+      by hosting and reusing MSHTML. It asks that someone create an instance of 
+      the <span class="class">HTMLDocument</span> class. This class is registered 
+      as a COM class under <span class="regkey">HKEY_CLASSES_ROOT\CLSID</span>, 
+      with MSHTML as the handler. TRIDSN thus becomes a document host, acting as 
+      a client for HTMED. The <span class="class">TriDesignDocument</span> has an
+      <span class="interface">IOleObject</span> interface. HTMED calls this interface’s
+      <span class="method">SetClientSite</span> method to tell TRIDSN of, among 
+      other things, an <span class="interface">IDocHostUIHandler</span> interface. 
+      TRIDSN wraps this into its own <span class="interface">IDocHostUIHandler</span> 
+      interface and tells MSHTML through the <span class="method">SetUIHandler</span> 
+      method of the <span class="class">HTMLDocument</span> object’s
+      <span class="interface">ICustomDoc</span> interface. The connection is then 
+      complete. MSHTML sees TRIDSN as the document host, but the user-interface 
+      functionality comes from both TRIDSN and HTMED. For the
+      <span class="method">GetOptionKeyPath</span> method in particular, the TRIDSN 
+      implementation is just a wrapper, passing to HTMED. Thus does HTMED supply 
+      MSHTML with an option key: <span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\VisualStudio\7.0\HTML 
+      Editor\Internet Explorer</span>. </p>
+      <p>HTMED also sets the value <span class="regvalue">
+      <a href="rtfconverterflags.htm">RtfConverterFlags</a></span> in that key. 
+      Whatever may be the benefit, and there may in fact be none, it’s not something 
+      that Microsoft extends to Visual Studio’s competitors, e.g., by documenting 
+      it as something that any document host might set in an option key. Yes, it’s 
+      only one registry value, but the cumulative effect of little undocumented 
+      things is possibly significant. </p>
+      <h5>Untying the Products? </h5>
+      <p>In Visual Studio 2005, also known as Visual Studio 8, the corresponding 
+      registry key, with 7.0 changed to 8.0, is again an option key but not for 
+      MSHTML. The sketch of interactions, as given above, remains true except on 
+      two counts. One is trivial: HTMED has been renamed HTMLED. The other is that 
+      instead of asking the general COM machinery to create an instance of the
+      <span class="class">HTMLDocument</span> class, TRIDSN now asks within Visual 
+      Studio for an internal class named <span class="class">VSHTMLDocument</span>. 
+      This is satisfied by a new DLL, named VSWEBDESIGN, which reproduces large 
+      tracts of the MSHTML code. </p>
+      <p>The duplication of MSHTML into VSWEBDESIGN looks to have been done at source 
+      level, not by linking from a shared library. At several places in the code, 
+      MSHTML is changed to VSHTML. In effect, Microsoft’s programmers for Visual 
+      Studio, or more likely their superiors who decide matters of strategy and 
+      law, have said something like “if we use MSHTML, we have to be on the same 
+      terms with our competitors in our use of it; if we make our own VSHTML from 
+      the MSHTML source code, then although we’ll still be using the MSHTML code, 
+      we are no longer competing as callers of MSHTML and those notions of fair 
+      competition don’t apply to us.” I trust that someone was paid well for coming 
+      up with that. </p>
+    </div>
+  </div>
+  <h3>Policies </h3>
+  <p>For the other mechanism by which MSHTML options may be sought elsewhere in 
+  the registry, the merit is that the ordinary location is readily accessible to 
+  users for configuring their own experience, but the other locations are restricted 
+  in some way, typically so that administrative privilege is needed for changing 
+  them (or even to see them). By giving precedence to the administrative location, 
+  MSHTML gives administrators the means to remove an option from a user’s control 
+  and configure it for the user as a matter of policy. </p>
+  <p>The general scheme allows for separate per-user and machine-wide policies. 
+  Consider an option that is ordinarily in some registry value in the key
+  <span class="regkey">HKEY_CURRENT_USER\<span class="placeholder">ordinary</span>\<span class="placeholder">subkey</span></span>, 
+  where <span class="placeholder">ordinary</span> is: </p>
+  <ul>
+    <li><span class="regkey">Software\Microsoft\Internet Explorer</span> for the 
+    Internet Explorer options; </li>
+    <li><span class="regkey">Software\Microsoft\Windows\CurrentVersion</span> for 
+    the Windows options. </li>
+  </ul>
+  <p>Then this option’s instance as a policy is the value with the same name, but 
+  in either or both of <span class="regkey">HKEY_CURRENT_USER\<span class="placeholder">policy</span>\<span class="placeholder">subkey</span></span> 
+  or <span class="regkey">HKEY_LOCAL_MACHINE\<span class="placeholder">policy</span>\<span class="placeholder">subkey</span></span>, 
+  where <span class="placeholder">policy</span> is: </p>
+  <ul>
+    <li><span class="regkey">Software\Policies\Microsoft\Internet Explorer</span> 
+    for the Internet Explorer options; </li>
+    <li><span class="regkey">Software\Policies\Microsoft\Windows\CurrentVersion</span> 
+    for the Windows options. </li>
+  </ul>
+  <p>Some options are not supported as policies, either way. Some are subject to 
+  the per-user policy only. Some are subject to both the per-user and machine-wide 
+  policies. For these, the machine-wide policy has precedence, and the per-user 
+  policy isn’t even looked for if the following evaluates as true: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key </td>
+      <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+      Settings</span> </td>
+    </tr>
+    <tr>
+      <td>Value </td>
+      <td><span class="regvalue">Security_HKLM_only</span> </td>
+    </tr>
+    <tr>
+      <td>Data </td>
+      <td>boolean (see below) </td>
+    </tr>
+    <tr>
+      <td>Default </td>
+      <td>false </td>
+    </tr>
+  </table>
+  <p>Support for MSHTML Option Settings as policies is recent. A quick look at the 
+  MSHTML symbol files for intermediate Windows versions, specifically to see if 
+  a relevant function has an extra argument to name a policy key, suggests that 
+  the addition dates from Windows Server 2003 SP1. </p>
+  <h3>Precedence </h3>
+  <p>In summary, each MSHTML option is represented by a registry value and a subkey, 
+  but the value may be in as many as four locations obtained by applying the subkey 
+  to the following paths in decreasing order of precedence: </p>
+  <ul>
+    <li>a policy key in the <span class="regkey">HKEY_LOCAL_MACHINE</span> branch;
+    </li>
+    <li>a policy key in the <span class="regkey">HKEY_CURRENT_USER</span> branch;
+    </li>
+    <li>a document host’s override key in the <span class="regkey">HKEY_CURRENT_USER</span> 
+    branch; </li>
+    <li>either the ordinary key or a document host’s option key, both in the
+    <span class="regkey">HKEY_CURRENT_USER</span> branch. </li>
+  </ul>
+  <p>Remember however that not all these possibilities are supported for all options.
+  </p>
+  <h2>Updates </h2>
+  <p>An update of MSHTML options is triggered whenever MSHTML’s global window, which 
+  has the window class name “Internet Explorer_Hidden”, receives any of the following 
+  messages: </p>
+  <ul>
+    <li><span class="constant">WM_SYSCOLORCHANGE</span> (0x0015) </li>
+    <li><span class="constant">WM_SETTINGCHANGE</span> (0x001A) </li>
+    <li><span class="constant">WM_DEVMODECHANGE</span> (0x001B) </li>
+    <li><span class="constant">WM_FONTCHANGE</span> (0x001D) </li>
+    <li><span class="constant">WM_DISPLAYCHANGE</span> (0x007E) </li>
+    <li><span class="constant">WM_THEMECHANGE</span> (0x031A) </li>
+    <li>0x0552 </li>
+  </ul>
+  <p>Most of these are well-known to Windows programmers and are in no way specific 
+  to Internet Explorer. They are typically posted, indeed broadcast, across the 
+  windowing system as notice of just about anyone’s reconfiguration of anything 
+  that might interest just about anyone else. </p>
+  <p>The last of the messages is a communication to Internet Explorer specifically. 
+  Instances are known from INETCPL.CPL, which implements the Internet Options for 
+  the Control Panel, but also from MSOE.DLL which is the heart of Windows Mail (previously 
+  called Outlook Express). Indeed, Microsoft’s symbol files confirm the private 
+  design by showing that relevant routines have names such as
+  <span class="symbol">MSHTMLNotifyAllRefresh</span> and <span class="symbol">SendTridentOptionsChanged</span> 
+  (Trident apparently having been a codename for MSHTML). INETCPL posts the message 
+  to each window that has the class name “Internet Explorer_Hidden”, only ever after 
+  user activity that at least had some potential to have changed an MSHTML option. 
+  Such occasions are numerous, and can be trivial. For instance, it’s enough just 
+  to click OK on any of the dialogs for Colors, Language, Fonts or Accessibility, 
+  without having made any change. </p>
+  <p>That MSOE knows to post this message, including to know the hard-coded class 
+  name, is especially curious since there exist competing email products which one 
+  might think are supposed to be on equal footing with Microsoft’s in terms of their 
+  interactions with MSHTML. Will there ever be an end to these games that Microsoft 
+  plays with leveraging its monopoly products? </p>
+  <h2>Data Interpretation </h2>
+  <p>The particular registry values that are currently supported as MSHTML options 
+  make for quite a long list, given separately for <a href="ie.htm">Internet Explorer 
+  options</a> and <a href="windows.htm">Windows options</a>. For all these registry 
+  values, the registry data has a shared interpretation. </p>
+  <p>For those settings that the lists describe as “boolean”, the interpretation 
+  of the registry data is especially liberal. For data of type
+  <span class="constant">REG_DWORD</span> and when treating ≤ 4 bytes of
+  <span class="constant">REG_BINARY</span> data as a dword (see below), non-zero 
+  is true and zero is false. Data of any other type is interpreted as a case-insensitive 
+  string: any of <span class="regsz">yes</span>, <span class="regsz">true</span> 
+  and <span class="regsz">1</span> count as true; <span class="regsz">no</span>,
+  <span class="regsz">false</span> and <span class="regsz">0</span> count as false; 
+  and anything else is an error. </p>
+  <p>Data of type <span class="constant">REG_BINARY</span> is acceptable to MSHTML 
+  wherever a dword is sought. For settings described as “boolean” or “dword”, the 
+  coding allows data of type <span class="constant">REG_BINARY</span> even if there 
+  are fewer than 4 bytes of data. In particular, though a single non-zero byte must 
+  be interpreted as true, it seems that a single null byte might not be interpreted 
+  as false. </p>
+  <p>A few options must be given as a dword of <span class="constant">REG_BINARY</span> 
+  data. Again, though the coding clearly expects 4 bytes, it does not check that 
+  there actually are as many. </p>
+  <p>For some options, <span class="constant">REG_BINARY</span> data is accepted 
+  just for its first byte and <span class="constant">REG_DWORD</span> data is accepted 
+  just for its low 16 bits. </p>
+  <p>Where a string is expected, only data of type <span class="constant">REG_SZ</span> 
+  is accepted. In most cases, strings that are not recognised explicitly are treated 
+  to a default interpretation, which is not necessarily the default for the option’s 
+  absence. </p>
+  <p>A setting that is described as taking an “RGB string” accepts only a string 
+  that conforms to a pattern for representing a colour. The form is of three integers, 
+  representing in turn the intensities for red, green and blue. Each integer is 
+  an optional positive or negative sign and then any number of consecutive decimal 
+  digits, with truncation if overflowing 32 bits. The colour values are just the 
+  low 8 bits of each integer. Separation of the integers is not strictly specified: 
+  the first two integers may each be followed by pretty much any one character and 
+  then by any amount of white space, including none; the last integer may be followed 
+  by nearly anything. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 17th February 2008 and was last modified 
+    on 28th August 2009. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c0809.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5603" -->
+  </div>
+</div>
+
+</body>
+
+</html>

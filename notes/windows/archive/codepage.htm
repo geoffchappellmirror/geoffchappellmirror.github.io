@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Code Pages and the Windows 95 IFSMGR</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Code Pages and the Windows 95 IFSMGR </h1>
+  <p>The Windows 95 IFSMGR uses Unicode characters for its internal representation 
+  of pathnames. The IFSMGR can also take Unicode characters as input (though this 
+  may require use of undocumented extensions, as for instance with the
+  <span class="constant">IFSMgr_Ring0_FileIO</span> service), but it is more likely 
+  that IFSMGR’s clients will provide pathnames using a more traditional character 
+  set, here called a base character set. </p>
+  <p>In every character set relevant to this discussion, each character in the set 
+  can be described by giving a 16-bit value. In the Unicode scheme, that 16-bit 
+  value is also the way the character is encoded: Unicode characters are words.
+  </p>
+  <p>The traditional character sets allow some or possibly all of their characters 
+  to be encoded as bytes. A character whose 16-bit value in the character set is 
+  less than 0100h can be represented just as a byte and is represented as a byte. 
+  A character whose 16-bit value in the character set is ≥ 0100h is represented 
+  as a sequence of two bytes. First comes the lead byte, formed from the high 8 
+  bits of the 16-bit value, and then the trail byte (from the low 8 bits). Note 
+  that if a character set includes double-byte characters, then some values—specifically, 
+  those that can be lead bytes for double-byte characters—become impossible as single-byte 
+  characters. Note also that 00h cannot be used as a lead byte. In practice, ASCII 
+  compatibility means that no values less than 80h are used as lead bytes. </p>
+  <p>For any given language, it is desirable that all the characters in frequent 
+  use should be representable as single bytes. There are many different base character 
+  sets, typically for different languages, often differing most significantly in 
+  the choice of the characters that can be represented as single bytes between 80h 
+  and FFh. Each of these character sets has a code page ID. A given character may 
+  be represented differently depending on the code page, and it may even have no 
+  representation at all in some code pages. Conversely, a given 16-bit value may 
+  denote different characters depending on the code page ID, and may be invalid 
+  for some code pages. </p>
+  <p>In very broad terms, the base character sets in use under Windows can be classed 
+  as ANSI or OEM according to typical usage. ANSI code pages are the ones that can 
+  be used by programs running under the Windows graphical environment. Anything 
+  else is an OEM code page. It is helpful to regard some of the ANSI code pages 
+  as OEM code pages also, since they are often used by software other than Windows 
+  programs. </p>
+  <p>To the IFSMGR however, there is nothing very fundamental about any distinction 
+  between ANSI and OEM character sets. All that counts is that at any one time, 
+  the IFSMGR supports at most two code pages, and it seems intended that one should 
+  be an ANSI code page and the other an OEM code page. The particular code pages 
+  are taken from information in either the registry or the SYSTEM.INI file, under 
+  the names ACP and OEMCP respectively. The defaults are 437 for the OEM code page 
+  and 1252 for the ANSI code page. </p>
+  <h2>Character Set Conversion </h2>
+  <p>The IFSMGR has six tables for the various conversions that it may need while 
+  working with characters. The roles of these tables are documented under
+  <span class="constant">IFSMgr_GetConversionTablePtrs</span>. The first four tables 
+  define the primitive conversions from Unicode to the ANSI or OEM character sets 
+  and back. The last two tables support the mapping of Unicode characters to upper 
+  case. </p>
+  <p>The tables concerned with conversion to and from Unicode may be loaded from 
+  a file called UNICODE.BIN, which the IFSMGR expects to find in the Windows SYSTEM 
+  directory (that is, the directory reported by the <span class="constant">Get_Exec_Path</span> 
+  service). If the UNICODE.BIN file is not present, the IFSMGR loads default tables 
+  for the default code pages, loading from copies that are hard-coded in the IFSMGR 
+  initialisation segment. </p>
+  <p>If the UNICODE.BIN file is present, the IFSMGR determines the code pages it 
+  will use henceforth as the OEM and ANSI character sets by looking for the
+  <span class="regvalue">OEMCP</span> and <span class="regvalue">ACP</span> values 
+  under the key <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Nls\Codepage</span> 
+  in the registry or in the <span class="inisect">[Intl]</span> section of SYSTEM.INI. 
+  Both entries must be found in the registry or both in SYSTEM.INI, else the IFSMGR 
+  reverts to the default tables for the default code pages. </p>
+  <p>Note that the choice of code pages for the interpretation of ANSI and OEM characters 
+  is fixed at initialisation. The IFSMGR provides no interface through which it 
+  may be informed that a pathname is specified in terms of characters from some 
+  different code page. This may surprise, especially since the various drivers and 
+  utilities that support the changing of code pages under DOS continue to be supplied 
+  with Windows 95. </p>
+  <h3>UNICODE.BIN File Format </h3>
+  <p>The UNICODE.BIN file begins with a count of code pages that the file supports:
+  </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>dword </td>
+      <td>number of code page headers that follow </td>
+    </tr>
+  </table>
+  <p>followed immediately by an array of code page headers. Each has the form:
+  </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>dword </td>
+      <td>code page ID </td>
+    </tr>
+    <tr>
+      <td>04h </td>
+      <td>dword </td>
+      <td>file offset to table for conversion to Unicode </td>
+    </tr>
+    <tr>
+      <td>08h </td>
+      <td>dword </td>
+      <td>size of table for conversion to Unicode, measured in bytes </td>
+    </tr>
+    <tr>
+      <td>10h </td>
+      <td>dword </td>
+      <td>file offset to table for conversion from Unicode </td>
+    </tr>
+    <tr>
+      <td>14h </td>
+      <td>dword </td>
+      <td>size of table for conversion from Unicode, measured in bytes </td>
+    </tr>
+  </table>
+  <p>Tables are read into memory obtained from whichever system heap is currently 
+  selected by the <span class="constant">HEAPLOCKEDIFDP</span> flag. If the
+  <span class="regvalue">OEMCP</span> and <span class="regvalue">ACP</span> code 
+  page IDs are not both supported by the UNICODE.BIN file or if any error occurs 
+  while loading the tables from the file, then the IFSMGR reverts to its default 
+  tables for the default code pages. (Incidentally, should a file error occur, memory 
+  already obtained to hold the tables is not released.) </p>
+  <p>Note that the IFSMGR in the US edition and in some international releases of 
+  Windows 95 assumes that the UNICODE.BIN file provides tables for no more than 
+  18 code pages. The problem is that the IFSMGR reads the code page headers from 
+  the UNICODE.BIN file in multiples of 01F8h bytes (that is, in sets of 18 code 
+  page headers). When the IFSMGR searches the code page headers for one that matches 
+  an <span class="regvalue">OEMCP</span> or <span class="regvalue">ACP</span> value, 
+  it saves only the address where the header has been read into a buffer in the 
+  IFSMGR initialisation segment. If the code page headers for different
+  <span class="regvalue">OEMCP</span> and <span class="regvalue">ACP</span> values 
+  lie in different blocks of 01F8h bytes within the file, then the algorithm will 
+  misbehave because reading another set of headers makes nonsense of the address 
+  already saved for the first matching header. Some international releases of Windows 
+  95 correct the problem by having the IFSMGR save copies of each matching code 
+  page header (so that the information in the header won’t be lost if more headers 
+  are read from the file). </p>
+  <p>The UNICODE.BIN supplied with the US edition of Windows 95 provides conversion 
+  tables for just the three code pages 437, 850 and 1252. </p>
+  <h3>Conversion From Unicode </h3>
+  <p>A Unicode character is necessarily two bytes. An ANSI or OEM character may 
+  be one byte or two. At least some, and typically many, Unicode characters will 
+  have no corresponding characters in a given ANSI or OEM code page. To deal with 
+  this efficiently, a table for conversion of Unicode characters into ANSI or OEM 
+  characters defines ranges of Unicode characters. A Unicode character that lies 
+  outside these ranges has no representation in the given ANSI or OEM character 
+  set. </p>
+  <p>Note however that a range is permitted to have holes. A character may lie within 
+  a defined range but be intended to have no corresponding character in the base 
+  character set. In simple terms, this is indicated by having the conversion table 
+  seem to map the Unicode character to an underscore. </p>
+  <p>The conversion table starts with a range definition from which a conversion 
+  routine may find more range definitions as needed. Note that the ranges can be 
+  linked in a way that supports a search by binary separation (so that for a table 
+  with 31 ranges, a character need be checked against no more than five range definitions).
+  </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks" span="2">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th colspan="2">Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>word </td>
+      <td colspan="2">offset from start of table to definition for a lower range; 
+      or zero </td>
+    </tr>
+    <tr>
+      <td>02h </td>
+      <td>word </td>
+      <td colspan="2">offset from start of table to definition for a higher range; 
+      or zero </td>
+    </tr>
+    <tr>
+      <td>04h </td>
+      <td>word </td>
+      <td colspan="2">first character in range </td>
+    </tr>
+    <tr>
+      <td>06h </td>
+      <td>word </td>
+      <td colspan="2">last character in range </td>
+    </tr>
+    <tr>
+      <td rowspan="3">08h </td>
+      <td rowspan="3">dword </td>
+      <td colspan="2">mask and bit flag </td>
+    </tr>
+    <tr>
+      <td>00000001h </td>
+      <td>Unicode characters in range map to single-byte characters or double-byte 
+      characters if bit is set or clear respectively </td>
+    </tr>
+    <tr>
+      <td>FFFFFFFEh </td>
+      <td>offset from start of table to look-up array </td>
+    </tr>
+  </table>
+  <p>Conversion of characters included in a given range proceeds by look-up. The 
+  offset to the look-up array is the numerical value inside the masked bits of the 
+  dword at offset 08h in the range definition. (Shifting the dword at offset 08h 
+  to the right by one bit gives the offset to the look-up array. Masking the dword 
+  at offset 08h by FFFFFFFEh gives twice the offset to the look-up array.) </p>
+  <p>Note that all the Unicode characters in a given range map to single-byte characters 
+  in the base character set or they all map to double-byte characters in the base 
+  character set. The look-up array consists of bytes if the Unicode characters in 
+  the range map to single-byte characters. When the Unicode character is in a range 
+  of characters that map to double-byte characters, the look-up array consists of 
+  words in which the high byte is the lead byte and the low byte is the trail byte.
+  </p>
+  <p>Except for the underscore itself (character 005Fh), any Unicode character that 
+  lies in a range of characters that map to single-byte characters in the base character 
+  set is treated as having no conversion if it maps to the value 5Fh. Any Unicode 
+  character that lies in a range of characters that map to double-byte characters 
+  in the base character set is deemed to have no conversion if it maps to the value 
+  5F5Fh (that is, to a pair of underscores, interpreted as one double-byte character).
+  </p>
+  <h3>Conversion to Unicode </h3>
+  <p>A character in an ANSI or OEM code page may be encoded as one byte or two. 
+  A table for conversion from an ANSI or OEM code page to Unicode begins with a 
+  20h-byte bit string to define which values between 00h and FFh represent single-byte 
+  characters and which are lead bytes for double-byte characters. The bit is set 
+  if the corresponding value is valid as a single-byte character. </p>
+  <p>The treatment of single-byte and double-byte characters in the base set can 
+  be unified by forming a 16-bit character value for use in lookup tables. For a 
+  single-byte character, the 16-bit value is the unsigned extension of the single 
+  byte. For a double-byte character, the 16-bit value is formed by taking the lead 
+  byte for the high 8 bits and the trail byte for the low 8 bits. </p>
+  <p>Immediately after the 20h-byte bit string is a table very much like the one 
+  used for conversion from Unicode. Each range definition in the table has the form:
+  </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>word </td>
+      <td>offset from start of table to definition for a lower range; or zero
+      </td>
+    </tr>
+    <tr>
+      <td>02h </td>
+      <td>word </td>
+      <td>offset from start of table to definition for a higher range; or zero
+      </td>
+    </tr>
+    <tr>
+      <td>04h </td>
+      <td>word </td>
+      <td>first character in range </td>
+    </tr>
+    <tr>
+      <td>06h </td>
+      <td>word </td>
+      <td>last character in range </td>
+    </tr>
+    <tr>
+      <td>08h </td>
+      <td>dword </td>
+      <td>offset from start of table to look-up array, times two </td>
+    </tr>
+  </table>
+  <p>Offsets are measured from the first range definition, not from the bit string. 
+  The look-up array for each range is an array of Unicode characters (that is, of 
+  words). </p>
+  <p>If a 16-bit character value is not covered by one of the range definitions 
+  in this table, then the corresponding OEM or ANSI character has no conversion 
+  to Unicode. If an OEM or ANSI character other than the single-byte character 5Fh 
+  maps to the Unicode character 005Fh, then it is also treated as having no conversion 
+  to Unicode. </p>
+  <h3>Case Mapping </h3>
+  <p>The conversion of Unicode characters to upper case uses two tables. First, 
+  the Unicode character is used as an offset into an array of bytes. The byte that 
+  results from this first look-up is in turn an offset into a second table, called 
+  the delta table. The second table is an array of words. The word that results 
+  from this second look-up is a value to subtract from the given Unicode character 
+  in order to convert that character to upper case. </p>
+  <p>The IFSMGR itself provides the contents of both the tables that are used in 
+  converting Unicode characters to upper case. The delta table is hard-coded. For 
+  the first look-up table, the IFSMGR may use a hard-coded default version or it 
+  may load one of two alternative tables (loading from copies that are hard-coded 
+  in the initialisation segment). These alternatives provide for different capitalisations 
+  of certain Greek characters that would be capitalised trivially under the default 
+  table. One variant is adopted if a Turkish code page is used, that is, if either 
+  the OEM code page is 857 or the ANSI code page is 1254. Failing that, a second 
+  variant is chosen if any of the Greek code pages are used, that is, if the OEM 
+  code page is 737 or 869 or the ANSI code page is 1253. </p>
+  <p>TThe IFSMGR tables for upper-case mapping are 0587h bytes long. As far as the 
+  IFSMGR is concerned, Unicode characters must be ≤ 0586h if they are to convert 
+  to upper case non-trivially. </p>
+  <h2>Reference: IFSMGR Services </h2>
+  <p>The notes that follow assume some entry conditions and exit states. In particular, 
+  all services are expected to be called with <span class="register">DS</span> and
+  <span class="register">ES</span> selecting a ring 0 data segment with read and 
+  write access to all of the 32-bit address space. All services are assumed to corrupt 
+  the CPU status flags, except where noted explicitly. By contrast, changes to CPU 
+  control flags (such as the direction flag) are noted. </p>
+  <p>Take care to understand that the notes presented here describe implementations 
+  as presently understood by the author of this document. These notes do not describe 
+  interfaces. For details of the interfaces, refer to Microsoft. Never depend on 
+  implementation details that are not assured by the interface documentation—and 
+  never depend on an assurance given in interface documentation if the implementation 
+  behaves differently. </p>
+  <h3>IFSMGR Service 0040h: UniToBCS </h3>
+  <p>Input on stack (bottom to top, left to right, as C call): </p>
+  <table>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of output buffer </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of sequence of Unicode characters given as input for 
+      conversion </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">size of input, measured in bytes </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">size of output buffer, measured in bytes </td>
+    </tr>
+    <tr>
+      <td rowspan="3">dword </td>
+      <td colspan="2">flags: </td>
+    </tr>
+    <tr>
+      <td>00000000h (<span class="constant">BCS_WANSI</span>) </td>
+      <td>convert to Windows ANSI characters </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">BCS_OEM</span>) </td>
+      <td>convert to OEM characters </td>
+    </tr>
+  </table>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>eax </td>
+      <td colspan="2">size of output, measured in bytes </td>
+    </tr>
+    <tr>
+      <td rowspan="2">edx </td>
+      <td colspan="2">flags: </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">MAP_FLAG_LOSS</span>) </td>
+      <td>one or more Unicode characters in input do not convert to base character 
+      set </td>
+    </tr>
+    <tr>
+      <td>ecx </td>
+      <td colspan="2">corrupt </td>
+    </tr>
+  </table>
+  <p>The <span class="constant">UniToBCS</span> service takes as input a sequence 
+  of Unicode characters and generates a corresponding sequence of characters in 
+  the designated base character set. A choice is offered between ANSI and OEM for 
+  the base character set, but for each, the code page is implied, being whatever 
+  code page the IFSMGR has conversion tables for. </p>
+  <p>At most, the input consists of as many whole Unicode characters as fit within 
+  the given number of bytes. (Thus, in effect, an odd input length is rounded down 
+  to a multiple of two.) The input sequence need not be terminated by a null character, 
+  but if the input sequence contains a null character, then the input is deemed 
+  to terminate with the character immediately before the null character. In no cases 
+  is the output given a null terminator. </p>
+  <p>The service stops converting if the output buffer fills. If a double-byte character 
+  is to be stored as output when space for only one byte remains, then the output 
+  buffer is treated as being already full. Contrary to the documentation, no flag 
+  is returned in <span class="register">edx</span> to indicate exhaustion of the 
+  output buffer before the whole input sequence could be converted. </p>
+  <p>Some Unicode characters in the input string might not convert acceptably to 
+  the base character set. This applies to: </p>
+  <ul>
+    <li>any Unicode character that does not map to the base character set; </li>
+    <li>any Unicode character that maps to an underscore (namely, the single-byte 
+    character 5Fh, whatever the code page) but is not originally the underscore 
+    (that is, the Unicode character 005Fh); </li>
+    <li>and any Unicode character that maps to a pair of underscores (taken as a 
+    double-byte character in the base character set). </li>
+  </ul>
+  <p>The presence of a character in any of these classes is not fatal to conversion 
+  of the string. Instead, the character is represented as an underscore in the output, 
+  or by a pair of underscores if the character is in a range of characters that 
+  map to double-byte characters. The service continues with the conversion of subsequent 
+  characters, but indicates the problem by setting the <span class="constant">MAP_FLAG_LOSS</span> 
+  bit in <span class="register">edx</span> when returning. </p>
+  <p>Once a character has been read from the input string into a register, the generation 
+  of the corresponding output does not depend on being able to retrieve that character 
+  from the input or any character from earlier in the input. Moreover, each character 
+  of input is a word and can generate no more than two bytes of output. If the one 
+  address is given for both the input sequence and the output buffer, then at no 
+  stage in the conversion can the output ever overwrite input that is still needed: 
+  the service will work correctly. Note however that documentation states explicitly 
+  that the buffers for input and output must not overlap. </p>
+  <p>The service’s code lies in a pageable segment. Also, the service consults tables 
+  that are either in pageable segments or in heap space that may be pageable if 
+  the system does not use DOS for paging. Note however that while a level 1 lock 
+  is applied on any volume and also on receipt of the <span class="constant">Sys_VM_Terminate</span> 
+  control, the IFSMGR locks all pages that contain memory used for the conversion 
+  tables or for the service’s code. Curiously, the pointers that the service uses 
+  to find these tables are not guaranteed to get locked in these cases (though they 
+  usually will get locked, due to their very close proximity to the delta table 
+  for converting Unicode characters to upper case). </p>
+  <p>The direction flag is assumed to be clear on entry. The flags that specify 
+  the character set to use for output are not checked for validity. </p>
+  <h3>IFSMGR Service 0041h: UniToBCSPath </h3>
+  <p>Input on stack (bottom to top, left to right, as C call): </p>
+  <table>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of output buffer </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of null-terminated sequence of
+      <span class="struct">PathElement</span> structures </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">size of output buffer, measured in bytes </td>
+    </tr>
+    <tr>
+      <td rowspan="3">dword </td>
+      <td colspan="2">flags: </td>
+    </tr>
+    <tr>
+      <td>00000000h (<span class="constant">BCS_WANSI</span>) </td>
+      <td>convert to Windows ANSI characters </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">BCS_OEM</span>) </td>
+      <td>convert to OEM characters </td>
+    </tr>
+  </table>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>eax </td>
+      <td colspan="2">size of output, measured in bytes </td>
+    </tr>
+    <tr>
+      <td rowspan="2">edx </td>
+      <td colspan="2">flags: </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">MAP_FLAG_LOSS</span>) </td>
+      <td>one or more Unicode characters in input do not convert to base character 
+      set </td>
+    </tr>
+    <tr>
+      <td>ecx </td>
+      <td colspan="2">corrupt </td>
+    </tr>
+  </table>
+  <p>The <span class="constant">UniToBCSPath</span> service takes as input a sequence 
+  of <span class="struct">PathElement</span> structures and generates a string that 
+  represents the corresponding path using characters from the designated base character 
+  set. A choice is offered between ANSI and OEM for the base character set, but 
+  for each, the code page is implied, being whatever code page the IFSMGR has conversion 
+  tables for. </p>
+  <p>The sequence of <span class="struct">PathElement</span> structures given as 
+  input is deemed to terminate with a null word, or equivalently, with a trivial
+  <span class="struct">PathElement</span> (that is, one that gives its length as 
+  zero). Since the documentation describes the input as beginning with the
+  <span class="member">pp_elements</span> field of a <span class="struct">ParsedPath</span>, 
+  there is an implication that <span class="struct">ParsedPath</span> structures 
+  constructed by IFSMGR are sure to be followed by a null word. </p>
+  <p>For each non-trivial <span class="struct">PathElement</span> in the input sequence, 
+  the service produces as output one backslash character (the single-byte character 
+  5Ch, whatever the code page) followed by a conversion of the Unicode characters 
+  in the path element. The service terminates the output with a null byte if space 
+  remains in the output buffer. </p>
+  <p>The service stops converting if the output buffer fills. If a double-byte character 
+  is to be stored as output when space for only one byte remains, then the output 
+  buffer is treated as being already full. Contrary to the documentation, no flag 
+  is returned in <span class="register">edx</span> to indicate exhaustion of the 
+  output buffer before the whole input sequence could be converted. </p>
+  <p>Some Unicode characters in the input string might not convert acceptably to 
+  the base character set. This applies to: </p>
+  <ul>
+    <li>any Unicode character that does not map to the base character set; </li>
+    <li>any Unicode character that maps to an underscore (namely, the single-byte 
+    character 5Fh, whatever the code page) but is not originally the underscore 
+    (that is, the Unicode character 005Fh); </li>
+    <li>and any Unicode character that maps to a pair of underscores (taken as a 
+    double-byte character in the base character set). </li>
+  </ul>
+  <p>The presence of a character in any of these classes is not fatal to conversion 
+  of the string. Instead, the character is represented as an underscore in the output, 
+  or by a pair of underscores if the character is in a range of characters that 
+  map to double-byte characters. The service continues with the conversion of subsequent 
+  characters, but indicates the problem by setting the <span class="constant">MAP_FLAG_LOSS</span> 
+  bit in <span class="register">edx</span> when returning. </p>
+  <p>Once a character has been read from the input string into a register, the generation 
+  of the corresponding output does not depend on being able to retrieve that character 
+  from the input or any character from earlier in the input. Moreover, each character 
+  of input is a word and can generate no more than two bytes of output. If the one 
+  address is given for both the input sequence and the output buffer, then at no 
+  stage in the conversion can the output ever overwrite input that is still needed: 
+  the service will work correctly. Note however that documentation states explicitly 
+  that the buffers for input and output must not overlap. </p>
+  <p>The service’s code lies in a pageable segment. Also, the service consults tables 
+  that are either in pageable segments or in heap space that may be pageable if 
+  the system does not use DOS for paging. Note however that while a level 1 lock 
+  is applied on any volume and also on receipt of the <span class="constant">Sys_VM_Terminate</span> 
+  control, the IFSMGR locks all pages that contain memory used for the conversion 
+  tables or for the service’s code. Curiously, the pointers that the service uses 
+  to find these tables are not guaranteed to get locked in these cases (though they 
+  usually will get locked, due to their very close proximity to the delta table 
+  for converting Unicode characters to upper case). </p>
+  <p>The direction flag is assumed to be clear on entry. The flags that specify 
+  the character set to use for output are not checked for validity. </p>
+  <p>A <span class="struct">PathElement</span> is taken to consist of one word followed 
+  by as many whole Unicode characters as fit in the number of bytes obtained by 
+  subtracting two from that first word. An odd value in that first word of a
+  <span class="struct">PathElement</span> is effectively rounded down to a multiple 
+  of two, except that a value of one would induce the service to consider the next 
+  FFFFFFFFh bytes as Unicode characters for the path element. </p>
+  <p>The service takes for granted that the output buffer is non-trivial: to give 
+  zero as the output buffer’s size is effectively to give one as the output buffer’s 
+  size. </p>
+  <h3>IFSMGR Service 0042h: BCSToUni </h3>
+  <p>Input on stack (bottom to top, left to right, as C call): </p>
+  <table>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of output buffer </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of sequence of characters in base character set given 
+      as input for conversion </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">size of input, measured in bytes </td>
+    </tr>
+    <tr>
+      <td rowspan="3">dword </td>
+      <td colspan="2">flags: </td>
+    </tr>
+    <tr>
+      <td>00000000h (<span class="constant">BCS_WANSI</span>) </td>
+      <td>input consists of Windows ANSI characters </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">BCS_OEM</span>) </td>
+      <td>input consists of OEM characters </td>
+    </tr>
+  </table>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>eax </td>
+      <td colspan="2">size of output, measured in bytes </td>
+    </tr>
+    <tr>
+      <td rowspan="3">edx </td>
+      <td colspan="2">flags: </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">MAP_FLAG_LOSS</span>) </td>
+      <td>one or more base characters in input do not convert to Unicode </td>
+    </tr>
+    <tr>
+      <td>00000002h (<span class="constant">MAP_FLAG_TRUNCATE</span>) </td>
+      <td>input sequence incomplete </td>
+    </tr>
+    <tr>
+      <td>ecx </td>
+      <td colspan="2">corrupt </td>
+    </tr>
+  </table>
+  <p>The <span class="constant">BCSToUni</span> service takes as input a sequence 
+  of characters in the designated base character set and generates a corresponding 
+  sequence of Unicode characters. A choice is offered between ANSI and OEM for the 
+  base character set, but for each, the code page is implied, being whatever code 
+  page the IFSMGR has conversion tables for. </p>
+  <p>The service converts however many base characters lie in the given number of 
+  bytes at the address given for input. Each base character may be one byte or two. 
+  If the last byte of input is the lead byte of a double-byte character, the service 
+  terminates the output with the invalid Unicode character FFFDh and returns with 
+  the <span class="constant">MAP_FLAG_TRUNCATE</span> bit set in
+  <span class="register">edx</span>. </p>
+  <p>The output buffer is not bounded explicitly by the caller. The service assumes 
+  that the output buffer is sufficiently large to hold one Unicode character for 
+  each character of input. </p>
+  <p>Some ANSI or OEM characters in the input string might not convert acceptably 
+  to Unicode characters. If the conversion table does not map a given base character 
+  to Unicode, then the service represents the character as FFFDh in the output. 
+  If a base character maps to the underscore (namely, Unicode character 005Fh) but 
+  is not originally the underscore (that is, the single-byte character 5Fh, whatever 
+  the code page), then it is treated as invalid but the mapping to Unicode character 
+  005Fh is respected in the output. In both cases, the service continues with the 
+  conversion of subsequent characters, but indicates the problem by setting the
+  <span class="constant">MAP_FLAG_LOSS</span> bit in <span class="register">edx</span> 
+  when returning. </p>
+  <p>If the one address is given for both the input sequence and the output buffer, 
+  then because the service can generate more output than input, it may overwrite 
+  input that is still needed: the service will typically not behave correctly. Documentation 
+  states explicitly that the buffers for input and output must not overlap. </p>
+  <p>The service’s code lies in a pageable segment. Also, the service consults tables 
+  that are either in pageable segments or in heap space that may be pageable if 
+  the system does not use DOS for paging. Note however that while a level 1 lock 
+  is applied on any volume and also on receipt of the <span class="constant">Sys_VM_Terminate</span> 
+  control, the IFSMGR locks all pages that contain memory used for the conversion 
+  tables or for the service’s code. Curiously, the pointers that the service uses 
+  to find these tables are not guaranteed to get locked in these cases (though they 
+  usually will get locked, due to their very close proximity to the delta table 
+  for converting Unicode characters to upper case). </p>
+  <p>The direction flag is assumed to be clear on entry. The flags that specify 
+  the character set to use for output are not checked for validity. </p>
+  <h3>IFSMGR Service 0043h: UniToUpper </h3>
+  <p>Input on stack (bottom to top, left to right, as C call): </p>
+  <table>
+    <tr>
+      <td>dword </td>
+      <td>address of output buffer </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td>address of sequence of Unicode characters given as input for conversion
+      </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td>size of input, measured in bytes </td>
+    </tr>
+  </table>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>eax </td>
+      <td>size of output, measured in bytes </td>
+    </tr>
+    <tr>
+      <td>ecx </td>
+      <td>corrupt </td>
+    </tr>
+    <tr>
+      <td>edx </td>
+      <td>corrupt </td>
+    </tr>
+  </table>
+  <p>The <span class="constant">UniToUpper</span> service takes as input a given 
+  number of Unicode characters and generates as output a corresponding sequence 
+  in upper case. </p>
+  <p>The input consists of as many whole Unicode characters as fit within the given 
+  number of bytes. (Thus, in effect, an odd input length is rounded down to a multiple 
+  of two.) </p>
+  <p>The output buffer is not bounded explicitly by the caller. The service assumes 
+  that the output buffer is sufficiently large to hold one Unicode character for 
+  each Unicode character taken as input. Documentation states explicitly that the 
+  one address may be given for both the input sequence and the output buffer.
+  </p>
+  <p>As far as this service is concerned, only characters ≤ 0586h are capable of 
+  mapping to upper case non-trivially. </p>
+  <p>The service’s code lies in a pageable segment. Also, the service consults tables 
+  that are either in pageable segments or in heap space that may be pageable if 
+  the system does not use DOS for paging. Note however that while a level 1 lock 
+  is applied on any volume and also on receipt of the <span class="constant">Sys_VM_Terminate</span> 
+  control, the IFSMGR locks all pages that contain memory used for the conversion 
+  tables or for the service’s code. Curiously, the pointers that the service uses 
+  to find these tables are not guaranteed to get locked in these cases (though they 
+  usually will get locked, due to their very close proximity to the delta table 
+  for converting Unicode characters to upper case). </p>
+  <p>The direction flag is assumed to be clear on entry. </p>
+  <h3>IFSMGR Service 0044h: UniCharToOEM </h3>
+  <p>Input on stack (as C call): </p>
+  <table>
+    <tr>
+      <td>dword </td>
+      <td>Unicode character </td>
+    </tr>
+  </table>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>eax </td>
+      <td>OEM character </td>
+    </tr>
+    <tr>
+      <td>edx </td>
+      <td>corrupt </td>
+    </tr>
+  </table>
+  <p>The <span class="constant">UniCharToOEM</span> service maps the given Unicode 
+  character to the OEM character set. The code page is implied, being whatever code 
+  page that the IFSMGR has conversion tables for. </p>
+  <p>If <span class="register">ah</span> is returned as zero, then the given Unicode 
+  character maps to the single-byte character whose value is in
+  <span class="register">al</span>. If <span class="register">ah</span> is returned 
+  as non-zero, then the given Unicode character corresponds to a double-byte character 
+  in the OEM set: <span class="register">ah</span> gives the lead byte and
+  <span class="register">al</span> the trail byte. </p>
+  <p>The service returns 0000005Fh for any Unicode character that does not map to 
+  the OEM character set. Some Unicode characters map to the single-byte OEM character 
+  5Fh—and the service also returns 0000005Fh for these. The string conversion services 
+  UniToBCS and UniToBCSPath treat as invalid any Unicode character other than the 
+  underscore itself (Unicode character 005Fh) that does not map to the OEM character 
+  set or which maps to either the single-byte character 5Fh or the double-byte character 
+  5F5Fh. The return of either 0000005Fh or 00005F5Fh should therefore be regarded 
+  as a conversion failure except when the Unicode character given as input is the 
+  underscore. </p>
+  <p>The service’s code lies in a pageable segment. Also, the service consults tables 
+  that are either in pageable segments or in heap space that may be pageable if 
+  the system does not use DOS for paging. Note however that while a level 1 lock 
+  is applied on any volume and also on receipt of the <span class="constant">Sys_VM_Terminate</span> 
+  control, the IFSMGR locks all pages that contain memory used for the conversion 
+  tables or for the service’s code. Curiously, the pointers that the service uses 
+  to find these tables are not guaranteed to get locked in these cases (though they 
+  usually will get locked, due to their very close proximity to the delta table 
+  for converting Unicode characters to upper case). </p>
+  <h3>IFSMGR Service 0051h: IFSMgr_GetConversionTablePtrs </h3>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>eax </td>
+      <td>address of structure (see below for format) </td>
+    </tr>
+  </table>
+  <p>The <span class="constant">IFSMgr_GetConversionTablePtrs</span> service returns 
+  the address of a structure in which the IFSMGR keeps pointers to tables that the 
+  IFSMGR uses in various character conversions. The format of the structure is:
+  </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>dword </td>
+      <td>number of pointers that follow </td>
+    </tr>
+    <tr>
+      <td>04h </td>
+      <td>dword </td>
+      <td>address of table for conversion from Unicode to ANSI </td>
+    </tr>
+    <tr>
+      <td>08h </td>
+      <td>dword </td>
+      <td>address of table for conversion from Unicode to OEM </td>
+    </tr>
+    <tr>
+      <td>0Ch </td>
+      <td>dword </td>
+      <td>address of table for conversion from ANSI to Unicode </td>
+    </tr>
+    <tr>
+      <td>10h </td>
+      <td>dword </td>
+      <td>address of table for conversion from OEM to Unicode </td>
+    </tr>
+    <tr>
+      <td>14h </td>
+      <td>dword </td>
+      <td>address of delta table for conversion of Unicode to upper case </td>
+    </tr>
+    <tr>
+      <td>18h </td>
+      <td>dword </td>
+      <td>address of first look-up table for conversion of Unicode to upper case
+      </td>
+    </tr>
+  </table>
+  <p>The structure whose address is returned by this service is the one that the 
+  IFSMGR uses to locate the right table when converting between character sets or 
+  mapping to upper case. Note however that the IFSMGR has a second structure in 
+  which it keeps the addresses (and sizes) of these conversion tables. The IFSMGR 
+  uses this other list of addresses if ever it wants to lock the pages that hold 
+  the conversion tables. </p>
+  <h3>IFSMGR Service 0070h: BcsToBcs </h3>
+  <p>Input on stack (bottom to top, left to right, as C call): </p>
+  <table>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of output buffer </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of input string </td>
+    </tr>
+    <tr>
+      <td rowspan="3">dword </td>
+      <td colspan="2">flags for character set of output: </td>
+    </tr>
+    <tr>
+      <td>00000000h (<span class="constant">BCS_WANSI</span>) </td>
+      <td>convert to Windows ANSI characters </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">BCS_OEM</span>) </td>
+      <td>convert to OEM characters </td>
+    </tr>
+    <tr>
+      <td rowspan="3">dword </td>
+      <td colspan="2">flags for character set of input: </td>
+    </tr>
+    <tr>
+      <td>00000000h (<span class="constant">BCS_WANSI</span>) </td>
+      <td>input consists of Windows ANSI characters </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">BCS_OEM</span>) </td>
+      <td>input consists of OEM characters </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">size of input buffer, measured in bytes </td>
+    </tr>
+  </table>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>eax </td>
+      <td colspan="2">size of output, measured in bytes </td>
+    </tr>
+    <tr>
+      <td rowspan="3">edx </td>
+      <td colspan="2">flags: </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">MAP_FLAG_LOSS</span>) </td>
+      <td>one or more characters do not convert between base character sets </td>
+    </tr>
+    <tr>
+      <td>00000002h (<span class="constant">MAP_FLAG_TRUNCATE</span>) </td>
+      <td>input string incomplete </td>
+    </tr>
+    <tr>
+      <td>ecx </td>
+      <td colspan="2">corrupt </td>
+    </tr>
+  </table>
+  <p>The <span class="constant">BcsToBcs</span> service takes as input a string 
+  of characters in one base character set and generates as output a corresponding 
+  string in a possibly different base character set. A choice is offered between 
+  ANSI and OEM for the base character sets, but for each, the code page is implied, 
+  being whatever code page the IFSMGR has conversion tables for. </p>
+  <p>The service converts between base character sets by converting to Unicode and 
+  then from Unicode, character by character. In this, its effect is much like combining 
+  the <span class="constant">BCSToUni</span> and <span class="constant">UniToBCS</span> 
+  services without needing to provide an intermediate buffer. </p>
+  <p>The string given as input terminates with a null character. However, the input 
+  buffer is also given an explicit bound: if no null character is found in the given 
+  number of bytes at the address given for input, then the service returns with 
+  the <span class="constant">MAP_FLAG_TRUNCATE</span> bit set in
+  <span class="register">edx</span>. If a null byte is found to terminate the input, 
+  then the service terminates the output with a null byte. </p>
+  <p>The output buffer is not bounded explicitly by the caller. The service assumes 
+  that the output buffer is sufficiently large to hold however many characters are 
+  generated as output. A weak upper limit is that for an input string consisting 
+  entirely of single-byte characters that all map to double-byte characters in the 
+  other set, the service may generate as output twice the number of bytes it takes 
+  as input. </p>
+  <p>Some characters taken as input might not map to Unicode at all, and some characters 
+  that do map to Unicode might not map further to the base character set specified 
+  for output. The service represents each such character as an underscore in the 
+  output. The service continues with the conversion of subsequent characters, but 
+  indicates the problem by setting the <span class="constant">MAP_FLAG_LOSS</span> 
+  bit in <span class="register">edx</span> when returning. </p>
+  <p>The <span class="constant">MAP_FLAG_LOSS</span> bit should not be thought reliable 
+  for this service. A base character that maps to an underscore (that is, to the 
+  Unicode character 005Fh) would induce the <span class="constant">BCSToUni</span> 
+  service to set the <span class="constant">MAP_FLAG_LOSS</span> bit in
+  <span class="register">edx</span> when returning. A Unicode character that maps 
+  to an underscore (namely, the single-byte character 5Fh) or to a pair of underscores 
+  (taken as a double-byte character) would induce the <span class="constant">UniToBCS</span> 
+  service to set the <span class="constant">MAP_FLAG_LOSS</span> bit in
+  <span class="register">edx</span> when returning. This service however, does not 
+  notice these cases should they occur in the intermediate mappings to and from 
+  Unicode. </p>
+  <p>If the last byte of input is the lead byte of a double-byte character, the 
+  service treats the character as one that cannot be converted faithfully. The service 
+  represents the character as an underscore in the output and the service returns 
+  with both the <span class="constant">MAP_FLAG_LOSS</span> and
+  <span class="constant">MAP_FLAG_TRUNCATE</span> bits set in
+  <span class="register">edx</span>. </p>
+  <p>If the one address is given for both the input sequence and the output buffer, 
+  then because the service can generate more output than input, it may overwrite 
+  input that is still needed: the service will typically not behave correctly.
+  </p>
+  <p>The service’s code lies in a pageable segment. Also, the service consults tables 
+  that are either in pageable segments or in heap space that may be pageable if 
+  the system does not use DOS for paging. Note however that while a level 1 lock 
+  is applied on any volume and also on receipt of the <span class="constant">Sys_VM_Terminate</span> 
+  control, the IFSMGR locks all pages that contain memory used for the conversion 
+  tables or for the service’s code. Curiously, the pointers that the service uses 
+  to find these tables are not guaranteed to get locked in these cases (though they 
+  usually will get locked, due to their very close proximity to the delta table 
+  for converting Unicode characters to upper case). </p>
+  <p>The direction flag is assumed to be clear on entry. </p>
+  <h3>IFSMGR Service 0074h: BcsToBcsUpper </h3>
+  <p>Input on stack (bottom to top, left to right, as C call): </p>
+  <table>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of output buffer </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">address of input string </td>
+    </tr>
+    <tr>
+      <td rowspan="3">dword </td>
+      <td colspan="2">flags for character set of output: </td>
+    </tr>
+    <tr>
+      <td>00000000h (<span class="constant">BCS_WANSI</span>) </td>
+      <td>convert to Windows ANSI characters </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">BCS_OEM</span>) </td>
+      <td>convert to OEM characters </td>
+    </tr>
+    <tr>
+      <td rowspan="3">dword </td>
+      <td colspan="2">flags for character set of input: </td>
+    </tr>
+    <tr>
+      <td>00000000h (<span class="constant">BCS_WANSI</span>) </td>
+      <td>input consists of Windows ANSI characters </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">BCS_OEM</span>) </td>
+      <td>input consists of OEM characters </td>
+    </tr>
+    <tr>
+      <td>dword </td>
+      <td colspan="2">size of input buffer, measured in bytes </td>
+    </tr>
+  </table>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>eax </td>
+      <td colspan="2">size of output, measured in bytes </td>
+    </tr>
+    <tr>
+      <td rowspan="3">edx </td>
+      <td colspan="2">flags: </td>
+    </tr>
+    <tr>
+      <td>00000001h (<span class="constant">MAP_FLAG_LOSS</span>) </td>
+      <td>one or more characters do not convert between base character sets </td>
+    </tr>
+    <tr>
+      <td>00000002h (<span class="constant">MAP_FLAG_TRUNCATE</span>) </td>
+      <td>input string incomplete </td>
+    </tr>
+    <tr>
+      <td>ecx </td>
+      <td colspan="2">corrupt </td>
+    </tr>
+  </table>
+  <p>The <span class="constant">BcsToBcsUpper</span> service takes as input a string 
+  of characters in one base character set and generates as output a corresponding 
+  string in a possibly different base character set, having also mapped the characters 
+  to upper case. A choice is offered between ANSI and OEM for the base character 
+  sets, but for each, the code page is implied, being whatever code page the IFSMGR 
+  has conversion tables for. </p>
+  <p>The service converts between base character sets by converting to Unicode, 
+  then to upper case, and then from Unicode, character by character. In this, its 
+  effect is much like combining the <span class="constant">BCSToUni</span>,
+  <span class="constant">UniToUpper</span> and <span class="constant">UniToBCS</span> 
+  services without needing to provide an intermediate buffer. </p>
+  <p>The string given as input terminates with a null character. However, the input 
+  buffer is also given an explicit bound: if no null character is found in the given 
+  number of bytes at the address given for input, then the service returns with 
+  the <span class="constant">MAP_FLAG_TRUNCATE</span> bit set in
+  <span class="register">edx</span>. If a null byte is found to terminate the input, 
+  then the service terminates the output with a null byte. </p>
+  <p>The output buffer is not bounded explicitly by the caller. The service assumes 
+  that the output buffer is sufficiently large to hold however many characters are 
+  generated as output. A weak upper limit is that for an input string consisting 
+  entirely of single-byte characters that all map to double-byte characters in the 
+  other set, the service may generate as output twice the number of bytes it takes 
+  as input. </p>
+  <p>Some characters taken as input might not map to Unicode at all, and some characters 
+  that do map to Unicode might not map further to the base character set specified 
+  for output. The service represents each such character as an underscore in the 
+  output. The service continues with the conversion of subsequent characters, but 
+  indicates the problem by setting the <span class="constant">MAP_FLAG_LOSS</span> 
+  bit in <span class="register">edx</span> when returning. </p>
+  <p>The <span class="constant">MAP_FLAG_LOSS</span> bit should not be thought reliable 
+  for this service. A base character that maps to an underscore (that is, to the 
+  Unicode character 005Fh) would induce the <span class="constant">BCSToUni</span> 
+  service to set the <span class="constant">MAP_FLAG_LOSS</span> bit in
+  <span class="register">edx</span> when returning. A Unicode character that maps 
+  to an underscore (namely, the single-byte character 5Fh) or to a pair of underscores 
+  (taken as a double-byte character) would induce the <span class="constant">UniToBCS</span> 
+  service to set the <span class="constant">MAP_FLAG_LOSS</span> bit in
+  <span class="register">edx</span> when returning. This service however, does not 
+  notice these cases should they occur in the intermediate mappings to and from 
+  Unicode. </p>
+  <p>If the last byte of input is the lead byte of a double-byte character, the 
+  service treats the character as one that cannot be converted faithfully. The service 
+  represents the character as an underscore in the output and the service returns 
+  with both the <span class="constant">MAP_FLAG_LOSS</span> and
+  <span class="constant">MAP_FLAG_TRUNCATE</span> bits set in
+  <span class="register">edx</span>. </p>
+  <p>If the one address is given for both the input sequence and the output buffer, 
+  then because the service can generate more output than input, it may overwrite 
+  input that is still needed: the service will typically not behave correctly.
+  </p>
+  <p>The service’s code lies in a pageable segment. Also, the service consults tables 
+  that are either in pageable segments or in heap space that may be pageable if 
+  the system does not use DOS for paging. Note however that while a level 1 lock 
+  is applied on any volume and also on receipt of the <span class="constant">Sys_VM_Terminate</span> 
+  control, the IFSMGR locks all pages that contain memory used for the conversion 
+  tables or for the service’s code. Curiously, the pointers that the service uses 
+  to find these tables are not guaranteed to get locked in these cases (though they 
+  usually will get locked, due to their very close proximity to the delta table 
+  for converting Unicode characters to upper case). </p>
+  <p>The direction flag is assumed to be clear on entry. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 4th February 1997 as a Word document 
+    and was published elsewhere. It was reformatted in HTML for this website on 
+    4th October 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9708.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1997-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63527" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Boot Options: numproc</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="20600" -->
+<div class="Main">
+  <h1>Boot Options: numproc </h1>
+  <p>The <span class="bcdopt">numproc</span> option sets the number of logical processors 
+  to use. </p>
+  <h2>Syntax </h2>
+  <p>To have the BCDEDIT tool set the <span class="bcdopt">numproc</span> option 
+  for the currently running operating system, run the command </p>
+  <pre class="input">bcdedit /set numproc <span class="placeholder">number</span> </pre>
+  <p>where <span class="placeholder">number</span> is any decimal integer. To set 
+  the option at the <a href="../../editoptions.htm">Edit Boot Options Menu</a>, 
+  add </p>
+  <pre class="input">/numproc=<span class="placeholder">number</span> </pre>
+  <p>which is also the syntax for the option as a BOOT.INI switch in earlier Windows 
+  versions. </p>
+  <h2>Behaviour </h2>
+  <p>Microsoft’s documentation is unclear whether the <span class="bcdopt">numproc</span> 
+  option counts logical or physical processors. In its form as a BOOT.INI switch 
+  for earlier versions of Windows, this option was barely documented (see
+  <a target="_top" href="http://support.microsoft.com/kb/833721">Available switch 
+  options for the Windows XP and the Windows Server 2003 Boot.ini files</a>):
+  </p>
+  <blockquote>
+    <p>This switch sets the number of processors that Windows will run at startup. 
+    With this switch, you can force a multiprocessor system to use only the quantity 
+    of processors (<span class="placeholder">number</span>) that you specify. This 
+    switch can help you troubleshoot performance problems and defective CPUs.
+    </p>
+  </blockquote>
+  <p>As a Boot Configuration Data (BCD) option, there seems to be no formal documentation, 
+  but the command <span class="command">bcdedit /? types osloader</span> says of 
+  the option </p>
+  <blockquote>
+    <p>Uses only the specified number of processors. </p>
+  </blockquote>
+  <p>and the System Configuration applet among the Administrative Tools exposes 
+  the option as “Number of processors” in the dialog box that is reached from the 
+  Advanced Options button on the Boot tab. </p>
+  <p>See that in all these cases, Microsoft avoids the question of whether the
+  <span class="placeholder">number</span> is of logical processors or physical.
+  </p>
+  <h3>Original Windows Vista </h3>
+  <p>The answer for the original Windows Vista is: both. This answer is of course 
+  ridiculous, but the fact is that the kernel at one time compares
+  <span class="placeholder">number</span> with a count of licensed processors, meaning 
+  physical, and at later times with a count that mixes logical and physical processors. 
+  This different interpretation at different times is of itself a logic failure, 
+  but this is no mere coding error during programming. It’s systemic. While the 
+  legalese of the license terms and the documentation of the
+  <span class="bcdopt">numproc</span> option both skirt the logical-or-physical 
+  question, the presence of a coding error here is an unsurprising, and even inevitable, 
+  consequence of managerial inattention. </p>
+  <p>The practical consequence for users is that whether you have multiple physical 
+  processors or just have multiple logical processors on the one physical processor, 
+  setting <span class="bcdopt">numproc</span> may not have just the intended effect 
+  of constraining Windows to use only the set number of logical processors. A notable 
+  side-effect—notable especially since Microsoft is not known ever to have even 
+  hinted at it—is that it can cause Windows to act as if your processors do not 
+  support so-called large pages. To see why, look a little more closely at those 
+  two comparisons. </p>
+  <h4>Physical Processors </h4>
+  <p>The first comparison is made as soon as the kernel interprets the
+  <span class="switch">/NUMPROC</span> switch during initialisation and finds a 
+  non-zero <span class="placeholder">number</span>. It compares
+  <span class="placeholder">number</span> (read into an internal variable named
+  <span class="symbol">KeNumprocSpecified</span>) with the count of
+  <a href="../../../license/processors.htm">licensed processors</a> that has just 
+  been read from the <span class="regvalue">Kernel-RegisteredProcessors</span> license 
+  value (into an internal variable named <span class="symbol">KeRegisteredProcessors</span>). 
+  If <span class="placeholder">number</span> is smaller, the count in
+  <span class="symbol">KeRegisteredProcessors</span> is reduced to match. </p>
+  <p>This means that <span class="placeholder">number</span> counts whatever sort 
+  of processor is counted for licensing, but it also means that
+  <span class="bcdopt">numproc</span> has an effect that the terse documentation 
+  does not even hint at. If the <span class="bcdopt">numproc</span> value is non-zero 
+  but is less than the license value, then the count read from the license value 
+  is lost. It is not directly true that <span class="bcdopt">numproc</span> sets 
+  “the number of processors that Windows will run at startup” as claimed by the 
+  documentation. <span class="highlight">What <span class="bcdopt">numproc</span> 
+  actually sets is the number of processors that Windows will believe are licensed 
+  to run.</span> </p>
+  <p>To point out this difference may look like splitting hairs. If the kernel will 
+  anyway ignore unlicensed processors, then what better way is there to remove some 
+  unwanted processors from use than to treat them as unlicensed? This coding, which 
+  dates at least from Windows 2000, may even have been thought efficient, and with 
+  good reason at the time. Unfortunately, years later, for Windows Server 2003 SP2, 
+  someone has coded for the kernel to notice the presence of an unlicensed processor 
+  and to apply a penalty. So now the difference is very real. For instance, if you 
+  have two physical processors and you set <span class="bcdopt">numproc</span> to 
+  1, then the second of your processors is not just unused, it is treated as unlicensed 
+  and you lose large-page support (which is your undocumented punishment for trying 
+  to run an unlicensed processor). </p>
+  <h4>Logical Processors </h4>
+  <p>Look now at how the kernel initialises logical processors when it discovers 
+  them from the HAL (in the internal routine <span class="symbol">KeStartAllProcessors</span>). 
+  Each newly enumerated logical processor may be in the same physical package as 
+  one that has already been enumerated, or not. When it is not, it must be the first 
+  logical processor for a new physical processor and it is counted against the license 
+  value. If the number of accepted processors (represented by the documented, exported 
+  variable <span class="variable">KeNumberProcessors</span>) has already reached 
+  the license value (represented by the internal variable <span class="symbol">KeRegisteredProcessors</span>), 
+  then this newly enumerated physical processor is unlicensed and cannot be accepted 
+  for use. The kernel continues enumerating, but only in the hope of discovering 
+  additional logical processors for physical processors that have been accepted 
+  as licensed. </p>
+  <p>If a newly enumerated logical processor is in the same physical package as 
+  one that has already been enumerated, then in the typical case with no
+  <span class="switch">/NUMPROC</span> switch the kernel simply increments the
+  <span class="symbol">KeRegisteredProcessors</span> variable and accepts the processor 
+  (thus also incrementing <span class="variable">KeNumberProcessors</span>). Of 
+  itself, this is a fine way to implement that additional logical processors of 
+  a licensed physical processor are automatically licensed. However, this coding 
+  has as a side-effect that it makes a hybrid of the <span class="symbol">KeRegisteredProcessors</span> 
+  variable. It counts some physical processors and some logical. It ends up as the 
+  number of physical processors that are allowed by license, whether present or 
+  not, plus the number of extra logical processors in any physical processors that 
+  actually are present. Equivalently, it is the number of logical processors that 
+  are present, plus 1 for each physical processor that would be licensed if it were 
+  present. For instance, on a machine with a single dual-core processor and a license 
+  to use two processors, this variable ends up containing 3. </p>
+  <p>The inherent danger in what might otherwise be an abstract point of logic is 
+  made real by a small variation that executes only if given a non-zero
+  <span class="switch">/NUMPROC</span> argument. If a newly enumerated logical processor 
+  is in the same physical package as one that has already been enumerated, it is 
+  accepted as automatically licensed only if the current value of
+  <span class="symbol">KeRegisteredProcessors</span> is less than the
+  <span class="switch">/NUMPROC</span> argument. This is the second comparison referred 
+  to above. If <span class="symbol">KeRegisteredProcessors</span> is already as 
+  great as the <span class="switch">/NUMPROC</span> argument, then the newly enumerated 
+  logical processor is treated as the first logical processor in a new physical 
+  processor—and, worse, it may then be treated as an unlicensed physical processor. 
+  Most notably, if you have one physical processor, then all logical processors 
+  in excess of the <span class="switch">/NUMPROC</span> argument are treated as 
+  unlicensed. </p>
+  <h4>Demonstration </h4>
+  <p>It may help to have an easy demonstration that something really is wrong. First, 
+  write a nearly trivial program that tests for large-page support. All that’s needed 
+  is to call the documented <span class="function">GetLargePageMinimum</span> function 
+  and report what’s returned. Second, on a machine with one multi-core processor, 
+  i.e., with one physical processor containing two or more logical processors, start 
+  the original Windows Vista normally, then run the program to confirm that large 
+  pages are ordinarily supported. Third, restart Windows but press F10 to get the 
+  Edit Boot Options menu. Add <span class="switch">/NUMPROC=1</span> to the active 
+  options, then continue. When Windows, now limited to one processor, has started, 
+  re-run the program and see that you have lost the use of large pages. </p>
+  <h4>Workaround </h4>
+  <p>To run just the first logical processor on a machine with one multi-core processor, 
+  there is an alternative. Use the BCD option <span class="bcdopt">onecpu</span> 
+  or its equivalent <span class="switch">/ONECPU</span> switch in the Edit Boot 
+  Options menu. This is interpreted by the HAL to mean that only one logical processor 
+  should be disclosed. The kernel never learns that a second logical or physical 
+  processor is available. That’s not exactly the same as might be expected from 
+  setting <span class="bcdopt">numproc</span> to 1, but it’s as close as you’ll 
+  get until Microsoft acknowledges the problem and fixes it. </p>
+  <h3>Windows Vista SP1 And Higher </h3>
+  <p>That Microsoft might acknowledge the problem is at best fanciful, especially 
+  since even a working <span class="bcdopt">numproc</span> is barely documented, 
+  but at least the problem has got fixed, starting with Windows Vista SP1. It seems 
+  unlikely that Microsoft learned of the coding error and decided it was important 
+  enough to fix. More plausible is that the coding error was noticed incidentally 
+  during revisions to support dynamic processors and the new
+  <span class="switch">/BOOTPROC</span> switch. Although the original Windows Vista 
+  does have code for dynamic processors, most notably a new exported function (<span class="function">KeStartDynamicProcessor</span>), 
+  the coding is plainly incomplete. This won’t have mattered for the original Windows 
+  Vista, no editions of which were licensed for dynamic processors, but it will 
+  have needed attention for Windows Vista SP1, since it doubles as Windows Server 
+  2008 which is licensed for dynamic processors. One of the things that the original 
+  Windows Vista leaves undone is to check that starting a dynamic processor does 
+  not exceed various limits. Among these are the license limit and the
+  <span class="bcdopt">numproc</span> value, and so the earlier coding will naturally 
+  have got revised. Sadly, it’s all too plausible that the defectiveness of the 
+  earlier coding was not even noticed. </p>
+  <p>In Windows Vista SP1 and higher, <span class="bcdopt">numproc</span> is unambiguously 
+  a count of logical processors, including any that are started dynamically. To 
+  set a (lower) number of logical processors that may start duing initialisation, 
+  add a <span class="switch">/BOOTPROC=<span class="placeholder">number</span></span> 
+  switch at the Edit Boot Options Menu or in the <span class="bcdopt">loadoptions</span> 
+  option. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 10th January 2008 and was last modified 
+    on 11th March 2012 (except for some slight rephrasing and restyling on 1st April 
+    2021). </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c0812.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2012. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5499" -->
+  </div>
+</div>
+
+</body>
+
+</html>

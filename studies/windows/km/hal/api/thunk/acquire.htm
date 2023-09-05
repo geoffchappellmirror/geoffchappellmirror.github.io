@@ -1,0 +1,142 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KeAcquireSpinLock</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<div class="Main">
+  <h1>KeAcquireSpinLock </h1>
+  <p>This function obtains exclusive use of whatever resource is protected by the 
+  given lock. </p>
+  <h2>Declaration </h2>
+  <pre class="source">VOID KeAcquireSpinLock (KSPIN_LOCK *SpinLock, KIRQL *OldIrql);</pre>
+  <h3>Parameters </h3>
+  <p>The <span class="argument">SpinLock</span> argument is the address of the lock 
+  that is to be acquired. </p>
+  <p>The <span class="argument">OldIrql</span> argument is the address of a variable 
+  that is to receive the Interrupt Request Level (IRQL) that is to be restored when 
+  the lock is released. </p>
+  <h2>Availability </h2>
+  <p>The <span class="function">KeAcquireSpinLock</span> function is exported by 
+  name from x86 builds of the HAL in all versions and of the kernel in version 6.2 
+  and higher. The HAL’s export in version 6.2 and higher is merely a forward to 
+  the kernel. </p>
+  <p>The closest x64 analogue of this function is <span class="function">
+  <a href="../../../ntoskrnl/api/ke/spinlock/acquireraisetodpc.htm">KeAcquireSpinLockRaiseToDpc</a></span>, 
+  which is exported by name from the kernel in the version 5.2 from Windows Server 
+  2003 SP1, and higher. Although no function named <span class="function">KeAcquireSpinLock</span> 
+  is exported by x64 builds of either the HAL or kernel, programmers have it as 
+  a macro defined in WDM.H. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="function">KeAcquireSpinLock</span> function is documented 
+  in all known editions of the Device Driver Kit (DDK) or Windows Driver Kit (WDK) 
+  since at least the DDK for Windows NT 3.51. </p>
+  <h2>Behaviour </h2>
+  <p>As early as version 3.50, the <span class="function">KeAcquireSpinLock</span> 
+  implementation was shifted to a <span class="keyword">__fastcall</span> alternative 
+  named <span class="function"><a href="../mpspin/acquire.htm">KfAcquireSpinLock</a></span>. 
+  Starting at least from the Device Driver Kit (DDK) for Windows NT 3.51, a macro 
+  definition reinterprets the former in terms of the latter. New code is written 
+  as if calling <span class="function">KeAcquireSpinLock</span> but actually calls
+  <span class="function">KfAcquireSpinLock</span>. The old function continues to 
+  be exported, presumably to support (old) code that tries to import the function, 
+  but its implementation is only a stub that reinterprets in terms of
+  <span class="function">KfAcquireSpinLock</span> just like the macro. </p>
+  <p>That <span class="function">KfAcquireSpinLock</span> has all the substance 
+  is here treated just as a detail of internal organisation. As far as should concern 
+  any code outside the kernel or HAL, the behavour is all in
+  <span class="function">KeAcquireSpinLock</span>. </p>
+  <h3>Compound </h3>
+  <p>The <span class="function">KeAcquireSpinLock</span> function is in some sense 
+  a convenience. Its work is in two parts which can be done independently of
+  <span class="function">KeAcquireSpinLock</span> by calling exported functions, 
+  the first from the HAL, the second from the kernel. The <span class="function">
+  KeAcquireSpinLock</span> implementation gains by inlining its two parts (and skipping 
+  the second entirely for single-processor builds). </p>
+  <p>The first part is to raise the IRQL to <span class="constant">DISPATCH_LEVEL</span> 
+  if it is not already there. This ensures that the current thread has exclusive 
+  use of the current processor. Interrupts can occur at higher IRQL, as with hardware 
+  interrupts, but they are not permitted to switch the processor to another thread. 
+  Equivalent exported functions are <span class="function">KeRaiseIrql</span>,
+  <span class="function">KfRaiseIrql</span> (which each need
+  <span class="constant">DISPATCH_LEVEL</span> as an argument) and
+  <span class="function">KeRaiseIrqlToDpcLevel</span> (which does not). </p>
+  <p>The second part is to obtain the current processor’s exclusive use of the protected 
+  resource. All threads that seek to use the resource must acquire the agreed lock. 
+  All call this function or a similar one so that all try to mark the lock in the 
+  same way but are able to do so only while the lock is not already marked. Typically, 
+  they wait in a more or less tight loop until they are able to mark the lock to 
+  signify that they now own the resource. Equivalent exported functions for this 
+  second part are <span class="function">KeAcquireSpinLockAtDpcLevel</span> and, 
+  on x86 builds only, <span class="function">KefAcquireSpinLockAtDpcLevel</span> 
+  and <span class="function">KiAcquireSpinLock</span>. This part is trivial in single-processor 
+  builds. </p>
+  <h3>IRQL and Other Constraints </h3>
+  <p>The <span class="function">KeAcquireSpinLock</span> function is intended for 
+  use at IRQL up to and including <span class="constant">DISPATCH_LEVEL</span>. 
+  The addresses that are given in the <span class="argument">SpinLock</span> and
+  <span class="argument">OldIrql</span> arguments must both be of non-paged memory.
+  </p>
+  <p>The function returns with the IRQL at <span class="constant">DISPATCH_LEVEL</span>. 
+  No other thread can execute on the same processor. No thread on another processor 
+  can acquire the lock. The owning thread must cause no exception, including by 
+  touching paged memory. These constraints continue until the owning thread releases 
+  the lock, e.g., by calling the <span class="function"><a href="release.htm">KeReleaseSpinLock</a></span> 
+  function. </p>
+  <p>Spin locks are either owned or not. That is their entire state. If the
+  <span class="function">KeAcquireSpinLock</span> function is called to acquire 
+  a spin lock that the calling thread already owns, then the function cannot return 
+  (except with contrivance). This is not a deadlock between two threads, just that 
+  the one thread is hung in the spin loop, waiting forever for the same thread to 
+  release the lock. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 6th
+    <a href="../../../../../../new/19/12.htm">December 2019</a> and was last modified 
+    on 11th December 2019 (except for removing a broken link on 10th July 2022). </p>
+    <!--webbot bot="Include" U-Include="../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62933" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,440 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Driver Shims</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>Driver Shims </h1>
+<p>That things go wrong with kernel-mode drivers is hardly news. That fixing them, 
+or at least mitigating the problem, can sometimes be done on-the-fly shouldn’t be 
+any surprise, either. Microsoft’s operating systems have varied their behaviour 
+to accommodate defects in pre-existing software, even to go as far as identifying 
+specific code sequences to patch at run-time, since at least MS-DOS 5.0. The modern 
+Windows has long formalised this practice into an Application Compatibility database 
+of all sorts of shims to apply when running particular applications. Microsoft even 
+distributes, as a free download, an Application Compatibility Toolkit, now rebadged 
+as the Windows Assessment and Deployment Kit (ADK), that opens the shim database 
+to more or less easy inspection through a GUI and even allows for creating custom 
+databases. </p>
+<p>Shims for drivers, though, are relatively recent. Among the standard
+<a href="../../../../../win32/apphelp/sdb/index.htm">Shim Database (SDB) files</a>, 
+the one that is specialised for drivers, named DRVMAIN.SDB, is as old a provision 
+as the database for applications, but only for listing drivers that are blocked 
+from being loaded. Starting with Windows 8, new values are defined for the
+<span class="type"><a href="../../../../../win32/apphelp/sdb/tag.htm">TAG</a></span>, 
+such that DRVMAIN.SDB now also lists both the shims that can be applied to drivers 
+and the drivers that those shims are to be applied to. </p>
+<h2>Applicable Shims </h2>
+<p>The shims to apply to a driver are determined as the driver gets loaded. They 
+can have been configured in either the registry or the database. </p>
+<h3>Registry </h3>
+<p>The registry value for applying shims to a driver is: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Compatibility\Driver\<span class="placeholder">basename</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Shims</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_MULTI_SZ</span> </td>
+  </tr>
+</table>
+<p>Here, <span class="placeholder">basename</span> is the name of the driver as 
+a loaded module. For most drivers this is the filename, including any file extension 
+such as “.sys”, of the driver relative to whatever directory it is loaded from. 
+In the multi-string data, for which the kernel allows 0x0800 bytes, each string 
+names one shim. </p>
+<h3>Database </h3>
+<p>The list of named shims to apply to a driver can instead be given in the driver 
+database as <span class="constant">TAG_KSHIM_REF</span> (0x7026) tags as children 
+of a <span class="constant">TAG_KDRIVER</span> (0x701C) that represents the driver 
+in question as a child of the <span class="constant">TAG_DATABASE</span> (0x7001).
+</p>
+<p>The very complex data that can be the other child tags of a
+<span class="constant">TAG_KDRIVER</span> allow for specifying a driver not just 
+by name, as does the registry, but also for matching it against criteria that range 
+from file size and version numbers to the processor family and model. The sophistication 
+of this matching goes far beyond what can sensibly be described here but also what 
+does yet get used. Notably, the <span class="constant">TAG_KDRIVER</span> tags in 
+the DRVMAIN.SDB files from the installation discs for 32-bit and 64-bit Windows 
+10 make no more use of the matching criteria than to name the driver as a file and 
+specify the applicable product versions (as recorded in the file’s version resource):
+</p>
+<pre>&lt;?xml version="1.0" encoding="UTF-16"?&gt;
+&lt;DATABASE NAME="Microsoft Driver Compatibility Database" ID="{F9AB2228-3312-4A73-B6F9-936D70E112EF}"&gt;
+...
+    &lt;DRIVER NAME="ACFDCP" VENDOR="Conexant Systems, Inc."&gt;
+        &lt;KDRIVER NAME="ACFDCP32.sys" ID="{352D0556-1B85-4170-8E23-474B73A3AF0D}" RUNTIME_PLATFORM="X86" UPTO_BIN_PRODUCT_VERSION="1.0.23.0"&gt;
+            &lt;KSHIM NAME="usbshim" COMMAND_LINE="null" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="ACFDCP64.sys" ID="{CCEDF5B1-B335-4A7F-9F9B-30A0ADD576F7}" RUNTIME_PLATFORM="AMD64" UPTO_BIN_PRODUCT_VERSION="1.0.23.0"&gt;
+            &lt;KSHIM NAME="usbshim" COMMAND_LINE="null" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="Defragmentation Support Driver" VENDOR="Raxco Software. Inc"&gt;
+        &lt;KDRIVER NAME="DefragFS.sys" ID="{CF73631A-E65A-4C69-BBE5-94D3CE271ED1}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="8.0.0"&gt;
+            &lt;KSHIM NAME="KmWin81VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="Franklin U600 Driver" VENDOR="Franklin Wireless Corp."&gt;
+        &lt;KDRIVER NAME="DIFMBUS.sys" ID="{E9B89614-E29D-4963-BCDE-16F699DD8D0E}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="DIFMCVsp.sys" ID="{68EACE63-BC0D-4C77-A3BA-A181DB5B7B71}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="DIFMMdm.sys" ID="{69FDAC73-3599-4D51-96A9-B92FBB78A7A2}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="DIFMNVsp.sys" ID="{6F8FCCC6-C15D-42E7-A942-48A45347A31B}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="DIFMVsp.sys" ID="{CFD4D651-4C66-4313-A992-2B7BE51F7DEF}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="EDGESER" VENDOR="Digi"&gt;
+        &lt;KDRIVER NAME="edgeser.sys" ID="{023CA1C6-EF77-488E-AE41-DADD765FB837}" RUNTIME_PLATFORM="X86" UPTO_BIN_PRODUCT_VERSION="5.30.2.0"&gt;
+            &lt;KSHIM NAME="usbshim" COMMAND_LINE="null" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="edgeser64.sys" ID="{428758BB-BC2A-4773-96D7-D590E1AB5406}" RUNTIME_PLATFORM="AMD64" UPTO_BIN_PRODUCT_VERSION="5.30.2.0"&gt;
+            &lt;KSHIM NAME="usbshim" COMMAND_LINE="null" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="PANTECH UM150 Driver" VENDOR="PANTECH CO.,LTD"&gt;
+        &lt;KDRIVER NAME="PTDMBus.sys" ID="{F9A18D6D-9386-4208-9A4F-856044B2ECFB}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="3.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTDMMdm.sys" ID="{623E7F33-3337-4DE5-AD16-5313CF785E09}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="3.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTDMVSP.sys" ID="{D98BBD98-466A-47BF-A817-0FDF2929E688}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="3.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTDMWWAN.sys" ID="{39F610EA-B8D0-4588-94E6-2963678AF974}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="3.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="PANTECH UM175 Driver" VENDOR="PANTECH CO.,LTD"&gt;
+        &lt;KDRIVER NAME="PTDUBus.sys" ID="{7E49A183-B0C7-4EF8-AF6A-ED7E4ED0DC4C}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="3.3"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTDUMdm.sys" ID="{55DE89D0-3585-4158-9277-ECF22FFB9B78}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="3.3"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTDUVSP.sys" ID="{9EB21DBB-8B05-4A63-BF1F-A787EED9ED96}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="3.3"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTDUWWAN.sys" ID="{51D376D1-A99B-4CD1-A738-B032D5F7D2E2}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="3.3"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="PANTECH UML290 Driver" VENDOR="PANTECH CO.,LTD"&gt;
+        &lt;KDRIVER NAME="PTUMLBus.sys" ID="{0E3F664D-E9A6-4FE1-AE59-A77E0EBF4663}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.7"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMLBUS.sys" ID="{DA775BB3-0D43-455C-9095-C37D84E0EC0E}" RUNTIME_PLATFORM="X86,AMD64" FROM_BIN_PRODUCT_VERSION="1.8.0.0" UPTO_BIN_PRODUCT_VERSION="4.11.2.0"&gt;
+            &lt;KSHIM NAME="KMWin8Versionlie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMLCVSP.sys" ID="{7E3B24F3-2C95-4885-9A7F-CA2023D53848}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.7"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMLCVsp.sys" ID="{2ED8460E-D41A-4F28-B586-8B128B402D26}" RUNTIME_PLATFORM="X86,AMD64" FROM_BIN_PRODUCT_VERSION="1.8.0.0" UPTO_BIN_PRODUCT_VERSION="4.11.2.0"&gt;
+            &lt;KSHIM NAME="KMWin8Versionlie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMLMdm.sys" ID="{BF8718DA-5910-4EB9-96F1-3408DE1E4D97}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.7"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMLMdm.sys" ID="{1AF0D5BC-DC2D-42DD-8F0E-7AB9178745F8}" RUNTIME_PLATFORM="X86,AMD64" FROM_BIN_PRODUCT_VERSION="1.8.0.0" UPTO_BIN_PRODUCT_VERSION="4.11.2.0"&gt;
+            &lt;KSHIM NAME="KMWin8Versionlie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMLNVSP.sys" ID="{2D46FCE9-0606-4FA2-8E04-B4D76E56E482}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.7"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMLNVsp.sys" ID="{167B41A7-2005-4D4C-B939-68FFB71781F7}" RUNTIME_PLATFORM="X86,AMD64" FROM_BIN_PRODUCT_VERSION="1.8.0.0" UPTO_BIN_PRODUCT_VERSION="4.11.2.0"&gt;
+            &lt;KSHIM NAME="KMWin8Versionlie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMLVSP.sys" ID="{9F1AA3EC-6569-4682-AD6C-5865361D0E10}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.7"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMLVsp.sys" ID="{5F72E0BD-3624-4A03-BE5D-7CFD0ED67891}" RUNTIME_PLATFORM="X86,AMD64" FROM_BIN_PRODUCT_VERSION="1.8.0.0" UPTO_BIN_PRODUCT_VERSION="4.11.2.0"&gt;
+            &lt;KSHIM NAME="KMWin8Versionlie" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="PANTECH UMW190 Driver" VENDOR="PANTECH CO.,LTD"&gt;
+        &lt;KDRIVER NAME="PTUMWBus.sys" ID="{31116B57-2FF0-48A0-8E24-575EF06C881C}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMWCSP.sys" ID="{6F48B4DD-EE6B-407E-91C3-0A4B249DBBA0}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMWMdm.sys" ID="{DA10809F-40A2-4A90-934E-E0E153409062}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMWNET.sys" ID="{C7293E5F-DD50-4CE7-BFB7-20A1B8534703}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMWNSP.sys" ID="{2DAFA6BB-AD10-4B4E-B63E-AE586458DA16}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="PTUMWVSP.sys" ID="{1F6DFF41-9C79-4473-85B0-7FE2A992AF27}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.2"&gt;
+            &lt;KSHIM NAME="KmWin7VersionLie" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="Qualcomm Wireless Network Device" VENDOR="Qualcomm"&gt;
+        &lt;KDRIVER NAME="qcmbb8960.sys" ID="{0D6E8F4F-11D1-4746-B724-5122B14F2D7A}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1.0"&gt;
+            &lt;KSHIM NAME="SkipDriverUnload" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="Realtek Wireless Lan" VENDOR="Realtek"&gt;
+        &lt;KDRIVER NAME="RTWLANE.sys" ID="{83F28515-EB88-4949-A58D-AA27F889560B}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="2008.5.423.2013"&gt;
+            &lt;KSHIM NAME="NdisGetVersion640Shim" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="RTWLANS.sys" ID="{17DD6C01-7094-4D32-B1ED-A9B7B068DF71}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="3006.0.320.2014"&gt;
+            &lt;KSHIM NAME="NdisGetVersion640Shim" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="RTWLANU.sys" ID="{62E1F019-4271-41C3-8A1B-CDA752F4D9E4}" RUNTIME_PLATFORM="X86,AMD64" UPTO_BIN_PRODUCT_VERSION="1026.1.911.2013"&gt;
+            &lt;KSHIM NAME="NdisGetVersion640Shim" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+    &lt;DRIVER NAME="WSRRCI" VENDOR="Wisair"&gt;
+        &lt;KDRIVER NAME="wsr_rci.sys" ID="{1E61CDCD-D929-4094-B3BD-1772F7459CBE}" RUNTIME_PLATFORM="X86"&gt;
+            &lt;KSHIM NAME="usbshim" COMMAND_LINE="null" /&gt;
+        &lt;/KDRIVER&gt;
+        &lt;KDRIVER NAME="wsr_rci.sys" ID="{D816906A-384D-4AA1-9450-8826948D2192}" RUNTIME_PLATFORM="AMD64"&gt;
+            &lt;KSHIM NAME="usbshim" COMMAND_LINE="null" /&gt;
+        &lt;/KDRIVER&gt;
+    &lt;/DRIVER&gt;
+...
+&lt;/DATABASE&gt;</pre>
+<p>The data for the <span class="constant">TAG_KSHIM_REF</span> is its own list 
+of tags. The kernel anticipates <span class="constant">TAG_FIX_ID</span> (0x9001),
+<span class="constant">TAG_NAME</span> (0x6001), <span class="constant">TAG_MODULE</span> 
+(0x6003), <span class="constant">TAG_FLAGS</span> (0x4017) and
+<span class="constant">TAG_COMMAND_LINE</span> (0x6008), but it seems that only
+<span class="constant">TAG_NAME</span> matters. The <span class="constant">TAG_NAME</span> 
+data, of course, names the shim. </p>
+<h2>Installed Shims </h2>
+<p>Whether the names of the applicable shims for a driver are found in the registry 
+or the database, they are meaningless on their own. Each must be resolved in the 
+database to obtain a GUID and other properties. To be valid, a shim must be described 
+in the database by a <span class="constant">TAG_KSHIM</span> (0x7025) as a child 
+of the <span class="constant">TAG_DATABASE</span>. </p>
+<p>The data for the <span class="constant">TAG_KSHIM</span> is its own list of child 
+tags. The meaningful ones are: </p>
+<ul>
+  <li><span class="constant">TAG_NAME</span> (0x6001) which is the name to 
+  match; </li>
+  <li><span class="constant">TAG_FIX_ID</span> (0x9010) which is the corresponding 
+  GUID; </li>
+  <li><span class="constant">TAG_MODULE</span> (0x6003) which typically names the 
+  corresponding shim provider; </li>
+  <li>and <span class="constant">TAG_FLAGS</span> (0x4017) which can supply bit 
+  flags for configuration. </li>
+</ul>
+<p>In the XML from which Microsoft compiles SDB files, the
+<span class="constant">TAG_KSHIM</span> tags in the SDB file are
+<span class="tag">&lt;KSHIM&gt;</span> tags as children of a <span class="tag">&lt;LIBRARY&gt;</span> 
+tag, itself a child of the <span class="tag">&lt;DATABASE&gt;</span> tag. Within 
+each such <span class="tag">&lt;KSHIM&gt;</span> tag, attributes convert to the 
+child tags of the SDB file’s <span class="constant">TAG_KSHIM</span> as follows:
+</p>
+<table>
+  <tr>
+    <th>XML </th>
+    <th>SDB </th>
+  </tr>
+  <tr>
+    <td><span class="attribute">NAME</span>="<span class="placeholder">name</span>"
+    </td>
+    <td><span class="constant">TAG_NAME</span> has <span class="placeholder">name</span> 
+    as string data </td>
+  </tr>
+  <tr>
+    <td><span class="attribute">ID</span>="<span class="placeholder">guid</span>"
+    </td>
+    <td><span class="constant">TAG_FIX_ID</span> has <span class="placeholder">guid</span>, 
+    converted from string, as binary data </td>
+  </tr>
+  <tr>
+    <td><span class="attribute">LOGO</span>="<span class="placeholder">boolean</span>"
+    </td>
+    <td><span class="constant">TAG_FLAGS</span> has 0x00000001 set or clear in dword 
+    data according to whether <span class="placeholder">boolean</span> is
+    <span class="literal">YES</span> or <span class="literal">NO</span> </td>
+  </tr>
+  <tr>
+    <td><span class="attribute">ONDEMAND</span>="<span class="placeholder">boolean</span>"
+    </td>
+    <td><span class="constant">TAG_FLAGS</span> has 0x00000002 set or clear in dword 
+    data according to whether <span class="placeholder">boolean</span> is
+    <span class="literal">YES</span> or <span class="literal">NO</span> </td>
+  </tr>
+  <tr>
+    <td><span class="attribute">FILE</span>="<span class="placeholder">module</span>"
+    </td>
+    <td><span class="constant">TAG_MODULE</span> has <span class="placeholder">module</span> 
+    as string data </td>
+  </tr>
+</table>
+<p>The following XML extract shows the driver shims that are thus installed via 
+the DRVMAIN.SDB file on the installation discs for Windows 10:
+</p>
+<pre> &lt;?xml version="1.0" encoding="UTF-16"?&gt;
+&lt;DATABASE NAME="Microsoft Driver Compatibility Database" ID="{F9AB2228-3312-4A73-B6F9-936D70E112EF}"&gt;
+...
+    &lt;LIBRARY&gt;
+        &lt;KSHIM NAME="autofail" ID="{407D63CE-419D-4550-B54A-4F1C1B5BDD9F}" ONDEMAND="YES" FILE="autofail" /&gt;
+        &lt;KSHIM NAME="DeviceIdshim" ID="{0332EC62-865A-4A39-B48F-CDA6E855F423}" FILE="storport" /&gt;
+        &lt;KSHIM NAME="driverscope" ID="{BC04AB45-EA7E-4A11-A7BB-977615F4CAAE}" FILE="NT kernel component" /&gt;
+        &lt;KSHIM NAME="kmautofail" ID="{8ED4D238-F82D-433E-BC60-6117BC32EDCD}" ONDEMAND="YES" FILE="kmautofail" /&gt;
+        &lt;KSHIM NAME="KmWin7VersionLie" ID="{3E28B2D1-E633-408C-8E9B-2AFA6F47FCC3}" FILE="NT kernel component" /&gt;
+        &lt;KSHIM NAME="KmWin81VersionLie" ID="{21C4FB58-D477-4839-A7EA-AD6918FBC518}" FILE="NT kernel component" /&gt;
+        &lt;KSHIM NAME="KmWin8VersionLie" ID="{47712F55-BD93-43FC-9248-B9A83710066E}" FILE="NT kernel component" /&gt;
+        &lt;KSHIM NAME="NdisGetVersion640Shim" ID="{49691313-1362-4E75-8C2A-2DD72928EBA5}" FILE="ndis" /&gt;
+        &lt;KSHIM NAME="SkipDriverUnload" ID="{3E8C2CA6-34E2-4DE6-8A1E-9692DD3E316B}" FILE="NT kernel component" /&gt;
+        &lt;KSHIM NAME="Srbshim" ID="{434ABAFD-08FA-4C3D-A88D-D09A88E2AB17}" FILE="storport" /&gt;
+        &lt;KSHIM NAME="usbshim" ID="{FD8FD62E-4D94-4FC7-8A68-BFF7865A706B}" FILE="usbd" /&gt;
+    &lt;/LIBRARY&gt;
+...
+&lt;/DATABASE&gt;</pre>
+<p>For showing the development over successive versions, a table is perhaps 
+clearer:
+</p>
+<table>
+  <tr>
+    <th>Name </th>
+    <th>GUID </th>
+    <th>Flags </th>
+    <th>Provider </th>
+    <th>Applicable Versions </th>
+  </tr>
+  <tr>
+    <td>autofail </td>
+    <td>{407D63CE-419D-4550-B54A-4F1C1B5BDD9F} </td>
+    <td>0x00000002 </td>
+    <td>autofail </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>DeviceIdShim </td>
+    <td>{0332EC62-865A-4A39-B48F-CDA6E855F423} </td>
+    <td>0x00000000 </td>
+    <td>storport </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>driverscope </td>
+    <td>{BC04AB45-EA7E-4A11-A7BB-977615F4CAAE} </td>
+    <td>0x00000000 </td>
+    <td>NT kernel component </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>kmautofail </td>
+    <td>{8ED4D238-F82D-433E-BC60-6117BC32EDCD} </td>
+    <td>0x00000002 </td>
+    <td>kmautofail </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>KmWin7VersionLie </td>
+    <td>{3E28B2D1-E633-408C-8E9B-2AFA6F47FCCB} </td>
+    <td>0x00000000 </td>
+    <td>NT kernel component </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>KmWin81VersionLie </td>
+    <td>{21C4FB58-F477-4839-A7EA-AD6918FBC518} </td>
+    <td>0x00000000 </td>
+    <td>NT kernel component </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>KmWin8VersionLie </td>
+    <td>{47712F55-BD93-43FC-9248-B9A83710066E} </td>
+    <td>0x00000000 </td>
+    <td>NT kernel component </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>NdisGetVersion640Shim </td>
+    <td>{49691313-1362-4E75-8C2A-2DD72928EBA5} </td>
+    <td>0x00000000 </td>
+    <td>ndis </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>SkipDriverUnload </td>
+    <td>{3E8C2CA6-34E2-4DE6-8A1E-9692DD3E316B} </td>
+    <td>0x00000000 </td>
+    <td>NT kernel component </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>Srbshim </td>
+    <td>{434ABAFD-08FA-4C3D-A88D-D09A88E2AB17} </td>
+    <td>0x00000000 </td>
+    <td>storport </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>usbshim </td>
+    <td>{FD8FD62E-4D94-4FC7-8A68-BFF7865A706B} </td>
+    <td>0x00000000 </td>
+    <td>usbd </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p>The several shims whose provider is named as “NT kernel component” are built 
+in to the kernel. For all others, the name is that of the shim provider as registered 
+under the <span class="regkey">Services</span> key. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 12th
+  <a href="../../../../../../../new/16/08.htm">August 2016</a> and was last modified 
+  on 25th November 2016. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c16.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6338" -->
+</div>
+
+</body>
+
+</html>

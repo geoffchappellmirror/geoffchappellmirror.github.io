@@ -1,0 +1,268 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>TraceEvent</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../../../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+  <h1>TraceEvent </h1>
+  <p>This function is the simplest of several for writing an event from user mode.
+  </p>
+  <h2>Declaration </h2>
+  <pre>ULONG
+TraceEvent (
+    TRACEHANDLE SessionHandle,
+    EVENT_TRACE_HEADER *EventTrace);</pre>
+  <h3>Parameters </h3>
+  <!--webbot bot="Include" U-Include="_include/sessionhandle.htm" TAG="BODY" startspan -->
+
+<p>The required <span class="argument">SessionHandle</span> selects the event tracing 
+session, also called a logger, to which the event is to be written. </p>
+
+<!--webbot bot="Include" endspan i-checksum="47660" -->
+  <!--webbot bot="Include" U-Include="_include/eventtrace.htm" TAG="BODY" startspan -->
+
+<p>The required <span class="argument">EventTrace</span> argument describes the 
+event. It is the address of a fixed-size header possibly followed by variable-size 
+event-specific data. The header gets modified. </p>
+
+<!--webbot bot="Include" endspan i-checksum="33585" -->
+  <h3>Return Value </h3>
+  <p>The function returns zero for success, else a Win32 error code. </p>
+  <p>The return value is also set as the thread’s last error, such that it can be 
+  retrieved by calling <span class="function">GetLastError</span>. </p>
+  <h2>Availability </h2>
+  <p>The <span class="function">TraceEvent</span> function is exported by name from 
+  ADVAPI32 in version 5.0 and higher. Starting with version 5.2, it is merely a 
+  forward to the NTDLL export <span class="function">EtwTraceEvent</span> in its 
+  version 5.2 or <span class="function">EtwLogTraceEvent</span> in version 6.0 higher. 
+  For the NTDLL implementations, the second of which does behave differently in 
+  ways that may be significant, follow the links: this note is concerned only with 
+  the function as implemented in ADVAPI32. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="function">TraceEvent</span> function is documented. </p>
+  <h2>Behaviour </h2>
+  <p>Broadly, the <span class="function">TraceEvent</span> function edits the given 
+  header and sends the event into whichever of the kernel-mode or user-mode event 
+  tracing machinery is appropriate for the session. This saves the event into a 
+  trace buffer and the function is done. What then happens to the event, which will 
+  typically be that the trace buffer gets flushed to an Event Trace Log (ETL) file, 
+  is not the business of this function. </p>
+  <p>Note that there is the event as provided and separately the event as written 
+  to a trace buffer. The headers in each have the same form but not the same contents.
+  </p>
+  <h3>Validation </h3>
+  <p>Without an <span class="argument">EventTrace</span>, the function can do nothing 
+  and fails, returning <span class="constant">ERROR_INVALID_PARAMETER</span>.
+  </p>
+  <p>All further work is subject to exception handling. If an exception occurs, 
+  the exception code is converted to a Win32 error code and becomes the function’s 
+  result. </p>
+  <p>Interpretation, both of the input header and of the event-specific data that 
+  may follow it, depends on the <span class="member">Flags</span> in the header. 
+  Indeed, some bits that are defined for the <span class="member">Flags</span> tell 
+  which type of header is provided. Even where this does not apply directly to this 
+  function, it does to the deeper machinery (see below), which in these early versions 
+  does double and even triple duty with various types of header. In version 5.0, 
+  even this high-level function accepts two types of header: an
+  <span class="struct">EVENT_TRACE_HEADER</span>, as documented and declared, or 
+  a <span class="struct">WNODE_HEADER</span>. </p>
+  <p>That <span class="argument">EventTrace</span> addresses an
+  <span class="struct">EVENT_TRACE_HEADER</span> is the only possibility in version 
+  5.1, but version 5.0 expects a set <span class="constant">WNODE_FLAG_TRACED_GUID</span>. 
+  The <span class="member">Size</span> in the <span class="struct">EVENT_TRACE_HEADER</span> 
+  is the total, in bytes, of both the header and any event-specific data that follows. 
+  If this is not at least enough for the header, the function fails, returning
+  <span class="constant">ERROR_INVALID_PARAMETER</span>. </p>
+  <p>That a caller of version 5.0 intends the header as a <span class="struct">WNODE_HEADER</span> 
+  is inferred from a set <span class="constant">WNODE_FLAG_LOG_WNODE</span>. The
+  <span class="member">BufferSize</span> in the <span class="struct">WNODE_HEADER</span> 
+  is the total, in bytes, of both the header and any event-specific data that follows. 
+  If this is not at least enough for the header, the function fails, returning
+  <span class="constant">ERROR_INVALID_PARAMETER</span>. </p>
+  <p>Version 5.0 requires that either <span class="constant">WNODE_FLAG_TRACED_GUID</span> 
+  or <span class="constant">WNODE_FLAG_LOG_WNODE</span> is set on input. If both 
+  are clear, the function returns <span class="constant">ERROR_INVALID_FLAG_NUMBER</span> 
+  (as still documented in 2018). That both may be set is here put aside as producing 
+  undefined behaviour. (If nothing else, it has a quirk that
+  <span class="constant">WNODE_FLAG_LOG_WNODE</span> ends up having precedence, 
+  yet its 32-bit <span class="member">BufferSize</span> is first interpreted as 
+  a 16-bit <span class="member">Size</span> such that the event is rejected early 
+  if the low word of the <span class="member">BufferSize</span> is less than 0x0030.)
+  </p>
+  <h3>Translation </h3>
+  <p>In sending the event onwards, the function makes the following adjustments 
+  in-place: </p>
+  <ul>
+    <li>the <span class="member">FieldTypeFlags</span> are set to the distinguishing 
+    value 0xC00A (but in version 5.0 only if <span class="constant">WNODE_FLAG_TRACED_GUID</span> 
+    is set on input);</li>
+    <li>in version 5.0, the high bit of the <span class="member">MarkerFlags</span> 
+    is cleared if <span class="constant">WNODE_FLAG_LOG_WNODE</span> is set on input;
+    </li>
+    <li>the eight bytes at offset 0x08 have the <span class="argument">SessionHandle</span>;
+    </li>
+    <li>in version 5.1, the <span class="member">Flags</span> have
+    <span class="constant">WNODE_FLAG_TRACED_GUID</span> set. </li>
+  </ul>
+  <p>Of these changes to the input header, most will be undone when the function 
+  returns: only the loading of the <span class="argument">SessionHandle</span> to 
+  offset 0x08 persists as the function’s output. </p>
+  <p>Note that the <span class="struct">EVENT_TRACE_HEADER</span> has no member 
+  for the 64-bit <span class="argument">SessionHandle</span>. At offset 0x08 there 
+  are only the <span class="member">ThreadId</span> and <span class="member">ProcessId</span> 
+  members (or just a 64-bit <span class="member">ThreadId</span> in version 5.0), 
+  but these are generated by the deeper machinery for the event as written to a 
+  trace buffer, not for the event as given for input or seen afterwards as output. 
+  Interpret the header instead as a <span class="struct">WNODE_HEADER</span>, and 
+  this space is defined as a <span class="member">HistoricalContext</span> and is 
+  even documented as receiving “the handle to the event tracing session”. </p>
+  <h3>Tracing </h3>
+  <p>The function forwards the adjusted header and the untouched event-specific 
+  data deeper into the event tracing machinery. If the <span class="argument">SessionHandle</span> 
+  has the 0x01000000 bit set, the tracing session is a user-mode logger—in these 
+  versions, <span class="emphasis">the</span> user-mode logger, only one being permitted 
+  per process—and the event is written to trace buffers that are maintained by ADVAPI32. 
+  Otherwise, the event goes to trace buffers that are maintained by the kernel. 
+  The <span class="argument">SessionHandle</span> is then a 16-bit logger ID. Zero 
+  and 0xFFFF are explicitly invalid and cause the function to return
+  <span class="constant">ERROR_INVALID_HANDLE</span>. Communication with the kernel 
+  is through Device I/O Control (code 0x0022808F) to the WMI service device in version 
+  5.0 but through <span class="function">
+  <a href="../../../../../km/ntoskrnl/api/etw/traceapi/event/index.htm">NtTraceEvent</a></span> 
+  (with <span class="constant">ETW_NT_FLAGS_TRACE_EVENT</span> set in the
+  <span class="argument">Flags</span>) in version 5.1. </p>
+  <p>Wherever the event goes, the handling is similar and whatever results is success 
+  or failure for the function. Error codes for the same cause vary with the version 
+  and also with whether the event goes to the kernel or to the user-mode logger. 
+  Aside from <span class="constant">ERROR_NOACCESS</span> from the kernel’s probes 
+  of what it expects to be user-mode addresses, the most notable failures are:
+  </p>
+  <ul>
+    <li>the selected logger is not defined or is not running (<span class="constant">ERROR_INVALID_HANDLE</span>);
+    </li>
+    <li>the event is too big for any one trace buffer (<span class="constant">ERROR_MORE_DATA</span> 
+    or <span class="constant">ERROR_BUFFER_OVERFLOW</span>); </li>
+    <li>space is unavailable in any trace buffer (<span class="constant">ERROR_NOT_ENOUGH_MEMORY</span> 
+    or <span class="constant">ERROR_OUTOFMEMORY</span>). </li>
+  </ul>
+  <h3>Configurability </h3>
+  <p>The deeper machinery allows for several points of interpretation that are under 
+  the caller’s control through the <span class="member">Flags</span>. </p>
+  <p>The first is new for version 5.1 and applies only if the event goes to the 
+  user-mode logger. If <span class="constant">WNODE_FLAG_NO_HEADER</span> is set, 
+  then nothing matters about the <span class="struct">EVENT_TRACE_HEADER</span> 
+  except for the <span class="member">Size</span>. This must be at least 0x58, else 
+  the function returns <span class="constant">ERROR_INVALID_PARAMETER</span>. It’s 
+  not, after all, that there’s no header. It’s more that the header continues as 
+  an <span class="struct">EVENT_TRACE</span> and everything that counts is in the 
+  continuation. The <span class="member">MofData</span> and <span class="member">
+  MofLength</span> provide respectively the address and size of a buffer from which 
+  to obtain the whole data for the event, header and all, with no further interpretation 
+  (and the <span class="member">BufferContext</span> provides a preferred processor).
+  </p>
+  <p>As an aside, since Microsoft seems never to have documented
+  <span class="constant">WNODE_FLAG_NO_HEADER</span> as having any meaning to the
+  <span class="function">TraceEvent</span> function (if to anything), it’s perhaps 
+  as well to record what use Microsoft made of this flag in Windows XP. It supported 
+  the <span class="command">tracerpt</span> tool’s <span class="switch">-merge</span> 
+  switch. This reads events from one or more input ETL files and relogs them, uninterpreted 
+  and intact, to a merged ETL file. Microsoft has never been the slightest bit shy 
+  of writing undocumented functionality so that its ETW tools can do things that 
+  others’ can’t. </p>
+  <p>If <span class="constant">WNODE_FLAG_USE_MOF_PTR</span> is set, then the data 
+  that follows the input header is not itself the event-specific data but is instead 
+  an array of <span class="struct">MOF_FIELD</span> structures, which each supplies 
+  the address and size of one item of the intended event-specific data. What follows 
+  the header as written to a trace buffer is a concatenation of these items in the 
+  order of their description by the <span class="struct">MOF_FIELD</span> array. 
+  The implementation limits the array to 0x0100 bytes: if more than this follows 
+  the input header, the function fails, returning <span class="constant">STATUS_ARRAY_BOUNDS_EXCEEDED</span> 
+  or <span class="constant">ERROR_INVALID_DATA</span>. </p>
+  <p>If <span class="constant">WNODE_FLAG_USE_GUID_PTR</span> is set, then the input 
+  header is not given with a <span class="member">Guid</span> but instead has a
+  <span class="member">GuidPtr</span>. This is the address from which the implementation 
+  is to get the <span class="member">Guid</span> for the event as written to the 
+  trace buffer. </p>
+  <p>In version 5.1, a set <span class="constant">WNODE_FLAG_USE_TIMESTAMP</span> 
+  indicates that the event should not be stamped with the time of its being writing 
+  to a trace buffer but should instead use the <span class="member">TimeStamp</span> 
+  from the input header. </p>
+  <h3>Trace Buffers </h3>
+  <p>Put aside the relogging case, and what goes into the trace buffers, and which 
+  may then persist in an Event Trace Log (ETL) file, is a modified
+  <span class="struct">EVENT_TRACE_HEADER</span> (or, in version 5.0,
+  <span class="struct">WNODE_HEADER</span>) and unmodified event-specific data (possibly 
+  assembled from an <span class="struct">MOF_FIELD</span> array). If the header 
+  is specifically an <span class="struct">EVENT_TRACE_HEADER</span>, then in addition 
+  to changes that the function makes in the input header, the implementation generates 
+  the following for the header in the trace buffer: </p>
+  <ul>
+    <li><span class="member">ThreadId</span> and (in version 5.1)
+    <span class="member">ProcessId</span>; </li>
+    <li><span class="member">TimeStamp</span> (if not supplied in input header, 
+    see above); </li>
+    <li><span class="member">KernelTime</span> and <span class="member">UserTime</span>, 
+    if logging through the kernel; </li>
+    <li><span class="member">ProcessorTime</span>, through the user-mode logger.
+    </li>
+  </ul>
+  <div class="Footer">
+    <p class="Dates">This page was created on 12th
+    <a href="../../../../../../../new/18/12.htm">December 2018</a> and was last 
+    modified on 31st December 2018 (except for removing broken links on 10th July 
+    2022). </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c18.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6594" -->
+  </div>
+</div>
+
+</body>
+
+</html>

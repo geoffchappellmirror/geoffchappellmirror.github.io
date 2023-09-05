@@ -1,0 +1,190 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RtlUnicodeStringToInt64</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>RtlUnicodeStringToInt64 </h1>
+<p>The <span class="function">RtlUnicodeStringToInt64</span> function parses a 64-bit 
+integer from a string. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+RtlUnicodeStringToInt64 (
+    UNICODE_STRING const *String, 
+    ULONG Base, 
+    LONG64 *Number, 
+    PWSTR *EndPointer);</pre>
+<h3>Parameters </h3>
+<p>The required <span class="argument">String</span> argument indirectly provides 
+the size and address of an array of Unicode characters. These input characters seem 
+intended to be as many at <span class="member">Buffer</span> as fit within
+<span class="member">Length</span> bytes, but subtleties apply. The
+<span class="member">Length</span>, <span class="member">MaximumLength</span> and
+<span class="member">Buffer</span> members of the input structure all matter. The 
+characters are treated as read-only. </p>
+<p>The optional <span class="argument">Base</span> argument is the numerical base 
+to use for parsing characters as digits. The supported bases are 2 to 36 inclusive. 
+This argument can be zero to direct that the base be inferred from a prefix in the 
+string else be defaulted to 10. </p>
+<p>The required <span class="argument">Number</span> argument is the address of 
+a variable that is to receive the integer that the characters evaluate to. </p>
+<p>The optional <span class="argument">EndPointer</span> argument is the address 
+of a variable that is to receive a pointer to the first character that is not used 
+for the evaluation. This argument can be <span class="constant">NULL</span> if the 
+pointer is not wanted. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+<p>It looks to be deliberate that variables at <span class="argument">Number</span> 
+and <span class="argument">EndPointer</span> are set even on failure. </p>
+<h2>Availability </h2>
+<p>The <span class="function">RtlUnicodeStringToInt64</span> function is exported 
+by name from the kernel in version 10.0 and higher. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">RtlUnicodeStringToInt64</span> function is not documented 
+but a C-language declaration is published in WDM.H from the Windows Driver Kit (WDK).
+</p>
+<h2>Behaviour </h2>
+<p>The essence of the <span class="function">RtlUnicodeStringToInt64</span> function 
+is to dress the C Run-Time (CRT) routine <span class="routine">_wcstoi64</span> 
+for kernel-mode programming. The broad strokes are: </p>
+<ul>
+  <li>the characters to parse are provided indirectly through a
+  <span class="struct">UNICODE_STRING</span> structure, not as a null-terminated 
+  string; </li>
+  <li>the evaluation is returned indirectly, not as the return value; </li>
+  <li>success or failure is indicated by returning an error code, not by setting 
+  a global variable. </li>
+</ul>
+<h3>String Input </h3>
+<p>If the <span class="struct">UNICODE_STRING</span> is prepared by a successful
+<span class="function"><a href="../string/initunicodestringex.htm">RtlInitUnicodeStringEx</a></span> 
+function, then the characters to parse are the <span class="member">Length</span> 
+bytes at <span class="member">Buffer</span>. If <span class="member">Buffer</span> 
+is not <span class="constant">NULL</span>, then these characters are followed by 
+a null, and the <span class="member">Length</span> bytes at <span class="member">
+Buffer</span> are the non-null characters of a null-terminated string exactly as 
+suitable for the <span class="routine">_wcstoi64</span> routine. Other valid preparations 
+of the <span class="struct">UNICODE_STRING</span> can be problematic. If the function 
+thinks that <span class="member">Buffer</span> might not address a null-terminated 
+string, it double-buffers to ensure that what it passes to <span class="routine">
+_wcstoi64</span> is null-terminated, but the implementation is quirky. </p>
+<p>Remember that the <span class="struct">UNICODE_STRING</span> structure tells 
+of <span class="member">MaximumLength</span> bytes of memory at the address
+<span class="member">Buffer</span>, the first <span class="member">Length</span> 
+bytes of which are in use as Unicode characters. Microsoft’s documentation of the 
+structure has always been clear that the <span class="member">Length</span> bytes 
+need not (and ordinarily do not) contain a null character and need not be followed 
+by a null character. Moreover, although addresses are valid for
+<span class="member">MaximumLength</span> bytes at <span class="member">Buffer</span>, 
+the contents beyond the first <span class="member">Length</span> bytes are undefined.
+</p>
+<h4>Undefined Input </h4>
+<p>If <span class="member">MaximumLength</span> is at least two more than
+<span class="member">Length</span>, then the <span class="member">Buffer</span> 
+can contain a null character beyond the first <span class="member">Length</span> 
+bytes, but the function looks for this null character only at the end of the buffer, 
+i.e., as the last whole character in the <span class="member">MaximumLength</span> 
+bytes. If this is indeed a null, then what <span class="routine">_wcstoi64</span> 
+parses is the Unicode characters in the first <span class="member">Length</span> 
+bytes plus the possibly undefined contents after the first <span class="member">
+Length</span> bytes, up to the first null character. Unless this happens to be immediately 
+after the <span class="member">Length</span> bytes, the parsing may extend into 
+the undefined (or stale) contents. </p>
+<h4>Truncated Input </h4>
+<p>Double-buffering is done in all other cases, i.e., if <span class="member">MaximumLength</span> 
+is too small to allow for a null character beyond the first <span class="member">
+Length</span> bytes or if the last whole character in the <span class="member">MaximumLength</span> 
+bytes happens not to be a null. The double buffer is on the stack. What
+<span class="routine">_wcstoi64</span> parses is as many as 0x40 of the Unicode 
+characters in the first <span class="member">Length</span> bytes, up to the first 
+null character. </p>
+<h3>Base </h3>
+<p>An unsupported <span class="argument">Base</span> is not failure for the function, 
+but just results in evaluation as zero. </p>
+<h3>Parsing </h3>
+<p>Since Microsoft documents the parsing by <span class="routine">_wcstoi64</span>, 
+a summary ought to suffice here. The parsing allows for the following elements in 
+sequence, each being optional: </p>
+<ul>
+  <li>white space, which is ignored; </li>
+  <li>a single-character sign indicator; </li>
+  <li>if <span class="argument">Base</span> is zero, a one- or two-character base 
+  indicator that the base is 8 or 16; </li>
+  <li>if <span class="argument">Base</span> is 16, a two-character base indicator 
+  that confirms the base is 16; </li>
+  <li>valid digits for the base; </li>
+  <li>anything else, which is ignored. </li>
+</ul>
+<p>The sign indicator is a plus (0x002B) or minus (0x002D). The base indicator begins 
+with a zero (0x0030). If this is followed by an upper- or lower-case X (0x0058 or 
+0x0078), the base is 16. If not, the base is 8. Valid digits for a base are those 
+characters that evaluate to less then the base. Characters from zero (0x0030) to 
+nine (0x0039) count as 0 to 9, Characters from 'A' to 'Z' (0x0041 to 0x005A) and 
+'a' to 'z' (0x0061 to 0x007A) count as 10 to 35. </p>
+<p>Failure to parse into these elements is not failure for the function, but just 
+results in evaluation as zero. Unless the parsing finds at least one valid digit, 
+the address returned through the <span class="argument">EndPointer</span> argument 
+is the <span class="member">Buffer</span> member from <span class="argument">String</span>.
+</p>
+<h3>Evaluation </h3>
+<p>Evaluation starts as zero and accumulates as an unsigned 64-bit integer for as 
+many characters as are valid for the base, including none. If a minus sign is present 
+as the sign indicator, this unsigned evaluation is negated to produce the returned 
+evaluation. </p>
+<p>If a minus sign is present, overflow occurs if the unsigned evaluation exceeds 
+0x80000000`00000000. With no minus sign, overflow occurs if the unsigned evaluation 
+exceeds 0x7FFFFFFF`FFFFFFFF. Overflow is failure. The function returns
+<span class="constant">STATUS_INTEGER_OVERFLOW</span>. The overflow limit becomes 
+the evaluation. The address returned through the <span class="argument">EndPointer</span> 
+argument is that of the digit that caused the overflow. </p>
+<p>Without overflow, the address returned through the <span class="argument">EndPointer</span> 
+argument is that of one character past the last valid digit. Note that this need 
+not be a valid address! </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 14th
+  <a href="../../../../../../../new/19/03.htm">March 2019</a> and was last modified 
+  on 23rd March 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

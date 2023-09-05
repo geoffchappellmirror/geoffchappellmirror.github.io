@@ -1,0 +1,198 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Switch to Protected Mode</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/notes.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="20600" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../../../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+  <h1>Switch to Protected Mode </h1>
+  <p>A prospective client of the DOS Protected Mode Interface (DPMI) will have called
+  <a href="87h.htm"><span class="instruction">int 2Fh</span> functon 1687h</a> to 
+  register its interest in protected-mode execution. The interrupt tells a little 
+  of the DPMI host and provides the address of a routine to call for the transition 
+  from real (or virtual-8086) mode to protected mode. </p>
+  <h2>Parameters </h2>
+  <p>The address that <span class="instruction">int 2Fh</span> function 1687h returns 
+  in <span class="register">es</span>:<span class="register">di</span> is for the 
+  DPMI client to execute, when ready, by a far <span class="instruction">call</span>. 
+  Segment registers hold real-mode segment addresses on input but protected-mode 
+  selectors as successful ouput. </p>
+  <p>The interrupt can have set <span class="register">si</span> to count 16-byte 
+  paragraphs that the DPMI host requires as one block of real-mode address space. 
+  The client chooses where, subject only to 16-byte alignment. The size is not repeated.
+  </p>
+  <h3>Input </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>flags </td>
+      </tr>
+      <tr>
+        <td><span class="register">es</span> </td>
+        <td>segment address for DPMI host’s data area, if required; <br>
+        else ignored </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The only defined bit for the flags in <span class="register">ax</span> is 0001h. 
+  It is set or clear to request execution as a 32-bit or 16-bit DPMI client, respectively.
+  </p>
+  <h3>Success </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">flags</span> </td>
+        <td>carry flag clear; <br>
+        other bits may be corrupt </td>
+      </tr>
+      <tr>
+        <td><span class="register">cs</span> </td>
+        <td>selector for 64KB at input <span class="register">cs</span> </td>
+      </tr>
+      <tr>
+        <td><span class="register">ds</span> </td>
+        <td>selector for 64KB at input <span class="register">ds</span> </td>
+      </tr>
+      <tr>
+        <td><span class="register">es</span> </td>
+        <td>selector for 0100h bytes at caller’s Program Segment Prefix (PSP)
+        </td>
+      </tr>
+      <tr>
+        <td><span class="register">fs</span> </td>
+        <td>0000h, if 80386 or higher
+        </td>
+      </tr>
+      <tr>
+        <td><span class="register">gs</span> </td>
+        <td>0000h, if 80386 or higher
+        </td>
+      </tr>
+      <tr>
+        <td><span class="register">ss</span> </td>
+        <td>selector for 64KB at input <span class="register">ss</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>If <span class="register">ds</span> and <span class="register">ss</span> are 
+  equal on input, they are equal on output. </p>
+  <p>The caller’s PSP is changed non-trivially. At offset 002Ch, what had been a 
+  segment address for the process’s environment is now a selector. Other changes 
+  are apparently implementation-dependent. </p>
+  <h3>Failure </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">flags</span> </td>
+        <td>carry flag set; <br>
+        other bits may be corrupt </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Behaviour </h2>
+  <p>Segment descriptors are prepared such that the selector in
+  <span class="register">cs</span> allows execute/read access and the selectors 
+  for <span class="register">ds</span>, <span class="register">es</span> and
+  <span class="register">ss</span> allow read/write access. Whether the selectors 
+  must select from the LDT or can select from the GDT is unclear, but both Microsoft’s 
+  implementations in all versions produce LDT selectors. Privilege levels both in 
+  the selectors and the corresponding descriptors are possibly not intrinsic to 
+  the interface except that they must be set consistently: the caller on return 
+  must be able to use all these selectors. Among Microsoft’s implementations, the 
+  VMM from Windows 3.0 sets the privilege level to 1, but later implementations 
+  to 3. </p>
+  <h3>DOSX </h3>
+  <p>DOSX can support only 16-bit DPMI clients. It explicitly fails any request 
+  to execute as a 32-bit DPMI client. This constraint is disclosed through
+  <span class="instruction">int 2Fh</span> function 1687h by its returning a clear 
+  0001h bit in <span class="register">ax</span>. </p>
+  <p>DOSX allows only one DPMI client. Transition to protected-mode execution is 
+  not repeatable. Once this routine has succeeded, subsequent calls fail, e.g., 
+  if contrived to be attempted during the real-mode handling of an interrupt.
+  </p>
+  <p>This determination to have only one DPMI client goes as far as arranging that 
+  the DPMI client’s termination forces DOSX’s own termination. This is done by an 
+  additional modification of the caller’s PSP. Specifically, the far pointer at 
+  offset 0Ah that records where execution is to resume when the caller terminates 
+  (as a DOS process) is set to the same address in DOSX that is already the return 
+  address of the <span class="instruction">int 21h</span> function 4B00h that DOSX 
+  called to execute its child process. </p>
+  <p>A surely intended effect, despite its dangers, is that if the DPMI client is 
+  not the immediate child of DOSX, then the DPMI client’s termination by-passes 
+  the intermediate processes on the way to exiting from DOSX. For some sign that 
+  the effect can surprise, look at <span class="citation">Unauthorized Windows 95</span> 
+  (ISBN 1-56884-305-4) by Andrew Schulman. At the end of page 155 is a demonstration 
+  that contrives to have DOSX first run COMMAND.COM as its immediate child and then 
+  to attempt two executions of a small DPMI client. That the second attempt fails 
+  is supposedly because “After switching a program into protected mode, DOSX unhooks 
+  itself from real-mode INT 2Fh.” In reality, it fails because DOSX is gone (until 
+  it is re-run). </p>
+  <p>As if to compound the surprise, the next page elaborates that the same supposed 
+  explanation is also “why DOS programs running under Windows Standard mode cannot 
+  use the Windows DPMI server or DOS extender”. The supposition is again that “After 
+  DOSX sees KRNL286.EXE or KRNL386.EXE switch into protected mode, it unhooks itself 
+  from INT 2Fh, so no other programs can call DPMI to switch into protected mode.” 
+  In reality, running a DOS program from Windows Standard Mode reaches past DOSX 
+  to the WSWAP task switcher which then swaps out all of DOSX and its children, 
+  and itself, to run the DOS program under DSWAP. The DOS program sees no DPMI host 
+  because DOSX is gone (but now only until it is switched back). </p>
+  <h3>VMM </h3>
+  <p><span class="alert">WRITING IN PROGRESS</span> </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 27th
+    <a href="../../../../../new/22/01.htm">January 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="46751" -->
+  </div>
+</div>
+
+</body>
+
+</html>

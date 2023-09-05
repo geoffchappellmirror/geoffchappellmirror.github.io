@@ -1,0 +1,168 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Updated CRTDRVR Library</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57445" -->
+<div class="Main">
+  <h1>Updated CRTDRVR Library </h1>
+  <p>The original code in CRTDRVR.ASM, which was written in 1992, was revised in 
+  June 1996 to fix a bug (that had gone unnoticed for an embarrassingly long time) 
+  and to accommodate some changes that Windows 95 makes to DOS’s startup. These 
+  revisions are presented together in the new source code but described here separately.
+  </p>
+  <h2>Bug Fix </h2>
+  <p>The driver library has a surprisingly serious bug that is activated when the 
+  library is used together with the scheme that Chapter Six of
+  <span class="citation">DOS Internals</span> presents for resident programming. 
+  In that scheme, segments are rearranged from the DOSSEG order of code then data 
+  (essential to the standard run-time library of Microsoft C) to the preferred order 
+  of resident then non-resident. When devising the one programming scheme, I failed 
+  to allow for the rearrangement devised in the other. Put the two together and 
+  the bug corrupts one word at an essentially random address just as the driver 
+  is about to return to SYSINIT after initialising. This bug is fixed by adding 
+  two lines to the CRTDRVR.ASM source code. </p>
+  <h2>Windows 95 Update </h2>
+  <p>The release of Windows 95 requires one change to the techniques used in CRTDRVR 
+  and makes another change convenient. The change that must be made is due to something 
+  that may reasonably be deemed a bug in the DOS 7 kernel. The other change is possible 
+  only because the DOS 7 kernel fixes something that may reasonably be deemed a 
+  bug in earlier versions of the kernel. </p>
+  <h3>Resident Termination Must Be Fixed … </h3>
+  <p>New code in the DOS 7 kernel (previously MSDOS.SYS but now bound into IO.SYS) 
+  makes int 21h function 31h unsafe to use during device driver initialisation. 
+  This affects any device driver produced by linking the CRTDRVR library with code 
+  for a DOS program that terminates and stays resident. </p>
+  <p>Certain VxDs in Windows 95 need to know whether any DOS device drivers and 
+  programs have used resources of interest. For instance, have any hooked int 13h 
+  or a hardware interrupt? The general scheme for supporting this from the DOS side 
+  is that some DOS component takes a snapshot of the system state each time a DOS 
+  device driver gets loaded or a DOS program gets run. When the driver or program 
+  is done, the system state is compared with the snapshot to discover any changes. 
+  Information about the driver or program may then be recorded for VxDs to study 
+  later. </p>
+  <p>When SYSINIT loads device drivers, only it can easily know when the device 
+  driver returns from its initialisation, and so SYSINIT has the job of watching 
+  for drivers that change the system state. The information that SYSINIT records 
+  about the drivers it loads is entered into structures that are documented in the 
+  RMD.H file supplied with the Windows 95 DDK and are retrievable at run-time via 
+  int 2Fh function 1690h (which is documented as <span class="constant">W386_Return_RMD</span>).
+  </p>
+  <p>When SYSINIT is finished loading device drivers, the DOS kernel picks up the 
+  job of watching for resource use by DOS programs. SYSINIT finds some memory for 
+  the DOS kernel to use. Some of this memory is used and reused for the snapshots 
+  of system features that DOS will take before each program’s execution. Some of 
+  the memory is to serve as a permanent record that may be examined by VxDs. The 
+  layout allows for DOS to note the resource usage of as many as 20 TSRs that run 
+  outside of Windows. Interestingly, VxDs do not have access to this record via 
+  the int 21h function 1690h interface. The IOS VxD finds the record by knowing 
+  that the address is kept as the dword at offset 1328h in the DOS kernel’s data 
+  segment. The layout and location of this TSR record appear to be undocumented.
+  </p>
+  <p>Of particular interest to the CRTDRVR library is the method by which DOS takes 
+  its snapshots of resources used by TSRs. Two routines have been added to the DOS 
+  kernel. One takes the snapshot before a program runs. It is called every time 
+  that int 21h function 4Bh is used to start a new process, but only provided Windows 
+  Enhanced Mode is not running and only provided SYSINIT has given DOS the memory 
+  in which to record the snapshot (that is, provided that the dword at offset 1328h 
+  is not null). The other new routine acts when a program finishes. It compares 
+  with the snapshot that was taken before the program runs, and it records what 
+  has changed. It is called whenever a program terminates via int 21h function 31h 
+  and Windows Enhanced Mode is not running. </p>
+  <p>The problem for the CRTDRVR library is that whereas the first of those routines 
+  takes its snapshot only if SYSINIT has provided the necessary memory, the second 
+  routine simply <span class="emphasis">assumes</span> that the memory is there. 
+  Specifically, it does not check that the dword at offset 1328h is not null. If 
+  int 21h function 31h is used while SYSINIT is still in the business of loading 
+  device drivers, then the DOS kernel’s pointer at offset 1328h will be null and 
+  the DOS kernel will misbehave, possibly even by trampling over the interrupt vector 
+  table. </p>
+  <p>Note the inconsistency. One routine guards against a null pointer and the other 
+  doesn’t—even though the routines are adjacent in the kernel code. The understandable 
+  difference from Microsoft’s perspective is that int 21h function 4Bh is needed 
+  while SYSINIT loads device drivers and must guard against a null pointer, but 
+  int 21h function 31h is not anticipated to be used this early and therefore need 
+  not guard against a null pointer. </p>
+  <p>The updated CRTDRVR code works around this problem by providing the DOS kernel 
+  with the necessary memory temporarily. The new code is enabled only when running 
+  under DOS version 7.0 or higher. </p>
+  <p>A first update in 1996 was either too optimistic (thinking that future versions 
+  of the DOS kernel would guard against the null pointer) or too pessimistic (thinking 
+  that there would be no future version), and tested for DOS 7.0 exactly. I thank 
+  Ivan P. de Arruda Campos for bringing to my attention a problem that had this 
+  test as its cause. </p>
+  <h3>… But an FCB-SFT Is No Longer Needed </h3>
+  <p>For DOS versions before Windows 95, CRTDRVR already has to work around a similar 
+  problem in the DOS kernel code, namely that when terminating a process, the DOS 
+  kernel simply <span class="emphasis">assumes</span> the existence of at least 
+  one FCB-SFT. Since the FCB-SFTs are not built until SYSINIT finishes loading device 
+  drivers, all functions for terminating DOS processes are unsafe during device 
+  driver initialisation. To get around this, the CRTDRVR code presented in
+  <span class="citation">DOS Internals</span> provides the DOS kernel with a temporary 
+  FCB-SFT. </p>
+  <p>Under Windows 95, Microsoft needs to execute an ordinary program during DOS’s 
+  startup, specifically a program bound into the IO.SYS file and used for reading 
+  the system registry. This ordinary program will terminate in the ordinary way. 
+  Since Microsoft now needs to run a program during DOS’s startup and have the program 
+  terminate safely, it is no surprise to find that when the DOS kernel for Windows 
+  95 terminates a process, it now checks whether SYSINIT has yet provided a block 
+  of FCB-SFTs. Thus, the FCB-SFT workaround need not be activated when the CRTDRVR 
+  code executes under DOS 7 (or higher). </p>
+  <h2>Download </h2>
+  <p>The revisions described above mean that three files must be replaced in the 
+  DEVTOOLS\DRIVER\CRTDRVR directory of the <span class="citation">DOS Internals</span> 
+  disk. These files are the CRTDRVR assembly-language source, the object code and 
+  the library. The CRTDRVR.LIB file should also be copied to the LIB directory. 
+  For distribution, all three files are compressed into one:
+  <a href="_download/crtdrvr-update.zip">download the CRTDRVR Bug Fix and Windows 
+  95 Update</a>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 20th July 1997 and was last modified 
+    on 16th June 2008. </p>
+    <!--webbot bot="Include" U-Include="../../../_include/c9708.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1997-2008. Geoff Chappell. All rights reserved.
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="59077" -->
+  </div>
+</div>
+
+</body>
+
+</html>

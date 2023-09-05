@@ -1,0 +1,4785 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Kernel-Processor-Power Event Provider</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/km.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="63592" -->
+<div class="Main">
+  <h1>The Kernel-Processor-Power Event Provider </h1>
+  <p>Starting with Windows Vista SP1, drivers for Processor Power Managment (PPM) 
+  register an event provider and write events to it. Starting with Windows 7, the 
+  kernel joins in: </p>
+  <table class="EventProvider">
+    <tbody>
+      <tr>
+        <th>Provider GUID: </th>
+        <td>{0F67E49F-FE51-4E9F-B490-6F2948CC6027} </td>
+      </tr>
+      <tr>
+        <th>Provider Name: </th>
+        <td>Microsoft-Windows-Kernel-Processor-Power </td>
+      </tr>
+      <tr>
+        <th>Symbolic Name: </th>
+        <td><span class="symbol">PPM_ETW_PROVIDER</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The PPM drivers and the kernel, of course, know of the provider only by the 
+  Provider GUID. The Provider Name is what's stored in the registry for this GUID. 
+  It's then the Name that the Event Viewer shows for the Provider in the Details 
+  tab for an event that actually has occurred and been logged. It's also the name 
+  to use when referring to this provider in such tools as WEVTUTIL and the Performance 
+  Monitor. The Symbolic Name is what public symbol files for the kernel show as 
+  the programming label for the GUID as an internal kernel variable. </p>
+  <p>An instrumentation manifest for the Microsoft-Windows-Kernel-Power provider 
+  is compiled into Microsoft-Windows-Kernel-Processor-Power-Events.dll (but ADVAPI32.DLL 
+  in version 6.0) as a resource named WEVT_TEMPLATE. This event template is the 
+  source of the plain-language names that the command <span class="command">wevtutil 
+  gp Microsoft-Windows-Kernel-Processor-Power</span> extracts for channels, opcodes, 
+  levels, tasks and keywords. Its location is known already in the registry when 
+  Windows is installed. </p>
+  <p>As for any event provider, the compiled instrumentation manifest can be de-compiled 
+  to something like the XML it was written in, albeit without recovering symbolic 
+  names that compilation did not transfer to the manifest. Microsoft’s WEVTUTIL 
+  has options that can make a good start at this, and hackers have surely written 
+  tools that do better or differently. If that were the end of presenting the possible 
+  events, then this page would not exist. </p>
+  <p>The aim here is instead to capture something of the events’ development through 
+  successive versions, both in the compiled manifests and in the kernel’s code for 
+  writing the events. Notably, the manifests are sometimes wrong (not that this 
+  will surprise any programmer who has ever tried preparing one and keeping it synchronised 
+  with the code). With sufficient resources and attention, the presentation below 
+  may someday develop into describing what causes each of the possible events and 
+  what their parameters of event data mean. Remember, though, that such documentation 
+  really is Microsoft’s to write. </p>
+  <h2>Channels </h2>
+  <p>Two channels are defined for the provider. Each takes a different selection 
+  of the many possible events. </p>
+  <table class="EventChannels">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Channel ID </th>
+        <th>Channel Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>8 </td>
+        <td>System </td>
+        <td>6.0 SP1 and higher </td>
+      </tr>
+      <tr>
+        <td>16 </td>
+        <td>Microsoft-Windows-Kernel-Processor-Power/Diagnostic </td>
+        <td>6.0 SP1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The System log is familiar to all system administrators and many users. The 
+  Event Viewer shows it prominently among the Windows Logs. The others appear in 
+  the Event Viewer as "Applications and Services Logs". The diagnostic channel is 
+  not ordinarily enabled and is not even presented as a log that might be enabled 
+  except if the "Show Analytic and Debug Logs" option is checked. </p>
+  <p>When the Kernel-Processor-Power provider was new, and was written to only from 
+  PPM drivers, all the defined events went to the System channel except for the 
+  one that was directed instead to the diagnostic channel. That this is at all remarkable 
+  is because in Windows 7 and higher the vast majority of possible events from this 
+  provider go to neither of the defined channels and can never be seen except by 
+  creating a custom log. </p>
+  <h2>Events </h2>
+  <p>Also in the registry is that plain-language descriptions of events, such as 
+  show in the Event Viewer, are resolved from the same DLL's message-table resource 
+  (which is in practice in the language-specific MUI file). The vast majority of 
+  the possible Kernel-Processor-Power events do not have a friendly description.
+  </p>
+  <p>The tables that presently follow are of all Kernel-Processor-Power events that 
+  are listed in any compiled instrumentation manifest for kernel versions
+  <span class="highlight">up to and including the original release of Windows 10</span>. 
+  If you want a tabulation that is more up-to-date, try getting it from Microsoft 
+  and wonder why you’re here at all. </p>
+  <p>Names given for channels, levels, opcodes, tasks and keywords are from the 
+  compiled event template. That opcodes and tasks are not defined in version 6.0 
+  is not stated explicitly for each event. For brevity, the (event) version, opcode 
+  and task are omitted unless they are non-zero, but beware that zero is not meaningless: 
+  the name "win:Info" is formally defined for opcode zero. The high byte of the 
+  keyword is not rendered as text since it reliably corresponds to the channel. 
+  Where rows, are broken out according to the event version or kernel version, the 
+  separate rows are sometimes, even often, not alternatives but are instead to be 
+  understood as additive. This applies especially to the Event Data: new event versions 
+  ordinarily extend the parameters, rather than replace any. </p>
+  <h3>Main Series </h3>
+  <p>All the events that are yet defined are numbered sequentially from 1. Inevitably, 
+  they extend ever further in successive Windows versions: </p>
+  <ul>
+    <li>8 in 6.0; </li>
+    <li>48 in 6.1; </li>
+    <li>76 in 6.2; </li>
+    <li>88 in 6.3; </li>
+    <li>112 in 10.0. </li>
+  </ul>
+  <p>Though some have fallen out of use in the sense that they never are written 
+  in later versions, their IDs are not reused and information about them is retained 
+  in the compiled event template, presumably so that tools running on a new Windows 
+  can interpret logs collected from computers that run an old Windows. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_IDLE_STATES_ERROR</span> (Original)
+  </h4>
+  <p>Event 1 is written by PPM drivers in Windows Vista. It was superseded by event 
+  34 when Windows 7 introduced processor groups to raise the maximum count of processors.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2</td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>1 </td>
+        <td>IdleStatesError </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Processor </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Idle power management features on processor <span class="placeholder">Processor</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_STATES_ERROR</span> (Original)
+  </h4>
+  <p>Event 2 is written by PPM drivers in Windows Vista. It was superseded by event 
+  35 when Windows 7 introduced processor groups to raise the maximum count of processors.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>2 </td>
+        <td>PerfStatesError </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Processor </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Performance power management features on processor <span class="placeholder">Processor</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_THROTTLE_STATES_ERROR</span> 
+  (Original) </h4>
+  <p>Event 3 is written by PPM drivers in Windows Vista. It was superseded by event 
+  36 when Windows 7 introduced processor groups to raise the maximum count of processors.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>3 </td>
+        <td>ThrottleStatesError </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Processor </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Throttle power management features on processor <span class="placeholder">Processor</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_SUMMARY</span> (Original)
+  </h4>
+  <p>Event 4 is written by PPM drivers in Windows Vista. It was superseded by event 
+  26 when Windows 7 introduced processor groups to raise the maximum count of processors.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>4</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>4 </td>
+        <td>Summary </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Processor <br>
+        IdleStateCount <br>
+        PerfStateCount <br>
+        ThrottleStateCount <br>
+        IdleState <br>
+        PerfState </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">IdleState</span> and <span class="argument">PerfState</span> 
+  parameters are complex data. </p>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Processor <span class="placeholder">Processor</span> exposes the following:
+
+<span class="placeholder">IdleStateCount</span> idle state(s)
+<span class="placeholder">PerfStateCount</span> performance state(s)
+<span class="placeholder">ThrottleStateCount</span> throttle state(s)</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_IDLE_STATES_ERRATA</span>
+  </h4>
+  <p>Event 5 is written by PPM drivers. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>5 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>5 </td>
+        <td>IdleStatesErrata </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Some processor idle power management features have been disabled due to a known firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_STATES_ERRATA</span>
+  </h4>
+  <p>Event 6 is written by PPM drivers. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>6 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>6 </td>
+        <td>PerfStatesErrata </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Some processor performance power management features have been disabled due to a known firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_LONG_CAP_INFO</span> (Original)
+  </h4>
+  <p>Event 7 is written by PPM drivers in Windows Vista. It was superseded by event 
+  37 when Windows 7 introduced processor groups to raise the maximum count of processors.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>7 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>7 </td>
+        <td>LongCapInfo </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Processor <br>
+        CapDurationInSeconds <br>
+        PpcChanges <br>
+        TpcChanges </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">The speed of processor <span class="placeholder">Processor</span> is being limited by system firmware. The processor has been in this reduced performance state for <span class="placeholder">CapDurationInSeconds</span> seconds since the last report.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_QUICK_CAP_INFO</span> (Original)
+  </h4>
+  <p>Event 8 is written by PPM drivers in Windows Vista. It was superseded by event 
+  38 when Windows 7 introduced processor groups to raise the maximum count of processors.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>8 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>16 </td>
+        <td>Microsoft-Windows-Kernel-Processor-Power/Diagnostic </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>3 </td>
+        <td>win:Warning </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>8 </td>
+        <td>QuickCapInfo </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x40000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Processor <br>
+        CapDurationInSeconds <br>
+        PpcChanges <br>
+        TpcChanges </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the same plain-language description as event 7. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_DOMAIN_PERF_STATE_CHANGE</span>
+  </h4>
+  <p>Event 9 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>9 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="3">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>2 </td>
+        <td>&nbsp;</td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>9 </td>
+        <td>DomainPerfStateChange </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000001 </td>
+        <td>Perf </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="3">Event Data: </th>
+        <td>State <br>
+        Speed <br>
+        GroupCount <br>
+        Group </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 2 </td>
+      </tr>
+      <tr>
+        <td>Performance </td>
+        <td>&nbsp;</td>
+        <td>versions 1 to 2 </td>
+      </tr>
+      <tr>
+        <td>MinPercent <br>
+        MaxPercent <br>
+        TolerancePercent </td>
+        <td>&nbsp;</td>
+        <td>version 2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">Group</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PERF_STATE_CHANGE</span>
+  </h4>
+  <p>Event 10 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>10 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="3">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>2 </td>
+        <td>&nbsp;</td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>10 </td>
+        <td>ProcessorPerfStateChange </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000001 </td>
+        <td>Perf </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="3">Event Data: </th>
+        <td>State <br>
+        Speed <br>
+        Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 2 </td>
+      </tr>
+      <tr>
+        <td>Performance </td>
+        <td>&nbsp;</td>
+        <td>versions 1 to 2 </td>
+      </tr>
+      <tr>
+        <td>TolerancePercent </td>
+        <td>&nbsp;</td>
+        <td>version 2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_CHECK_START</span> (Original)
+  </h4>
+  <p>Event 11 is written by the kernel in Windows 7 through to Windows 8.1. In Windows 
+  10 it is superseded by event 100. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>11 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>5 </td>
+        <td>win:Verbose </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Opcode: </th>
+        <td>1 </td>
+        <td>win:Start </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>11 </td>
+        <td>PerfCheck </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Event Data: </th>
+        <td>PpmCheckTime </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 1 </td>
+      </tr>
+      <tr>
+        <td>AdjustedCheckTime <br>
+        StartPhase </td>
+        <td>&nbsp;</td>
+        <td>version 1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_RECORDED_UTILITY</span>
+  </h4>
+  <p>Event 12 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>12 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="3">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>2 </td>
+        <td>&nbsp;</td>
+        <td>version 10.0 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>12 </td>
+        <td>RecordedUtility </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="3">Event Data: </th>
+        <td>PpmCheckTime <br>
+        IdleTime <br>
+        BusyTime <br>
+        Frequency <br>
+        Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 2 </td>
+      </tr>
+      <tr>
+        <td>DeliveredPerformance <br>
+        Utility <br>
+        AffinitizedUtility <br>
+        FrequencySensitivity </td>
+        <td>&nbsp;</td>
+        <td>versions 1 to 2 </td>
+      </tr>
+      <tr>
+        <td>BufferingPercent <br>
+        StallTime </td>
+        <td>&nbsp;</td>
+        <td>version 2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_EXPECTED_UTILITY</span>
+  </h4>
+  <p>Event 13 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>13 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>13 </td>
+        <td>ExpectedUtility </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PpmCheckTime <br>
+        IdleTimeInMs <br>
+        BusyTimeInMs <br>
+        ExcessBusyTimeInMs <br>
+        Frequency <br>
+        Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PARK_CORE</span> </h4>
+  <p>Event 14 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>14 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>14 </td>
+        <td>ParkCore </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000003 </td>
+        <td>Perf <br>
+        Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PpmCheckTime <br>
+        Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_UNPARK_CORE</span> </h4>
+  <p>Event 15 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>15 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>15 </td>
+        <td>UnparkCore </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000003 </td>
+        <td>Perf <br>
+        Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PpmCheckTime <br>
+        Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_CHECK_STOP</span> </h4>
+  <p>Event 16 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>16 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>5 </td>
+        <td>win:Verbose </td>
+      </tr>
+      <tr>
+        <th>Opcode: </th>
+        <td>2 </td>
+        <td>win:Stop </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>11 </td>
+        <td>PerfCheck </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PpmCheckTime </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Event 17 </h4>
+  <p>Event 17 is not defined in the provider’s instrumentation manifest for any 
+  Windows version. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PERF_STATE_CHANGE_INITIATED</span>
+  </h4>
+  <p>Event 18 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>18 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="3">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>2 </td>
+        <td>&nbsp;</td>
+        <td>version 6.3 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>10 </td>
+        <td>ProcessorPerfStateChange </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000001 </td>
+        <td>Perf </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="3">Event Data: </th>
+        <td>State <br>
+        Speed <br>
+        Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 2 </td>
+      </tr>
+      <tr>
+        <td>Performance </td>
+        <td>&nbsp;</td>
+        <td>versions 1 to 2 </td>
+      </tr>
+      <tr>
+        <td>TolerancePercent </td>
+        <td>&nbsp;</td>
+        <td>version 2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_IDLE_ACCOUNTING_RUNDOWN</span>
+  </h4>
+  <p>Event 19 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>19 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="3">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>2 </td>
+        <td>&nbsp;</td>
+        <td>version 6.3 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>17 </td>
+        <td>IdleAccountingRundown </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="6">Event Data: </th>
+        <td>StateCount <br>
+        TotalTransitions <br>
+        ResetCount </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 2 </td>
+      </tr>
+      <tr>
+        <td>Pad </td>
+        <td>&nbsp;</td>
+        <td>version 0 </td>
+      </tr>
+      <tr>
+        <td>AbortCount </td>
+        <td>&nbsp;</td>
+        <td>versions 1 to 2 </td>
+      </tr>
+      <tr>
+        <td>StartTime <br>
+        State <br>
+        Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 2 </td>
+      </tr>
+      <tr>
+        <td>IdleTime </td>
+        <td>&nbsp;</td>
+        <td>versions 1 to 2 </td>
+      </tr>
+      <tr>
+        <td>SelectionCount <br>
+        SelectionAccounting </td>
+        <td>&nbsp;</td>
+        <td>version 2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Version 0 had a parameter labelled merely as <span class="placeholder">Pad</span>. 
+  Version 1 redefined it as <span class="placeholder">AbortCount</span>. The
+  <span class="argument">State</span> and <span class="argument">SelectionAccounting</span> 
+  parameters are complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_FIRMWARE_RUNDOWN</span>
+  </h4>
+  <p>Event 20 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>20&nbsp; </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>18 </td>
+        <td>ProcessorFirmwareRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>FeaturesPresent <br>
+        FeaturesAccessed <br>
+        FeaturesValidated <br>
+        Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_CSTATE_DOMAIN_FIRMWARE_RUNDOWN</span>
+  </h4>
+  <p>Event 21 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>21 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>19 </td>
+        <td>CStateDomainFirmwareRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>DomainId <br>
+        MemberCount <br>
+        MembersEnumerated </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PTSTATE_DOMAIN_FIRMWARE_RUNDOWN</span>
+  </h4>
+  <p>Event 22 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>22 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>20 </td>
+        <td>PTStateDomainFirmwareRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>DomainId <br>
+        MemberCount <br>
+        MembersEnumerated </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_SUMMARY_RUNDOWN</span> </h4>
+  <p>Event 23 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>23 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>4 </td>
+        <td>Summary </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        IdleStateCount <br>
+        PerfStateCount <br>
+        ThrottleStateCount <br>
+        IdleState <br>
+        PerfState </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">IdleState</span> and <span class="argument">PerfState</span> 
+  parameters are complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_IDLE_STATES_ERRATA_RUNDOWN</span>
+  </h4>
+  <p>Event 24 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>24 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>5 </td>
+        <td>IdleStatesErrata </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_STATES_ERRATA_RUNDOWN</span>
+  </h4>
+  <p>Event 25 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>25 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>6 </td>
+        <td>PerfStatesErrata </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_SUMMARY</span> And
+  <span class="symbol">PPM_ETW_SUMMARY_HV</span> </h4>
+  <p>Event 26 is written by PPM drivers in Windows 7 and higher. Starting with Windows 
+  8 it is more like two separate but related events distinguished by the version 
+  number. Each has its own purpose, symbolic name and plain-language description.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>26 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>4 </td>
+        <td>Summary </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        IdleStateCount <br>
+        PerfStateCount <br>
+        ThrottleStateCount <br>
+        IdleState <br>
+        PerfState </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">IdleState</span> and <span class="argument">PerfState</span> 
+  parameters are complex data. </p>
+  <p>This event changes its plain-language description between versions. The original 
+  reads as if elaborating event 4: </p>
+  <pre class="EventDescription">Processor <span class="placeholder">Number</span> in group <span class="placeholder">Group</span> exposes the following:
+
+<span class="placeholder">IdleStateCount</span> idle state(s)
+<span class="placeholder">PerfStateCount</span> performance state(s)
+<span class="placeholder">ThrottleStateCount</span> throttle state(s)</pre>
+  <p>PPM drivers may instead write version 1 of the event when running in an appropriate 
+  Hyper-V configuration: </p>
+  <pre class="EventDescription">Hyper-V logical processor <span class="placeholder">Number</span> exposes the following:
+
+<span class="placeholder">IdleStateCount</span> idle state(s)
+<span class="placeholder">PerfStateCount</span> performance state(s)
+<span class="placeholder">ThrottleStateCount</span> throttle state(s)</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_THROTTLE_STATES_ERRATA</span>
+  </h4>
+  <p>Event 27 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>27 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>21 </td>
+        <td>ThrottleStatesErrata </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Some processor power management features have been disabled due to a known firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_THROTTLE_STATES_ERRATA_RUNDOWN</span>
+  </h4>
+  <p>Event 28 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>28 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>21 </td>
+        <td>ThrottleStatesErrata </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PCC_SUMMARY</span> </h4>
+  <p>Event 29 is written by PPM drivers in Windows 7. Perhaps it might be written 
+  by some PPM driver in later versions, but none is known to write it in Windows 
+  8. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>29 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>22 </td>
+        <td>PccSummary </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>MajorVersion <br>
+        MinorVersion <br>
+        MinPerfPercent <br>
+        MinThrottlePercent </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">The platform implements processor performance and throttle state control.
+
+Minimum performance frequency percentage: <span class="placeholder">MinPerfPercent</span>
+
+Minimum throttled frequency percentage: <span class="placeholder">MinThrottlePercent</span></pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PCC_SUMMARY_RUNDOWN</span>
+  </h4>
+  <p>Event 30 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>30 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>22 </td>
+        <td>PccSummary </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>MajorVersion <br>
+        MinorVersion <br>
+        MinPerfPercent <br>
+        MinThrottlePercent </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PCC_ERRATA</span> </h4>
+  <p>Event 31 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>31 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>23 </td>
+        <td>PccErrata </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Some processor power management features have been disabled due to a known firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PCC_ERRATA_RUNDOWN</span>
+  </h4>
+  <p>Event 32 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>32 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>23 </td>
+        <td>PccErrata </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PCC_ERROR</span> </h4>
+  <p>Event 33 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>33 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>24 </td>
+        <td>PccError </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Platform based performance and throttle power management features on processor <span class="placeholder">Number</span> in group <span class="placeholder">Group</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_IDLE_STATES_ERROR</span> and
+  <span class="symbol">PPM_ETW_IDLE_STATES_ERROR_HV</span> </h4>
+  <p>Event 34 is written by PPM drivers in Windows 7 and higher. Starting with Windows 
+  8 it is more like two separate but related events distinguished by the version 
+  number. Each has its own purpose, symbolic name and plain-language description.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>34 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>1 </td>
+        <td>IdleStatesError </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event changes its plain-language description between versions. The original 
+  reads as if elaborating event 1: </p>
+  <pre class="EventDescription">Idle power management features on processor <span class="placeholder">Number</span> in group <span class="placeholder">Group</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <p>PPM drivers may instead write version 1 of the event when running in an appropriate 
+  Hyper-V configuration: </p>
+  <pre class="EventDescription">Idle power management features on Hyper-V logical processor <span class="placeholder">Number</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_STATES_ERROR</span> and
+  <span class="symbol">PPM_ETW_PERF_STATES_ERROR_HV</span> </h4>
+  <p>Event 35 is written by PPM drivers in Windows 7 and higher. Starting with Windows 
+  8 it is more like two separate but related events distinguished by the version 
+  number. Each has its own purpose, symbolic name and plain-language description.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>35 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>2 </td>
+        <td>PerfStatesError </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event changes its plain-language description between versions. The original 
+  reads as if elaborating event 2: </p>
+  <pre class="EventDescription">Performance power management features on processor <span class="placeholder">Number</span> in group <span class="placeholder">Group</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <p>PPM drivers may instead write version 1 of the event when running in an appropriate 
+  Hyper-V configuration: </p>
+  <pre class="EventDescription">Performance power management features on Hyper-V logical processor <span class="placeholder">Number</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_THROTTLE_STATES_ERROR</span> 
+  and <span class="symbol">PPM_ETW_THROTTLE_STATES_ERROR_HV</span> </h4>
+  <p>Event 36 is written by PPM drivers in Windows 7 and higher. Starting with Windows 
+  8 it is more like two separate but related events distinguished by the version 
+  number. Each has its own purpose, symbolic name and plain-language description.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>36 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>3 </td>
+        <td>ThrottleStatesError </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event changes its plain-language description between versions. The original 
+  reads as if elaborating event 3: </p>
+  <pre class="EventDescription">Throttle power management features on processor <span class="placeholder">Number</span> in group <span class="placeholder">Group</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <p>PPM drivers may instead write version 1 of the event when running in an appropriate 
+  Hyper-V configuration: </p>
+  <pre class="EventDescription">Throttle power management features on Hyper-V logical processor <span class="placeholder">Number</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_LONG_CAP_INFO</span> and
+  <span class="symbol">PPM_ETW_LONG_CAP_INFO_HV</span> </h4>
+  <p>Event 37 is written by PPM drivers in Windows 7 and higher. Starting with Windows 
+  8 it is more like two separate but related events distinguished by the version 
+  number. Each has its own purpose, symbolic name and plain-language description.
+  </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>37 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>3 </td>
+        <td>win:Warning </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>7 </td>
+        <td>LongCapInfo </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        CapDurationInSeconds <br>
+        PpcChanges <br>
+        TpcChanges <br>
+        PccChanges </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event changes its plain-language description between versions. The original 
+  reads as if elaborating event 7: </p>
+  <pre class="EventDescription">The speed of processor <span class="placeholder">Number</span> in group <span class="placeholder">Group</span> is being limited by system firmware. The processor has been in this reduced performance state for <span class="placeholder">CapDurationInSeconds</span> seconds since the last report.</pre>
+  <p>PPM drivers may instead write version 1 of the event when running in an appropriate 
+  Hyper-V configuration: </p>
+  <pre class="EventDescription">The speed of Hyper-V logical processor <span class="placeholder">Number</span> is being limited by system firmware. The processor has been in this reduced performance state for <span class="placeholder">CapDurationInSeconds</span> seconds since the last report.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_QUICK_CAP_INFO</span> </h4>
+  <p>Event 38 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>38 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>16 </td>
+        <td>Microsoft-Windows-Kernel-Processor-Power/Diagnostic </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>3 </td>
+        <td>win:Warning </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>8 </td>
+        <td>QuickCapInfo </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x40000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        CapDurationInSeconds <br>
+        PpcChanges <br>
+        TpcChanges <br>
+        PccChanges </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">The speed of processor <span class="placeholder">Number</span> in group <span class="placeholder">Group</span> is being limited by system firmware. The processor has been in this reduced performance state for <span class="placeholder">CapDurationInSeconds</span> seconds since the last report.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_NOTIFY_80</span> </h4>
+  <p>Event 39 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>39 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>25 </td>
+        <td>NotifyPStates </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        Cap </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_NOTIFY_81</span> </h4>
+  <p>Event 40 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>40 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>26 </td>
+        <td>NotifyCStates </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_NOTIFY_82</span> </h4>
+  <p>Event 41 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>41 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>27 </td>
+        <td>NotifyTStates </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        Cap </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_STATES_RUNDOWN</span>
+  </h4>
+  <p>Event 42 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>42 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>28 </td>
+        <td>PerfStatesRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        StateCount <br>
+        States </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">States</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_BIOS_P_STATES_RUNDOWN</span>
+  </h4>
+  <p>Event 43 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>43 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>29 </td>
+        <td>BiosPStatesRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        PBlockAddress <br>
+        PBlockLength <br>
+        ProcessorId <br>
+        ApicId <br>
+        Ppc <br>
+        PctControl <br>
+        PctStatus <br>
+        StateCount <br>
+        PssStates </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">PctControl</span>, <span class="argument">PctStatus</span> 
+  and <span class="argument">PssStates</span> are complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_BIOS_C_STATES_RUNDOWN</span>
+  </h4>
+  <p>Event 44 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>44 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>30 </td>
+        <td>BiosCStatesRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        FadtC2Latency <br>
+        FadtC3Latency <br>
+        CStateVersionInUse <br>
+        StateCount <br>
+        CstStates </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">CstStates</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_BIOS_T_STATES_RUNDOWN</span>
+  </h4>
+  <p>Event 45 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>45 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>31 </td>
+        <td>BiosTStatesRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        FadtDutyWidth <br>
+        FadtDutyOffset <br>
+        Tpc <br>
+        TStateVersionInUse <br>
+        PtcControl <br>
+        PtcStatus <br>
+        StateCount <br>
+        TssStates </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">PtcControl</span>, <span class="argument">PtcStates</span> 
+  and <span class="argument">TssStates</span> parameters are complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PCC_CAP_CHANGE</span> </h4>
+  <p>Event 46 is written by PPM drivers in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>46 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>32 </td>
+        <td>PccCapChange </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group<br>
+        Number <br>
+        Cap </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_BIOS_CAP_CHANGE</span> </h4>
+  <p>Event 47 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>47 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>33 </td>
+        <td>BiosCapChange </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group<br>
+        Number <br>
+        Cap </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_THERMAL_CAP_CHANGE</span>
+  </h4>
+  <p>Event 48 is written by the kernel in Windows 7 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>48 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>34 </td>
+        <td>ThermalCapChange </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group<br>
+        Number <br>
+        Cap </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_CHECK_MAKEUP</span>
+  </h4>
+  <p>Event 49 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>49 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>5 </td>
+        <td>win:Verbose </td>
+      </tr>
+      <tr>
+        <th>Opcode: </th>
+        <td>33 </td>
+        <td>Makeup </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>11 </td>
+        <td>PerfCheck </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_LPI_CORE_PARK</span> </h4>
+  <p>Event 50 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>35 </td>
+        <td>LogicalProcessorIdlingCorePark </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`0000000A </td>
+        <td>Diag <br>
+        Lpi </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Cap <br>
+        IsApplied </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_LPI_RUNDOWN</span> </h4>
+  <p>Event 51 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>51 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>36 </td>
+        <td>LogicalProcessorIdlingRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`0000000A </td>
+        <td>Diag <br>
+        Lpi </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Cap <br>
+        IsApplied </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_LATENCY_SENSITIVITY_HINT</span>
+  </h4>
+  <p>Event 52 is not written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>52 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>37 </td>
+        <td>LatencySensitivityHint </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>HintType </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PARK_NODE_STATS</span> </h4>
+  <p>Event 53 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>53 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>5 </td>
+        <td>win:Verbose </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>38 </td>
+        <td>ParkNodeRecordedStats </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Event Data: </th>
+        <td>Group <br>
+        Affinity <br>
+        ConcurrentCores <br>
+        HistogramSize <br>
+        ConcurrencyHistogram </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 1 </td>
+      </tr>
+      <tr>
+        <td>DistributeCores </td>
+        <td>&nbsp;</td>
+        <td>version 1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_CPC_ERROR</span> </h4>
+  <p>Event 54 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>54 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>2 </td>
+        <td>win:Error </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>39 </td>
+        <td>CpcError </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This event has the plain-language description: </p>
+  <pre class="EventDescription">Collaborative processor power controls on processor <span class="placeholder">Number</span> in group <span class="placeholder">Group</span> are disabled due to a firmware problem. Check with the computer manufacturer for updated firmware.</pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_SUMMARY2</span> and
+  <span class="symbol">PPM_ETW_SUMMARY2_HV</span> </h4>
+  <p>Event 55 is written by PPM drivers in Windows 8 and higher. It is in some sense 
+  two separate but related events distinguished by the version number. Each has 
+  its own purpose, symbolic name and plain-language description. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>55 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher</td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <th>Channel: </th>
+        <td>8 </td>
+        <td>System </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>47 </td>
+        <td>Summary2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x80000000`00000000 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        IdleStateCount <br>
+        IdleImplementation <br>
+        NominalFrqeuency <br>
+        MaximumPerformancePercent <br>
+        MinimumPerformancePercent <br>
+        MinimumThrottlePercent <br>
+        PerformanceImplementation </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The different versions have different plain-language descriptions. Version 
+  0 has the unspecialised text: </p>
+  <pre class="EventDescription">Processor <span class="placeholder">Number</span> in group <span class="placeholder">Group</span> exposes the following power management capabilities:
+
+Idle state type: <span class="placeholder">IdleImplementation</span> (<span class="placeholder">IdleStateCount</span> state(s))
+
+Performance state type: <span class="placeholder">PerformanceImplementation</span>
+Nominal Frequency (MHz): <span class="placeholder">NominalFrqeuency</span>
+Maximum performance percentage: <span class="placeholder">MaximumPerformancePercent</span>
+Minimum performance percentage: <span class="placeholder">MinimumPerformancePercent</span>
+Minimum throttle percentage: <span class="placeholder">MinimumThrottlePercent</span></pre>
+  <p>PPM drivers may instead write version 1 of the event when running in an appropriate 
+  Hyper-V configuration: </p>
+  <pre class="EventDescription">Hyper-V logical processor <span class="placeholder">Number</span> exposes the following power management capabilities:
+
+Idle state type: <span class="placeholder">IdleImplementation</span> (<span class="placeholder">IdleStateCount</span> state(s))
+
+Performance state type: <span class="placeholder">PerformanceImplementation</span>
+Nominal Frequency (MHz): <span class="placeholder">NominalFrqeuency</span>
+Maximum performance percentage: <span class="placeholder">MaximumPerformancePercent</span>
+Minimum performance percentage: <span class="placeholder">MinimumPerformancePercent</span>
+Minimum throttle percentage: <span class="placeholder">MinimumThrottlePercent</span></pre>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_SUMMARY2_RUNDOWN</span>
+  </h4>
+  <p>Event 56 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>56 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>47 </td>
+        <td>Summary2 </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000006 </td>
+        <td>Diag <br>
+        PowerDiagnostics </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        IdleStateCount <br>
+        IdleImplementation <br>
+        NominalFrqeuency <br>
+        MaximumPerformancePercent <br>
+        MinimumPerformancePercent <br>
+        MinimumThrottlePercent <br>
+        PerformanceImplementation </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_IDLE_STATES</span> </h4>
+  <p>Event 57 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>57 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>40 </td>
+        <td>PepGetIdleStates </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        MaximumCoordinatedProcessors <br>
+        StateCount <br>
+        States </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">States</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_IDLE_STATES_RUNDOWN</span>
+  </h4>
+  <p>Event 58 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>58 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>40 </td>
+        <td>PepGetIdleStates </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        MaximumCoordinatedProcessors <br>
+        StateCount <br>
+        States </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">States</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_QUERY_CAPABILITIES</span>
+  </h4>
+  <p>Event 59 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>59 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>41 </td>
+        <td>PepQueryCapabilities </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        FeedbackCounterCount <br>
+        IdleStateCount <br>
+        PerformanceStatesSupported <br>
+        ParkingSupported </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_QUERY_CAPABILITIES_RUNDOWN</span>
+  </h4>
+  <p>Event 60 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>60 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>41 </td>
+        <td>PepQueryCapabilities </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        FeedbackCounterCount <br>
+        IdleStateCount <br>
+        PerformanceStatesSupported <br>
+        ParkingSupported </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_CONSTRAINT_CHANGE</span>
+  </h4>
+  <p>Event 61 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>61 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>42 </td>
+        <td>PepPerfConstraintChange </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        GuaranteedPerformance <br>
+        LimitReasons </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_CAPABILITIES</span>
+  </h4>
+  <p>Event 62 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>62 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>43 </td>
+        <td>PepPerfCapabilities </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        FeedbackCount <br>
+        Feedback <br>
+        HighestPerformance <br>
+        NominalPerformance <br>
+        LowestNonlinearPerformance <br>
+        LowestPerformance <br>
+        DomainId <br>
+        DomainMembers </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">Feedback</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_CAPABILITIES_RUNDOWN</span>
+  </h4>
+  <p>Event 63 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>63 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>43 </td>
+        <td>PepPerfCapabilities </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        FeedbackCount <br>
+        Feedback <br>
+        HighestPerformance <br>
+        NominalPerformance <br>
+        LowestNonlinearPerformance <br>
+        LowestPerformance <br>
+        DomainId <br>
+        DomainMembers </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">Feedback</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_CURRENT_PERF_RUNDOWN</span>
+  </h4>
+  <p>Event 64 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>64 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 10.0 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>44 </td>
+        <td>ProcessorPerformanceRundown </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        Parked <br>
+        BiosCap <br>
+        ThermalCap <br>
+        DesiredPerformance <br>
+        NominalFrequency </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 1 </td>
+      </tr>
+      <tr>
+        <td>MinPercent <br>
+        MaxPercent <br>
+        TolerancePercent <br>
+        DeliveredPerformance </td>
+        <td>&nbsp;</td>
+        <td>version 1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PARK_NODE_RUNDOWN</span>
+  </h4>
+  <p>Event 65 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>65 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 10.0 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>45 </td>
+        <td>ParkNodeRundown </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Event Data: </th>
+        <td>Group <br>
+        Affinity <br>
+        Parked <br>
+        LpiCap </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 1 </td>
+      </tr>
+      <tr>
+        <td>ThermalCap </td>
+        <td>&nbsp;</td>
+        <td>version 1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PARK_NODE_CAP_CHANGE</span>
+  </h4>
+  <p>Event 66 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>66 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.3 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>46 </td>
+        <td>ParkNodeCapChange </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Event Data: </th>
+        <td>Group <br>
+        Affinity <br>
+        LpiCap </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 1 </td>
+      </tr>
+      <tr>
+        <td>ThermalCap </td>
+        <td>&nbsp;</td>
+        <td>version 1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_CURRENT_IDLE_RUNDOWN</span>
+  </h4>
+  <p>Event 67 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>67 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 10.0 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>48 </td>
+        <td>ProcessorIdleRundown </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        Type <br>
+        StateCount </td>
+        <td>A92C </td>
+        <td>versions 0 to 1 </td>
+      </tr>
+      <tr>
+        <td>States </td>
+        <td>AB14 </td>
+        <td>version 1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">States</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_ID_RUNDOWN</span>
+  </h4>
+  <p>Event 68 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>68 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 10.0 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>49 </td>
+        <td>ProcessorIdRundown </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        AcpiId <br>
+        InterruptControllerId </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 1 </td>
+      </tr>
+      <tr>
+        <td>ProcessorIndex </td>
+        <td>&nbsp;</td>
+        <td>version 1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_PLATFORM_IDLE_STATES</span>
+  </h4>
+  <p>Event 69 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>69 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>50 </td>
+        <td>PepGetPlatformIdleStates </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PlatformIdleStateCount </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_PLATFORM_IDLE_STATES_RUNDOWN</span>
+  </h4>
+  <p>Event 70 is written by PPM drivers in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>70 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>50 </td>
+        <td>PepGetPlatformIdleStates </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000012 </td>
+        <td>Diag <br>
+        SleepStudy </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PlatformIdleStateCount </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_CHECK_FAILED_START</span>
+  </h4>
+  <p>Event 71 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>71 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>5 </td>
+        <td>win:Verbose </td>
+      </tr>
+      <tr>
+        <th>Opcode: </th>
+        <td>34 </td>
+        <td>FailedStart </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>11 </td>
+        <td>PerfCheck </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>AdjustedCheckTime </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PLATFORM_IDLE_ACCOUNTING_RUNDOWN</span>
+  </h4>
+  <p>Event 72 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>72 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Version: </th>
+        <td>0 </td>
+        <td>&nbsp;</td>
+        <td>version 6.2 and higher</td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td>&nbsp;</td>
+        <td>version 6.3 and higher </td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>51 </td>
+        <td>PlatformIdleAccountingRundown </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th rowspan="2">Event Data: </th>
+        <td>StateCount <br>
+        ResetCount <br>
+        TotalTransitions <br>
+        StartTime <br>
+        Reserved <br>
+        State <br>
+        Group <br>
+        Number </td>
+        <td>&nbsp;</td>
+        <td>versions 0 to 1 </td>
+      </tr>
+      <tr>
+        <td>SelectionCount <br>
+        SelectionAccounting </td>
+        <td>&nbsp;</td>
+        <td>version 1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">State</span> and <span class="argument">SelectionAccounting</span> 
+  parameters are complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PLATFORM_PARKING_PREFERENCE</span>
+  </h4>
+  <p>Event 73 is written by the kernel in Windows 8 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>73 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>52 </td>
+        <td>PlatformParkingPreference </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Affinity <br>
+        UnparkCount <br>
+        OSPreferencePark <br>
+        OSPreferenceUnpark <br>
+        PlatformPreferencePark <br>
+        PlatformPreferenceUnpark </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_LOW_POWER_SCENARIO_CHANGE</span>
+  </h4>
+  <p>Event 74 is written by the kernel in Windows 8 only. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>74 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>53 </td>
+        <td>LowPowerScenarioChange </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000003 </td>
+        <td>Perf <br>
+        Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PrevousActiveScenarioId <br>
+        NewActiveScenarioId </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_LOW_POWER_SCENARIO_RUNDOWN</span>
+  </h4>
+  <p>Event 75 is not written by the kernel in Windows 8 only. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>75 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>54 </td>
+        <td>LowPowerScenarioRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000003 </td>
+        <td>Perf <br>
+        Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>CurrentActiveScenarioId </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_LOW_POWER_SCENARIO_INFORMATION_RUNDOWN</span>
+  </h4>
+  <p>Event 76 is not written by the kernel in Windows 8 only. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>76 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>55 </td>
+        <td>LowPowerScenarioInformationRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000003 </td>
+        <td>Perf <br>
+        Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>ScenarioId <br>
+        PlatformIdleStateIndex </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_IDLE_STATES_V2</span>
+  </h4>
+  <p>Event 77 is written by PPM drivers in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>77 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>56 </td>
+        <td>PepGetIdleStatesV2 </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        StateCount <br>
+        States </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">States</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_IDLE_STATES_V2_RUNDOWN</span>
+  </h4>
+  <p>Event 78 is written by PPM drivers in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>78 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>57 </td>
+        <td>PepGetIdleStatesV2Rundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        StateCount <br>
+        States </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">States</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_PLATFORM_IDLE_STATE</span>
+  </h4>
+  <p>Event 79 is written by PPM drivers in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>79 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>58 </td>
+        <td>PepGetPlatformIdleState </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateIndex <br>
+        InitiatingProcessor <br>
+        OneInitiator <br>
+        Latency <br>
+        BreakEvenDuration <br>
+        DependencyCount <br>
+        Dependencies </td>
+        <td>CAEC </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">InitiatingProcessor</span> and
+  <span class="argument">Dependencies</span> parameters are complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_PLATFORM_IDLE_STATE_RUNDOWN</span>
+  </h4>
+  <p>Event 80 is written by PPM drivers in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>80 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>59 </td>
+        <td>PepGetPlatformIdleStateRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateIndex <br>
+        InitiatingProcessor <br>
+        OneInitiator <br>
+        Latency <br>
+        BreakEvenDuration <br>
+        DependencyCount <br>
+        Dependencies </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">InitiatingProcessor</span> and
+  <span class="argument">Dependencies</span> parameters are complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_DRIPS_ACCOUNTING_SNAPSHOT</span>
+  </h4>
+  <p>Event 81 is written by the kernel in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>81 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>60 </td>
+        <td>DripsAccountingSnapshot </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000010 </td>
+        <td>SleepStudy </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>ScenarioInstanceId <br>
+        DripsBucketsCount <br>
+        TotalTimes </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_ACCOUNTING_BUCKET_INTERVALS_RUNDOWN</span>
+  </h4>
+  <p>Event 82 is written by the kernel in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>82 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>61 </td>
+        <td>PlatformAccountingBucketIntervalsRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000010 </td>
+        <td>SleepStudy </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>IntervalLimitsCount <br>
+        IntervalLimits </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PLATFORM_IDLE_VETO_INCREMENT</span>
+  </h4>
+  <p>Event 83 is written by the kernel in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>83 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>62 </td>
+        <td>PlatformIdleVetoIncrement </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateIndex <br>
+        VetoReason </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PLATFORM_IDLE_VETO_DECREMENT</span>
+  </h4>
+  <p>Event 84 is written by the kernel in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>84 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>63 </td>
+        <td>PlatformIdleVetoDecrement </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateIndex <br>
+        VetoReason </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_IDLE_VETO_INCREMENT</span>
+  </h4>
+  <p>Event 85 is written by the kernel in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>85 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>64 </td>
+        <td>ProcessorIdleVetoIncrement </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        StateIndex <br>
+        VetoReason </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_IDLE_VETO_DECREMENT</span>
+  </h4>
+  <p>Event 86 is written by the kernel in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>86 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>65 </td>
+        <td>ProcessorIdleVetoDecrement </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        StateIndex <br>
+        VetoReason </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PLATFORM_IDLE_VETO_RUNDOWN</span>
+  </h4>
+  <p>Event 87 is written by the kernel in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>87 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>66 </td>
+        <td>PlatformIdleVetoRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateIndex <br>
+        VetoReason <br>
+        VetoCount </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_IDLE_VETO_RUNDOWN</span>
+  </h4>
+  <p>Event 88 is written by the kernel in Windows 8.1 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>88 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>67 </td>
+        <td>ProcessorIdleVetoRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        StateIndex <br>
+        VetoReason <br>
+        VetoCount </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_STATIC_POLICY_RUNDOWN</span>
+  </h4>
+  <p>Event 89 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>89 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>68 </td>
+        <td>StaticPolicyRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PerfBoostAtGuaranteed <br>
+        PerfIdealAggressiveIncreasePolicyThreshold <br>
+        PerfSingleStepSize <br>
+        PerfCalculateActualization <br>
+        PerfArtificialDomain <br>
+        LowLatencyScalingPercentage <br>
+        ParkWithCoreGranularity <br>
+        MultiparkGranularity </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_SELECT_PROCESSOR_STATE</span>
+  </h4>
+  <p>Event 90 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>90 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>69 </td>
+        <td>PerfSelectProcessorState </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000020 </td>
+        <td>Algorithm </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        ResolvedUtilization <br>
+        Target <br>
+        ResolvedTarget <br>
+        Flags </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_VETO_NAME_RUNDOWN</span>
+  </h4>
+  <p>Event 91 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>91 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>70 </td>
+        <td>VetoNameRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>VetoReason <br>
+        Name </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_COORDINATED_IDLE_STATES</span>
+  </h4>
+  <p>Event 92 is written by PPM drivers in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>92 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>71 </td>
+        <td>PepGetCoordinatedIdleStates </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateCount <br>
+        CoordinatedStates </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="placeholder">CoordinatedStates</span> parameter is complex 
+  data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_COORDINATED_IDLE_STATES_RUNDOWN</span>
+  </h4>
+  <p>Event 93 is written by PPM drivers in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>93 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>72 </td>
+        <td>PepGetCoordinatedIdleStatesRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateCount <br>
+        CoordinatedStates </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="placeholder">CoordinatedStates</span> parameter is complex 
+  data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_COORDINATED_DEPENDENCY</span>
+  </h4>
+  <p>Event 94 is written by PPM drivers in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>94 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>73 </td>
+        <td>PepGetCoordinatedDependency </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateIndex <br>
+        DependencyIndex <br>
+        ProcessorDependency <br>
+        TargetProcessor <br>
+        OptionCount <br>
+        Options </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">TargetProcessor</span> and
+  <span class="argument">Options</span> parameters are complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_GET_COORDINATED_DEPENDENCY_RUNDOWN</span>
+  </h4>
+  <p>Event 95 is written by PPM drivers in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>95 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>74 </td>
+        <td>PepGetCoordinatedDependencyRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateIndex <br>
+        DependencyIndex <br>
+        ProcessorDependency <br>
+        TargetProcessor <br>
+        OptionCount <br>
+        Options </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">TargetProcessor</span> and
+  <span class="argument">Options</span> parameters are complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_MEDIA_BUFFERING_NOTIFY</span>
+  </h4>
+  <p>Event 96 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>96 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>75 </td>
+        <td>MediaBufferingNotify </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000020 </td>
+        <td>Algorithm </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Engaged </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_COMPUTE_ENERGY</span>
+  </h4>
+  <p>Event 97 is written by PPM drivers in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>97 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>76 </td>
+        <td>ComputeEnergy </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000020 </td>
+        <td>Algorithm </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        PmcSourceCount <br>
+        PmcValues <br>
+        ActiveTime <br>
+        TotalTime <br>
+        FrequencyPercent <br>
+        Energy </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">PmcValues</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_COORDINATED_IDLE_RUNDOWN</span>
+  </h4>
+  <p>Event 98 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>98 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>77 </td>
+        <td>CoordinatedIdleRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>StateCount <br>
+        States </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">States</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_HETERO_RESPONSE</span> </h4>
+  <p>Event 99 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>99 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>5 </td>
+        <td>win:Verbose </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>78 </td>
+        <td>HeteroResponse </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000020 </td>
+        <td>Algorithm </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Affinity <br>
+        ProcCount <br>
+        ActualUtility <br>
+        EstimatedUtility <br>
+        ActiveTime <br>
+        CheckCount <br>
+        Decision <br>
+        IdealClass1Count <br>
+        ActualClass1Count <br>
+        Flags </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PERF_CHECK_START</span>
+  </h4>
+  <p>Event 100 is written by the kernel in Windows 10 and higher. Its symbolic name 
+  is that of event 11 from earlier versions. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>100 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>5 </td>
+        <td>win:Verbose </td>
+      </tr>
+      <tr>
+        <th>Opcode: </th>
+        <td>1 </td>
+        <td>win:Start </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>11 </td>
+        <td>PerfCheck </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PpmCheckTime <br>
+        AdjustedCheckTime <br>
+        PipelineId </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_HETERO_DISTRIBUTE_UTILITY</span>
+  </h4>
+  <p>Event 101 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>101 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>5 </td>
+        <td>win:Verbose </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>79 </td>
+        <td>HeteroDistributeUtility </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000020 </td>
+        <td>Algorithm </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Affinity <br>
+        Class0FloorPef <br>
+        Class1MinimumPerf </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PROFILE_REGISTERED</span>
+  </h4>
+  <p>Event 102 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>102 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>80 </td>
+        <td>ProfileRegistered </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000060 </td>
+        <td>Algorithm <br>
+        Profiles </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Name <br>
+        Id <br>
+        Priority <br>
+        Flags <br>
+        ActiveCount <br>
+        MaxActiveDurationInUs <br>
+        MinActiveDurationInUs <br>
+        TotalActiveDurationInUs </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PROFILE_RUNDOWN</span>
+  </h4>
+  <p>Event 103 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>103 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>81 </td>
+        <td>ProfileRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000064 </td>
+        <td>PowerDiagnostics <br>
+        Algorithm <br>
+        Profiles </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Name <br>
+        Id <br>
+        Priority <br>
+        Flags <br>
+        ActiveCount <br>
+        MaxActiveDurationInUs <br>
+        MinActiveDurationInUs <br>
+        TotalActiveDurationInUs </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PROFILE_CHANGE</span>
+  </h4>
+  <p>Event 104 is not written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>104 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>82 </td>
+        <td>ProfileChange </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000060 </td>
+        <td>Algorithm <br>
+        Profiles </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>PreviousProfileId <br>
+        NextProfileId </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PROFILE_SETTING_CHANGE</span>
+  </h4>
+  <p>Event 105 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>105 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>83 </td>
+        <td>ProfileSettingChange </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000060 </td>
+        <td>Algorithm <br>
+        Profiles </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>ProfileId <br>
+        Name <br>
+        Type <br>
+        Class <br>
+        Guid <br>
+        ValueSize <br>
+        Value </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PROFILE_SETTING_RUNDOWN</span>
+  </h4>
+  <p>Event 106 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>106 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>84 </td>
+        <td>ProfileSettingRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000064 </td>
+        <td>PowerDiagnostics <br>
+        Algorithm <br>
+        Profiles </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>ProfileId <br>
+        Name <br>
+        Type <br>
+        Class <br>
+        Guid <br>
+        ValueSize <br>
+        Value </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PROFILE_STATUS_RUNDOWN</span>
+  </h4>
+  <p>Event 107 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>107 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>85 </td>
+        <td>ProfileStatusRundown </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000064 </td>
+        <td>PowerDiagnostics <br>
+        Algorithm <br>
+        Profiles </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Flags </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PROFILE_ENABLED</span>
+  </h4>
+  <p>Event 108 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>108 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>86 </td>
+        <td>ProfileEnabled </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000060 </td>
+        <td>Algorithm <br>
+        Profiles </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>ProfileId </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PROCESSOR_PROFILE_DISABLED</span>
+  </h4>
+  <p>Event 109 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>109 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>87 </td>
+        <td>ProfileDisabled </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000060 </td>
+        <td>Algorithm <br>
+        Profiles </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>ProfileId </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_IDLE_DURATION_EXPIRATION</span>
+  </h4>
+  <p>Event 110 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>110 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>88 </td>
+        <td>IdleDurationExpiration </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000002 </td>
+        <td>Diag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>GroupCount <br>
+        Group </td>
+        <td>0001053C </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="argument">Group</span> parameter is complex data. </p>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_DELIVERED_PERF_CHANGE</span>
+  </h4>
+  <p>Event 111 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>111 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>4 </td>
+        <td>win:Informational </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>89 </td>
+        <td>DeliveredPerfChange </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000080 </td>
+        <td>PerfDiag </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Number <br>
+        DeliveredPerformance </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4 class="EventName"><span class="symbol">PPM_ETW_PARKING_SELECTION</span>
+  </h4>
+  <p>Event 112 is written by the kernel in Windows 10 and higher. </p>
+  <table class="Event">
+    <tbody>
+      <tr>
+        <th>Event ID: </th>
+        <td>112 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <th>Level: </th>
+        <td>5 </td>
+        <td>win:Verbose </td>
+      </tr>
+      <tr>
+        <th>Task: </th>
+        <td>90 </td>
+        <td>ParkSelection </td>
+      </tr>
+      <tr>
+        <th>Keyword: </th>
+        <td>0x00000000`00000020 </td>
+        <td>Algorithm </td>
+      </tr>
+      <tr>
+        <th>Event Data: </th>
+        <td>Group <br>
+        Processors <br>
+        OldPark <br>
+        NewPark <br>
+        OverUtilizedSet <br>
+        IsolatedCores <br>
+        IdealUnparked <br>
+        UnparkCount <br>
+        ParkReason </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 12th
+    <a href="../../../../../new/22/10.htm">November 2022</a> and was last modified 
+    on 13th November 2022. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="46751" -->
+  </div>
+</div>
+
+</body>
+
+</html>

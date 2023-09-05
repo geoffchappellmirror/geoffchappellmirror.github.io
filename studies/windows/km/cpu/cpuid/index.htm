@@ -1,0 +1,453 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The CPUID Instruction</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/km.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="63592" -->
+<div class="Main">
+  <h1>The CPUID Instruction </h1>
+  <p>The primary means of identifying a modern x86 or x64 processor is the
+  <span class="instruction">cpuid</span> instruction. This was developed in the 
+  early 1990s for what was then Intel’s new Pentium processor but it also exists 
+  in some models of Intel’s 80486 processor and of 80486 look-alikes from other 
+  manufacturers. </p>
+  <h2>Detection </h2>
+  <p>The 64-bit kernel, knowing that it executes only on the relatively modern processors 
+  that have the 64-bit instruction set, has the luxury of taking the
+  <span class="instruction">cpuid</span> instruction’s existence as granted. The 
+  32-bit kernel, in contrast, was developed before the Pentium’s release and had 
+  to run on older processors—including, for the first few years, on the 80386. Even 
+  though the 80486 has been unable to run new Windows versions—not formally but 
+  for all practical effect—since Windows XP made the <span class="instruction">
+  <a href="../cx8.htm">cmpxchg8b</a></span> instruction essential, the 32-bit kernel 
+  continued for two decades to defend against being run on a processor that does 
+  not have <span class="instruction">cpuid</span>. </p>
+  <p>Up to and including version 6.2, the 32-bit kernel regards the
+  <span class="instruction">cpuid</span> instruction as unimplemented if either:
+  </p>
+  <ul>
+    <li>the <span class="bit">ID</span> bit (21) in the <span class="register">eflags</span> 
+    register cannot be changed; </li>
+    <li>executing the <span class="instruction">cpuid</span> instruction with the
+    <span class="bit">ID</span> bit set in <span class="register">eflags</span> 
+    and with <span class="register">eax</span> set to zero causes an Invalid Opcode 
+    exception (6). </li>
+  </ul>
+  <p>A set <span class="bit">ID</span> bit in the <span class="register">eflags</span> 
+  might ideally guarantee that the processor offers the
+  <span class="instruction">cpuid</span> instruction for execution, but this ideal 
+  is frustrated because although earlier processors have the bit as reserved, they 
+  cannot all be relied on to have implemented reserved as clear. What apparently 
+  is reliable is that if the bit is stuck on either 0 or 1, then it was not intended 
+  as the <span class="bit">ID</span> bit, and so the processor certainly has no
+  <span class="instruction">cpuid</span> instruction and is presumably an 80486 
+  or even an 80386 (to be sorted out by methods of <a href="../precpuid.htm">CPU 
+  Identification Before CPUID</a>). </p>
+  <p>The converse, however, is not true—or was not thought so by Microsoft’s programmers 
+  when revising Windows NT 3.1 for release in 1993. Intel does seem to have started 
+  with the intention that it should be true. In what looks to be the first
+  <span class="citation">Pentium Processor User’s Manual, Volume 3: Architecture 
+  and Programming Manual</span> from 1993 (order number 241430-001), Intel repeats 
+  several times with slight variations that “The ability to set and clear this bit 
+  indicates whether the processor supports the CPUID instruction” and even spells 
+  out that it’s meant as an implication: “If software is able to change the value 
+  of the ID bit, then the processor supports the CPUID instruction.” Yet although 
+  the earliest <span class="citation">Intel Processor Identification With the CPUID 
+  Instruction</span> that I have yet found (order number 241618-003, dated October 
+  1994) continues the seeming implication that “If software can change the value 
+  of this flag, the CPUID instruction is available”, a change of title to
+  <span class="citation">Intel Processor Identification and the CPUID Instruction</span> 
+  (order number 241618-005, dated December 1996) throws in a little mystery with 
+  a footnote which might easily be read not as clarifying when to expect that the 
+  flag can be changed but as warning that the implication itself holds “Only in 
+  some Intel486 and succeeding processors.” If you suspect that the
+  <span class="bit">ID</span> bit can be changed yet <span class="instruction">cpuid</span> 
+  be not certainly supported, then there is nothing to do except to try executing 
+  it having arranged that you can recover if the processor objects. </p>
+  <p>It may never be known whether Microsoft’s programmers were being overly cautious 
+  or actually were caught by a processor (not necessarily made by Intel) that has 
+  a changeable <span class="bit">ID</span> bit but no <span class="instruction">
+  cpuid</span>. What can be known is that their defence against this possibility 
+  was among the last additions to their <span class="instruction">cpuid</span> detection 
+  code before release. The Internet is dark and full of terrors, but in its shadows 
+  are junkyards of things whose public disclosure would once have been unlawful 
+  (and may still be) but whose survival is necessary if our technology’s early history 
+  is to be accurately preserved. From pre-release builds of Windows NT 3.1 that 
+  are easily found in an afternoon’s search for relics, it’s evident that the defence 
+  against <span class="instruction">cpuid</span> triggering an Invalid Opcode exception 
+  (despite having established that the <span class="bit">ID</span> bit is changeable) 
+  was added between 22nd April 1993 for build 3.10.428.1 and 24th July 1993 for 
+  the publicly released build 3.10.5098.1. </p>
+  <p>Even earlier pre-release builds of version 3.10 suggest very strongly that 
+  the <span class="instruction">cpuid</span> instruction’s early design, if not 
+  also its implementation, was very different from what everyone has coded for since 
+  1993. It did not originate with the <span class="register">eax</span> register 
+  as an implied operand and it plausibly had no other reason for existence than 
+  to load a processor identification signature—<span class="emphasis">the</span> 
+  CPU ID, if you like—into <span class="register">eax</span>. But the several stories 
+  in this history I leave to the separate pages on <a href="00000000h/eax.htm">
+  <span class="register">eax</span> from <span class="instruction">cpuid</span> 
+  leaf 0</a> and <a href="00000001h/eax.htm"><span class="register">eax</span> from
+  <span class="instruction">cpuid</span> leaf 1</a>. Here, I proceed only with introducing 
+  the instruction as tested for and used by the released versions of Windows.
+  </p>
+  <h2>Leaves </h2>
+  <p>The point to trying the instruction with <span class="register">eax</span> 
+  set to zero is that the instruction is designed for extensible functionality. 
+  Input in <span class="register">eax</span> selects what Intel variously terms 
+  a <span class="definition">function</span> or a <span class="definition">leaf</span> 
+  or even a <span class="definition">leaf function</span>. Some leaves take additional 
+  input in <span class="register">ecx</span>. All may use any or all of
+  <span class="register">eax</span>, <span class="register">ebx</span>,
+  <span class="register">ecx</span> and <span class="register">edx</span> for output. 
+  The leaves naturally start at zero. The extensibility is that leaf 0 tells which 
+  other leaves are supported. Though the instruction will execute with an unsupported
+  <span class="register">eax</span> as input, the programmer arguably does better 
+  to treat such execution as undefined. The way to learn what input is defined is 
+  to execute <span class="instruction">cpuid</span> leaf 0: what it produces in
+  <span class="register">eax</span> is the maximum valid leaf for input. </p>
+  <p>Or so was the intention, at least as far as Windows knew as long ago as 1993. 
+  Over time, the possible input for <span class="register">eax</span> has been divided 
+  into ranges. This started not with Intel but with AMD. Perhaps so that AMD could 
+  describe features of its own independently of Intel’s (future) descriptions, AMD 
+  had its <span class="instruction">cpuid</span> distinguish
+  <span class="definition">standard</span> leaves from a separate set of
+  <span class="definition">extended</span> leaves that start at 0x80000000. That 
+  “the functions are divided into two types” is asserted at least as far back as
+  <span class="citation">AMD Processor Recognition</span> (publication 20734 revision 
+  D, dated January 1997). Perhaps inevitably, AMD presents the low-numbered leaves 
+  for “software to access information common to all x86 processors.” Also inevitably, 
+  Intel wouldn’t have cared to play along with this suggestion that the x86 instruction 
+  set was any sort of standard for general use or imitation, and so when its own 
+  processors implemented the extended functions it talked of the low-numbered leaves 
+  not as standard but as basic. </p>
+  <p>Other imitators of Intel’s x86 instruction set have since defined their own 
+  ranges and hypervisors have got into the game too. The Windows kernel knows of 
+  only three ranges, starting at zero, 0x40000000 and 0x80000000. What’s common 
+  to each is that executing a range’s first leaf produces the range’s maximum leaf 
+  number in <span class="register">eax</span>. </p>
+  <h3>Basic Leaves </h3>
+  <p>Not until version 5.0 does the Windows kernel use any
+  <span class="instruction">cpuid</span> leaf other than 0 and 1. Only rarely does 
+  the kernel use any basic leaf other than 0 and 1 without checking that it is within 
+  the range reported by leaf 0. Versions 3.50 to 6.2 of the 32-bit kernel even check 
+  this for leaf 1—though with an omission, only in versions 4.0 and 5.0, which is 
+  unusually noteworthy (in the history that I leave to other pages) because it is 
+  much of the reason that most editions of Windows NT 4.0 crash when installed on 
+  modern processors. Details of the kernel’s use of <span class="instruction">cpuid</span> 
+  are not without consequence! </p>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>CPUID Leaf </th>
+        <th>Kernel Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><a href="00000000h/index.htm">0x00000000</a> </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><a href="00000001h/index.htm">0x00000001</a> </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><a href="00000002h/index.htm">0x00000002</a> </td>
+        <td>5.0 and higher (x86 only) </td>
+      </tr>
+      <tr>
+        <td>0x00000004 </td>
+        <td>6.0 and higher (x86); <br>
+        all (x64)&nbsp; </td>
+      </tr>
+      <tr>
+        <td>0x00000006 </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000007 </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0000000A </td>
+        <td>2004 and higher (x64 only) </td>
+      </tr>
+      <tr>
+        <td>0x0000000B </td>
+        <td>10.0 and higher (x86); <br>
+        6.1 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td><a href="0000000dh/index.htm">0x0000000D</a> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000010 </td>
+        <td>1803 and higher (x64 only) </td>
+      </tr>
+      <tr>
+        <td>0x00000012 </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000014 </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000018 </td>
+        <td>1803 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0000001A </td>
+        <td>1809 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Remember that “all” begins with version 3.10 for 32-bit Windows but with the 
+  version 5.2 from Windows Server 2003 SP1 for 64-bit Windows. See that two of the 
+  basic leaves are put to use for 64-bit Windows earlier than for 32-bit Windows, 
+  one much earlier. </p>
+  <p>Be aware also that these lists are only of use by the kernel. Other use of
+  <span class="instruction">cpuid</span>, including by the HAL, is outside this 
+  note’s present scope. That the 2004 release of the 64-bit Windows 10 kernel uses
+  <span class="instruction">cpuid</span> leaf 0x0000000A is a side-effect of this 
+  release’s relocation of most HAL functionality into the kernel. </p>
+  <p>Another limit to the scope is that when this page was created, examination 
+  reached only to the 1803 edition and its update in 2022 reaches only to the 2004 
+  edition. The expression “and higher” signifies nothing more certain than an expectation 
+  of continuity. </p>
+  <h3>Extended Leaves </h3>
+  <p>From the Revision History in <span class="citation">Intel® Processor Identification 
+  and the CPUID Instruction</span> (Application Note 485, apparently no longer available 
+  online from Intel in any revision), extended leaves were first documented for 
+  Intel’s processors in June 2001. This is not certainly when they were first implemented 
+  by Intel and it’s certainly not when they were first implemented by AMD. The Windows 
+  2000 kernel tries leaf 0x80000000 no matter what the vendor except for AMD processors 
+  before family 5. </p>
+  <p>In these early days, of course, support for the extended leaves could not be 
+  assumed. Executing <span class="instruction">cpuid</span> with 0x80000000 in
+  <span class="register">eax</span> might load just about anything into
+  <span class="register">eax</span>, most likely whatever happens to be the usual 
+  output for the processor’s highest basic leaf. That <span class="register">eax</span> 
+  would come back with the maximum leaf number for the extended leaves was at best 
+  uncertain. To this day, the 32-bit kernel imposes a sanity check. The maximum 
+  for the extended leaves is disbelieved if it’s not between 0x80000000 and 0x800000FF 
+  inclusive. </p>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>CPUID Leaf </th>
+        <th>Kernel Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x80000000 </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000001 </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000002 <br>
+        0x80000003 <br>
+        0x80000004 </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000005 </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000006 </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000007 </td>
+        <td>2004 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td>0x80000008 </td>
+        <td>6.0 and higher (x86); <br>
+        all (x64) </td>
+      </tr>
+      <tr>
+        <td>0x8000000A </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x8000001D </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x8000001E </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>See again that 64-bit Windows runs ahead of 32-bit Windows, though in this 
+  case just by one version for one leaf. </p>
+  <p>That the 2004 release of the 64-bit Windows 10 kernel uses
+  <span class="instruction">cpuid</span> leaf 0x80000007 is another side-effect 
+  of this release’s relocation of most HAL functionality into the kernel. Use by 
+  the HAL in earlier versions is outside this note’s present scope. </p>
+  <h3>Hypervisor Leaves </h3>
+  <p>Starting with Windows Vista, both the 32-bit and 64-bit kernels recognise a 
+  third range of <span class="instruction">cpuid</span> leaves starting at 0x40000000. 
+  If only to begin with—it’s not yet verified to be still true—the kernel does not 
+  try even the first of these leaves unless bit 31 is set in
+  <a href="00000001h/ecx.htm"><span class="register">ecx</span> from
+  <span class="instruction">cpuid</span> leaf 1</a>. Both Intel and AMD long documented 
+  this feature flag as reserved. Intel still does. As a reserved bit, it should 
+  ordinarily be clear. Microsoft has its hypervisor re-implement
+  <span class="instruction">cpuid</span> so that this feature flag is set. Other 
+  hypervisors do too (and perhaps did first, but this is presently not within this 
+  note’s scope). If the kernel finds this feature flag is set, it executes leaf 
+  0x40000000 to determine the maximum leaf for this range and to identify the hypervisor.
+  </p>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>CPUID Leaf </th>
+        <th>Kernel Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x40000000 </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000001 </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000002 </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000003 </td>
+        <td>6.0 SP1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000004 </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000005 </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000006 </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000007 </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000008 </td>
+        <td>10.0 and higher (x64 only) </td>
+      </tr>
+      <tr>
+        <td>0x4000000B </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000082 </td>
+        <td>6.1 to 6.3 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The versions shown above are for the kernel’s known use of each leaf. Other 
+  pages at this website, notably for the <span class="struct">
+  <a href="../../ntoskrnl/inc/shared/hvgdk_mini/hv_cpuid_result.htm">HV_CPUID_RESULT</a></span> 
+  structure and the <span class="enum">
+  <a href="../../ntoskrnl/inc/shared/hvgdk_mini/hv_cpuid_function.htm">HV_CPUID_FUNCTION</a></span> 
+  enumeration show the versions for which Microsoft defines these leaves for programmers. 
+  Such definition has mostly been just for Microsoft’s own programmers. Whatever 
+  one makes of the Microsoft Open Specification Promise, the practical reality is 
+  that Microsoft’s
+  <a href="https://msdn.microsoft.com/en-us/virtualization/hyperv_on_windows/reference/tlfs">
+  Hypervisor Top-Level Functional Specification</a> and other documentation of its 
+  hypervisor’s <span class="instruction">cpuid</span> interface, if only as published 
+  online, has often been years out of date and leaves no small amount to further 
+  study. </p>
+  <p>Leaf 0x40000082 is, of course, outside the contiguous range of Microsoft’s 
+  known definitions of <span class="instruction">cpuid</span> leaves for its hypervisor. 
+  Yet it is Microsoft’s. Both the 32-bit and 64-bit kernels execute it only if both: 
+  bit 31 is set in <span class="register">ecx</span> from leaf 1; and leaf 0x40000000 
+  reports that Microsoft is the hypervisor vendor. What leaf 0x40000000 reports 
+  as the maximum leaf in the hypervisor range is immaterial for the kernel’s execution 
+  of leaf 0x40000082. </p>
+  <p>Do not suppose, by the way, that <span class="instruction">cpuid</span> leaf 
+  0x40000082 is only some relic, of historical interest only. Though it is not known 
+  to the kernel in any version 10.0, it and leaves 0x40000080 and 0x40000081 are 
+  executed by the EFI boot manager, boot loader and some other EFI applications 
+  even as late as the 2004 release of Windows 10. The relevant code plainly treats 
+  Microsoft’s hypervisor implementation as having another series of
+  <span class="instruction">cpuid</span> leaves starting at 0x40000080. More research 
+  is required. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 8th
+    <a href="../../../../../new/19/12.htm">January 2020</a> in part from material 
+    that was first published on 22nd January 2008. It was last modified on 30th
+    <a href="../../../../../new/22/10.htm">November 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c0822.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5507" -->
+  </div>
+</div>
+
+</body>
+
+</html>

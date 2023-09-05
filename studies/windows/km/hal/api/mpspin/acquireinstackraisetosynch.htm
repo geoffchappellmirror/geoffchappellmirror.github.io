@@ -1,0 +1,114 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KeAcquireInStackQueuedSpinLockRaiseToSynch</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<h1>KeAcquireInStackQueuedSpinLockRaiseToSynch </h1>
+<p>This function acquires a queued spin lock at low IRQL, raising to
+<span class="constant">SYNCH_LEVEL</span>. </p>
+<h2>Declaration </h2>
+<pre class="source">VOID 
+FASTCALL 
+KeAcquireInStackQueuedSpinLockRaiseToSynch (
+    KSPIN_LOCK *SpinLock, 
+    KLOCK_QUEUE_HANDLE *LockHandle);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SpinLock</span> argument provides the address of the 
+spin lock that is to be acquired. </p>
+<p>The <span class="argument">LockHandle</span> argument provides the address of 
+an opaque context structure. This address is re-presented when releasing the lock. 
+The context must have no other use until the lock has been released. </p>
+<h3>Constraints </h3>
+<p>The <span class="function">KeAcquireInStackQueuedSpinLockRaiseToSynch</span> 
+function assumes that the IRQL is no higher than <span class="constant">SYNCH_LEVEL</span>. 
+It returns with the IRQL at <span class="constant">SYNCH_LEVEL</span>. The spin 
+lock and the context structure must be in non-paged memory when this function begins 
+and must remain so until the lock is released. </p>
+<h2>Availability </h2>
+<p>The <span class="function">KeAcquireInStackQueuedSpinLockRaiseToSynch</span> 
+function is exported by name from x86 builds of the HAL in version 5.1 and higher 
+and of the kernel in version 6.2 and higher. The HAL’s export in version 6.2 and 
+higher is merely a forward to the kernel. </p>
+<p>For 64-bit Windows, the <span class="function">KeAcquireInStackQueuedSpinLockRaiseToSynch</span> 
+function is exported by name from the kernel in all known versions, i.e., starting 
+with the version 5.2 from Windows Server 2003 SP1. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">KeAcquireInStackQueuedSpinLockRaiseToSynch</span> 
+function is not documented. </p>
+<p>The synchronisation level is at best semi-documented. The first known definition 
+of <span class="constant">SYNCH_LEVEL</span> in a Device Driver Kit (DDK) is in 
+the NTDDK.H from the DDK for Windows NT 4.0, but it has come and gone, sometimes 
+changing its numerical value, sometimes being defined for some processor architectures 
+only. The Windows Driver Kit (WDK) for Windows 10 refers to it in comments and even 
+in annotations, yet never defines it. These notes presently leave it for another 
+time. </p>
+<h2>Behaviour </h2>
+<p>The <span class="function">KeAcquireInStackQueuedSpinLockRaiseToSynch</span> 
+function is a compound. Its work is in two parts which can be done independently 
+by calling exported functions or inlined routines: the first from the HAL (originally); 
+the second from the kernel. The implementation gains by inlining its two parts and 
+from skipping the second entirely for single-processor builds. </p>
+<p>The first part is to raise the IRQL to <span class="constant">SYNCH_LEVEL</span> 
+if it is not already there. This ensures that the current thread has exclusive use 
+of the current processor. Interrupts can occur at higher IRQL, as with hardware 
+interrupts, but they are not permitted to switch the processor to another thread. 
+An equivalent exported function (x86) or inlined routine (x64) is
+<span class="function">KeRaiseIrqlToSynchLevel</span>. </p>
+<p>The second part is to arrange that the current processor has exclusive use of 
+the protected resource. All threads that seek to use the resource must acquire the 
+agreed lock. All call this function or a similar one so that all try to acquire 
+the lock in the same way and are made to wait in a more or less tight loop until 
+they own the lock. An equivalent exported function for this second part is
+<span class="function">
+<a href="../../../ntoskrnl/api/ke/queuelock/acquireinstackatdpclevel.htm">KeAcquireInStackQueuedSpinLockAtDpcLevel</a></span>. 
+This part is trivial in single-processor builds. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 12th
+  <a href="../../../../../../new/19/12.htm">December 2019</a> and was last modified 
+  on 13th December 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62933" -->
+</div>
+
+</body>
+
+</html>

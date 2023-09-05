@@ -1,0 +1,157 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DPA_Search</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>DPA_Search </h1>
+<p>This function finds an item in a list or finds where the item would appear if 
+inserted into the list. </p>
+<h2>Declaration </h2>
+<pre class="source">int
+DPA_Search (
+    HDPA pdpa,
+    PVOID pFind,
+    int iStart,
+    PFNDPACOMPARE pfnCmp,
+    LPARAM lParam,
+    UINT options); </pre>
+<!--webbot bot="Include" U-Include="_include/ccb.htm" TAG="BODY" startspan -->
+
+<p>The comparison callback function has the prototype: </p>
+<pre class="source">typedef int (*PFNDPACOMPARE) (PVOID p1, PVOID p2, LPARAM lParam);</pre>
+
+<!--webbot bot="Include" i-checksum="25902" endspan -->
+<h3>Parameters </h3>
+<p>The <span class="argument">pdpa</span> argument provides a handle to the DPA.
+</p>
+<p>The <span class="argument">pFind</span> argument provides a pointer to the item 
+that is to be searched for, or is NULL to search for an empty position. </p>
+<p>The <span class="argument">iStart</span> argument provides a 0-based index at 
+which to start the search. This argument is ignored unless performing a linear search.
+</p>
+<p>The <span class="argument">pfnCmp</span> argument provides the address of a caller-specific 
+comparison function that may be called back to assess an item in the list against 
+the item that is sought. </p>
+<p>The <span class="argument">lParam</span> argument provides a caller-specific 
+context to be passed on each invocation of the callback function. </p>
+<p>The <span class="argument">options</span> argument provides bit flags to direct 
+the search behaviour. Recognised values are: </p>
+<table class="Constants">
+  <tr>
+    <td><span class="constant">DPAS_SORTED</span> (0x01) </td>
+    <td>list is sorted; perform binary search </td>
+  </tr>
+  <tr>
+    <td><span class="constant">DPAS_INSERTBEFORE</span> (0x02) </td>
+    <td>see notes below about binary search </td>
+  </tr>
+  <tr>
+    <td><span class="constant">DPAS_INSERTAFTER</span> (0x04) </td>
+    <td>see notes below about binary search </td>
+  </tr>
+</table>
+<h3>Return Value </h3>
+<p>The function returns a 0-based index for the lowest-numbered matching item, else
+<span class="constant">DPA_ERR</span> (-1). </p>
+<p>A special case exists when the <span class="argument">options</span> have
+<span class="constant">DPAS_SORTED</span> set and either <span class="constant">
+DPAS_INSERTBEFORE</span> or <span class="constant">DPAS_INSERTAFTER</span> set. 
+If no matching item is found, the function does not fail but instead returns the 
+0-based index at which the sought item could be inserted into the list consistently 
+with the existing ordering. </p>
+<h2>Behaviour </h2>
+<p>The function performs a linear search by default, but a binary search if
+<span class="constant">DPAS_SORTED</span> is given among the
+<span class="argument">options</span>. </p>
+<h3>Linear Search </h3>
+<p>A linear search runs from the position described by <span class="argument">iStart</span> 
+to the end of the pointer array. The function fails trivially if the starting index 
+is not less than the current number of pointers in the array. The function returns 
+the 0-based index of the first item that the comparison function declares as matching 
+the sought item. If no such match is found, the function fails. </p>
+<p>The comparison function returns zero to indicate that the item at
+<span class="argument">p1</span> (which will be <span class="argument">pFind</span>) 
+matches the item at <span class="argument">p2</span>. Any other result is a direction 
+to continue searching. Note that <span class="argument">p2</span> may be NULL if 
+any user of the list has set empty positions in the list. </p>
+<h3>Binary Search </h3>
+<p>A binary search applies to the whole list: the <span class="argument">iStart</span> 
+argument is ignored. The function returns the 0-based index of the lowest-numbered 
+item that the comparison function declares as matching the sought item. If no such 
+match is found, then the default is for the function to fail. </p>
+<p>However, if either the <span class="constant">DPA_INSERTBEFORE</span> or
+<span class="constant">DPA_INSERTAFTER</span> bit is set in the
+<span class="argument">options</span>, the function returns the 0-based index at 
+which the sought item could be inserted into the list in keeping with the ordering 
+established by the comparison function. Note that in this case, no indication is 
+given of whether the returned index describes an item that was already in the list 
+or just tells where the sought item might be inserted into the list. Note also that 
+there is no difference in meaning between the <span class="constant">DPA_INSERTBEFORE</span> 
+and <span class="constant">DPA_INSERTAFTER</span> flags. </p>
+<p>The comparison function returns zero to indicate that the item at
+<span class="argument">p1</span> (which will be <span class="argument">pFind</span>) 
+matches the item at <span class="argument">p2</span>. A negative or positive result 
+from the comparison function means respectively that the item at
+<span class="argument">p1</span> is ordered before or after the item at
+<span class="argument">p2</span>. </p>
+<p>A binary search can be accurate—indeed, meaningful—only if the list is already 
+ordered consistently with the same combination of callback function and context.
+</p>
+<h2>Availability </h2>
+<p>The <span class="function">DPA_Search</span> function is exported from COMCTL32.DLL 
+as ordinal 339 in version 3.50 and higher. The implementation for version 6.10 
+and higher is built into a statically linked library and thence is also exported 
+from the Internet Explorer module IERTUTIL.DLL as ordinal 89 in version 7.0 and 
+higher. </p>
+<!--webbot bot="Include" U-Include="../../_include/settlement.htm" TAG="BODY" startspan -->
+
+<p>This function was documented among the
+<a target="_top" href="http://msdn.microsoft.com/library/ms807073.aspx">
+Settlement Program Interfaces</a> in December 2002, but with Windows 2000 cited 
+as the minimum operating system, despite many years of earlier availability. </p>
+
+<!--webbot bot="Include" i-checksum="21400" endspan -->
+<div class="Footer">
+  <p class="Dates">This page was created on 9th April 2005 (from material first 
+  published in 1997) and was last modified 
+  on 15th March 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c9710.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1997-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="5797" endspan -->
+</div>
+
+</body>
+
+</html>

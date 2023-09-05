@@ -1,0 +1,218 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Emon Profile Interface</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<h1>The Emon Profile Interface </h1>
+<p>If the HAL’s initialisation of <a href="index.htm">Hardware Performance Counters</a> 
+establishes that the boot processor is from Intel, has at least some support for 
+Performance Monitoring Counters, and that this support is not masked from Windows 
+by a Microsoft-compatible hypervisor, the HAL chooses the Emon profile interface. 
+The name Emon appears to come from Intel’s manuals, apparently standing for Event 
+Monitoring. </p>
+<h2>Initialisation </h2>
+<p>The <span class="instruction">cpuid</span> leaf for learning about profiling 
+is 0x0A. The low byte returned in <span class="register">eax</span> is the “version 
+ID of architectural performance monitoring” and is known already to be at least 
+1. The HAL saves this but is not known to make any use of it (nor any, yet, of the 
+fixed-function performance counters that Intel documents as being supported if the 
+version is greater than 1). The middle bytes in <span class="register">eax</span> 
+tell how many general-purpose performance monitoring counters are supported by each 
+logical processor and how wide, in bits, are those counters. The high byte in
+<span class="register">eax</span> tells how many bits are meaningful in
+<span class="register">ebx</span>. Each bit that is both meaningful and clear confirms 
+that a corresponding performance event is available. It is already known that at 
+least the first bit is meaningful and clear. Depending on those bits in
+<span class="register">ebx</span>, some performance events that the Emon profile 
+interface might support instead become unsupported. </p>
+<h2>Profile Sources </h2>
+<p>For the purpose of interaction with the kernel, and indeed all the way to user 
+mode through such functions as <span class="function">
+<a href="../../../ntoskrnl/api/ex/profile/create.htm">NtCreateProfile</a></span> 
+and <span class="function">
+<a href="../../../ntoskrnl/api/ex/profile/createex.htm">NtCreateProfileEx</a></span>, 
+these performance events are abstracted as profile sources, represented numerically 
+by a <span class="enum">
+<a href="../../../ntoskrnl/api/ke/profobj/kprofile_source.htm">KPROFILE_SOURCE</a></span> 
+enumeration. Microsoft’s public definition of this enumeration goes only to 0x18 
+as <span class="constant">ProfileMaximum</span>, presumably having covered sources 
+that are anticipated for arbitrary processor architectures. The Emon profile interface 
+in the HAL from the original release of Windows 10 supports the following: </p>
+<table>
+  <tr>
+    <th>Value </th>
+    <th>Name </th>
+    <th>EBX Bit </th>
+    <th>Select </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td><span class="constant">ProfileTime</span> </td>
+    <td>&nbsp;</td>
+    <td>0x0003003C </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td><span class="constant">ProfileTotalIssues</span> </td>
+    <td>1 </td>
+    <td>0x000300C0 </td>
+  </tr>
+  <tr>
+    <td>0x06 </td>
+    <td><span class="constant">ProfileBranchInstructions</span> </td>
+    <td>5 </td>
+    <td>0x000300C4 </td>
+  </tr>
+  <tr>
+    <td>0x0A </td>
+    <td><span class="constant">ProfileCacheMisses</span> </td>
+    <td>4 </td>
+    <td>0x0003412E </td>
+  </tr>
+  <tr>
+    <td>0x0B </td>
+    <td><span class="constant">ProfileBranchMispredictions</span> </td>
+    <td>6 </td>
+    <td>0x000300C5 </td>
+  </tr>
+  <tr>
+    <td>0x13 </td>
+    <td><span class="constant">ProfileTotalCycles</span> </td>
+    <td>0 </td>
+    <td>0x0003003C </td>
+  </tr>
+  <tr>
+    <td>0x19 </td>
+    <td><span class="constant">ProfileUnhaltedCoreCycles</span> </td>
+    <td>0 </td>
+    <td>0x0003003C </td>
+  </tr>
+  <tr>
+    <td>0x1A </td>
+    <td><span class="constant">ProfileInstructionRetired</span> </td>
+    <td>1 </td>
+    <td>0x000300C0 </td>
+  </tr>
+  <tr>
+    <td>0x1B </td>
+    <td><span class="constant">ProfileUnhaltedReferenceCycles</span> </td>
+    <td>2 </td>
+    <td>0x0003013C </td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td><span class="constant">ProfileLLCReference</span> </td>
+    <td>3 </td>
+    <td>0x00034F2E </td>
+  </tr>
+  <tr>
+    <td>0x1D </td>
+    <td><span class="constant">ProfileLLCMisses</span> </td>
+    <td>4 </td>
+    <td>0x0003412E </td>
+  </tr>
+  <tr>
+    <td>0x1E </td>
+    <td><span class="constant">ProfileBranchInstructionRetired</span> </td>
+    <td>5 </td>
+    <td>0x000300C4 </td>
+  </tr>
+  <tr>
+    <td>0x1F </td>
+    <td><span class="constant">ProfileBranchMispredictsRetired</span> </td>
+    <td>6 </td>
+    <td>0x000300C5 </td>
+  </tr>
+</table>
+<p>Microsoft’s names for values below 0x19 are known from the enumeration’s C-language 
+definition in WDM.H from the Windows Driver Kit (WDK). Presumably, the values from 
+0x19 and higher are omitted from that definition because they are processor-specific 
+and the definition is meant to be general. Names for the Emon-specific profile sources 
+are inferred from descriptive strings in the HAL, which can be obtained even from 
+user mode through <span class="function">
+<a href="../../../ntoskrnl/api/ex/sysinfo/query.htm">ZwQuerySystemInformation</a></span> 
+when given the information class <span class="constant">SystemPerformanceTraceInformation</span> 
+(0x1F) and the secondary information class <span class="constant">EventTraceProfileSourceListInformation</span> 
+(0x0D) as the first dword in the information buffer. For the values that Microsoft 
+names in <span class="enum">KPROFILE_SOURCE</span>, each name is this descriptive 
+string but with Profile as a prefix. Extrapolation of this relationship to the extra 
+values seems at least a reasonable guess. </p>
+<p>For each profile source other than <span class="constant">ProfileTime</span>, 
+which is handled by a separate mechanism, if the corresponding bit shown in the 
+column headed EBX Bit is either not meaningful according to the high byte that
+<span class="instruction">cpuid</span> leaf 0x0A returned in
+<span class="register">eax</span> or is set in what the same
+<span class="instruction">cpuid</span> leaf returned in <span class="register">ebx</span>, 
+then the profile source becomes regarded as unsupported. </p>
+<p>There also corresponds to each profile source a value that must be loaded into 
+a Performance Event Select Register to, well, select the corresponding performance 
+event. Each Performance Event Select Register is a model-specific register beginning 
+at 0x0186, one for each counter that <span class="instruction">cpuid</span> leaf 
+0x0A declared. The counters themselves are the model-specific registers beginning 
+at 0xC1. Initially, the Emon profile interface loads zero into each of the declared 
+Performance Event Select Registers. </p>
+<p>Note that the Emon-specific profile sources 0x19 to 0x1F are the complete set 
+and are even arranged in ascending order of the EBX Bit that indicates their support. 
+The generally defined profile sources, numbered below 0x19, that the Emon profile 
+interface can support are just those that map to Emon-specific profile sources. 
+The mapping is not one-to-one. Though most of the apparently Emon-specific profile 
+sources are more readily available as architectural sources below 0x19, there are 
+two exceptions: whatever use numbers 0x1B and 0x1C may be, they are available only 
+to those in the know. LLC, by the way, stands for Last Level Cache. </p>
+<p>For the sake of completeness, note that the Emon profile interface requires 8 
+bytes of memory per counter per processor. The number of counters per processor 
+is known from <span class="instruction">cpuid</span>, as explained above. The number 
+of processors is not known at the time and anyway can change. The HAL allows for 
+the maximum possible number of registered processors, the meaning of which is a 
+small topic in itself. Failure to get the memory, which is almost unthinkable, causes 
+all profile sources to be treated as unsupported. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 3rd
+  <a href="../../../../../../new/17/01.htm">January 2017</a> and was last modified 
+  on 23rd November 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c17.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62677" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,208 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MmGetSystemRoutineAddress</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="29544" endspan -->
+<h1>MmGetSystemRoutineAddress </h1>
+<p>This function locates an export from either the kernel or the HAL. </p>
+<h2>Declaration </h2>
+<pre class="source">PVOID MmGetSystemRoutineAddress (PUNICODE_STRING SystemRoutineName);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SystemRoutineName</span> argument names the exported 
+function or variable whose address is sought. </p>
+<h3>Return Value </h3>
+<p>The function returns the address of the exported function or variable, if successful, 
+else NULL. </p>
+<h2>Behaviour </h2>
+<p>All exports by name are known to their modules as ANSI strings. The given name 
+is converted to ANSI in temporary memory. Such conversion is highly unlikely to 
+fail, but not impossible. Perhaps because the function has no way to report such 
+failure as different from discovering that <span class="argument">SystemRoutineName</span> 
+is not exported, failure to convert the given name to ANSI is not failure for the 
+function. Instead, failed conversion is retried after a small delay (presently 10ms), 
+repeating until a conversion succeeds. </p>
+<p>Exports are sought from the kernel and the HAL, which are in turn located by 
+looking through the list of loaded modules. For each loaded module whose case-insensitive 
+module name is either “ntoskrnl.exe” or “hal.dll”, but stopping once two such modules 
+have been identified, the function searches for the given case-sensitive name in 
+that module’s export directory. If the module has an export directory and an exported 
+name matches the given name, the function returns the address of the corresponding 
+function (or variable). </p>
+<h3>Variations </h3>
+<p>The preceding description is of the implementation in versions 6.0 and 6.1. Several 
+variations are known. Most are very slight, but it is as well to list them all not 
+only for the usual goal of completeness but also because they show the code was 
+revised, even to correct a bug of no practical consequence, without attending to 
+a coding error that can cause a bugcheck in ordinary usage. </p>
+<p>In most versions, the function protects the list of loaded modules against concurrent 
+access by working inside a critical region and with the loaded-module resource (known 
+symbolically as <span class="symbol">PsLoadedModuleResource</span>) acquired for 
+shared access. The version 5.0 from the original Windows 2000 defends differently, 
+by holding a mutant object (known symbolically as <span class="symbol">MmSystemLoadLock</span>) 
+that synchronises the loading and unloading of system images. </p>
+<p>When version 5.0 prepares to search a module’s export directory, it does not 
+check that the module actually has an export directory. Of course, all known kernel 
+and HAL versions do have export directories. Debug builds of version 5.0 guard the 
+case by breaking to the debugger (as an assertion failure). </p>
+<p>Before the version 5.2 from Windows Server 2003 SP1, the function assumes the 
+export directory has a non-zero number of names. This assumption is, of course, 
+satisfied by all known kernel and HAL versions. This inconsequential error appears 
+to be a side-effect of the serious error that is described next. Fixing the serious 
+error for Windows Server 2003 SP1 also fixed this one. However, the version 5.1 
+from Windows XP SP3 fixes the serious error differently and leaves this inconsequential 
+error unfixed. </p>
+<h4>Coding Error (Binary Search) </h4>
+<p>The function assumes the export directory is sorted by name such that a binary 
+search is suitable. This search is coded defectively in all versions up to and including 
+the version 5.1 from Windows XP SP2 and also in the version 5.2 from the original 
+Windows Server 2003. The error is essentially from confusion of signed and unsigned 
+types for indices in the search. At each iteration, the function tests an index 
+half way into the current search area. If comparison of names directs that the search’s 
+next iteration be constrained to the lower half of the current search area, the 
+high index for the new search area is to be one less than the tested index. If the 
+indices are unsigned, this computation of the high index for the lower half is an 
+underflow if the search is already constrained just to the first name in the export 
+directory. In the defective versions, this underflow is not defended and some subsequent 
+indexing into the names will typically be invalid. The coding details of this
+<a href="bsearchbug.htm">Binary Search Bug</a> are presented separately. </p>
+<p>When running on any of the affected versions, the <span class="function">MmGetSystemRoutineAddress</span> 
+function is unsafe to use if the <span class="argument">SystemRoutineName</span> 
+argument is alphabetically lower than the alphabetically higher of each module’s 
+alphabetically lowest exported name. In practice, this means that if the given name 
+is lower than <span class="function">ExAcquireFastMutex</span> and happens not to 
+be exported from either the kernel or HAL as loaded at the time, then the function 
+will fault at an address in a subroutine named <span class="symbol">MiFindExportedFunctionByName</span>.
+</p>
+<p>The bug is correctable either by noticing the underflow as a sign that the search 
+has failed or by changing to signed variables. Microsoft’s attempts at one or the 
+other show as several variations in the code. That something was wrong with using 
+unsigned indices seems to have been at least suspected at Microsoft in time for 
+version 5.1, whose first builds introduce a signed comparison in code that otherwise 
+retains unsigned indices and remains defective. The version 5.1 from Windows XP 
+SP3 leaves the indices as unsigned but explicitly defends against the underflow. 
+In the builds of version 5.2 from Windows Server 2003 SP1 and SP2, the indices are 
+always treated as signed. Versions 6.0 and higher have both changes: the underflow 
+is defended even though the indices are signed. </p>
+<h4>Workaround </h4>
+<p>Note that the bugcheck cannot safely be defended by exception handling. There 
+is cleaning up to do, but the caller of this function is in no position to attempt 
+it. Losing the temporary memory that holds the ANSI representation of the given 
+name would be inconsequential in practice, but leaving the list of loaded modules 
+inaccessible to other threads certainly would not be. </p>
+<p>Programmers who would call this function for a <span class="argument">SystemRoutineName</span> 
+that is alphabetically less than <span class="function">ExAcquireFastMutex</span> 
+simply have no choice but to work around this defect unless they can be reasonably 
+sure their code will not run on an affected version. For instance, the bug can safely 
+be ignored by a driver that will always be built with Windows Vista as the least 
+version the driver can load on. It can also be ignored in all x64 builds known to 
+this study (the earliest of which is the version 5.2 from Windows Server 2003 SP1). 
+Otherwise, programmers are arguably best to test the current Windows version in 
+something like the following elimination: </p>
+<ul>
+  <li>if the current Windows version is one for which <span class="function">MmGetSystemRoutineAddress</span> 
+  is safe, call it and accept what it returns; </li>
+  <li>else if the current Windows version is known to export
+  <span class="argument">SystemRoutineName</span>, risk a call to
+  <span class="function">MmGetSystemRoutineAddress</span> and accept what it returns;
+  </li>
+  <li>else do not call <span class="function">MmGetSystemRoutineAddress</span>, 
+  but proceed as if it had returned NULL. </li>
+</ul>
+<p>Note the dependence on someone’s collation of which Windows versions export which 
+names. There is, of course, Microsoft’s documentation to rely on. This study’s own 
+lists of <a href="../../index.htm">Kernel Exports</a> and
+<a href="../../../../hal/api/index.htm">HAL Exports</a> show which versions are 
+known to export which functions, whether documented or not. </p>
+<p>An alternative for working around the defect is to write (or find) code to locate 
+the kernel and HAL modules and search their export directories. For arbitrary modules, 
+such code would be problematic for lack of synchronisation with other access to 
+the list of loaded modules—remember, kernel-mode drivers can be loaded and unloaded—but 
+the load addresses of the kernel and HAL may reasonably be thought stable. Even 
+so, highly cautious programmers will at least pause for thought about whether the 
+synchronisation of access to the list of loaded modules is meant to extend to those 
+modules’ export directories. If only in principle, the kernel looks to be free to 
+relocate a module’s export directory and perhaps overwrite whatever was at the old 
+position. The affected versions do no such thing, so although roll-your-own code 
+for the work of <span class="function">MmGetSystemRoutineAddress</span> looks inadvisable 
+as a general proposition, there seems no reasonable objection to having it just 
+for use in versions for which the kernel’s own implementation is defective. </p>
+<h3>Coding Error (Forwards) </h3>
+<p>In all known versions, the function assumes that a name found in the export directory 
+of a module actually is exported from that module. If the export is instead implemented 
+as a forward to another module, the function returns the address of an ANSI string 
+that names where the export is forwarded to. This affects three functions, on x86 
+builds only, starting with the version 5.2 from Windows Server 2003 SP1: </p>
+<ul>
+  <li><span class="function">ExAcquireFastMutex</span>, exported from the HAL as 
+  a forward to <span class="function">ExiAcquireFastMutex</span> in the kernel;
+  </li>
+  <li><span class="function">ExReleaseFastMutex</span>, exported from the HAL as 
+  a forward to <span class="function">ExiReleaseFastMutex</span> in the kernel;
+  </li>
+  <li><span class="function">ExTryToAcquireFastMutex</span>, exported from the HAL 
+  as a forward to <span class="function">ExiTryToAcquireFastMutex</span> in the 
+  kernel. </li>
+</ul>
+<p>A twist to this is that debug builds of the <span class="function">MmGetSystemRoutineAddress</span> 
+function end by breaking to the debugger (as an assertion failure) unless the returned 
+address lies outside the export directory, i.e., does not represent a forward. That 
+will have been a reasonable defence in the days when neither the kernel nor HAL 
+forwarded any exports. That it has not been elevated from a debug-only check suggests 
+that nobody at Microsoft has yet realised that forwards can now be encountered by 
+this function in ordinary use. </p>
+<h4>Workaround </h4>
+<p>It must be said in mitigation that programmers have no need to call
+<span class="function">MmGetSystemRoutineAddress</span> for any of these three functions, 
+which are all ancient. Addresses for these three functions can be imported through 
+an import library without fear of making the driver unloadable on any known Windows 
+version. </p>
+<h2>Availability </h2>
+<p>The <span class="function">MmGetSystemRoutineAddress</span> function is exported 
+by name from the Windows kernel in version 5.0 and higher, i.e., starting from Windows 
+2000. It has long been documented but was not immediately so. In particular, it 
+is not mentioned in either the Windows 2000 DDK or the Windows 2000 IFS Kit. </p>
+<p class="draft">The function is implemented in paged code and is to be called only 
+at <span class="constant">PASSIVE_LEVEL</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 4th January 2011 and was last modified 
+  on 20th January 2011. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c11.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2011. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="5698" endspan -->
+</div>
+
+</body>
+
+</html>

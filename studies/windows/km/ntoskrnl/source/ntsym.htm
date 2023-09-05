@@ -1,0 +1,485 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>NTSYM.C</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/km.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="63592" -->
+<div class="Main">
+  <h1>NTSYM.C </h1>
+  <p>Starting with Windows 8, the public symbol files for the kernel have numerous
+  <span class="constant">LF_UDT_SRC_LINE</span> (0x1606) records that tell where 
+  the kernel got its definitions of structures, unions and enumerations. By where, 
+  I mean source file and line number. In all cases but one, the source file is a 
+  header file, meaning a source file that’s intended for inclusion in other source 
+  files, and its location is given as a full pathname. This allows for reconstruction 
+  of the directory tree that holds the <a href="inc/index.htm">Windows kernel header 
+  files</a> that are included by the Windows kernel source files—and for a catalogue 
+  of unseen headers in which Microsoft defines numerous undocumented structures 
+  for kernel-mode programming. </p>
+  <p>The “but one” in this record of headers is named only by the relative pathname
+  </p>
+  <blockquote>
+    ..\ntsym.c.
+  </blockquote>
+  <p>That it’s just one anomaly in an otherwise rich collection might easily let 
+  it be passed over. This would be a mistake. The NTSYM.C file is central to how 
+  Microsoft gets <a href="typeinfo.htm">Type Information in Public Symbol Files</a> 
+  for the kernel. That public symbol files for the kernel and other binaries have 
+  type information is depended on by all kernel-mode programmers who don’t have 
+  favoured access, e.g., to Microsoft’s source code or at least to private symbol 
+  files. Even when the public symbol files do have type information, some
+  <span class="command">!</span> commands in Microsoft’s debuggers do not work as 
+  advertised. Without it, many don’t work at all—as attested by protests in Internet 
+  forums whenever the public symbol file for a recently updated kernel (or NTDLL) 
+  accidentally doesn’t have type information. Against this background of type information 
+  in public symbol files as a practical necessity, the question of
+  <span class="highlight"><span class="emphasis">how</span> Microsoft gets type 
+  information into public symbol files has received curiously little attention</span>.
+  </p>
+  <h2>Location </h2>
+  <p>It is here thought that NTSYM.C truly is a source file, not a header, and that 
+  the full path of the directory that contains this source file is </p>
+  <blockquote>
+    <span class="placeholder">srcroot</span>\minkernel\ntos\init
+  </blockquote>
+  <p>where <span class="placeholder">srcroot</span> is a version-dependent root 
+  for the source tree: </p>
+  <ul>
+    <li>d:\w8rtm in 6.2; </li>
+    <li>d:\wbrtm in 6.3; </li>
+    <li>d:\th in 10.0 to 1511; </li>
+    <li>d:\rs1 in 1607; </li>
+    <li>d:\rs2 in 1703 to 1709; </li>
+    <li>d:\os\src in 1803 to 2004. </li>
+  </ul>
+  <h3>Related Source Files </h3>
+  <p>Also thought to be in this directory are roughly a dozen other source files:
+  </p>
+  <ul>
+    <li>anim.c, bgfx.c, bootvga.c, bootvid.c, init.c, port.c and rpc.c; </li>
+    <li>ntkrpamp.c and ntkrnlmp.c; </li>
+    <li>ntkrpamp.def and ntkrnlmp.def, or just ntoskrnl.src; </li>
+    <li>ntoskrnl.rc. </li>
+  </ul>
+  <p>The seven in the first set are each compiled to object files that go into a 
+  library named init.lib. This is known certainly from the the public symbol files, 
+  since module information names the object files and the library, placing them 
+  all in: </p>
+  <blockquote>
+    <span class="placeholder">objroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>\objfre\<span class="placeholder">arch</span>
+  </blockquote>
+  <p>Here, <span class="placeholder">objroot</span> is a version-dependent root 
+  for build products: </p>
+  <ul>
+    <li>o:\w8rtm.obj.<span class="placeholder">build</span> in 6.2; </li>
+    <li>o:\wbrtm.obj.<span class="placeholder">build</span> in 6.3; </li>
+    <li>d:\th.obj.<span class="placeholder">build</span> in 10.0 to 1511; </li>
+    <li>d:\rs1.obj.<span class="placeholder">build</span> in 1607; </li>
+    <li>d:\rs2.obj.<span class="placeholder">build</span> in 1703 to 1709; </li>
+    <li>d:\os\obj\<span class="placeholder">build</span> in 1803 to 2004. </li>
+  </ul>
+  <p>Within this root, <span class="placeholder">build</span> is x86fre or amd64fre, 
+  respectively for 32-bit and 64-bit Windows. For the checked builds, also known 
+  as debug builds, which this website mostly ignores and which Microsoft itself 
+  promotes far less than in years past, <span class="placeholder">build</span> is 
+  x86chk or amd64chk, and objfre is instead objchk. The
+  <span class="placeholder">mp</span> placeholder remains from when the kernel was 
+  built in as many as four varieties. It is paemp for 32-bit Windows versions 6.2 
+  and 6.3, but is otherwise just mp. The <span class="placeholder">arch</span> placedholder 
+  stands straightforwardly for the processor architecture, which is either i386 
+  or amd64. All this is consistent with Microsoft’s practice, long established in 
+  programming kits, of compiling into subdirectories according to the type of build. 
+  The least certain inference is that the source files are all in C: I do not discount 
+  that they are in C++ with <span class="directive">extern "C"</span> directives.
+  </p>
+  <p>The second set may also contain files named ntoskrnl.c and ntkrnlpa.c as relics 
+  of earlier versions for which the kernel is built both with and without PAE support 
+  (in 32-bit Windows) and with and without multi-processor support. Single-processor 
+  kernels were dropped with Windows Vista and since 32-bit Windows 8 requires PAE, 
+  it’s very possible that only two types of kernel continue to be built: ntkrpamp.exe 
+  for 32-bit Windows and ntkrnlmp.exe for 64-bit Windows. Both anyway get renamed 
+  to plain old ntoskrnl.exe for installation. Whichever is wanted, the corresponding 
+  ntkrpamp.c or ntkrnlmp.c is compiled to an object file. Each is nearly trivial, 
+  for although the object file is linked into the binary (see below), it contributes 
+  no code or data. </p>
+  <p>The third set has the least certain inference about the source files. The module 
+  information tells of ntkrpamp.exp and ntkrnlmp.exp, respectively, for 32-bit and 
+  64-bit Windows. If these are anything like typical, they are object files produced 
+  by the linker acting as the librarian in response to a specification of exports. 
+  The most easily maintained specification of the kernel’s thousands of exports 
+  would be as module definition files, presumably named ntkrpamp.def and ntkrnlmp.def, 
+  which might in turn be generated by the compiler’s pre-processor acting on conditional-compilation 
+  directives in a common source file. In Microsoft’s practice for this, again as 
+  long established in programming kits, such source files have the .src extension. 
+  Only one is needed: it would presumably be named ntoskrnl.src. </p>
+  <p>Finally, ntoskrnl.rc is natural as the source file from which the Resource 
+  Compiler produces the ntoskrnl.res that is named in the module information.
+  </p>
+  <h3>Building the Kernel </h3>
+  <p>The <span class="placeholder">srcroot</span>\minkernel\ntos\init directory 
+  is in some sense the home directory of the kernel’s source code. The object file 
+  ntkrpamp.obj or ntkrnlmp.obj is linked with init.lib and many other libraries, 
+  mostly from other subdirectories of source files that are specifically for the 
+  kernel, and with ntkrpamp.exp or ntkrnlmp.exp, and with ntoskrnl.res, and thus 
+  is the kernel created as a binary. </p>
+  <p>Note that NTSYM.C has no place in this sketch of how the kernel gets built.
+  </p>
+  <h2>Public Symbols </h2>
+  <p>The point to caring where NTSYM.C fits among Microsoft’s source files on Microsoft’s 
+  build machine—which we can’t expect ever to see—and to caring even more what NTSYM.C 
+  contains and how it’s built, is that only by the separate compilation of NTSYM.C 
+  do the public symbol files for the kernel have any type information at all.
+  </p>
+  <p>Except that the merging of the HAL into the kernel for 64-bit Windows 10 Version 
+  2004 brings in an NTHALSYM.C as a complication to put aside for now, NTSYM.C, 
+  taken together with the headers that it includes, is <span class="emphasis">the</span> 
+  source of all type information in public symbol files for the Windows kernel. 
+  Although the included headers surely must be involved in building the kernel, 
+  NTSYM.C itself is not. Stricly speaking, the type information in the kernel’s 
+  public symbol files is not the kernel’s type information: it is the NTSYM.C file’s.
+  </p>
+  <p>This is not without implications, most notably that type information in public 
+  symbol files is not as certainly correct as many suppose it must be. Type information 
+  in a binary’s private symbol file is in there from compiling and linking the binary. 
+  Its correctness is that of the compiler and linker. Type information in a public 
+  symbol file is in there from separate compilation. Its correctness, relative to 
+  how the code in the binary uses the types, depends on how closely the separate 
+  compilation matches the binary’s compilation. Discrepancies must be rare, perhaps 
+  even rare enough not to worry about, but avoiding them needs care at Microsoft, 
+  perhaps more care than is prudently taken for granted. </p>
+  <p>That nothing from NTSYM.C is linked in to the kernel is a safe deduction from 
+  the public symbol files. Even a stripped PDB has module information and section 
+  contributions (in PDB stream 3). The public symbol files for the kernel have these 
+  for very many object files, but none for any object file that’s obviously compiled 
+  from an NTSYM.C. Yet compilation of NTSYM.C is recorded in the public symbol files. 
+  The PDB stream (4) that has the relatively new <span class="constant">LF_UDT_SRC_LINE</span> 
+  records of which headers define which types also has an <span class="constant">
+  LF_BUILDINFO</span> (0x1603) record. Full PDB files typically have many such records, 
+  one for each source file that got compiled. Stripped PDB files ordinarily have 
+  none, compilation details surely counting as stuff “you would not want to ship 
+  to your customers” (as Microsoft puts it when documenting the linker’s switch 
+  for creating a stripped PDB). Yet the public symbol files for the kernel in Windows 
+  8 and higher have this one record of compiling this one source file. Much in this 
+  record has no immediate value for the present discussion, but since the business 
+  of this page is to note what can be deduced—or at least be inferred with high 
+  confidence—that might otherwise be thought secret, it is perhaps as well to be 
+  detailed: </p>
+  <table>
+    <tbody>
+      <tr>
+        <td>Current Directory: </td>
+        <td><span class="placeholder">srcroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">Build Tool: </td>
+        <td><span class="placeholder">vcpath</span>\x86\cl.exe </td>
+        <td>6.2 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td><span class="placeholder">vcpath</span>\amd64\cl.exe </td>
+        <td>6.2 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td>Source File: </td>
+        <td><span class="placeholder">objroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>\objfre\<span class="placeholder">arch</span>\typeinfo\ntsym.c
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>Program Database File: </td>
+        <td><span class="placeholder">objroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>\objfre\<span class="placeholder">arch</span>\typeinfo\<span class="placeholder">kernel</span>.pdb
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="22">Command Arguments: </td>
+        <td>-DPASS2_COMPILE </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>-nologo </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>-Gz </td>
+        <td>6.2 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td>-Zi </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>-c </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>-Zc:wchar_t- </td>
+        <td>6.2 to 1803 </td>
+      </tr>
+      <tr>
+        <td>-Zc:implicitNoexcept- </td>
+        <td>1607 to 1709 </td>
+      </tr>
+      <tr>
+        <td>-Zc:threadSafeInit- </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>-Zc:sizedDealloc- </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>-Wv:17 </td>
+        <td>1607 to 1709 </td>
+      </tr>
+      <tr>
+        <td>-wd4654 </td>
+        <td>1803 only </td>
+      </tr>
+      <tr>
+        <td>-d1vc7dname </td>
+        <td>1607 to 1703 </td>
+      </tr>
+      <tr>
+        <td>-vc7dname </td>
+        <td>1709 to 1903 </td>
+      </tr>
+      <tr>
+        <td>-d1vc7dname </td>
+        <td>2004 and higher </td>
+      </tr>
+      <tr>
+        <td>-d1NTcompat </td>
+        <td>1607 only </td>
+      </tr>
+      <tr>
+        <td>-d1NonStandardNewDelete </td>
+        <td>1607 to 1703 </td>
+      </tr>
+      <tr>
+        <td>-NonStandardNewDelete </td>
+        <td>1709 to 1903 </td>
+      </tr>
+      <tr>
+        <td>-d1NonStandardNewDelete </td>
+        <td>2004 and higher </td>
+      </tr>
+      <tr>
+        <td>-Zc:wchar_t- </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>-MT </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>-TC </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>-X </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The compiler’s location on Microsoft’s build machine is a good example of a 
+  detail that plausibly is completely irrelevant, but for completeness I note that 
+  the <span class="placeholder">vcpath</span> varies as follows: </p>
+  <ul>
+    <li>d:\w8rtm\tools\x86 in 6.2; </li>
+    <li>d:\wbrtm\tools\DEV11 in 6.3; </li>
+    <li>d:\th\tools\DEV12\x32 in 10.0 to 1511; </li>
+    <li>d:\rs1\tools\vc\x32 in 1607; </li>
+    <li>d:\rs2\tools\vc\HostX86 in 1703; </li>
+    <li>d:\rs2.tools\vc\HostX86 in 1709; </li>
+    <li>d:\os\tools\vc\HostX86 in 1803 to 2004. </li>
+  </ul>
+  <p>Perhaps some value—or slight amusement—will come from the strong suggestion 
+  that the x64 kernel is compiled by an x86 program, i.e., by a cross-compiler, 
+  even years after Microsoft’s development of a native x64 compiler. </p>
+  <p>Listing all the compiler switches is also for completeness, mostly. Some may 
+  be incidental. Since NTSYM.C does not contribute code to the kernel (nor, almost 
+  certainly, to any binary), the switches for disabling recently standardised C++ 
+  behaviour look to be superfluous, except perhaps to mark that Visual Studio’s 
+  increasing accommodation of standards that have been developed for convenience 
+  in application programming threatens to leave kernel-mode programmers with ever 
+  more need for switches to turn this stuff off. That said, some of the switches 
+  are clues, including for being not present. As listed in this PDB record, they 
+  are typically not exactly the switches as given. Notably, <span class="switch">
+  -Fd</span> and <span class="switch">-Fo</span>, if given, are not recorded, but
+  <span class="switch">-FI</span> and <span class="switch">-I</span> would be, and
+  <span class="switch">-I</span> switches would ordinarily be confected for directories 
+  named by the <span class="env">INCLUDE</span> environment variable. The three 
+  from <span class="switch">-MT</span> onwards look to me to be compiler-generated, 
+  the <span class="switch">-X</span> recording that there is no
+  <span class="env">INCLUDE</span> variable. </p>
+  <p>This last observation is a clue that the compilation that’s recorded in the
+  <span class="constant">LF_BUILDINFO</span> is of a source file that has already 
+  been pre-processed. The current directory at the time of this compilation is the
+  <span class="placeholder">mp</span> subdirectory, so that the ..\ntsym.c in the
+  <span class="constant">LF_UDT_SRC_LINE</span> record mentioned at the outset is 
+  apparently an NTSYM.C in <span class="placeholder">srcroot</span>\minkernel\ntos\init. 
+  This is the original NTSYM.C source file. It is pre-processed, with output captured 
+  as the intermediate source file, also named NTSYM.C but deep into the tree of 
+  build products. In this intermediate source file, <span class="directive">#include</span> 
+  directives are gone, having been replaced by the contents of the included headers, 
+  and <span class="directive">#line</span> directives identify these headers by 
+  full pathnames. Content from the original source file, in contrast to included 
+  headers, is represented by <span class="directive">#line</span> directives that 
+  identify the original source file by its relative pathname. The compilation that’s 
+  recorded in the <span class="constant">LF_BUILDINFO</span> is of this intermediate 
+  NTSYM.C, and is incorrect if it needs any means of finding more headers to include.
+  </p>
+  <p>The last clue to note is the PDB file that’s recorded as the output of compiling 
+  the intermediate NTSYM.C file. See that it has the name of the already built
+  <span class="placeholder">kernel</span>, i.e., ntkrpamp or ntkrnlmp. The whole 
+  point is that this PDB file is not new output from compiling NTSYM.C but is instead 
+  a stripped PDB into which this separate compilation will merge its otherwise private 
+  type information. </p>
+  <p>Thus do the public symbol files for the kernel record how they were built. 
+  Given that the kernel is compiled and linked, to have produced a stripped PDB 
+  as <span class="placeholder">objroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>\objfre\<span class="placeholder">arch</span>\typeinfo\<span class="placeholder">kernel</span>.pdb 
+  (and presumably also a full PDB as <span class="placeholder">objroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>\objfre\<span class="placeholder">arch</span>\<span class="placeholder">kernel</span>.pdb), 
+  compilation of NTSYM.C goes something like </p>
+  <ol>
+    <li>
+    <pre class="source">cd <span class="placeholder">srcroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span> </pre>
+    </li>
+    <li>
+    <pre class="source">cl 
+ <span class="placeholder">kernel_switches</span> 
+ -E 
+ ..\ntsym.c 
+ &gt; <span class="placeholder">objroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>\objfre\<span class="placeholder">arch</span>\typeinfo\ntsym.c </pre>
+    </li>
+    <li>
+    <pre class="source">set include= </pre>
+    </li>
+    <li>
+    <pre class="source">cl 
+ <span class="placeholder">typeinfo_switches</span> 
+ -Fd<span class="placeholder">objroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>\objfre\<span class="placeholder">arch</span>\typeinfo\<span class="placeholder">kernel</span>.pdb 
+ -Fo<span class="placeholder">objroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>\objfre\<span class="placeholder">arch</span>\typeinfo\ntsym.obj 
+ <span class="placeholder">objroot</span>\minkernel\ntos\init\<span class="placeholder">mp</span>\objfre\<span class="placeholder">arch</span>\typeinfo\ntsym.c </pre>
+    </li>
+  </ol>
+  <p>Note that step 2 has no direct evidence in the PDB. The
+  <span class="placeholder">typeinfo_switches</span> for the compiler at step 4 
+  are the switches from the <span class="constant">LF_BUILDINFO</span> but the
+  <span class="placeholder">kernel_switches</span> for the compiler in step 2 are 
+  unknown. </p>
+  <h2>Types Defined in NTSYM.C </h2>
+  <p>No NTSYM.C is available for inspection—Microsoft surely keeps it very securely, 
+  perhaps even more so than for the rest of the kernel’s source code—but some of 
+  its content can be known with reasonable certainty from the public symbol files. 
+  In both 32-bit and 64-bit Windows, these have it that the following type definitions 
+  are in the ..\ntsym.c file itself, not from inclusion of any header: </p>
+  <table>
+    <tbody>
+      <tr>
+        <th>Line Number </th>
+        <th>Type </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td>70 (6.2 to 1607); <br>
+        72 (1703); <br>
+        76 (1709); <br>
+        80 (1803 to 1809); <br>
+        88 </td>
+        <td>struct <span class="struct">_ETIMER</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>97 (6.2 to 10.0) </td>
+        <td>struct <span class="struct">_POOL_BLOCK_HEAD</span> </td>
+        <td>6.2 to 10.0 </td>
+      </tr>
+      <tr>
+        <td>102 (6.2 to 10.0) </td>
+        <td>struct <span class="struct">_POOL_HACKER</span> </td>
+        <td>6.2 to 10.0 </td>
+      </tr>
+      <tr>
+        <td>107 (6.2 to 10.0) </td>
+        <td>struct <span class="struct">_SEGMENT_OBJECT</span> </td>
+        <td>6.2 to 10.0 </td>
+      </tr>
+      <tr>
+        <td>119 (6.2 to 10.0) </td>
+        <td>struct <span class="struct">_SECTION_OBJECT</span> </td>
+        <td>6.2 to 10.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The reason the symbol files show these types as defined in a source file, not 
+  a header, may be that they actually aren’t defined in any header. These five structures 
+  are odds and sods. All are known in public symbol files starting from Windows 
+  2000 SP3 but four are dropped after the original Windows 10. </p>
+  <p>The <span class="struct">_ETIMER</span> certainly remains in use—it is the 
+  timer object to which a handle can be obtained even from user mode by calling
+  <span class="function">NtCreateTimer</span>—but its definition believably isn’t 
+  needed anywhere in the kernel’s source code except for the Executive’s TIMER.C 
+  (here presumed as the source file for the TIMER.OBJ that the public symbol files 
+  identify as the linker’s source not only of functions such as
+  <span class="function">NtCreateTimer</span> but of all internal routines that 
+  I can see as relevant). If the <span class="struct">_ETIMER</span> is in fact 
+  defined in a kernel source file that is not a header, then the definition that 
+  shows in the public symbol files for the kernel is a copy-and-paste from the source 
+  file into NTSYM.C. Presumably, it’s needed in NTSYM.C so that
+  <span class="struct">_ETIMER</span> shows in the public symbol files and the KDEXTS 
+  debugger extension can offer <span class="command">!timer</span> as a command 
+  that works without needing private symbols. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 11th
+    <a href="../../../../../new/20/11.htm">November 2020</a> and was last modified 
+    on 15th January 2021 (except for minor editing on 23rd May 2022). </p>
+    <!--webbot bot="Include" U-Include="../../_include/c2022.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4611" -->
+  </div>
+</div>
+
+</body>
+
+</html>

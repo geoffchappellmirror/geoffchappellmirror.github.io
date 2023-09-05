@@ -1,0 +1,771 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>HANDLEENTRY</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="21016" -->
+<h1>HANDLEENTRY </h1>
+<p>It is well known that a handle for any of the numerous objects of the windowing 
+system, e.g., windows, hooks and cursors—let’s call them user objects and user handles—is 
+not a formal <span class="type">HANDLE</span> such as used for access to kernel-mode 
+objects such as files, processes, threads (or even window stations and desktops). 
+Though the windowing system’s Handle Manager is nowadays in kernel mode, it does 
+not use the kernel’s Object Manager. That this separate design and implementation 
+is well known may be mostly because it comes with advantages and disadvantages that 
+programmers arguably do need to understand if they want their Windows programs to 
+use the windowing system efficiently. Were it not well known for that, however, 
+it would have become so because the openness of the windowing system’s Handle Manager 
+has in its time caused much concern for computer security. </p>
+<p>The openness is very much by design. User handles and objects are nowadays created 
+by WIN32K.SYS in kernel mode. Before version 4.0, they were creations of WINSRV.DLL 
+in the CSRSS.EXE process. But whether it is the kernel or CSRSS that acts as server 
+to potentially numerous clients, much of the point to the windowing system is that 
+its handles are directly transportable between client processes and its objects 
+are simultaneously visible to the clients. </p>
+<p>Each handle indexes a <span class="struct">HANDLEENTRY</span> structure in an 
+array that acts as the handle table. The table is in shared memory, pointed to by 
+the <span class="member">aheList</span> member of the <span class="struct">SHAREDINFO</span> 
+structure that each process gets an instance of when its USER32 connects to WIN32K. 
+The current size of the table, as a count of entries, is held separately as the
+<span class="member">cHandleEntries</span> member of the <span class="struct">SERVERINFO</span> 
+structure that is also in shared memory. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="struct">HANDLEENTRY</span> is not documented. Though symbol 
+files for WIN32K.SYS in Windows 8 and higher name the <span class="struct">HANDLEENTRY</span> 
+in the C++ decorations of internal routines, type information for the structure 
+is present in symbol files for Windows 7 only—not before and not since. </p>
+<p>That said, these names (for both the structure and its members) that are known 
+with certainty from symbol-file type information in version 6.1 are just those that 
+were long known in public as names that Microsoft likely does use in the source 
+code. These show in the plain-text output of meta-commands that are implemented 
+in debugger extensions as supplied by Microsoft with its debuggers in various kits 
+for both kernel-mode and user-mode programming. See, for instance, USEREXTS.DLL 
+from as far back as the Device Driver Kit (DDK) for Windows NT 3.51. Though the
+<span class="struct">HANDLEENTRY</span> structure is not formally documented, Microsoft 
+certainly has understood that knowledge of it may help programmers in the depths 
+of debugging what they’re doing with Windows! </p>
+<h2>Layout </h2>
+<p>If only in retail builds of Windows, the <span class="struct">HANDLEENTRY</span> 
+is 0x0C or 0x18 bytes in 32-bit and 64-bit Windows, respectively, except that before 
+its one known change—for version 3.51—it was only eight bytes. </p>
+<table>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source"><a href="head.htm">HEAD</a> *phead;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">PVOID pOwner;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>previously in <span class="struct">HEAD</span> </td>
+  </tr>
+  <tr>
+    <td>0x04 (3.10); <br>
+    0x08 </td>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">UCHAR bType;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x05 (3.10); <br>
+    0x09 </td>
+    <td>0x11 </td>
+    <td>
+    <pre class="source">UCHAR bFlags;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x06 (3.10); <br>
+    0x0A </td>
+    <td>0x12 </td>
+    <td>
+    <pre class="source">USHORT wUniq;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>The <span class="member">phead</span> is the kernel-mode address of the object 
+that corresponds to the handle. All objects that can be referred to by a handle 
+begin with either a <span class="struct">HEAD</span> or a compatible elaboration 
+such as a <span class="struct"><a href="thrdeskhead.htm">THRDESKHEAD</a></span> 
+or <span class="struct"><a href="procdeskhead.htm">PROCDESKHEAD</a></span> (depending, 
+in these examples, on whether ownership of the object is by thread or process). 
+The object may be intended to have user-mode visibility through some user-mode address 
+that can be computed from the kernel-mode address and other input, notably by subtracting 
+a per-process delta such as may exist in the process’s instance of the
+<span class="struct">SHAREDINFO</span>. </p>
+<p>Not shown in the formal definition is that when a <span class="struct">HANDLEENTRY</span> 
+is free, the <span class="member">phead</span> does not point to any type of object 
+but instead holds the index of another free <span class="struct">HANDLEENTRY</span>.
+</p>
+<p>What <span class="member">pOwner</span> points to, if anything, is either a
+<span class="struct"><a href="../../../km/win32k/structs/processinfo/index.htm">
+PROCESSINFO</a></span> or a <span class="struct">
+<a href="../../../km/win32k/structs/threadinfo/index.htm">THREADINFO</a></span>, 
+depending on the nature of ownership for the type of object. Again, this is a kernel-mode 
+address—but it is a leaked kernel-mode address in the sense that what it points 
+to is not mapped to any user-mode address. </p>
+<p>Numerical interpretation of the <span class="member">bType</span> varies greatly 
+in the early history and is subject to misinformation (apparently from lazy analysis 
+of output from debugger extensions). An enumeration of known possibilities is attempted 
+in a separate section, below. </p>
+<p>Though bits have been added to the <span class="member">bFlags</span>, none are 
+known to have changed. Again, an enumeration of known possibilities is attempted 
+in a separate section, below. </p>
+<p>In general, the high 16 bits of a handle must match the <span class="member">
+wUniq</span> member in the <span class="struct">HANDLEENTRY</span> that is selected 
+by the handle’s low 16 bits. The <span class="member">wUniq</span> is incremented 
+each time a handle is freed. Should the freed handle somehow get presented again 
+for use, it will be stale in the sense of not selecting any valid
+<span class="struct">HANDLEENTRY</span>—well, not until the corresponding
+<span class="struct">HANDLEENTRY</span> is allocated and freed 64K times. This safeguard 
+provided by the <span class="member">wUniq</span> member does not apply in the exception 
+to the generality, which is when the high 16 bits of a handle are all clear or all 
+set (which cases occur when the handle has come from 16-bit code). </p>
+<h3>Object Types </h3>
+<p>No formal enumeration of defined object types is known. The WINSRV executable 
+in version 3.10 helpfully has descriptive strings pointed to from an array in increasing 
+order of object type. No use is known to be made of the array, however, and it is 
+here supposed that the strings and array were intended for debug output and are 
+retained in the executable only by oversight when compiling for release. They indeed 
+do not survive into the executable in version 3.51, but plainly are present in the 
+source code since the .DBG file for that version has symbols for the strings and 
+the array but with an OMAP entry that shows they were eliminated. Where these names 
+do survive is the USEREXTS.DLL debugger extension, notably to support the
+<span class="command">!dhe</span> command. </p>
+<p>Of course, each user object is accessed in the code not by name but as a structure. 
+Microsoft’s names for almost all these structures can nowadays be known with certainty 
+because public symbol files for WIN32K.SYS in Windows 8 and higher provide the C++ 
+decorations of the names of routines that work with the structures or of data that 
+points to instances of the structures, e.g., for a list. For many of these structures, 
+Microsoft’s names were known sooner with as much certainty by matching executable 
+code with type information in the public symbol files for WIN32K.SYS from Windows 
+7 and with less certainty by matching against names and other details learnt from 
+debugger extensions (that Microsoft seems to have last made public for Windows 2000).
+</p>
+<p>The great change, and complication of description, was that a renumbering for 
+version 3.51 shifted nearly half the defined object types towards the end. Ignore 
+version 3.10, and the table looks much more orderly. </p>
+<table>
+  <tr>
+    <th>Type </th>
+    <th>Object </th>
+    <th>Name </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 (3.10) </td>
+    <td>&nbsp;</td>
+    <td>Callback </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x01 (3.10); <br>
+    0x00 </td>
+    <td>none </td>
+    <td>Free </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02 (3.10) </td>
+    <td>&nbsp;</td>
+    <td>Zombie </td>
+    <td>3.10 only </td>
+    <td>next as 0x0F </td>
+  </tr>
+  <tr>
+    <td>0x03 (3.10) </td>
+    <td><span class="struct">WINDOWSTATION</span> </td>
+    <td>WindowStation </td>
+    <td>3.10 only </td>
+    <td>next as 0x0A </td>
+  </tr>
+  <tr>
+    <td>0x04 (3.10) </td>
+    <td><span class="struct">DESKTOP</span> </td>
+    <td>Desktop </td>
+    <td>3.10 only </td>
+    <td>next as 0x0B </td>
+  </tr>
+  <tr>
+    <td>0x05 (3.10); <br>
+    0x01 </td>
+    <td><span class="struct"><a href="wnd/index.htm">WND</a></span> </td>
+    <td>Window </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x06 (3.10); <br>
+    0x02 </td>
+    <td><span class="struct">MENU</span> </td>
+    <td>Menu </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x07 (3.10) </td>
+    <td><span class="struct">SVR_INSTANCE_INFO</span> </td>
+    <td>DDE access </td>
+    <td>3.10 only </td>
+    <td>next as 0x0C </td>
+  </tr>
+  <tr>
+    <td>0x08 (3.10) </td>
+    <td><span class="struct">DDECONV</span> </td>
+    <td>DDE conv </td>
+    <td>3.10 only </td>
+    <td>next as 0x0D </td>
+  </tr>
+  <tr>
+    <td>0x09 (3.10); <br>
+    0x03 </td>
+    <td><span class="struct">CURSOR</span> </td>
+    <td>Icon/Cursor </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0A (3.10) </td>
+    <td><span class="struct">ACCELTABLE</span> </td>
+    <td>Accelerator </td>
+    <td>3.10 only </td>
+    <td>next as 0x09 </td>
+  </tr>
+  <tr>
+    <td>0x0B (3.10) </td>
+    <td><span class="struct">HOOK</span> </td>
+    <td>Hook </td>
+    <td>3.10 only </td>
+    <td>next as 0x05 </td>
+  </tr>
+  <tr>
+    <td>0x0C (3.10); <br>
+    0x04 </td>
+    <td><span class="struct">SMWP</span> </td>
+    <td>WPI(SWP) structure </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x05 </td>
+    <td><span class="struct">HOOK</span> </td>
+    <td>Hook </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0D (3.10) </td>
+    <td><span class="struct">XSTATE</span> </td>
+    <td>DDE Transaction </td>
+    <td>3.10 only </td>
+    <td>next as 0x0E </td>
+  </tr>
+  <tr>
+    <td>0x0E (3.10); <br>
+    0x06 (3.51 to 4.0) </td>
+    <td><span class="struct">THREADINFO</span> </td>
+    <td>ThreadInfo </td>
+    <td>3.10 to 4.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0F (3.10); <br>
+    0x07 (3.51) </td>
+    <td><span class="struct">Q</span> </td>
+    <td>Input Queue </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x07 (4.0); <br>
+    0x06 </td>
+    <td>&nbsp;</td>
+    <td>Clipboard Data </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10 (3.10); <br>
+    0x08 (3.51 to 4.0); <br>
+    0x07 </td>
+    <td><span class="struct">CALLPROCDATA</span> </td>
+    <td>CallProcData </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x09 (3.51 to 4.0); <br>
+    0x08 </td>
+    <td><span class="struct">ACCELTABLE</span> </td>
+    <td>Accelerator </td>
+    <td>3.51 and higher </td>
+    <td>previously 0x0A </td>
+  </tr>
+  <tr>
+    <td>0x0A </td>
+    <td><span class="struct">WINDOWSTATION</span> </td>
+    <td>WindowStation </td>
+    <td>3.51 only </td>
+    <td>previously 0x03 </td>
+  </tr>
+  <tr>
+    <td>0x0B </td>
+    <td><span class="struct">DESKTOP</span> </td>
+    <td>Desktop </td>
+    <td>3.51 only </td>
+    <td>previously 0x04 </td>
+  </tr>
+  <tr>
+    <td>0x0C (3.51); <br>
+    0x0A (4.0); <br>
+    0x09 </td>
+    <td><span class="struct">SVR_INSTANCE_INFO</span> </td>
+    <td>DDE access </td>
+    <td>3.51 and higher </td>
+    <td>previously 0x07 </td>
+  </tr>
+  <tr>
+    <td>0x0D (3.51); <br>
+    0x0B (4.0); <br>
+    0x0A </td>
+    <td><span class="struct">DDECONV</span> </td>
+    <td>DDE conv </td>
+    <td>3.51 and higher </td>
+    <td>previously 0x08 </td>
+  </tr>
+  <tr>
+    <td>0x0E (3.51); <br>
+    0x0C (4.0); <br>
+    0x0B </td>
+    <td><span class="struct">XSTATE</span> </td>
+    <td>DDE Transaction </td>
+    <td>3.51 and higher </td>
+    <td>previously 0x0D </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0F (3.51); <br>
+    0x0D (4.0); <br>
+    0x0C </td>
+    <td>&nbsp;</td>
+    <td>Zombie </td>
+    <td>3.51 to 4.0 </td>
+    <td>previously 0x02 </td>
+  </tr>
+  <tr>
+    <td><span class="struct">MONITOR</span> </td>
+    <td>Monitor </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0E (4.0); <br>
+    0x0D </td>
+    <td><span class="struct">KL</span> </td>
+    <td>Keyboard Layout </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0F (4.0); <br>
+    0x0E </td>
+    <td><span class="struct">KBDFILE</span> </td>
+    <td>Keyboard File </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0F </td>
+    <td><span class="struct">EVENTHOOK</span> </td>
+    <td>WinEvent Hook </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td><span class="struct">TIMER</span> </td>
+    <td>Timer </td>
+    <td>5.0 and higher&nbsp; </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x11 </td>
+    <td><span class="struct">IMC</span> </td>
+    <td>Input Context </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x12 </td>
+    <td><span class="struct">HIDDATA</span> </td>
+    <td>&nbsp;</td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x13 </td>
+    <td><span class="struct">DEVICEINFO</span> </td>
+    <td>&nbsp;</td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td><span class="struct">TOUCHINPUTINFO</span> </td>
+    <td>&nbsp;</td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x15 </td>
+    <td><span class="struct">GESTUREINFO</span> </td>
+    <td>&nbsp;</td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x16 </td>
+    <td><span class="struct">HID_POINTER_DEVICE_INFO</span> </td>
+    <td>&nbsp;</td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Some types of user objects were discontinued by the windowing system’s migration 
+to kernel mode in version 4.0. The <span class="struct">WINDOWSTATION</span> and
+<span class="struct">DESKTOP</span> became kernel objects in the sense of having 
+handles that are subject to the Object Manager’s notions of security. The
+<span class="struct">THREADINFO</span> and <span class="struct">Q</span> became 
+kernel-mode structures that are exposed through no sort of handle. </p>
+<p>Version 4.0 is here thought to have retained an object type for the
+<span class="struct">THREADINFO</span> despite making the latter into a kernel-mode 
+creation with no user-mode access. Be aware that support for this conjecture just 
+from what’s in the executable is slim: an array of pool allocation tags in increasing 
+order of object type has “Usti” in just the right place for the supposed retention.
+</p>
+<p>In no version is any use known of what version 3.10 names as Zombie. That it 
+was renumbered as 0x0F for version 3.51 is certain. That it survives to version 
+4.0 is based on nothing more than having no idea what else might have been defined 
+in its place only to be left unused in version 4.0 for someone to reassign, out 
+of sequence, for version 5.0. </p>
+<p>No name is known for the structure that supports the Clipboard Data. The structure 
+is apparently too simple to survive inlining and get its name into symbol files. 
+The object is used for passing arbitrary data, especially but not only for the clipboard. 
+The structure is a <span class="struct">HEAD</span> and then a dword that holds 
+the size in bytes of the opaque data that follows. </p>
+<p>No name is yet found in any symbol files, neither in type information nor C++ 
+decorations, for the structure that supports the Accelerator object. The name
+<span class="struct">ACCELTABLE</span> is instead known from tables of what might 
+be termed structure offsets that debugger extensions from DDKs for early Windows 
+versions use for their <span class="command">!dso</span> command. </p>
+<p>Not shown above for the object names that are learnt from the
+<span class="command">!dhe</span> command is that USEREXTS version 4.0 has no name 
+for the Keyboard File and version 5.0 cuts “WPI(SWP) structure” to “WPI(SWP) struct”.
+</p>
+<h4>Other Names </h4>
+<p>For completeness, it’s as well to note that other Microsoft sources of information 
+about the <span class="struct">HANDLEENTRY</span> have other names for some object 
+types. </p>
+<p>Though the version 3.51 executable loses the names that show in debugger output, 
+it has a different set of names which it puts to use for tagging the desktop heap. 
+This tagging doesn’t survive the move to kernel mode in version 4.0—see that the
+<span class="function">RtlCreateTagHeap</span> function, which is exported from 
+NTDLL.DLL in version 3.51 and higher, never has been a kernel-mode export—but the 
+names correspond to a separate set of names that does survive to later versions, 
+just not in the executable. This other set shows in the output of the
+<span class="command">!du</span> command and is notable because it continues for 
+some object types that never have been valid to WINSRV or WIN32K and anyway has 
+plainly incorrect names for some, even most, numerical values. </p>
+<table>
+  <tr>
+    <th>Type </th>
+    <th>Name (Tag Heap) </th>
+    <th>Name (!du) </th>
+    <th>USEREXTS Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>FREE </td>
+    <td>Free </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x01 </td>
+    <td>WINDOW </td>
+    <td>Window </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>MENU </td>
+    <td>Menu </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x03 </td>
+    <td>CURSOR </td>
+    <td>Cursor </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>SETWINDOWPOS </td>
+    <td>SetWindowPos </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x05 </td>
+    <td>HOOK </td>
+    <td>Hook </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x06 </td>
+    <td>THREADINFO </td>
+    <td>Thread Info </td>
+    <td>3.51 to 5.0 </td>
+    <td>incorrect in 5.0 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x07 </td>
+    <td>INPUTQUEUE </td>
+    <td>Input Queue </td>
+    <td>3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>Clip Data </td>
+    <td>4.0 to 5.0 </td>
+    <td>incorrect in 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>CALLPROC </td>
+    <td>Call Proc </td>
+    <td>4.0 to 5.0 </td>
+    <td>incorrect in 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x09 </td>
+    <td>ACCELTABLE </td>
+    <td>Accel Table </td>
+    <td>4.0 to 5.0 </td>
+    <td>incorrect in 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x0A </td>
+    <td>WINSTATION </td>
+    <td>WindowStation </td>
+    <td>4.0 to 5.0 </td>
+    <td>incorrect </td>
+  </tr>
+  <tr>
+    <td>0x0B </td>
+    <td>DESKTOP </td>
+    <td>DeskTop </td>
+    <td>4.0 to 5.0 </td>
+    <td>incorrect </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>DDEACCESS </td>
+    <td>DdeAccess </td>
+    <td>4.0 to 5.0 </td>
+    <td>incorrect </td>
+  </tr>
+  <tr>
+    <td>0x0D </td>
+    <td>DDECONV </td>
+    <td>DdeConv </td>
+    <td>4.0 to 5.0 </td>
+    <td>incorrect </td>
+  </tr>
+  <tr>
+    <td>0x0E </td>
+    <td>DDEXACT </td>
+    <td>DdeExact </td>
+    <td>4.0 to 5.0 </td>
+    <td>incorrect </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0F </td>
+    <td>ZOMBIE </td>
+    <td>Zombie </td>
+    <td>3.51 to 4.0 </td>
+    <td>incorrect in 4.0 </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>Monitor </td>
+    <td>5.0 </td>
+    <td>incorrect </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>CTYPES </td>
+    <td>Ctypes </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x11 </td>
+    <td>CONSOLE </td>
+    <td>Console </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x12 </td>
+    <td>GENERIC </td>
+    <td>Generic </td>
+    <td>3.51 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x13 </td>
+    <td>HM </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>LOCK </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>The names for tagging the desktop heap exist in the executable as a null-terminated 
+sequence of null-terminated Unicode strings. Except towards the end, these strings 
+do correspond reliably to the object types, but no reason is known that any of them 
+must correspond at all. </p>
+<h3>Flags </h3>
+<p>Debugger extensions from early development kits helpfully have descriptive strings 
+for the bits within the <span class="member">bFlags</span>. It seems highly plausible 
+that these are the macros that are used for the bits in the source code. They are 
+not, however, <span class="emphasis">all</span> the defined bits. </p>
+<table>
+  <tr>
+    <th>Mask </th>
+    <th>Symbol </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x01 </td>
+    <td><span class="constant">HANDLEF_DESTROY</span> </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td><span class="constant">HANDLEF_INDESTROY</span> </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td><span class="constant">HANDLEF_INWAITFORDEATH</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td><span class="constant">HANDLEF_FINALDESTROY</span> </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td><span class="constant">HANDLEF_MARKED_OK</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td><span class="constant">HANDLEF_GRANTED</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x40 </td>
+    <td>&nbsp;</td>
+    <td>5.0 and higher </td>
+  </tr>
+</table>
+<p>The 0x01 bit is set when the object is marked for destruction, which cannot happen 
+while the <span class="member">cLockObj</span> in the <span class="struct">HEAD</span> 
+is non-zero. The 0x02 bit is set if destruction ever begins. </p>
+<p>The 0x40 bit dates from version 5.0 but is not named by the USEREXTS from that 
+version. It is set when the object is not on the desktop heap despite being a type 
+that ordinarily would be. One known case is the window that is its terminal’s desktop 
+owner. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th August 2017 but was not published 
+  until 10th <a href="../../../../../new/17/09.htm">September 2017</a>. It was last 
+  modified on 30th September 2017. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c17.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="47327" -->
+</div>
+
+</body>
+
+</html>

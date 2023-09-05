@@ -1,0 +1,172 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<title>CSP Signatures</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57445" -->
+<div class="Main">
+  <h1>CSP Signatures </h1>
+  <h2>Background </h2>
+  <p>Each Cryptographic Service Provider (CSP) that can be recognised for loading 
+  into the <a href="index.htm">CryptoAPI system</a> is represented by a registry 
+  key, with three required values. Details are given in relevant documentation from 
+  Microsoft. Of interest here are the string value <span class="regvalue">Image 
+  Path</span>, which locates the CSP file, and the binary data value
+  <span class="regvalue">Signature</span>, which supplies data for validating the 
+  CSP file. The CryptoAPI system checks that the CSP file, as actually installed 
+  at the given location, matches the given signature. Without a match, the CryptoAPI 
+  system simply will not load the CSP file for execution. </p>
+  <p>Two assurances follow from this scheme of validating a CSP file: </p>
+  <ul>
+    <li>the CryptoAPI system assures the user at run-time that the CSP file has 
+    not been modified to <span class="emphasis">weaken</span> the CSP’s cryptographic 
+    services; </li>
+    <li>and Microsoft, as manufacturer of the CryptoAPI system, assures the U.S. 
+    Government in advance that the CSP file cannot be modified to
+    <span class="emphasis">strengthen</span> the CSP’s cryptographic services.
+    </li>
+  </ul>
+  <h3>Integrity </h3>
+  <p>For an example of assuring the user, consider an attack that seeks to replace 
+  the expected CSP by one that would secretly save copies of every key generated, 
+  perhaps to send those keys surreptitiously to someone who has other means of intercepting 
+  the user’s communications (and needs the keys in order to decypher those communications). 
+  For this attack to succeed, it does not suffice to have found a way to get the 
+  compromised CSP installed on the user’s machine: the attacker must also know how 
+  to compute a signature that will be accepted as valid for the compromised CSP. 
+  The user is protected as long as the scheme for generating a correct digital signature 
+  is cryptographically secure. </p>
+  <p>Of course, validation by signature does not protect against this attack if 
+  the compromised CSP has been given a valid signature, whether indirectly or even 
+  unwittingly, by whatever entity has the job of signing CSPs! For instance, the 
+  attacker may be a law enforcement agency with lawful wire-tapping authority. It 
+  must be expected (though not necessarily agreed with) that such an agency can 
+  get its CSPs signed. </p>
+  <h3>Export Control </h3>
+  <p>For an example in which the U.S. Government protects its interests, consider 
+  that the Microsoft Base Cryptographic Provider, as supplied in the RSABASE.DLL 
+  file from the Windows 95 OSR2 package, implements the RSA public-key algorithm 
+  with all the coding required for generating keys of essentially arbitrary size 
+  but is constrained to execute that code only to generate key pairs with a 512-bit 
+  modulus. To get stronger encryption would be just a matter of patching the executable, 
+  except that without a correctly updated signature, the patched executable will 
+  not load into the CryptoAPI system. </p>
+  <p>Of course, validation by signature does not protect the U.S. Government’s interests 
+  from a foreign user who has the means and will to patch ADVAPI32, either in advance 
+  as a file on disk or at run-time as an image in memory, so that signature-checking 
+  succeeds without actually checking the signature! </p>
+  <h2>Implementation Details </h2>
+  <p>A CSP file’s <span class="regvalue">Signature</span> is essentially a 128-bit 
+  MD5 hash of the file’s contents that has been encrypted with some signing authority’s 
+  1024-bit private key, using the RSA public-key algorithm. </p>
+  <h3>Verification </h3>
+  <p>When ADVAPI32 is to load a CSP file, it computes the MD5 hash of the file’s 
+  contents. By file here it is meant the file as actually present. This file might 
+  not be the same one that the given <span class="regvalue">Signature</span> was 
+  prepared for by some signing authority. To check, ADVAPI32 decrypts the
+  <span class="regvalue">Signature</span> with the signing authority’s public key 
+  and requires the decrypted signature to have the form: </p>
+  <table class="Struct">
+    <colgroup><col class="Offset"><col class="Size"><col class="Remarks"></colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h</td>
+      <td>10h bytes </td>
+      <td>MD5 hash of file contents </td>
+    </tr>
+    <tr>
+      <td>10h</td>
+      <td>byte </td>
+      <td>00h </td>
+    </tr>
+    <tr>
+      <td>11h </td>
+      <td>6Dh bytes </td>
+      <td>irrelevant </td>
+    </tr>
+    <tr>
+      <td>7Eh</td>
+      <td>byte </td>
+      <td>01h </td>
+    </tr>
+    <tr>
+      <td>7Fh </td>
+      <td>byte </td>
+      <td>00h </td>
+    </tr>
+  </table>
+  <h3>Signing Authorities </h3>
+  <p>As supplied with Windows 95 OSR2 and with NT 4.0, ADVAPI32 knows of two signing 
+  authorities in the sense that the verification described above is attempted with 
+  each of two public keys. In effect, ADVAPI32 recognises a CSP file as valid if 
+  the file’s hash matches a plausible <span class="regvalue">Signature</span> from 
+  either of two signing authorities. </p>
+  <p>The term “signing authority” is meant here just as a convenience of program 
+  logic and is not intended to suggest a one-to-one correspondence with persons 
+  or legal entities. It may be that one public key corresponds to any number of 
+  distinct legal entities, all of whom know the one matching private key. It may 
+  be that for both public keys, the matching private keys are held by just one person 
+  who has committed them to memory, destroyed all written and electronic records, 
+  and would rather die than reveal the keys to another living soul. There are surely 
+  any number of possibilities in between. </p>
+  <p>The two public keys for CSP validation do not have immediate visibility in 
+  the ADVAPI32 executable but are disguised with RC4 encryption using different 
+  40-bit keys (that are related by a bitwise XOR). Inspection of the ADVAPI32.DBG 
+  symbol file from the retail NT 4.0 package shows readily that the two public keys 
+  have C-language labels <span class="variable">KEY</span> and
+  <span class="variable">NSAKEY</span>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 12th September 1999 for publication 
+    elsewhere. It was last modified on 15th September 1999 before it was transferred 
+    here on 20th March 2019 with very slight editing to fit this site’s style.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../_include/c9919.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1999-2019. Geoff Chappell. All rights reserved.
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="59357" -->
+  </div>
+</div>
+
+</body>
+
+</html>

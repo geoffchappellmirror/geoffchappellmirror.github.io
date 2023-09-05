@@ -1,0 +1,802 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ProcessorFeatures in KUSER_SHARED_DATA</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<!--webbot bot="Include" U-Include="../../../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+<h1>ProcessorFeatures in KUSER_SHARED_DATA </h1>
+<div class="Main">
+  <p>Programs and drivers have many reasons to want to know something of the processors 
+  they’re running on. Especially notable is whether this or that extension of the 
+  basic instruction set is available. The Internet has no shortage of answers along 
+  the lines of executing the <span class="instruction">
+  <a href="../../../../../cpu/cpuid/index.htm">cpuid</a></span> instruction to test 
+  for the desired processor feature. Even Microsoft helps with its notes on and 
+  a code sample for its compiler’s <span class="function">__cpuid</span> intrinsic. 
+  But a good answer, of course, is not nearly so simple. Indeed, the question isn’t 
+  either. Even if it were, there’d be a good case for an API function, if only for 
+  features that seem likely to be common queries, just to spare programmers from 
+  the mere inconvenience of writing their own tests. Throw in that such tests (and 
+  even just the interpretation of feature flags produced by
+  <span class="instruction">cpuid</span>) can depend on hardware-specific details 
+  that aren’t widely known, and the case for an API function becomes compelling.
+  </p>
+  <h2>API Support </h2>
+  <p>Sparing programmers some inconvenience and standardising their tests is superficially 
+  what the <span class="member">ProcessorFeatures</span> array in the
+  <span class="struct"><a href="index.htm">KUSER_SHARED_DATA</a></span> is for. 
+  It supports the exported functions <span class="function">
+  <a href="../../../../api/ex/sysinfo/isprocessorfeaturepresent.htm">ExIsProcessorFeaturePresent</a></span> 
+  and <span class="function">IsProcessorFeaturePresent</span> functions in kernel 
+  mode and user mode respectively. Each takes as its one input some predefined constant 
+  that represents one abstracted notion of some processor feature that was at least 
+  thought once upon a time to have wide interest. Each returns a simple yes or no 
+  for whether the feature is “present”. Except for two cases from the early history 
+  of 64-bit Windows, the answer comes simply from looking up the array. The kernel 
+  has done the work of determining what’s present and has placed its answers in 
+  the <span class="struct">KUSER_SHARED_DATA</span> so that the user-mode API function 
+  doesn’t even have the expense of transitions to and from kernel mode. For the 
+  features that are covered, the answers from this API must count as definitive: 
+  if you wrote your own test with <span class="instruction">cpuid</span> and got 
+  a different answer, you’d do well to wonder if your test has missed some point, 
+  if not about the processor support for the feature, then about the kernel’s.
+  </p>
+  <p>And there we might leave it, continuing only to list the predefined indices 
+  and describe each briefly as does Microsoft’s documentation. But let’s get back 
+  to why the question is not so simple. </p>
+  <h3>Operating System Support </h3>
+  <p>One reason has to do with the potential for difference in what it means for 
+  a feature to be available, enabled, present, usable or whatever other adjective 
+  you can think of. For more than a few processor features, the processor itself 
+  makes the distinction. A feature flag from <span class="instruction">cpuid</span> 
+  may say that the feature is available but not necessarily that it is enabled or 
+  that it behaves in its most general way. Configuring it is left to the operating 
+  system, typically by writing to a control register but often nowadays to a Model 
+  Specific Register (MSR). This distinction goes back a long way: the
+  <span class="register">cr4</span> register, which is architectural to the earliest 
+  Pentium, arguably has no other reason for existence. </p>
+  <p>For an early example of how subtle this could be, consider that a set
+  <span class="bit">TSC</span> bit (4) in
+  <a href="../../../../../cpu/cpuid/00000001h/edx.htm"><span class="register">edx</span> 
+  from <span class="instruction">cpuid</span> leaf 1</a> tells that the processor 
+  has the <span class="instruction">rdtsc</span> instruction, but were the operating 
+  system to set the <span class="bit">TSD</span> bit (2) in
+  <span class="register">cr4</span>, then although the <span class="instruction">
+  rdtsc</span> instruction is usable in kernel mode, all attempts to execute it 
+  in user mode would cause a General Protection fault. Note that user-mode software 
+  cannot read <span class="register">cr4</span> even to find out whether an available 
+  feature is or is not enabled. </p>
+  <h3>Multiple Processors </h3>
+  <p>Another difficulty is that although Windows is designed for
+  <span class="emphasis">symmetric</span> multi-processor systems, it does not require 
+  that all processors are identical, just that Windows can use them equally. Faced 
+  with different processors that all meet minimum requirements, Windows can configure 
+  its use of optional features to the least of what the processors have in common. 
+  An application’s determination of some feature’s availability on one processor 
+  does not certainly apply to all. You may think that worrying about this is impractical 
+  and even that it takes caution to extremes, and I may agree with you to some extent, 
+  yet if you write a feature test that executes <span class="instruction">cpuid</span> 
+  multiple times, e.g., to get the vendor string and the maximum leaf number before 
+  proceeding to the leaves you want, and you don’t at least realise that each
+  <span class="instruction">cpuid</span> can have executed on a different processor, 
+  then I can’t escape wondering whether you should (yet) go anywhere near to testing 
+  for processor features. </p>
+  <h2>Features </h2>
+  <p>The table below lists the defined indices for the API functions and the
+  <span class="member">ProcessorFeatures</span> array. Some, in the nature of abstractions, 
+  have no applicability to x86 or x64 processors and therefore none to this note. 
+  For those that an x86 or x64 kernel is known to set, in contrast to leaving as 
+  zero-initialised, the table shows which versions. Implementation details of how 
+  a feature’s presence is decided as <span class="constant">TRUE</span> or
+  <span class="constant">FALSE</span> follow the table (but are something of an 
+  open-ended project). </p>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Index </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0 </td>
+        <td><span class="constant">PF_FLOATING_POINT_PRECISION_ERRATA</span>
+        </td>
+        <td>4.0 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td>1 </td>
+        <td><span class="constant">PF_FLOATING_POINT_EMULATED</span> </td>
+        <td>4.0 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td>2 </td>
+        <td><span class="constant">PF_COMPARE_EXCHANGE_DOUBLE</span> </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>3 </td>
+        <td><span class="constant">PF_MMX_INSTRUCTIONS_AVAILABLE</span> </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>4 </td>
+        <td><span class="constant">PF_PPC_MOVEMEM_64BIT_OK</span> </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>5 </td>
+        <td><span class="constant">PF_ALPHA_BYTE_INSTRUCTIONS</span> </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>6 </td>
+        <td><span class="constant">PF_XMMI_INSTRUCTIONS_AVAILABLE</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>7 </td>
+        <td><span class="constant">PF_3DNOW_INSTRUCTIONS_AVAILABLE</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>8 </td>
+        <td><span class="constant">PF_RDTSC_INSTRUCTION_AVAILABLE</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>9 </td>
+        <td><span class="constant">PF_PAE_ENABLED</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>10 </td>
+        <td><span class="constant">PF_XMMI64_INSTRUCTIONS_AVAILABLE</span> </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>11 </td>
+        <td><span class="constant">PF_SSE_DAZ_MODE_AVAILABLE</span> </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>12 </td>
+        <td><span class="constant">PF_NX_ENABLED</span> </td>
+        <td>late 5.1; <br>
+        late 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>13 </td>
+        <td><span class="constant">PF_SSE3_INSTRUCTIONS_AVAILABLE</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>14 </td>
+        <td><span class="constant">PF_COMPARE_EXCHANGE128</span> </td>
+        <td>6.0 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td>15 </td>
+        <td><span class="constant">PF_COMPARE64_EXCHANGE128</span> </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>16 </td>
+        <td><span class="constant">PF_CHANNELS_ENABLED</span> </td>
+        <td>6.0 only </td>
+      </tr>
+      <tr>
+        <td>17 </td>
+        <td><span class="constant">PF_XSAVE_ENABLED</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>18 </td>
+        <td><span class="constant">PF_ARM_VFP_32_REGISTERS_AVAILABLE</span> </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>19 </td>
+        <td><span class="constant">PF_ARM_NEON_INSTRUCTIONS_AVAILABLE</span>
+        </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>20 </td>
+        <td><span class="constant">PF_SECOND_LEVEL_ADDRESS_TRANSLATION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>21 </td>
+        <td><span class="constant">PF_VIRT_FIRMWARE_ENABLED</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>22 </td>
+        <td><span class="constant">PF_RDWRFSGSBASE_AVAILABLE</span> </td>
+        <td>6.2 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td>23 </td>
+        <td><span class="constant">PF_FASTFAIL_AVAILABLE</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>24 </td>
+        <td><span class="constant">PF_ARM_DIVIDE_INSTRUCTION_AVAILABLE</span>
+        </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>25 </td>
+        <td><span class="constant">PF_ARM_64BIT_LOADSTORE_ATOMIC</span> </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>26 </td>
+        <td><span class="constant">PF_ARM_EXTERNAL_CACHE_AVAILABLE</span> </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>27 </td>
+        <td><span class="constant">PF_ARM_FMAC_INSTRUCTIONS_AVAILABLE</span>
+        </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>28 </td>
+        <td><span class="constant">PF_RDRAND_INSTRUCTION_AVAILABLE</span> </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>29 </td>
+        <td><span class="constant">PF_ARM_V8_INSTRUCTIONS_AVAILABLE</span> </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>30 </td>
+        <td><span class="constant">PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE</span>
+        </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>31 </td>
+        <td><span class="constant">PF_ARM_V8_CRC32_INSTRUCTIONS_AVAILABLE</span>
+        </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>32 </td>
+        <td><span class="constant">PF_RDTSCP_INSTRUCTION_AVAILABLE</span> </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Implementation Details </h2>
+  <p>The kernel started as long ago as version 3.50 to accumulate
+  <span class="definition">feature bits</span> in an internal variable as its own 
+  record of features that are present on all processors. Version 3.51 made this 
+  record available outside the kernel as the <span class="member">ProcessorFeatureBits</span> 
+  in the <span class="struct">
+  <a href="../../../../api/ex/sysinfo/processor.htm">SYSTEM_PROCESSOR_INFORMATION</a></span> 
+  structure which is filled in by the <span class="function">
+  <a href="../../../../api/ex/sysinfo/query.htm">ZwQuerySystemInformation</a></span> 
+  and <span class="function">NtQuerySystemInformation</span> functions when given
+  <span class="constant">SystemProcessorInformation</span> (0x01) as the
+  <span class="argument">SystemInformationClass</span> argument. </p>
+  <p>This internal variable—which, by the way, is named
+  <span class="internal variable">KeFeatureBits</span>—was designed from the start 
+  such that each bit is an intersection of the corresponding feature over all processors. 
+  At first, the features for each processor were discarded. The kernel truly was 
+  interested only in which features it found on all processors and prepared for 
+  use on all processors. Version 4.0 starts saving each processor’s features as 
+  the <span class="member">FeatureBits</span> in the processor’s
+  <span class="struct"><a href="../../../ntos/kprcb.htm">KPRCB</a></span> and saving 
+  them from there to the registry: </p>
+  <table class="Registry">
+    <colgroup>
+      <col class="Headings"><col class="Content">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Key: </th>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Hardware\Description\System\CentralProcessor\<span class="placeholder">index</span></span>
+        </td>
+      </tr>
+      <tr>
+        <th>Value: </th>
+        <td><span class="regvalue">FeatureSet</span> </td>
+      </tr>
+      <tr>
+        <th>Type: </th>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The individual bits, however, seem never to have been documented. Microsoft’s 
+  names for a handful appear in assembly-language headers KS386.INC and KSAMD64.INC 
+  from various development kits. A few others are defined in NTOSP.H from early 
+  editions of the Windows Driver Kit (WDK) for Windows 10. None correspond directly 
+  to feature flags in registers from <span class="instruction">cpuid</span>. Their 
+  relevance to the <span class="member">ProcessorFeatures</span> in the
+  <span class="struct">KUSER_SHARED_DATA</span> is that most of the
+  <span class="member">ProcessorFeatures</span> are set to
+  <span class="constant">TRUE</span> or <span class="constant">FALSE</span> according 
+  to whether some corresponding bit is set or clear in the
+  <span class="internal variable">KeFeatureBits</span> variable. </p>
+  <h3>Floating Point Precision Errata </h3>
+  <p>The <span class="constant">PF_FLOATING_POINT_PRECISION_ERRATA</span> feature 
+  is explicitly set to <span class="constant">FALSE</span> in x86 version 6.1 and 
+  higher. </p>
+  <p>It can be <span class="constant">TRUE</span> in versions 4.0 to 5.0 if any 
+  processor’s ability at floating-point arithmetic has the particular defect that 
+  dividing 4,195,835 by 3,145,727 and then multiplying by it doesn’t get back to 
+  what was started with. To be specific, these numbers are loaded into the Floating 
+  Point Unit (FPU) from the qwords 0x4150017E`C0000000 and 0x4147FFFF`80000000, 
+  and the test is done with interrupts disabled, with the <span class="bit">MP</span>,
+  <span class="bit">EM</span> and <span class="bit">TS</span> bits of
+  <span class="register">cr0</span> all clear, and with the FPU newly initialised—all, 
+  presumably, to make sure that the test really is of the FPU’s arithmetic, not 
+  some disruption of it. The division, using either the
+  <span class="instruction">fdiv</span> or <span class="instruction">fdivr</span> 
+  instruction, depending on the version, is well-known (since 1994) to be incorrect 
+  on some early Pentium processors. </p>
+  <p>The oldest Intel documentation that I have of this is a
+  <span class="citation">Pentium® Processor Specification Update</span> (order number 
+  242480-002, dated March 1995) in which this problem is titled
+  <span class="citation">Slight Precision Loss for Floating Point Divides on Specific 
+  Operand Pairs</span>. As errata 20 for the 60- and 66-MHz Pentium processor, it 
+  is “fixed in the D stepping”. As errata 23 for the 75-, 90- and 100-MHz Pentium 
+  processors, it “affects B1 and B3 steppings” and “is fixed in B5 and later steppings.” 
+  In terms of the family, model and stepping that are produced in
+  <a href="../../../../../cpu/cpuid/00000001h/eax.htm"><span class="register">eax</span> 
+  from <span class="instruction">cpuid</span> leaf 1</a>, this means the defect 
+  is in family 5 model 1 steppings 3 and 5, and model 2 steppings 1 and 2. This, 
+  however, is only background. The kernel does not infer mis-computation by partcular 
+  steppings: it tests an actual computation. . </p>
+  <p>The 32-bit kernel has code to test for this defect as early as Windows NT 3.50 
+  SP3 from June 1995. (It is not in the original, and neither SP1 nor SP2 has yet 
+  been found for study.) What it does about the defect, and even whether it tests 
+  for the defect, depends on a registry value that the kernel reads while initialising:
+  </p>
+  <table class="Registry">
+    <colgroup>
+      <col class="Headings"><col class="Content">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Key: </th>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Session 
+        Manager</span> </td>
+      </tr>
+      <tr>
+        <th>Value: </th>
+        <td><span class="regvalue">ForceNpxEmulation</span> </td>
+      </tr>
+      <tr>
+        <th>Type: </th>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <th>Data: </th>
+        <td>0 to emulate only if FPU not present; <br>
+        1 to emulate if FPU not present or <span class="instruction">fdiv</span> 
+        defect discovered; <br>
+        else to emulate always </td>
+      </tr>
+      <tr>
+        <th>Default: </th>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <th>Versions: </th>
+        <td>3.50 to 5.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Microsoft documented this registry value in Knowledge Base article Q122323, 
+  titled <span class="citation">WinNT 3.5 Software Update for the Pentium Floating 
+  Point Error</span>, now apparently long gone from Microsoft’s web site. Its introduction 
+  was there dated to Windows NT 3.50 SP1, which I see no reason to disbelieve.
+  </p>
+  <p>Floating-point emulation (see the next feature) is an ancient provision. Even 
+  an 8086 that has no numeric coprocessor generates an interrupt in response to 
+  attempted execution of any floating-point instruction. The interrupt then allows 
+  software to emulate the instruction and compensate for the FPU’s absence. The 
+  80386 can be configured—via the <span class="bit">EM</span> bit (2) in
+  <span class="register">cr0</span>—so that executing an FPU instruction generates 
+  this Coprocessor Not Available interrupt (7) even if an FPU is present and working. 
+  Emulation can then compensate for an FPU that is present but defective. </p>
+  <p>All versions up to and including 5.0 have an emulator so that user-mode software 
+  can, for all practical effect, execute floating-point instructions without an 
+  FPU. Given that an FPU is present, versions 3.50 and 3.51 test for the defect 
+  if <span class="regvalue">ForceNpxEmulation</span> is 1, intending to compensate 
+  for it by continuing as if no FPU is present. Versions 4.0 and 5.0 have the added 
+  need to report the defect as this <span class="constant">PF_FLOATING_POINT_PRECISION_ERRATA</span> 
+  feature, and so they test for it no matter what <span class="regvalue">ForceNpxEmulation</span> 
+  is set to. The feature shows as <span class="constant">TRUE</span> only if the 
+  defect is found but is not worked around by forcing emulation. </p>
+  <p>Versions 5.1 to 6.0 are odd. They retain code to test for the defect and they 
+  retain <span class="regvalue">ForceNpxEmulation</span> as a string. But they don’t 
+  look it up in the registry and they return to testing for the defect only if the 
+  internal variable that <span class="regvalue">ForceNpxEmulation</span> would have 
+  been loaded into is 1. Further study may show differently, but it is presently 
+  thought that testing for the defect never can happen in these versions. </p>
+  <h3>Floating Point Emulated </h3>
+  <p>The <span class="constant">PF_FLOATING_POINT_EMULATED</span> feature is explicitly 
+  set to <span class="constant">FALSE</span> in x86 version 6.2 and higher. </p>
+  <p>The days of emulating the floating-point instruction set are long gone. Still, 
+  it’s perhaps as well that Microsoft’s documentation labours even now to tell us 
+  that <span class="constant">PF_FLOATING_POINT_EMULATED</span> gives “a non-zero 
+  value if floating-point operations are emulated”. That Microsoft spells this out 
+  covers for a coding oversight that once had it the other way round (and which, 
+  in fairness, Microsoft did admit to in documentation of the
+  <span class="function">IsProcessorFeaturePresent</span> function before the SDK 
+  for Windows Vista). Before Windows NT 4.0 SP4, <span class="constant">PF_FLOATING_POINT_EMULATED</span> 
+  is <span class="constant">TRUE</span> if user-mode floating-point operations actually 
+  are left to a physical FPU. </p>
+  <p>So, what is this emulation? That each processor now has its own FPU is nowadays 
+  taken as granted, but versions 3.10 to 5.0 anticipate running on processors that 
+  pre-date the Pentium. Some such processors have a built-in FPU. Others can instead 
+  execute floating-point instructions through a numeric coprocessor. Such a thing 
+  need not be present, of course, and in the days of the 80386 typically wasn’t. 
+  Early versions of Windows can do without one, though they do require symmetry: 
+  if any processor has access to an FPU, then all must, else Windows stops at startup 
+  with the bug check <span class="constant">
+  <a href="../../../../../bugchecks/3e.htm">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</a></span> 
+  (0x3E). </p>
+  <p>If no FPU is present even as a coprocessor, these versions set up for floating-point 
+  emulation to support user-mode software that tries to execute floating-point instructions. 
+  Note that this truly is just for user-mode support. The interrupt handler is in 
+  NTDLL.DLL. The kernel’s role in setting this up is mostly to locate the interrupt 
+  handler in NTDLL and write a suitable trap gate into the Interrupt Descriptor 
+  Table (IDT) so that occurrence of the Coprocessor Not Available interrupt (7) 
+  in ring 3 is handled without leaving ring 3. Note the implication for the use 
+  of floating-point instructions in kernel mode. Executing these instructions in 
+  kernel mode when emulation is enabled has absolutely no support and would crash 
+  Windows. Well-written kernel-mode code in version 4.0 and higher is spared this 
+  worry because it never executes any floating-point instruction without a successful 
+  call to <span class="function">KeSaveFloatingPointState</span>, which fails if 
+  the kernel has configured itself for the absence of an FPU. </p>
+  <p>As noted above, versions 3.50 to 5.0 can force this emulation even with an 
+  FPU by the simple expedient of having the kernel proceed as if without an FPU. 
+  In all versions 4.0 to 6.1, what <span class="constant">TRUE</span> for the
+  <span class="constant">PF_FLOATING_POINT_EMULATED</span> feature really means 
+  is not that floating-point instructions are emulated or that no physical FPU is 
+  present, but that the kernel is configured as if no physical FPU is present.
+  </p>
+  <p>This difference in meaning is real or not, depending on perspective and taste, 
+  in versions 5.1 to 6.1. These versions are odd. The kernel continues to test for 
+  presence of an FPU and would set <span class="constant">PF_FLOATING_POINT_EMULATED</span> 
+  as <span class="constant">TRUE</span> if no FPU is detected. As noted above, versions 
+  5.1 to 6.0 have code that would treat the FPU as absent, including because the 
+  FPU has a known defect with one instruction which can be worked around by emulating 
+  all instructions. In these cases too, the kernel would set
+  <span class="constant">PF_FLOATING_POINT_EMULATED</span> as
+  <span class="constant">TRUE</span>. Either way, there is no emulation to enable! 
+  Though NTDLL retains the handler in the original release of version 5.1, it does 
+  not export the <span class="variable">NPXEMULATORTABLE</span> variable through 
+  which earlier versions of the kernel locate the handler, and the build from Windows 
+  XP SP1 loses the handler (though it retains much of the supporting code and data).
+  </p>
+  <p>Fortunately, the removal of emulation in version 5.1 looks like it never can 
+  matter. As noted above, the registry value for forcing emulation in earlier versions 
+  is not read in versions 5.1 to 6.0. The kernel’s code that would set
+  <span class="constant">PF_FLOATING_POINT_EMULATED</span> as
+  <span class="constant">TRUE</span> because emulation is forced can never run. 
+  (If you start these versions under a kernel-mode debugger and set the internal 
+  variable <span class="internal variable">KeI386ForceNpxEmulation</span> to 2, 
+  as if the registry value had been read to force emulation, then you will confirm 
+  that the kernel sets <span class="constant">PF_FLOATING_POINT_EMULATED</span> 
+  as <span class="constant">TRUE</span> but you will also see Windows crash when 
+  user-mode code first executes a floating-point instruction—well, unless you have 
+  a Cyrix processor, which is another story.) As for the kernel’s code that would 
+  set <span class="constant">PF_FLOATING_POINT_EMULATED</span> as
+  <span class="constant">TRUE</span> when no FPU actually is present, this too is 
+  thought never to execute. Version 6.1 requires floating-point support from the 
+  boot processor, else Windows stops at startup with the bug check
+  <span class="constant"><a href="../../../../../bugchecks/5d.htm">UNSUPPORTED_PROCESSOR</a></span> 
+  (0x5D). Although versions 5.1 to 6.0 do not formally require an FPU, they do require 
+  the <span class="instruction">cmpxchg8b</span> instruction (see below), which 
+  in effect requires at least a Pentium and therefore a built-in FPU. Further study 
+  may show differently, but it is presently thought that <span class="constant">
+  PF_FLOATING_POINT_EMULATED</span> can only be <span class="constant">FALSE</span> 
+  in versions 5.1 to 6.1. </p>
+  <h4>Side-Effects </h4>
+  <p>Whether absence of an FPU is real or simulated—or, put another way, whatever 
+  causes <span class="constant">PF_FLOATING_POINT_EMULATED</span> to show as
+  <span class="constant">TRUE</span> (or as <span class="constant">FALSE</span> 
+  before Windows NT 4.0 SP4)—it forces other features to be
+  <span class="constant">FALSE</span>: </p>
+  <ul>
+    <li><span class="constant">PF_FLOATING_POINT_PRECISION_ERRATA</span>; </li>
+    <li><span class="constant">PF_MMX_INSTRUCTIONS_AVAILABLE</span>; </li>
+    <li><span class="constant">PF_XMMI_INSTRUCTIONS_AVAILABLE</span>; </li>
+    <li><span class="constant">PF_3DNOW_INSTRUCTIONS_AVAILABLE</span>; </li>
+    <li><span class="constant">PF_XMMI64_INSTRUCTIONS_AVAILABLE</span>; </li>
+    <li><span class="constant">PF_SSE3_INSTRUCTIONS_AVAILABLE</span>. </li>
+  </ul>
+  <p>This has real-world effect in versions 4.0 and 5.0. A naive test with
+  <span class="instruction">cpuid</span> can show that the processor has MMX instructions, 
+  but this doesn’t mean they are usable. Their execution instead causes an Invalid 
+  Opcode exception (6) because the kernel has set the <span class="bit">EM</span> 
+  bit in <span class="register">cr0</span> to enable floating-point emulation, which 
+  the processor regards as incompatible with MMX Technology. Though version 5.0 
+  ordinarily does support the SSE instructions if <span class="instruction">cpuid</span> 
+  shows both the <span class="bit">SSE</span> and <span class="bit">FXSR</span> 
+  bits, your own test of <span class="instruction">cpuid</span> for this does not 
+  suffice: as a side-effect of being configured to act as if no FPU is present, 
+  the kernel will not have set the <span class="bit">OSFXSR</span> bit (9) in
+  <span class="register">cr4</span> and most SSE instructions therefore cause the 
+  Invalid Opcode exception. </p>
+  <h3>Compare Exchange Double </h3>
+  <p>The <span class="constant">PF_COMPARE_EXCHANGE_DOUBLE</span> feature is necessarily
+  <span class="constant">TRUE</span> in the x86 version 6.0 starting from Windows 
+  Vista SP1, and in all later x86 versions, and in all x64 versions. </p>
+  <p>In x86 versions 4.0 to 6.0, this feature is <span class="constant">TRUE</span> 
+  if all processors have the 0x00000080 (<span class="constant">KF_CMPXCHG8B</span>) 
+  feature bit. Broadly speaking, this bit is set for a processor for which
+  <span class="register">edx</span> from <span class="instruction">cpuid</span> 
+  leaf 1 has a set <span class="bit">CX8</span> bit (8). AMD names this the
+  <span class="bit">CMPXCHG8B</span> bit. Whatever its name, its purpose is to declare 
+  the processor as having the <span class="instruction">
+  <a href="../../../../../cpu/cx8.htm">cmxchg8b</a></span> instruction. </p>
+  <p>The ultimate cause of the “broadly speaking” caveat is that when Windows first 
+  started using the <span class="instruction">cmpxchg</span> instruction, in version 
+  4.0, Microsoft recognised it only in processors from Intel, AMD and Cyrix. For 
+  processors from other vendors, a set <span class="bit">CX8</span> bit had the 
+  unpleasant consequence that early builds of version 4.0 stopped at startup. That 
+  the bug check is <span class="constant">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</span> 
+  even on a single-processor machine may or may not have meant the unpleasantness 
+  was just a coding oversight. (Remember, these were years when anti-competitive 
+  trickery by Microsoft was not much hidden.) The vendor-specific testing of
+  <span class="bit">CX8</span>, though not of other <span class="instruction">cpuid</span> 
+  feature bits, was relaxed for Windows NT 4.0 SP4. </p>
+  <p>The affected vendors inevitably developed means by which their processors that 
+  have <span class="instruction">cmpxchg8b</span> instructions would have
+  <span class="instruction">cpuid</span> show a clear <span class="bit">CX8</span> 
+  bit so that early builds of Window NT 4.0 could at least run, even if not optimally. 
+  Starting with version 5.1, Windows recognises cases of this happening and either 
+  reprograms the processor to enable <span class="instruction">cmpxchg8b</span> 
+  or just accepts that the processor actually does have
+  <span class="instruction">cmpxchg8b</span>. Thus can it be that the
+  <span class="constant">PF_COMPARE_EXCHANGE_DOUBLE</span> feature shows as
+  <span class="constant">TRUE</span> though a naive test for the
+  <span class="instruction">cmpxchg8b</span> instruction via
+  <span class="instruction">cpuid</span> would fail. </p>
+  <p>In version 5.1 and higher, <span class="instruction">cmpxchg8b</span> is required 
+  of the boot processor. If its intialisation does not produce the
+  <span class="constant">KF_CMPXCHG8B</span> feature bit, Windows stops with the 
+  bug check <span class="constant">UNSUPPORTED_PROCESSOR</span>. If the same initialisation 
+  of any other processor misses this feature bit, then Windows stops with the bug 
+  check <span class="constant">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</span>. 
+  In all practical cases therefore, <span class="constant">PF_COMPARE_EXCHANGE_DOUBLE</span> 
+  can only be <span class="constant">TRUE</span> in x86 versions 5.1 to early 6.0.
+  </p>
+  <p>That the <span class="constant">PF_COMPARE_EXCHANGE_DOUBLE</span> feature is 
+  hard-coded to <span class="constant">TRUE</span> in all x64 versions is because 
+  they won’t run without it. If any processor has a clear <span class="bit">CX8</span> 
+  bit in <span class="register">edx</span> from <span class="instruction">cpuid</span> 
+  leaf 1, 64-bit Windows stops with the <span class="constant">UNSUPPORTED_PROCESSOR</span> 
+  bug check. </p>
+  <h3>MMX Instructions Available </h3>
+  <p>The <span class="constant">PF_MMX_INSTRUCTIONS_AVAILABLE</span> feature is 
+  necessarily <span class="constant">TRUE</span> in all x64 versions. </p>
+  <p>In x86 versions 4.0 and higher, the feature is <span class="constant">TRUE</span> 
+  if all processors have the 0x00000100 feature bit and the kernel hasn’t disabled 
+  its use of the feature. Broadly speaking, the kernel sets this feature bit for 
+  a processor if <span class="register">edx</span> from
+  <span class="instruction">cpuid</span> leaf 1 has a set <span class="bit">MMX</span> 
+  bit (23). This, of course, indicates that the processor has the
+  <span class="register">mm0</span> to <span class="register">mm7</span> registers 
+  and the instructions that work with them. </p>
+  <p>Again, one aspect to “broadly speaking” is that vendor-specific constraints 
+  once applied. Version 4.0 recognises the <span class="bit">MMX</span> bit only 
+  in processors from Intel, AMD and Cyrix. Also familiar should be that this feature 
+  bit is cleared from the overall collection of feature bits if the kernel anticipates 
+  ever setting the <span class="bit">EM</span> bit in <span class="register">cr0</span>. 
+  This happens in versions before 6.1 if no FPU is present or in versions before 
+  5.1 if the kernel is configured to behave as if no FPU is present. Put floating-point 
+  emulation aside as archaeology, and the MMX instruction set is perhaps the least 
+  unsafe processor feature to test by executing <span class="instruction">cpuid</span> 
+  instead of querying through <span class="function">IsProcessorFeaturePresent</span>.
+  </p>
+  <p>That the <span class="constant">PF_MMX_INSTRUCTIONS_AVAILABLE</span> feature 
+  is hard-coded to <span class="constant">TRUE</span> in all x64 versions is because 
+  they won’t run without it. If any processor has a clear <span class="bit">MMX</span> 
+  bit in <span class="register">edx</span> from <span class="instruction">cpuid</span> 
+  leaf 1, 64-bit Windows stops with the <span class="constant">UNSUPPORTED_PROCESSOR</span> 
+  bug check. </p>
+  <h3>XMMI Instructions Available </h3>
+  <p>The <span class="constant">PF_XMMI_INSTRUCTIONS_AVAILABLE</span> feature is 
+  necessarily <span class="constant">TRUE</span> in x86 version 6.2 and higher, 
+  and in all x64 versions. </p>
+  <p>In x86 versions 5.0 to 6.1, the feature is <span class="constant">TRUE</span> 
+  if all processors have both the 0x00000800 and 0x00002000 feature bits. </p>
+  <h3>3DNow Instructions Available </h3>
+  <p>The <span class="constant">PF_3DNOW_INSTRUCTIONS_AVAILABLE</span> feature is
+  <span class="constant">TRUE</span> if all processors have the 0x00004000 feature 
+  bit. </p>
+  <h3>RDTSC Instruction Available </h3>
+  <p>The <span class="constant">PF_RDTSC_INSTRUCTION_AVAILABLE</span> feature is 
+  necessarily <span class="constant">TRUE</span> in x86 version 6.0 and higher, 
+  and in all x64 versions. </p>
+  <p>In x86 versions 5.0 to 5.2, this feature is <span class="constant">TRUE</span> 
+  if all processors have the 0x00000002 (<span class="constant">KF_RDTSC</span>) 
+  feature bit. </p>
+  <h3>PAE Enabled </h3>
+  <p>Whether the <span class="constant">PF_PAE_ENABLED</span> feature is
+  <span class="constant">TRUE</span> for 32-bit Windows depends entirely on which 
+  kernel is loaded. Windows is supplied with as many as four kernels: </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Installed Name </th>
+        <th>Versions </th>
+        <th>PAE </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">ntoskrnl.exe </td>
+        <td>5.0 to 5.2 </td>
+        <td>no </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>6.0 to 6.1 </td>
+        <td>no </td>
+        <td>built as ntkrnlmp.exe, renamed at installation </td>
+      </tr>
+      <tr>
+        <td>6.2 and higher </td>
+        <td>yes </td>
+        <td>built as ntkrpamp.exe, renamed at installation </td>
+      </tr>
+      <tr>
+        <td rowspan="2">ntkrnlpa.exe </td>
+        <td>5.0 to 5.2 </td>
+        <td>yes </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>6.0 to 6.1 </td>
+        <td>yes </td>
+        <td>built as ntkrpamp.exe, renamed at installation </td>
+      </tr>
+      <tr>
+        <td>ntkrnlmp.exe </td>
+        <td>5.0 to 5.2 </td>
+        <td>no </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>ntkrpamp.exe </td>
+        <td>5.0 to 5.2 </td>
+        <td>yes </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The feature is <span class="constant">TRUE</span> for a PAE kernel, else
+  <span class="constant">FALSE</span>. For 64-bit Windows, the
+  <span class="constant">PF_PAE_ENABLED</span> feature is necessarily
+  <span class="constant">TRUE</span>. </p>
+  <h3>XMMI64 Instructions Available </h3>
+  <p>The <span class="constant">PF_XMMI64_INSTRUCTIONS_AVAILABLE</span> feature 
+  is necessarily <span class="constant">TRUE</span> in all x64 versions. </p>
+  <p>In x86 version 6.2 and higher, it is <span class="constant">TRUE</span> if 
+  all processors have the 0x00010000 feature it. Earlier versions require both this 
+  feature bit and 0x00000800. </p>
+  <h3>NX Enabled </h3>
+  <p>The kernel’s use of the NX feature is subject to a large handful of configurable 
+  options. Before version 6.2, the <span class="constant">PF_NX_ENABLED</span> feature 
+  is <span class="constant">TRUE</span> if a particular feature bit is set: 0x80000000 
+  for x86 but 0x20000000 for x64. </p>
+  <h3>SSE3 Instructions Available </h3>
+  <p>In x86 version 6.2 and higher and in all x64 versions, the
+  <span class="constant">PF_SSE3_INSTRUCTIONS_AVAILABLE</span> feature is
+  <span class="constant">TRUE</span> if all processors have the 0x00080000 feature 
+  bit. Earlier x86 versions require both this feature bit and 0x00000800. </p>
+  <h3>128-Bit Compare Exchange </h3>
+  <p>The <span class="constant">PF_COMPARE_EXCHANGE128</span> feature is necessarily
+  <span class="constant">TRUE</span> in x64 version 6.3 and higher. </p>
+  <p>It is <span class="constant">TRUE</span> in earlier x64 versions if all processors 
+  have the 0x00100000 feature bit. </p>
+  <h3>Channels Enabled </h3>
+  <p>In version 6.0 only, the <span class="constant">PF_CHANNELS_ENABLED</span> 
+  feature is <span class="constant">TRUE</span> if all processors have the 0x00100000 
+  (x86) or 0x00200000 (x64) feature bit. These feature bits have other meanings 
+  in later versions. </p>
+  <h3>XSAVE Enabled </h3>
+  <p>The <span class="constant">PF_XSAVE_ENABLED</span> feature is
+  <span class="constant">TRUE</span> if all processors have the 0x00400000 (x86) 
+  or 0x00800000 (x64) feature bit. </p>
+  <h3>Second-Level Address Translation </h3>
+  <p>The <span class="constant">PF_SECOND_LEVEL_ADDRESS_TRANSLATION</span> feature 
+  is <span class="constant">TRUE</span> if all processors have the 0x04000000 feature 
+  bit. </p>
+  <h3>Virtualised Firmware Enabled </h3>
+  <p>The <span class="constant">PF_VIRT_FIRMWARE_ENABLED</span> feature is
+  <span class="constant">TRUE</span> if all processors have the 0x08000000 feature 
+  bit. </p>
+  <h3>RDWRFSGSBASE Available </h3>
+  <p>The <span class="constant">PF_RDWRFSGSBASE_AVAILABLE</span> feature is
+  <span class="constant">TRUE</span> if all processors have the 0x10000000 feature 
+  bit. </p>
+  <h3>Fast Fail Available </h3>
+  <p>The <span class="constant">PF_FASTFAIL_AVAILABLE</span> feature is necessarily
+  <span class="constant">TRUE</span> (in the applicable versions). </p>
+  <h3>RDRAND Instruction Available </h3>
+  <p>The <span class="constant">PF_RDRAND_INSTRUCTION_AVAILABLE</span> feature is
+  <span class="constant">TRUE</span> if all processors have the 0x02000000 (x86) 
+  or 0x00000001`00000000 (x64) feature bit. </p>
+  <h3>RDTSCP Instruction Available </h3>
+  <p>The <span class="constant">PF_RDTSCP_INSTRUCTION_AVAILABLE</span> feature is
+  <span class="constant">TRUE</span> if all processors have the 0x00000001`00000000 
+  (x86) or 0x00000004`00000000 (x64) feature bit. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 27th
+    <a href="../../../../../../../../new/19/12.htm">December 2019</a> but was not 
+    published until 12th January 2020. It was last modified on 12th October 2022.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c2022.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="13546" -->
+  </div>
+</div>
+
+</body>
+
+</html>

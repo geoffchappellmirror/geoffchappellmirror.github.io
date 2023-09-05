@@ -1,0 +1,175 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SHRestricted2</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js">
+</script>
+<script type="text/javascript" src="../../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>SHRestricted2 </h1>
+<p>This function gets the value of an Internet Explorer restriction. </p>
+<h2>Declaration </h2>
+<pre class="source">DWORD
+SHRestricted2 (
+    RESTRICTIONS2 rest,
+    LPCTSTR url,
+    DWORD reserved);</pre>
+<!--webbot bot="Include" U-Include="../_include/aw.htm" TAG="BODY" startspan -->
+
+<p>The function exists in ANSI and Unicode forms. </p>
+
+<!--webbot bot="Include" i-checksum="40026" endspan -->
+<h3>Parameters </h3>
+<p>The <span class="argument">rest</span> argument selects the restriction whose 
+value is wanted. The supported values in the <span class="enum">
+<a href="restrictions2.htm">RESTRICTIONS2</a></span> enumeration are listed separately. 
+(This name for the enumeration is invented, no record of Microsoft’s name being 
+known.) </p>
+<p>The <span class="argument">url</span> argument, if not NULL, supplies a URL to 
+evaluate the restriction for, most notably with respect to the URL’s security zone.
+</p>
+<p>The <span class="argument">reserved</span> argument must be zero. </p>
+<h3>Return Value </h3>
+<p>The function returns the value of the selected restriction, else zero. </p>
+<h2>Behaviour </h2>
+<p>The Internet Explorer restrictions are defined as a set in the sense supported 
+by the SHLWAPI function <span class="function">
+<a href="../../../../shell/shlwapi/api/util/restrictions/lookup.htm">SHRestrictionLookup</a></span>. 
+Each restriction is implemented as a registry value to be sought in either the
+<span class="regkey">HKEY_LOCAL_MACHINE</span> or <span class="regkey">HKEY_CURRENT_USER</span> 
+branch, with precedence given to the former. Though many restrictions are booleans 
+that specify whether a corresponding feature is restricted, typically as an administrative 
+policy, the general scheme is that a restriction can evaluate to any DWORD, defaulting 
+to zero. </p>
+<p>The function fails if <span class="argument">reserved</span> is not zero or if
+<span class="argument">rest</span> is unsupported. </p>
+<p>When a URL is given, applicable restrictions (presently 0x50000002 to 0x50000008 
+inclusive) are evaluated first with respect to the security zone, if any, that applies 
+to the URL. The ordinary registry value for the restriction applies only if no URL 
+is given or if querying for the URL policy permission does not succeed. </p>
+<p>Part of the SHLWAPI support is that SHDOCVW provides memory for caching the values 
+of the restrictions. It then depends on SHELL32 to be notified through its
+<span class="function">
+<a href="../../../../shell/shell32/api/util/shsettingschanged.htm">SHSettingsChanged</a></span> 
+function if any restrictions have their values changed in the registry. SHELL32 
+records the notification by incrementing a
+<a href="../../../../shell/shlwapi/api/gcount/index.htm">global counter</a>, which 
+is also a SHLWAPI feature. The <span class="function">SHRestricted2</span> function 
+consults the counter (using the undocumented SHLWAPI function
+<span class="function">SHGlobalCounterGetValue</span>) to learn whether any settings 
+are known to have changed since the previous call to <span class="function">SHRestricted2</span>. 
+If any have, the function resets its cached values of all restrictions before proceeding 
+to ask SHLWAPI for the lookup. </p>
+<h3>Old Behaviour </h3>
+<p>To versions 4.71 and 4.72, any <span class="argument">rest</span> less than 0x50000001 
+cannot be an Internet Explorer restriction but may be a shell restriction and is 
+passed unchanged to the SHELL32 function <span class="function">
+<a href="../../../../shell/shell32/api/util/shrestricted.htm">SHRestricted</a></span>. 
+Also in these versions, SHDOCVW does its own caching and its own lookup. </p>
+<h3>Shell Separation in Windows Vista </h3>
+<p>For the version 6.0 from Windows Vista, the preceding explanation of behaviour 
+remains true of the implementation in SHDOCVW, but this is not the implementation 
+that is accessed by importing <span class="function">SHRestricted2</span> from SHDOCVW. 
+The function is not-quite duplicated in a new DLL, named IEFRAME, and is exported 
+from there. SHDOCVW forwards all import requests to the copy that is exported from 
+IEFRAME. The implementation in SHDOCVW still gets a little use, but only internally 
+(and even this may be due to oversight or to some difficulty in shedding it completely). 
+In version 6.1, the implementation in SHDOCVW is eliminated entirely. </p>
+<p>The preceding explanation of behaviour also is true of the implementation in 
+IEFRAME, except that SHLWAPI is reduced just to providing the sense and meaning 
+of what a restriction is and of how one is implemented. IEFRAME does not actually 
+call the undocumented function <span class="function">SHRestrictionLookup</span> 
+as implemented in SHLWAPI. Instead, IEFRAME has its own copy of the SHLWAPI code. 
+Microsoft’s symbol files indicate that this copying of code from SHLWAPI is done 
+at source-level, not by linking from a library. </p>
+<p>Similar games apply to the global counter, but with more convolution. The SHLWAPI 
+support for global counters was reworked for Windows Vista. The old functions are 
+retired, but not because the functionality wasn’t wanted. There are new functions, 
+arguably improving on the old, not that Microsoft cares to document them. Again, 
+it should be stressed that the IEFRAME implementation of <span class="function">
+SHRestricted2</span> does not get its global counters by calling any code in SHLWAPI. 
+It gets them instead from a copy of the code. This time, however, the copy is not 
+in IEFRAME: it is in another new DLL, named IERTUTIL, and IEFRAME imports its global-counter 
+functionality from there (under the new name <span class="function">IEGlobalCounterGetValue</span>) 
+rather than from SHLWAPI. </p>
+<p>All this looks for all the world like a ruse to evade any accusation that IEFRAME 
+calls undocumented SHLWAPI functions. Such calls would be problematic with respect 
+to a legal settlement in which components of Internet Explorer are not to call undocumented 
+functions in components of Windows. Just from its name, IEFRAME is surely an Internet 
+Explorer component, and many might think SHLWAPI is just as surely a Windows component. 
+Internet Explorer no longer calls SHLWAPI to help with the functionality of
+<span class="function">SHRestricted2</span>. It just calls its own internal copy 
+of the SHLWAPI code instead. Microsoft’s lawyers must be beside themselves with 
+delight at their cleverness. </p>
+<h4>Internet Explorer 7 </h4>
+<p>This “separation” of Internet Explorer functionality from Windows seems to have 
+been prepared some years in advance of Windows Vista. Starting with the version 
+6.0 from Windows XP SP2 and from Windows Server 2003 SP1, including builds from 
+the Internet Explorer 7 and 8 packages for Windows XP and Windows Server 2003, the 
+SHDOCVW implementation of <span class="function">SHRestricted2</span> is aware that 
+an IEFRAME implementation may be present from installation of Internet Explorer 
+7 or 8. The exported function is not actually <span class="function">SHRestricted2W</span> 
+itself but <span class="function">SHRestricted2W_IeframeProxy</span> (and similarly 
+for the ANSI version). The proxy may have been intended to redirect the function 
+to the IEFRAME implementation when IEFRAME is indeed present. As actually coded 
+however, all the proxy does is save the address of the IEFRAME implementation before 
+proceeding anyway to execute the rest of the SHDOCVW implementation. </p>
+<h2>Availability </h2>
+<p>The <span class="function">SHRestricted2</span> function is exported in ANSI 
+and Unicode forms from: </p>
+<ul>
+  <li>SHDOCVW as ordinals 158 and 159 respectively in version 4.71 and higher;
+  </li>
+  <li>IEFRAME as ordinals 158 and 159 respectively in version 7.0 and higher.
+  </li>
+</ul>
+<p>In version 6.0 from Windows Vista, and higher, SHDOCVW continues to export both 
+forms of the function but only as forwards to IEFRAME. </p>
+<!--webbot bot="Include" U-Include="../_include/undoc471.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 1997, it was still not 
+documented by Microsoft as late as the January 2007 edition of the Windows Vista 
+Software Development Kit (SDK). </p>
+
+<!--webbot bot="Include" i-checksum="56950" endspan -->
+<div class="Footer">
+  <p class="Dates">This page was created on 20th February 2008 and was last modified 
+  on 17th March 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0810.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="55263" endspan -->
+</div>
+
+</body>
+
+</html>

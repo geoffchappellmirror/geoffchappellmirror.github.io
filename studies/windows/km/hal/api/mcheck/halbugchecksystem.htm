@@ -1,0 +1,170 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>HalBugCheckSystem</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="43332" endspan -->
+<h1>HalBugCheckSystem </h1>
+<p>This function stops the system because of an uncorrectable hardware error.
+</p>
+<h2>Declaration </h2>
+<pre class="source">VOID HalBugCheckSystem (PVOID ErrorRecord); </pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">ErrorRecord</span> argument is the address of a buffer 
+that contains a <span class="struct">WHEA_ERROR_RECORD</span> structure followed 
+by other data to describe the error. </p>
+<h2>Behaviour </h2>
+<p>The function processes the first <span class="struct">WHEA_ERROR_PACKET</span> 
+in the descriptive data. The offset of this structure from the beginning of the 
+buffer is given by the <span class="member">SectionOffset</span> member of the first
+<span class="struct">WHEA_ERROR_HEADER_SECTION_DESCRIPTOR</span> in the
+<span class="struct">WHEA_ERROR_RECORD</span>. Microsoft does not document the
+<span class="struct">WHEA_ERROR_PACKET</span> structure, but a definition is in 
+NTDDK.H. The handling varies with the type of error source as given by the structure’s
+<span class="member">ErrorSourceType</span> member. The following error sources 
+are recognised: </p>
+<ul>
+  <li><span class="constant">WheaErrSrcTypeMCE</span> (0), for a Machine Check Exception 
+  (MCE); </li>
+  <li><span class="constant">WheaErrSrcTypeCMC</span> (1), for a Corrected Machine 
+  Check (CMC); </li>
+  <li><span class="constant">WheaErrSrcNMI</span> (3), for a Non-Maskable Interrupt 
+  (NMI); </li>
+  <li><span class="constant">WheaErrSrcTypePCIe</span> (4), for a PCI Express Error 
+  (PCIe). </li>
+</ul>
+<p>For any other type of error source, the function returns without having done 
+anything. </p>
+<h3>NMI </h3>
+<p>When the error source is <span class="constant">WheaErrSrcNMI</span> (3), the 
+function displays the following few lines of text: </p>
+<pre class="output">*** Hardware Malfunction
+
+Call your hardware vendor for support
+
+<span class="placeholder">description</span>
+
+*** The system has halted ***</pre>
+<p>in which <span class="placeholder">description</span> may be omitted but ordinarily 
+stands for either of the following: </p>
+<table>
+  <tr>
+    <td>
+    <pre class="output">NMI: Channel Check / IOCHK</pre>
+    </td>
+    <td>if the first byte of the <span class="member">RawData</span> in the
+    <span class="struct">WHEA_ERROR_PACKET</span> has the 0x40 bit set </td>
+  </tr>
+  <tr>
+    <td><span class="output">NMI: Parity Check / Memory Parity Error</span></td>
+    <td>if the first byte of the <span class="member">RawData</span> in the
+    <span class="struct">WHEA_ERROR_PACKET</span> has the 0x80 bit set </td>
+  </tr>
+</table>
+<p>If a boot video driver is installed, the function will have first put the display 
+in text mode for a screen of bright white text on a blue background. </p>
+<p>With the message displayed, the function either raises the bug check
+<span class="constant"><a href="../../../bugchecks/80.htm">NMI_HARDWARE_FAILURE</a></span> 
+(0x80) or halts the system. The choice is configurable, through the following registry 
+entry: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\CrashControl</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">NMICrashDump</span> </td>
+  </tr>
+</table>
+<p>This registry value is read when the HAL function <span class="function">HalReportResourceUsage</span> 
+executes during system initialisation. The data is accepted if it is exactly four 
+bytes. If the first byte is non-zero, then this function will raise the bug check 
+through the kernel instead of performing its own halt. The most notable effect is 
+that the kernel may be able to write a crash dump. </p>
+<p>To halt the system, the function simply executes an instruction that jumps to 
+itself. If a debugger is present and enabled, the function first breaks to the debugger. 
+Since this is done by calling <span class="function">KeEnterKernelDebugger</span>, 
+the status code on entry to the debugger has the distinctive value
+<span class="constant">DBG_STATUS_FATAL</span> (5). </p>
+<h3>Other Error Sources </h3>
+<p>For all the other recognised types of error source, the function raises the bug 
+check <span class="constant"><a href="../../../bugchecks/0124.htm">WHEA_UNRECOVERABLE_ERROR</a></span> 
+(0x0124). The first two arguments are: </p>
+<ul>
+  <li>the <span class="member">ErrorSrcType</span>; </li>
+  <li>the address of the <span class="struct">WHEA_ERROR_RECORD</span>. </li>
+</ul>
+<p>For PCI Express errors, the third and fourth arguments are both zero. When the 
+source is an MCE or CMC, the third and fourth arguments are respectively the high 
+and low dwords of a 64-bit status that the function expects to have been provided 
+at offset 0x20 in the error packet’s <span class="member">RawData</span>. </p>
+<h2>Known Use </h2>
+<p>The only known use of the <span class="function">HalBugCheckSystem</span> function 
+is to provide the whole implementation of the PSHED function
+<span class="function">PshedBugCheckSystem</span>. This, in turn, seems to exist 
+only to be used by the kernel for its <span class="function">WheaReportHwError</span> 
+function in the cases where either </p>
+<ul>
+  <li>the error severity is <span class="constant">WheaErrSevFatal</span> (1)
+  </li>
+  <li>or the error severity is <span class="constant">WheaErrSevRecoverable</span> 
+  (0) but <span class="function">PshedAttemptErrorRecovery</span> does not change 
+  the error severity to <span class="constant">WheaErrSevCorrected</span> (2).
+  </li>
+</ul>
+<p>The kernel function and the two PSHED functions just mentioned are undocumented, 
+but again, declarations are given in NTDDK.H. </p>
+<h2>Availability </h2>
+<p>The <span class="function">HalBugCheckSystem</span> function is exported from 
+the HAL in version 6.0 and higher. It is declared in NTDDK.H but is otherwise undocumented.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 16th April 2009 and was last modified 
+  on 17th April 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62869" endspan -->
+</div>
+
+</body>
+
+</html>

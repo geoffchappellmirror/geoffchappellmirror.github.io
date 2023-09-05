@@ -1,0 +1,135 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>PerformOperationOverUrlCacheA</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>PerformOperationOverUrlCacheA </h1>
+<p>This function enumerates a URL cache container, calling an arbitrary function 
+for each entry that matches the given search criteria. </p>
+<h2>Declaration </h2>
+<pre class="source">BOOL 
+PerformOperationOverUrlCacheA (
+    LPCSTR lpszUrlSearchPattern, 
+    DWORD dwFlags, 
+    DWORD dwFilter, 
+    GROUPID GroupId, 
+    LPVOID lpGroupAttributes, 
+    LPDWORD lpcbGroupAttributes, 
+    LPVOID lpReserved
+    CACHE_OPERATOR op,
+    PVOID pOperatorData);</pre>
+<p>Since the <span class="type">CACHE_OPERATOR</span> type appears to be used nowhere 
+else, it is as well given here: </p>
+<pre class="source">typedef 
+BOOL 
+(*CACHE_OPERATOR) (
+    INTERNET_CACHE_ENTRY_INFOA *pcei, 
+    PDWORD pcbcei, 
+    PVOID pOpData);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">lpszUrlSearchPattern</span>,
+<span class="argument">dwFlags</span>, <span class="argument">dwFilter</span>,
+<span class="argument">GroupId</span>, <span class="argument">lpGroupAttributes</span>,
+<span class="argument">lpcbGroupAttributes</span> and <span class="argument">lpReserved</span> 
+arguments are exactly as for the <span class="function">
+<a href="../cacheapi/findfirstentryex.htm">FindFirstUrlCacheEntryEx</a></span> function.
+The first four arguments specify search criteria. The last three are reserved: 
+two are ignored and the last must be <span class="constant">NULL</span>.
+</p>
+<p>The <span class="argument">op</span> argument provides the address of the callback 
+function. </p>
+<p>The <span class="argument">pOperatorData</span> argument provides a caller-specific 
+context to be passed on each invocation of the callback function. </p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">TRUE</span> if successful, else
+<span class="constant">FALSE</span>. </p>
+<h2>Behaviour </h2>
+<p>This is a utility function that conveniently wraps up the work of enumerating 
+a URL cache container. Thus, it calls <span class="function">FindFirstUrlCacheEntryEx</span> 
+to prepare the enumeration, follows with however many calls to
+<span class="function">FindNextUrlCacheEntryEx</span> are needed to see the enumeration 
+to its end, and finishes with <span class="function">FindCloseUrlCache</span>. The 
+initial buffer for receiving information about URL entries is 0x0450 bytes, apparently 
+chosen as 0x50 for the <span class="constant">INTERNET_CACHE_ENTRY_INFO</span> structure 
+and a round-number allowance of 1KB for the variable-sized data that may follow 
+this structure. Whenever a first call to find the next URL entry fails with
+<span class="constant">ERROR_INSUFFICIENT_MEMORY</span> as the error code, the buffer 
+is replaced by a larger one, increasing always by as many whole multiples of 1KB 
+as needed to cover the size that the called function suggested, and the call is 
+repeated. Failure of a first call for any other reason, or of a second call for 
+any reason, or of any request for memory, ends the enumeration. </p>
+<p>On each successful attempt at finding another URL entry, the function notifies 
+the caller, at the address given by the <span class="argument">op</span> argument. 
+This callback function receives three arguments: </p>
+<ul>
+  <li>the address of information about the URL entry; </li>
+  <li>the address of a dword that gives the size, in bytes, of the information;
+  </li>
+  <li>the arbitrary context that the caller provided as the
+  <span class="argument">pOperatorData</span> argument. </li>
+</ul>
+<p>Why the size is passed by address is unclear: any change the callback function 
+makes to it is ignored. The callback function returns <span class="constant">FALSE</span> 
+to end the enumeration (prematurely). It seems expected that the callback function 
+should set an error code. Certainly, if the callback function ends the enumeration 
+but wants the <span class="function">PerformOperationOverUrlCacheA</span> function 
+to succeed, it should set <span class="constant">ERROR_NO_MORE_ITEMS</span> as the 
+last error code. If the callback function returns anything other than
+<span class="constant">FALSE</span>, the <span class="function">PerformOperationOverUrlCacheA</span> 
+function looks for another entry. </p>
+<p>The function succeeds or fails according to whether the enumeration appears to 
+have completed, such that the last error code is <span class="constant">ERROR_NO_MORE_ITEMS</span>. 
+(Although the coding does not check <span class="function">FindCloseUrlCache</span> 
+for success, it does depend on this call not to set a last error code if succeeding.)
+</p>
+<h2>Availability </h2>
+<p>The <span class="function">PerformOperationOverCacheEntryA</span> function is 
+exported as ordinal 103 from WININET version 5.0 and higher. Though it is not documented, 
+it is declared in an SDK header file, named WININETI.H, and this article (more or 
+less) follows that declaration’s nomenclature. </p>
+<p>Though the function is exported, its only known use by Microsoft is internal 
+to WININET, specifically when moving the Content container. </p>
+<p>The behaviour described in this note is of version 7.0 from the original Windows 
+Vista. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 27th September 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c10.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="5570" endspan -->
+</div>
+
+</body>
+
+</html>

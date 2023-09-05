@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EXTRACT.EXE Misses Files in Cabinet</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>EXTRACT.EXE Misses Files in Cabinet </h1>
+  <h2>Background </h2>
+  <p>With Windows 95, if not earlier, Microsoft introduced a scheme by which a set 
+  of files may be compressed into one or more cabinet files (with the .CAB extension) 
+  for easy distribution. Windows 95 is itself distributed as a series of these cabinet 
+  files. Windows 95 also supplies a program with which users may operate on cabinet 
+  files, especially to get a directory of the cabinet’s contents or to extract files 
+  of particular interest. This utility program is called EXTRACT.EXE. That this 
+  program is a standard component of a Windows 95 installation makes it very convenient 
+  to distribute files in cabinets. </p>
+  <p>EXTRACT.EXE is a DOS program with a command line syntax. Of special interest 
+  to this bug note is that the syntax allows users to follow the name of the cabinet 
+  with one or more templates for the names of files that the program is to search 
+  for in the cabinet. These templates may simply be filenames or they may include 
+  wildcard characters. If the user supplies no template, the program uses *.* by 
+  default. </p>
+  <h2>Problem </h2>
+  <p>Some versions of the EXTRACT.EXE program do not give *.* the conventional meaning 
+  of matching all filenames. Instead, the program interprets *.* as matching files 
+  whose names contain exactly one period. Whenever the EXTRACT program uses *.* 
+  as the template for matching files, it will miss files whose names have no extension 
+  (and files whose names have more than one period). </p>
+  <h3>Applicable Versions </h3>
+  <p>This note applies to versions 1.00.0520 and 1.00.0530. The latter is the more 
+  common, being distributed with Windows 95 (both the original release and OSR2) 
+  and with many Microsoft applications. Dates and times for the file vary with the 
+  package. The file size varies also, depending on whether the executable is compressed. 
+  Version 1.00.0520 was distributed with Microsoft Office for Windows 95. To determine 
+  the version of a given EXTRACT.EXE file, execute it with either no command-line 
+  arguments or with the <span class="switch">/?</span> switch. </p>
+  <p>The version 1.00.0603 distributed with Internet Explorer 4.0 does not exhibit 
+  the problem described here. </p>
+  <h2>Work Around </h2>
+  <p>There is no template that the faulty versions of EXTRACT.EXE will interpret 
+  as matching all possible filenames. However, all filenames that are valid under 
+  traditional DOS rules will be matched by running the EXTRACT program twice—once 
+  in the usual way with either *.* or with no template, and once with the template 
+  * in case the cabinet contains files that have no extension. </p>
+  <h3>Example </h3>
+  <p>If a user is given a cabinet file, say ARCHIVE.CAB, then the command
+  <span class="command">extract archive.cab *.*</span> (or its equivalent
+  <span class="command">extract /e archive.cab</span>) cannot be relied on to extract 
+  all the contents of the cabinet. However, the command <span class="command">extract 
+  archive.cab *.*</span> can be followed by <span class="command">extract archive.cab 
+  *</span> to pick up any files whose names happen not to contain a period. </p>
+  <h2>Cause </h2>
+  <p>The cause is confirmed to lie in the EXTRACT.EXE code—specifically in the routine 
+  that matches a given filename against a given template. The implementation of 
+  how characters in the template are to match characters in the filename is: </p>
+  <ul>
+    <li>The wildcards are the asterisk and the question mark. </li>
+    <li>An asterisk (along with zero or more wildcards in any order immediately 
+    after the first asterisk) matches any zero or more characters except for a period 
+    or the character (if any) that follows the wildcard (or wildcards) in the template.
+    </li>
+    <li>A question mark matches any one character except for a period. </li>
+    <li>Any character that is not a wildcard matches any one character that has 
+    the same mapping to upper case. (This is a simple case map that applies only 
+    to the lower case letters of the English alphabet.) </li>
+  </ul>
+  <p>In particular, a period in the template matches only a period in the filename 
+  and conversely, a period in the filename can be matched only by a period in the 
+  template. The template *.* is therefore interpreted as matching filenames that 
+  contain exactly one period. </p>
+  <h2>Fix </h2>
+  <p>In version 1.00.0603, the routine that matches a given filename against a given 
+  template starts with new code—almost certainly just one line of C—that returns 
+  a successful match, whatever the filename, if given *.* as the template. </p>
+  <p>The Windows problem described in this note has therefore been fixed by Microsoft, 
+  the solution being to upgrade Windows by installing Internet Explorer 4.0. Careful 
+  inspection of the Microsoft Knowledge Base may one day show that the problem is 
+  not only fixed but documented (as one would think it would be, at least while 
+  faulty versions of EXTRACT.EXE remain in circulation). </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 9th July 1997 and was last modified 
+    on 24th January 2009. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9709.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1997-2009. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63543" -->
+  </div>
+</div>
+
+</body>
+
+</html>

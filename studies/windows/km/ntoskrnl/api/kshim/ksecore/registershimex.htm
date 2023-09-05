@@ -1,0 +1,134 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KseRegisterShimEx</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KseRegisterShimEx </h1>
+<p>This function registers a shim for eventual application to one or more drivers.
+</p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+KseRegisterShimEx (
+    <a href="shim.htm">KSE_SHIM</a> *Shim, 
+    PVOID Ignored, 
+    ULONG Flags, 
+    PVOID Object);</pre>
+<p>Except for <span class="struct">KSE_SHIM</span>, the names and types in the preceding 
+declaration are confected for this article, Microsoft’s being unknown. </p>
+<h3>Parameters </h3>
+<p>The <span class="argument">Shim</span> argument is the address of a
+<span class="struct">KSE_SHIM</span> structure that mostly provides input to the 
+function but also receives some output. As input, it describes the shim, including 
+to specify a GUID and to point to arrays of <span class="struct">
+<a href="collection.htm">KSE_HOOK_COLLECTION</a></span> structures that have pointers 
+to arrays of <span class="struct"><a href="hook.htm">KSE_HOOK</a></span> structures. 
+On output, it receives a pointer to a table of callback routines. The structure 
+may be further edited if the shim ever is applied to any driver. </p>
+<p>The <span class="argument">Ignored</span> argument appears to be ignored. </p>
+<p>The <span class="argument">Flags</span> argument seems intended to offer some 
+configurability. </p>
+<p>The <span class="argument">Object</span> argument is the address of an object 
+for the kernel to keep referenced while the shim is applied. This argument can be
+<span class="constant">NULL</span> (and is when the function is called from
+<span class="function"><a href="registershim.htm">KseRegisterShim</a></span>).
+</p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+<h2>Availability </h2>
+<p>The <span class="function">KseRegisterShimEx</span> function is exported by name 
+from the kernel in version 6.2 and higher. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">KseRegisterShimEx</span> function is not documented. 
+Nor is it declared in any header from any known Windows Driver Kit (WDK). </p>
+<h2>Behaviour </h2>
+<p>The function must be given a shim to register else it has nothing to do: if instead
+<span class="argument">Shim</span> is <span class="constant">NULL</span>, the function 
+returns <span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<p>If some problem occurred while initialising the Kernel Shim Engine (KSE) such 
+that it is not operational, there is no point trying to proceed, and the function 
+returns <span class="constant">STATUS_UNSUCCESSFUL</span>. </p>
+<p>The function checks the <span class="struct">KSE_SHIM</span> for plausibility. 
+Among the intentions to this validation is that all hooks to which a shimmed driver’s 
+execution might be diverted must be within the shim provider, i.e., the caller of 
+this function. As preparation, the function needs a list of loaded modules (for 
+the base address and size of each module’s executable image in memory). If the function 
+cannot get the list, it fails, returning whatever error it ran into. If the return 
+address of this function is not in an executable image as known from the list, the 
+function returns <span class="constant">STATUS_NOT_FOUND</span>. </p>
+<p>The <span class="struct">KSE_SHIM</span> must have a non-<span class="constant">NULL</span> 
+pointer to an array of <span class="struct">KSE_HOOK_COLLECTION</span> structures. 
+Each <span class="struct">KSE_HOOK_COLLECTION</span> structure must have a non-<span class="constant">NULL</span> 
+pointer to an array of <span class="struct">KSE_HOOK</span> structures. Each
+<span class="struct">KSE_HOOK</span> structure must have a non-<span class="constant">NULL</span> 
+pointer to a hook routine. Each hook routine must lie inside the shim provider, 
+or so seems to be the intention. Failure anywhere in this hierarchy is failure for 
+the function, which returns <span class="constant">STATUS_UNSUCCESSFUL</span>. Note 
+though, that the last test for each hook is presently ineffective: what’s coded 
+is to reject a hook that is below the shim provider’s base
+<span class="emphasis">and</span> not below the shim provider’s base plus size.
+</p>
+<p>All being well, the KSE will keep a small structure—which text that can be logged 
+on errors refers to as a <span class="definition">shim object</span>—to represent 
+this shim in a linked list of all registered shims. If the function can’t get memory 
+(from paged pool) for this structure, it fails, returning <span class="constant">
+STATUS_INSUFFICIENT_RESOURCES</span>. If the list already has a structure for a 
+registered shim with the same GUID as given in the <span class="struct">KSE_SHIM</span> 
+that’s being registered now, then the function fails, returning
+<span class="constant">STATUS_OBJECT_NAME_COLLISION</span>. Ordinarily, however, 
+the structure is inserted into the list and the shim thus becomes registered.
+</p>
+<p>Before returning, the function edits the <span class="struct">KSE_SHIM</span> 
+to tell the shim provider of two callback routines that may help should the shim 
+ever be applied to a driver. </p>
+<p>How a shim ever does get applied, and to what drivers, is not the business of 
+this function but does on one count have some implication for the function’s use. 
+Whenever a driver is loaded, the KSE consults a database to learn what shims, if 
+any, should be applied. Each shim is indicated by its GUID and an expected shim 
+provider. If no shim with that GUID is yet registered, the KSE loads the corresponding 
+shim provider, plainly expecting that the shim will then get registered. The strong 
+suggestion is that shim providers call this function while initialising. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th
+  <a href="../../../../../../../new/16/08.htm">August 2016</a> and was last modified 
+  on 27th May 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1620.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4893" -->
+</div>
+
+</body>
+
+</html>

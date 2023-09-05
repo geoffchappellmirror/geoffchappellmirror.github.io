@@ -1,0 +1,240 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Viewing the Firmware Memory Map</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<h1>Viewing the Firmware Memory Map </h1>
+<p>A possibly useful demonstration of the <a href="index.htm">x86 BIOS emulator</a> 
+that’s implemented in the HAL in version 6.0 and higher is to have a driver execute 
+int 15h function E820h on a running system in order to discover the memory map that 
+the loader will have worked from in deciding what memory Windows can use. This memory 
+map is very different from what can be seen in the Device Manager when viewing resources 
+by type. As helpful as this latter map can be, it shows only what Windows has ended 
+up using, not what it might have used. </p>
+<p>The value of retrieving the map that Windows started with is increased beyond 
+mere curiosity now that computers are typically sold with more RAM than can fit 
+in what’s left of the first 4GB of physical address space after an increasing number 
+of increasingly greedy peripheral devices each take their cut. Some chipsets, perhaps 
+many, deal with this reasonably elegantly by remapping much of the excess RAM to 
+the end of all other RAM that is anyway addressable above 4GB. Some don’t. Either 
+way, since <a href="../../../../../../notes/windows/license/memory.htm">Microsoft 
+does not license 32-bit Windows Vista to use physical memory above 4GB</a>, most 
+users just end up wondering where the missing part of their 4GB has gone, manufacturers 
+have to warn that not all the 4GB will be usable, and the Internet gets to show 
+how very good it is at propagating all manner of supposed explanations. </p>
+<p>If you’re using 32-bit Windows Vista (or higher) on a computer that has 4GB or 
+more of RAM fitted, and you wonder what your options are for getting all that memory 
+into use, then you might benefit from knowing whether any RAM that doesn’t show 
+below 4GB is remapped above 4GB. The Firmware Memory Map Tool presented on this 
+page will give you this information. If you find that no RAM is reported above 4GB, 
+then the RAM that is overridden below 4GB is truly lost. Even installing 64-bit 
+Windows will not help, and you are clearly better off to know before trying. If 
+you do have RAM above 4GB, then you can know how much you stand to gain from getting 
+a Windows that isn’t limited to 4GB. </p>
+<h2>The Firmware Memory Map Tool </h2>
+<p>The FWMEMMAP.SYS driver exists just to reproduce the way that the loader obtained 
+the memory map that Windows started from. Windows does not retain this memory map, 
+but a driver may call int 15h function E820h enough times to retrieve the whole 
+memory map and then make the result accessible from user mode via a Device I/O Control 
+interface. The FWMEMMAP.EXE utility is a console application that exists just to 
+load the FWMEMMAP.SYS driver, ask it for the map, show the map to you, and then 
+unload the driver. </p>
+<p>The driver calls the BIOS by using the HAL’s real-mode emulator, which is conveniently 
+new for Windows Vista. One of the points to this introduction of BIOS support through 
+an emulator is presumably that it should work for both the x86 and x64 architectures, 
+without Microsoft having to build into 64-bit Windows all the support needed for 
+getting the processor to execute 16-bit real-mode code in a virtual-8086 task. So 
+that you may see this works, I provide x64 builds of the driver and program, even 
+though I do not imagine they are much use in practice. After all, if you have 64-bit 
+Windows, you will typically not need this utility to tell you whether any RAM is 
+remapped to be addressable above 4GB: you’ll just see that Windows is using it. </p>
+<p>You should be aware that the driver uses five undocumented kernel-mode functions:
+</p>
+<ul>
+  <li><span class="function"><a href="allocatebuffer.htm">x86BiosAllocateBuffer</a></span>
+  </li>
+  <li><span class="function"><a href="call.htm">x86BiosCall</a></span> </li>
+  <li><span class="function"><a href="freebuffer.htm">x86BiosFreeBuffer</a></span>
+  </li>
+  <li><span class="function"><a href="readmemory.htm">x86BiosReadMemory</a></span>
+  </li>
+  <li><span class="function"><a href="writememory.htm">x86BiosWriteMemory</a></span>
+  </li>
+</ul>
+<p>If you are troubled about software using features that the manufacturer does 
+not disclose, then do not use this driver. </p>
+<h3>Caveats </h3>
+<p>Now, I should point out that there are some risks with calling the BIOS emulator 
+on a running system. The HAL interprets the real-mode code that would execute if 
+an interrupt actually were called in real mode, e.g., by a DOS program running on 
+a machine that has booted DOS, or indeed by the Windows loaders (both BOOTMGR and 
+WINLOAD) before the kernel runs. Wherever the real-mode code would execute port 
+I/O instructions, the HAL actually may read from or write to the port. There is 
+at least some potential that port I/O for the emulator interferes with port I/O 
+being performed concurrently by drivers for purposes that have nothing to do with 
+the emulator. Except for CMOS and PCI ports, there seems to be no means of synchronisation. 
+Though conflict over port I/O seems highly improbable for int 15h function E820h, 
+it perhaps is not impossible. </p>
+<p>Also unlikely but not impossible when attempting to use the BIOS emulator on 
+a running system is that the emulator gets called concurrently from different threads. 
+The implementation is not designed for this, presumably because Microsoft intends 
+only a very specific use in highly particular circumstances. Re-entering the emulator 
+in version 6.0 will confuse it, but except in one special case version 6.1 defends 
+by raising an assertion (giving you a bug check’s blue screen of death). </p>
+<p>Attempting to retrieve the memory map through the BIOS emulator may anyway come 
+to nothing because although the int 15h function E820h is successfully emulated, 
+it returns an error. A notable cause is that the BIOS expects this function to be 
+called only in real mode and insists on it. Since the emulator has the 
+<span class="instruction">smsw</span> instruction always produce 0x2D, a BIOS that 
+checks will perceive that it is running in protected mode—yes, even though it is 
+being executed with real-mode addressing. If your BIOS happens to be one that will 
+not return the map unless called in real mode, then there there is not much that 
+can sensibly be done about it. </p>
+<h3>Output </h3>
+<p>The following example should be typical of the tool’s output. The computer in 
+question is fitted with 4GB of RAM as four 1GB chips. Much of the address space 
+immediately below 4GB is not usable for RAM, but 768MB is remapped to be usable 
+above 4GB. </p>
+<pre class="output">Map of firmware memory ranges (from int 15h function E820h)
+
+       Address               Size              Type
+=================== =================== =================
+0x00000000`00000000 0x00000000`0009E800  1 (memory)
+0x00000000`0009E800 0x00000000`00001800  2 (reserved)
+0x00000000`000F0000 0x00000000`00010000  2 (reserved)
+0x00000000`00100000 0x00000000`CFD90000  1 (memory)
+0x00000000`CFE90000 0x00000000`00053000  4 (ACPI NVS)
+0x00000000`CFEE3000 0x00000000`0000D000  3 (ACPI Reclaim)
+0x00000000`CFEF0000 0x00000000`00010000  2 (reserved)
+0x00000000`E0000000 0x00000000`10000000  2 (reserved)
+0x00000000`FEC00000 0x00000000`01400000  2 (reserved)
+0x00000001`00000000 0x00000000`30000000  1 (memory)
+
+Summary (in MB, ignoring partial MB):
+
+Total memory:               4094
+Memory above 4GB:            768</pre>
+<p>Ranges that are addressable as RAM are marked “memory”. To interpret other values 
+in the Type column, refer to the definition of int 15h function E820h in the
+<a target="_top" href="http://www.acpi.info/DOWNLOADS/ACPIspec30b.pdf">Advanced 
+Configuration and Power Interface (ACPI) Specification</a>, Section 14,
+<span class="citation">System Address Map Interfaces</span>. Note that the map has 
+holes: int 15h function E820h does not report “standard PC address ranges” or areas 
+of address space that are used “for the memory mapping of PCI devices, ISA Option 
+ROMs, and ISA Plug and Play cards”. </p>
+<p>The example given above has three such holes: </p>
+<ul>
+  <li>from 0x000A0000 up to but not including 0x000F0000 (0x00050000 bytes) </li>
+  <li>from 0xCFF00000 up to but not including 0xE0000000 (0x10100000 bytes) </li>
+  <li>from 0xF0000000 up to but not including 0xFEC00000 (0x0EC00000 bytes) </li>
+</ul>
+<p>The first is expected for compatibility going all the way back to the original 
+IBM PC. The others will vary from one computer to another, depending on what peripherals 
+are fitted. To learn how Windows uses memory in these holes, start the Device Manager, 
+then from its View menu select “Resources by type” and expand Memory. For the example 
+shown, almost all of the first hole is given over to the video card, which has 256MB 
+at 0xD0000000, but the second hole is highly fragmented, from another 32MB at 0xF8000000 
+for the video card down to a network card’s use of just 256 bytes at 0xFDCFE000. 
+Conspicuously, since the computer happens to run 32-bit Windows Vista, the Device 
+Manager knows nothing of the 768MB above 4GB. </p>
+<h3>Directions </h3>
+<p>For distribution, the Firmware Memory Map Tool is compressed into zip files:
+</p>
+<ul>
+  <li><a href="_download/fwmemmap_x86.zip">x86 executables</a> (9KB); </li>
+  <li><a href="_download/fwmemmap_x64.zip">x64 executables</a> (10KB); </li>
+  <li><a href="_download/fwmemmap_src.zip">source code</a> (14KB); </li>
+  <li><a href="_download/fwmemmap.zip">x86 and x64 executables with source code</a> 
+  (32KB). </li>
+</ul>
+&nbsp;<p>Please note that the tool requires Windows version 6.0 or higher. Earlier versions 
+of Windows will decline to run the program or load the driver. </p>
+<p>The driver and the program must be in the same directory. Just run the program 
+from a Command Prompt. You will need administrative privilege. On an x64 system, 
+you will need to start Windows in Test Mode, i.e., with <span class="bcdopt">testsigning</span> 
+enabled in the Boot Configuration Data (BCD). For 32-bit Windows, Test Mode is merely 
+optional but it does spare you from a warning in the event log (specifically in 
+Microsoft-Windows-CodeIntegrity/Operational). On both architectures, loading the 
+driver will typically cause warnings in the System log from the Windows Defender.
+</p>
+<p>The restriction to Test Mode on x64 systems is because the executables are signed 
+with a root certificate only. I am not a software manufacturer and do not have a 
+Software Publishing Certificate (SPC) for signing kernel-mode drivers. Yes, I am 
+a specialist in kernel-mode drivers, but I write them for other people to publish, 
+and the release-signing of the products they sell is done by them, not by me. Getting 
+an SPC is a lot of trouble to go to for a simple utility that will likely be run 
+only once on any one machine. Test Mode seems perfectly reasonable to me. If you 
+don’t like Test Mode but do have an SPC, then re-sign the driver as your own.
+</p>
+<h3>Source Code </h3>
+<p>Source code is provided as a root directory and three subdirectories: </p>
+<ul>
+  <li>EXE, for the console application; </li>
+  <li>INC, for headers that are shared by the application and driver; </li>
+  <li>SYS, for the driver. </li>
+</ul>
+<p>The code is written for use with the Windows Driver Kit (WDK). To build the executables, 
+open one of the WDK’s build environments for Windows Vista, change to the root directory 
+of this source tree, and run the WDK’s BUILD utility. </p>
+<p>To have the binaries and symbol files be collected in a tree beneath a subdirectory 
+named BIN, undefine the environment variable <span class="env">NO_BINPLACE</span> 
+before running BUILD. For details, refer to the PROJECT.MK file in the root directory 
+of the source tree. </p>
+<p>The executables are not signed unless you define one or more environment variables 
+before building. If you are happy for test-signing with a root certificate named 
+My Own Testing Authority which you have already created and imported into your personal 
+certificate store, then define the environment variable <span class="env">SIGNCODE</span>. 
+Otherwise, describe your certificate by defining environment variables
+<span class="env">SIGNCODE_CERTIFICATE_STORE</span> and <span class="env">SIGNCODE_CERTIFICATE_NAME</span>, 
+and optionally <span class="env">SIGNCODE_CROSS_CERTIFICATE</span> and
+<span class="env">SIGNCODE_TIME_STAMPER</span>. For details, refer to the PROJECT.MK 
+file in the root directory of the source tree. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 27th April 2009 and was last modified 
+  on 25th March 2016. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0916.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009-2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="55487" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,118 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KeReleaseInStackQueuedSpinLockFromDpcLevel</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KeReleaseInStackQueuedSpinLockFromDpcLevel </h1>
+<p>This function releases a <a href="index.htm">queued spin lock</a> without restoring 
+the IRQL. </p>
+<h2>Declaration </h2>
+<pre class="source">VOID FASTCALL KeReleaseInStackQueuedSpinLockFromDpcLevel (KLOCK_QUEUE_HANDLE *LockHandle);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">LockHandle</span> argument is the address of an opaque 
+context structure that is re-presented from the lock’s acquisition. </p>
+<h3>Constraints </h3>
+<p>The <span class="function">KeReleaseInStackQueuedSpinLockFromDpcLevel</span> 
+function assumes that the IRQL is at least <span class="constant">DISPATCH_LEVEL</span>. 
+The context structure and the spin lock that it refers to must be in non-paged memory.
+</p>
+<h2>Availability </h2>
+<p>The <span class="function">KeReleaseInStackQueuedSpinLockFromDpcLevel</span> 
+function is exported by name from the kernel in version 5.1 and higher. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">KeReleaseInStackQueuedSpinLockFromDpcLevel</span> 
+function is documented. </p>
+<p>Annotations on the declaration in WDM.H since the Windows Driver Kit (WDK) for 
+Windows 7 have <span class="constant">DISATCH_LEVEL</span> as the required IRQL, 
+not as the minimum requirement. </p>
+<h2>Behaviour </h2>
+<p>Since the <span class="function">KeReleaseInStackQueuedSpinLockFromDpcLevel</span> 
+does not change the IRQL, it ignores the <span class="member">OldIrql</span> member 
+in the <span class="struct">KLOCK_QUEUE_HANDLE</span>. Only the
+<span class="member">LockQueue</span> is meaningful. It is assumed to be unchanged 
+from how the kernel left it when the caller acquired the lock. </p>
+<h3>Inlined Common Code </h3>
+<p>The function looks to be an inlining of an internal routine whose dependence 
+only on the <span class="struct">KSPIN_LOCK_QUEUE</span> is explicit: </p>
+<pre class="source">VOID FASTCALL KeReleaseQueuedSpinLockFromDpcLevel (KSPIN_LOCK_QUEUE *);</pre>
+<p>This might pass unmentioned as an implementation detail except that this internal 
+routine is the common code for releasing a queued spin lock through other exported 
+functions, notably <span class="function">KeReleaseQueuedSpinLock</span>, the notes 
+for which refer here for the details. </p>
+<h3>General Mechanism </h3>
+<p>If the <span class="member">Next</span> member in the caller’s
+<span class="struct">KSPIN_LOCK_QUEUE</span> is not <span class="constant">NULL</span>, 
+it is the address of the <span class="struct">KSPIN_LOCK_QUEUE</span> that represents 
+the lock’s next owner. The processor that this next owner is running on is spinning 
+on a loop inside some such function as <span class="function">
+<a href="acquireinstackatdpclevel.htm">KeAcquireInStackQueuedSpinLockAtDpcLevel</a></span>. 
+Its entry to that function will have set the <span class="constant">LOCK_QUEUE_WAIT</span> 
+bit in the <span class="member">Lock</span> member of its <span class="struct">KSPIN_LOCK_QUEUE</span>. 
+Its spin loop checks repeatedly for this bit to get cleared. Releasing the lock 
+is as simple as clearing this bit! The next owner exits its spin loop and returns 
+from its acquisition function as the lock’s new owner. </p>
+<p>The complication to this general case is when the <span class="member">Next</span> 
+member in the caller’s <span class="struct">KSPIN_LOCK_QUEUE</span> is
+<span class="constant">NULL</span>. No processor is yet waiting for the lock but 
+it can be that a processor has started trying to acquire the lock but not yet have 
+got appended to the queue. This will show in the lock itself. If there truly is 
+no processor to transfer ownership to, then the lock will hold the address of the 
+caller’s <span class="struct">KSPIN_LOCK_QUEUE</span> and releasing the lock is 
+as simple as clearing the lock to <span class="constant">NULL</span>. If a
+<span class="instruction">lock cmpxchg</span> instruction to do this shows instead 
+that the lock holds the address of some other <span class="struct">KSPIN_LOCK_QUEUE</span>, 
+then the caller surmises that the queue is in the midst of being extended and it 
+waits in a spin loop of its own until the <span class="member">Next</span> member 
+in its <span class="struct">KSPIN_LOCK_QUEUE</span> is not
+<span class="constant">NULL</span>. Then it can proceed as for the general case.
+</p>
+<p>If the function transfers ownership, it clears the <span class="member">Next</span> 
+member in the caller’s <span class="struct">KSPIN_LOCK_QUEUE</span>. (If the lock 
+returns to being unowned, then this member must have been <span class="constant">
+NULL</span> already.) This resetting allows that the caller’s
+<span class="struct">KSPIN_LOCK_QUEUE</span> can be reused, without further preparation, 
+for another cycle of acquiring and releasing the same lock. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 12th
+  <a href="../../../../../../../new/19/12.htm">December 2019</a> and was last modified 
+  on 13th December 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,164 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Visual C++ Compiler Error C2054</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="24274" endspan -->
+<h1>Visual C++ Compiler Error C2054 </h1>
+<h2>Message Text </h2>
+<pre class="output">expected &#39;(&#39; to follow &#39;<span class="placeholder">identifier</span>&#39;</pre>
+<h2>Circumstances </h2>
+<p>The only known case of this error is that the token immediately after a
+<span class="keyword"><a href="../../../language/keywords/declspec/index.htm">__declspec</a></span> 
+keyword is not a left parenthesis. For who knows what reason, the product documentation 
+for error C2054 does not mention this case. </p>
+<p>The C++ compiler does have code for another case, but it appears (as a tentative 
+finding) to be unreachable because the necessary conditions are all caught elsewhere. 
+This is why, for instance, the product documentation’s example for error C2054 actually 
+produces C2470 from the C++ compiler. Is Microsoft truly unable to employ anyone 
+to check such things? </p>
+<h2>Coding Error </h2>
+<p>The message text in the <span class="keyword">__declspec</span> case goes wrong 
+on two counts. First, the relevant code presents the wrong token for resolving the
+<span class="placeholder">identifier</span> placeholder. The token that fits the 
+text is the <span class="keyword">__declspec</span>, which is what the &#39;(&#39; was expected 
+to follow. What is presented instead is the token that followed the
+<span class="keyword">__declspec</span>. The &#39;(&#39; was not expected to
+<span class="emphasis">follow</span> this token, but was expected
+<span class="emphasis">instead</span> of this token. </p>
+<p>Were this the only problem, compiling </p>
+<pre class="source">__declspec rubbish ();                  // C2054</pre>
+<p>would produce the odd complaint about having missed an expectation that actually 
+is satisfied: </p>
+<pre class="output">TEST.CPP(1) : error C2054: expected &#39;(&#39; to follow &#39;rubbish&#39;</pre>
+<p>However, this nonsense is escaped because of a second coding error. Whether the 
+chosen token is right or wrong, the description presented for output as the
+<span class="placeholder">identifier</span> placeholder does not match correctly 
+the format specifier that stands for this placeholder in the message text as read 
+from the resource strings. The usual result is that the information given is not 
+meaningful for the format specifier and gets represented by a default, as shown 
+by the actual error message for the preceding source fragment: </p>
+<pre class="output">TEST.CPP(1) : error C2054: expected &#39;(&#39; to follow &#39;&lt;Unknown&gt;&#39;</pre>
+<h3>Details and Contrivances </h3>
+<p>Of course, it can happen (or be contrived) that the token after the
+<span class="keyword">__declspec</span> is one whose description is meaningful for 
+the placeholder resolution. The misbehaviour can then be calculated for greater 
+effect. </p>
+<p>The compiler’s resource strings have their own scheme of format specifiers, similar 
+to and extending the scheme of the <span class="function">printf</span> function 
+from the C Run-Time Library. The distinctive specifiers in the compiler’s scheme 
+begin %$. For instance, code to resolve %$I is to provide as the matching argument 
+a pointer to an instance of the structure with which the compiler represents an 
+identifier. There are many more: %$S for a symbol, %$T for a type, etc. There is 
+also an indirect specifier %$* in which the * means that code should provide first 
+a character to take the place of the * and then whatever argument would be expected 
+had the * been replaced all along. </p>
+<p>The resource string for error C2054 has %$* for resolution of the placeholder 
+that the product documentation labels <span class="placeholder">identifier</span>. 
+However, the code that prepares the C2054 error message in the
+<span class="keyword">__declspec</span> case presents as its one and only argument 
+a 16-bit value that describes the type of token that follows the
+<span class="keyword">__declspec</span>. (A correction would be to set as the first 
+argument the character &#39;L&#39; and follow with this 16-bit token-type value.) We can 
+now set about contriving code fragments in which this token-type value is meaningful 
+as one of the characters that complete a %$ format specifier. </p>
+<p>For more predictability however, we should want to know what will be seen as 
+the expected second argument. This depends on the precise sequence of CPU instructions 
+in the relevant code and is likely to vary significantly between builds of the compiler. 
+For version 13.00.9466, what will be seen as the second argument is whatever happens 
+to have been in register EDI and it turns out that this is reliably the address 
+of a predictable structure. Indeed, it is at least in part a controllable structure, 
+since the dword at offset 0x08 is a counter. It happens that offset 0x08 is also 
+significant in the structure the compiler uses for representing a type. Specifically, 
+it is the site of a value that summarises the type, e.g., 0x10 for
+<span class="type">bool</span>, 0x11 for <span class="type">char</span>, 0x40 for
+<span class="type">void</span>. One of the format specifiers that can show a type 
+is %$B and &#39;B&#39; works out as the token-type value for <span class="operator">::</span> 
+(i.e., the scope-resolution operator). By contriving a <span class="operator">::</span> 
+immediately after a <span class="keyword">__declspec</span>, we expect to induce 
+the compiler to dump a type but with the type described erroneously by the counter.
+</p>
+<p>Especially if the following fragment were expanded by giving the function a body,
+</p>
+<pre class="source">void __declspec :: operator delete (void *);                    // C2054</pre>
+<p>the <span class="keyword">__declspec</span> would be at least vaguely plausible 
+as an incomplete removal of what once was valid and is now unwanted, but the programmer 
+who didn’t notice his slip at editing is hardly likely to spot it from the error 
+message </p>
+<pre class="output">TEST.CPP(1) : error C2054: expected &#39;(&#39; to follow &#39;&#39;</pre>
+<p>(By the way, <span class="operator">operator delete</span> is not essential to 
+the example. Any function will do, but it must have a prior declaration at file 
+scope. The fragment as given works as a one-line source file because the global
+<span class="operator">operator delete</span> is declared among the
+<a href="../../../language/predefined/index.htm">predefined C++ types</a> that Microsoft 
+includes for free with every C++ source file.) </p>
+<p>The reason the error message for the example as given says essentially that a 
+&#39;(&#39; was expected to follow nothing is that the counter (used erroneously) is only 
+1, due to the <span class="type">void</span> before the <span class="keyword">__declspec</span>, 
+but 1 is not valid for describing a type. The least value that is valid is 16, for
+<span class="type">bool</span>. To get the counter to 16, insert 15 storage specifiers 
+before the faulty <span class="keyword">__declspec</span>. It doesn’t matter what 
+the specifiers are, but the easiest are <span class="keyword">__declspec</span> 
+keywords that have empty argument lists, as in </p>
+<pre class="source">void
+__declspec ()
+...
+__declspec ()
+__declspec :: operator delete (void *);                         // C2054</pre>
+<p>This indeed produces </p>
+<pre class="output">TEST.CPP(17) : error C2054: expected &#39;(&#39; to follow &#39;bool&#39;</pre>
+<p>even if compiled with the <span class="switch">
+<a href="../../cl/options/nobool.htm">/noBool</a></span> option. </p>
+<p>Among other tokens that induce misbehaviour immediately after
+<span class="keyword">__declspec</span> are <span class="keyword">namespace</span> 
+and <span class="keyword">throw</span>, which resolve respectively to %$d (to dump 
+a decimal) and %$P (to dump a position, i.e., filename and line number). For example, 
+without trying to dress the code for syntactic validity beyond the problem case, 
+compile </p>
+<pre class="source">__declspec throw                                                // C2054 and more</pre>
+<p>and get something like </p>
+<pre class="output">TEST.CPP(1) : error C2054: expected &#39;(&#39; to follow &#39;TEST.CPP(1241268)&#39;</pre>
+<p>as the first error (with several more as the compiler attempts to continue past 
+the error). </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 18th March 2006 and was last modified 
+  on 10th June 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0609.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2006-2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62552" endspan -->
+</div>
+
+</body>
+
+</html>

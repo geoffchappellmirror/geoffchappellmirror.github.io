@@ -1,0 +1,392 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Boot Status Data Log</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>The Boot Status Data Log </h1>
+  <p>Windows has long provided for its loader to detect that the previous Windows 
+  session did not start satisfactorily and to offer the Advanced Options menu automatically, 
+  especially to suggest choosing the Last Known Good Configuration. At least since 
+  Windows XP, this work is done by maintaining a boot status in a file. For Windows 
+  Vista, the first steps for booting Windows have been revised substantially and 
+  there are now two types of Boot Status Data (BSD) log file, one for the Boot Manager 
+  and one for each installation of Windows. The one for the Boot Manager is new 
+  for Windows Vista, but for both there is scarcely any documentation from Microsoft.
+  </p>
+  <h2>Boot Manager </h2>
+  <p>When booting a machine on which Windows Vista is installed, the first loader 
+  to execute is BOOTMGR, here called the Boot Manager. This binary reads the Boot 
+  Configuration Data (BCD) store to discover which Windows versions are installed 
+  and with which startup options. If there’s a choice, then it is presented as the 
+  Windows Boot Manager menu. </p>
+  <p>The Boot Manager has its own BSD log file. This is ordinarily named “bootstat.dat” 
+  in the “\boot” directory of the system partition. This is a natural location for 
+  a record of events from before it is known which Windows system will start (or 
+  even which Windows systems are available). However, the location is configurable 
+  in the BCD store: </p>
+  <table class="Constants">
+    <colgroup>
+      <col class="Constant"><col class="Type"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>BCD Element </th>
+      <th>Format </th>
+      <th>Value </th>
+    </tr>
+    <tr>
+      <td>0x11000043 </td>
+      <td>device </td>
+      <td>the device that contains the BSD file </td>
+    </tr>
+    <tr>
+      <td>0x12000044 </td>
+      <td>string </td>
+      <td>a pathname to the BSD file </td>
+    </tr>
+    <tr>
+      <td>0x16000045 </td>
+      <td>boolean </td>
+      <td>if true, BSD entries from previous sessions are preserved; <br>
+      if false, the BSD file is reset on each session </td>
+    </tr>
+  </table>
+  <p>The relevant BCD elements have no friendly names for use with BCDEDIT and must 
+  be worked with as custom types. For example, the typical configuration can be 
+  specified explicitly with the BCDEDIT commands </p>
+  <pre class="output">bcdedit /set {bootmgr} custom:0x11000043 partition=C:
+bcdedit /set {bootmgr} custom:0x12000044 \boot\bootstat.dat 
+bcdedit /set {bootmgr} custom:0x16000045 off </pre>
+  <h3>File Format </h3>
+  <p>The file is acceptable to BOOTMGR only if it is exactly 64KB. The first 0x10 
+  bytes are a header: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Value </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>dword </td>
+      <td>always 2, apparently a version number </td>
+    </tr>
+    <tr>
+      <td>0x04 </td>
+      <td>dword </td>
+      <td>always 0x10, apparently the size of the header </td>
+    </tr>
+    <tr>
+      <td>0x08 </td>
+      <td>dword </td>
+      <td>always 0x00010000, apparently the size of the file </td>
+    </tr>
+    <tr>
+      <td>0x0C </td>
+      <td>dword </td>
+      <td>size of valid data, in bytes </td>
+    </tr>
+  </table>
+  <p>The valid data includes the file header and any number of logged entries that 
+  follow. </p>
+  <h4>Entries </h4>
+  <p>Each entry consists of an entry header followed immediately by entry data:
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Value </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>dword </td>
+      <td>time stamp, in seconds </td>
+    </tr>
+    <tr>
+      <td>0x04 </td>
+      <td>dword </td>
+      <td>always zero, significance unknown </td>
+    </tr>
+    <tr>
+      <td>0x08 </td>
+      <td>0x10 bytes </td>
+      <td>GUID of event source; <br>
+      but empty if event source is BOOTMGR </td>
+    </tr>
+    <tr>
+      <td>0x18 </td>
+      <td>dword </td>
+      <td>size of entry, in bytes </td>
+    </tr>
+    <tr>
+      <td>0x1C </td>
+      <td>dword </td>
+      <td>severity code </td>
+    </tr>
+    <tr>
+      <td>0x20 </td>
+      <td>dword </td>
+      <td>always 2, apparently a version number </td>
+    </tr>
+    <tr>
+      <td>0x24 </td>
+      <td>dword </td>
+      <td>event identifier </td>
+    </tr>
+    <tr>
+      <td>0x28 </td>
+      <td>varies </td>
+      <td>entry data; size depends on event identifier </td>
+    </tr>
+  </table>
+  <p>The time stamp in this header is calculated from BIOS interrupt 0x1A function 
+  0x00, to be a number of seconds since the start of the day on which the machine 
+  started. On a PC/AT machine booted from a hard disk, the event source is necessarily 
+  BOOTMGR and so the GUID in this header is empty. </p>
+  <p>The severity code is 0x01 for events that are apparently informational and 
+  0x03 for events that are errors. Known values of the event identifier are: </p>
+  <table class="SimpleConstants">
+    <colgroup>
+      <col class="Constant"><col class="Remarks" span="2">
+    </colgroup>
+    <tr>
+      <th>Identifier </th>
+      <th>Event </th>
+      <th>Data </th>
+    </tr>
+    <tr>
+      <td>0x01 </td>
+      <td>log file initialised </td>
+      <td>see below </td>
+    </tr>
+    <tr>
+      <td>0x11 </td>
+      <td>boot application launched </td>
+      <td>see below </td>
+    </tr>
+    <tr>
+      <td>0x12 </td>
+      <td>boot application returned </td>
+      <td>see below </td>
+    </tr>
+    <tr>
+      <td>0x13 </td>
+      <td>failed to load boot application </td>
+      <td>NT status code, followed by pathname of boot application </td>
+    </tr>
+    <tr>
+      <td>0x14 </td>
+      <td>BCD failure </td>
+      <td>NT status code, followed by pathname of BCD store </td>
+    </tr>
+    <tr>
+      <td>0x15 </td>
+      <td>no valid boot application entries in BCD store </td>
+      <td>NT status code, followed by pathname of BCD store </td>
+    </tr>
+    <tr>
+      <td>0x16 </td>
+      <td>general failure </td>
+      <td>NT status code </td>
+    </tr>
+  </table>
+  <p>For many of the events, the accompanying data is an NT status code followed 
+  immediately by a pathname. The NT status code is 4 bytes. The pathname is a null-terminated 
+  Unicode string. For general failure, there is just the 4-byte status code. </p>
+  <h5>Initialisation Event </h5>
+  <p>The entry data for the initialisation event has the form: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Value </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>0x10 bytes </td>
+      <td>time as structure (see below) </td>
+    </tr>
+    <tr>
+      <td>0x10 </td>
+      <td>dword </td>
+      <td>always 1, significance unknown </td>
+    </tr>
+    <tr>
+      <td>0x14 </td>
+      <td>dword </td>
+      <td>always 0, significance unknown </td>
+    </tr>
+  </table>
+  <p>The first 0x10 bytes record the time from BIOS interrupt 0x1A functions 0x02 
+  and 0x04: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Value </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>word </td>
+      <td>year </td>
+    </tr>
+    <tr>
+      <td>0x02 </td>
+      <td>word </td>
+      <td>month </td>
+    </tr>
+    <tr>
+      <td>0x04 </td>
+      <td>word </td>
+      <td>day </td>
+    </tr>
+    <tr>
+      <td>0x06 </td>
+      <td>word </td>
+      <td>hour </td>
+    </tr>
+    <tr>
+      <td>0x08 </td>
+      <td>word </td>
+      <td>minute </td>
+    </tr>
+    <tr>
+      <td>0x0A </td>
+      <td>word </td>
+      <td>second </td>
+    </tr>
+    <tr>
+      <td>0x0C </td>
+      <td>word </td>
+      <td>always 0, significance unknown </td>
+    </tr>
+    <tr>
+      <td>0x0E </td>
+      <td>word </td>
+      <td>always 7, significance unknown </td>
+    </tr>
+  </table>
+  <p>Note that this time has the forensic value of establishing when the computer 
+  was most recently booted, but with the time in plain sight without having to start 
+  the computer and risk changing anything. </p>
+  <h5>Launch Event </h5>
+  <p>Each entry on the Windows Boot Manager menu corresponds to a boot application. 
+  The entry data for launching a boot application has the form: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Value </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>0x10 bytes </td>
+      <td>GUID of boot application </td>
+    </tr>
+    <tr>
+      <td>0x10 </td>
+      <td>dword </td>
+      <td>type of start </td>
+    </tr>
+    <tr>
+      <td>0x14 </td>
+      <td>varies </td>
+      <td>pathname of boot application, as null-terminated Unicode string </td>
+    </tr>
+  </table>
+  <p>The type of start is 0 normally, including for a custom boot sequence, but 
+  may be 1 or 2 when launching boot applications in a recovery sequence. </p>
+  <h5>Return Event </h5>
+  <p>When a boot application returns, whether because of success, failure or cancellation 
+  (e.g., at its Advanced Boot Options or Edit Boot Options menu), the entry data 
+  is </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Value </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>0x10 bytes </td>
+      <td>GUID of boot application </td>
+    </tr>
+    <tr>
+      <td>0x10 </td>
+      <td>dword </td>
+      <td>always 0, significance unknown </td>
+    </tr>
+  </table>
+  <h2>Windows Loader </h2>
+  <p>A separate BSD file is maintained by each Windows system that starts. Details 
+  are presently beyond the scope of this article. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 11th October 2007 and was last modified 
+    on 22nd December 2009. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c0709.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2007-2009. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62695" -->
+  </div>
+</div>
+
+</body>
+
+</html>

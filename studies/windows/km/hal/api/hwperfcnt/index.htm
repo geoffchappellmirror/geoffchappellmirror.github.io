@@ -1,0 +1,288 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Hardware Performance Counters</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<h1>Hardware Performance Counters </h1>
+<p>The HAL handles the processor-specific work of using hardware performance counters 
+to support the profiling of execution. What the HAL can do about profiling the processors 
+depends, unsurprisingly, on what types of processor are present. Perhaps less unsurprisingly, 
+it is assessed from the boot processor only. The HAL in the original release of 
+Windows 10 distinguishes three <span class="definition">profile interfaces</span>:
+</p>
+<ul>
+  <li><a href="amd64.htm">Amd64</a>, if the boot processor’s
+  <span class="instruction">cpuid</span> vendor string is AuthenticAMD; </li>
+  <li><a href="emon.htm">Emon</a>, if the boot processor has GenuineIntel for its
+  <span class="instruction">cpuid</span> vendor string and is suitable in some additional 
+  respects; </li>
+  <li>Default, in all other cases and also overriding the preceding two if a Microsoft-compatible 
+  hypervisor is present and disallows performance monitoring. </li>
+</ul>
+<p>Names are surmised from symbol files for the HAL. The name Emon appears to come 
+from Intel’s manuals, apparently standing for Event Monitoring. </p>
+<h2>Processor Identification </h2>
+<p>For anything more sophisticated than the Default interface, the HAL must identify 
+the boot processor as suitable. It doesn’t even try unless a rough inspection of 
+processor features done earlier has shown that performance monitoring is at least 
+a possibility. </p>
+<h3>Rough Feature Bits </h3>
+<p>Much of the broad picture simply uses
+<a href="../../../cpu/identification.htm">CPU identification</a> that has already 
+been made by the kernel and left in the <span class="struct">
+<a href="../../../ntoskrnl/inc/ntos/kprcb.htm">KPRCB</a></span>. Presumably 
+as a remnant of age-old code, the HAL still checks that the
+<span class="instruction">cpuid</span> instruction is available (as recorded in 
+the <span class="member">CpuID</span>). For the 64-bit HAL, this is enough. The 
+32-bit HAL, however, recognises the support as possible for only two vendors (as 
+identified by the <span class="member">CpuVendor</span>). If the vendor is Intel, 
+then it is enough that the family (from the <span class="member">CpuType</span>) 
+is either 6 or 15. If the vendor is AMD, then <span class="instruction">cpuid</span> 
+leaf 0x80000000 must indicate support for <span class="instruction">cpuid</span> 
+leaf 0x80000001, which must in turn set the 0x20000000 bit in
+<span class="register">edx</span>. (Intel’s manual would have it that this bit means 
+“Intel® 64 Architecture available if 1.”) </p>
+<h3>Interface Selection </h3>
+<p>The first part to selecting the profile interface is to know the vendor string 
+from <span class="instruction">cpuid</span> leaf 0. If this is AuthenticAMD, then 
+Amd64 profiling is tentatively indicated, save only for what a hypervisor may have 
+to say. Processors whose vendor string is GenuineIntel are tentatively recognised 
+as having Emon profiling if the highest <span class="instruction">cpuid</span> leaf, 
+as returned in <span class="register">eax</span> for <span class="instruction">cpuid</span> 
+leaf 0, is at least 10 and the result of executing <span class="instruction">cpuid</span> 
+leaf 10 satisfies all the following: </p>
+<ul>
+  <li>the low byte returned in <span class="register">eax</span>, described by Intel 
+  as the “version ID of architectural performance monitoring”, is at least 1;
+  </li>
+  <li>the high byte returned in <span class="register">eax</span>, described by 
+  intel as the number of bits that are meaningful in the returned
+  <span class="register">ebx</span>, is non-zero; </li>
+  <li>the lowest bit returned in <span class="register">ebx</span> is clear, since 
+  a set bit would mean “Core cycle event not available”. </li>
+</ul>
+<p>Neither of these identifications, for the Amd64 or Emon profiling interface, 
+means anything if a Microsoft-compatible hypervisor is present and execution of
+<span class="instruction">cpuid</span> leaf 0x40000003 produces a clear
+<span class="member">PerformanceMonitorsAvailable</span> bit (2) in
+<span class="register">edx</span>. This is taken to mean that whatever the underlying 
+features of the processor, they are masked by the hypervisor. Profiling is then 
+defaulted just as if the processor had been unrecognised. (The test for Microsoft-compatibility 
+is the same as the kernel has for its exported <span class="function">
+<a href="../../../ntoskrnl/api/hvilib/hviintel/ishypervisormicrosoftcompatible.htm">
+HviIsHypervisorMicrosoftCompatible</a></span> function. For the hypervisor features 
+that are the output of <span class="instruction">cpuid</span> leaf 0x40000003, see 
+the <span class="struct">
+<a href="../../../ntoskrnl/api/hvilib/hviintel/hypervisor_features.htm">HV_HYPERVISOR_FEATURES</a></span> 
+structure.) </p>
+<h2>Profile Interfaces </h2>
+<p>The three profile interfaces provide independently of one another for their own 
+initialisation and subsequent use. However, many points to this are done in very 
+much the same way so that much can usefully be said in general. </p>
+<h3>Profile Sources </h3>
+<p>For the purpose of interaction with the kernel, and indeed all the way to user 
+mode through such functions as <span class="function">
+<a href="../../../ntoskrnl/api/ex/profile/create.htm">NtCreateProfile</a></span> 
+and <span class="function">
+<a href="../../../ntoskrnl/api/ex/profile/createex.htm">NtCreateProfileEx</a></span>, 
+whatever it is that a hardware performance counter might count is abstracted as 
+a <span class="definition">profile source</span>, represented numerically by a
+<span class="enum">
+<a href="../../../ntoskrnl/api/ke/profobj/kprofile_source.htm">KPROFILE_SOURC</a>E</span> 
+enumeration. This is defined in NTDDK.H in the Device Driver Kit (DDK) from as far 
+back as Windows NT 3.51, moving to WDM.H in later kits, but without ever changing. 
+The point to reproducing such a well-known enumeration here is to show which profile 
+sources are supported by which profile interfaces: </p>
+<table>
+  <tr>
+    <th>Value </th>
+    <th>Symbol </th>
+    <th>Profile Interface </th>
+  </tr>
+  <tr>
+    <td>0x00</td>
+    <td><span class="constant">ProfileTime</span> </td>
+    <td>Default <br>
+    Emon <br>
+    Amd64 </td>
+  </tr>
+  <tr>
+    <td>0x01</td>
+    <td><span class="constant">ProfileAlignmentFixup</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02</td>
+    <td><span class="constant">ProfileTotalIssues</span> </td>
+    <td>Emon <br>
+    Amd64 </td>
+  </tr>
+  <tr>
+    <td>0x03</td>
+    <td><span class="constant">ProfilePipelineDry</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04</td>
+    <td><span class="constant">ProfileLoadInstructions</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x05</td>
+    <td><span class="constant">ProfilePipelineFrozen</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x06</td>
+    <td><span class="constant">ProfileBranchInstructions</span> </td>
+    <td>Emon <br>
+    Amd64 </td>
+  </tr>
+  <tr>
+    <td>0x07</td>
+    <td><span class="constant">ProfileTotalNonissues</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08</td>
+    <td><span class="constant">ProfileDcacheMisses</span> </td>
+    <td>Amd64 </td>
+  </tr>
+  <tr>
+    <td>0x09</td>
+    <td><span class="constant">ProfileIcacheMisses</span> </td>
+    <td>Amd64 </td>
+  </tr>
+  <tr>
+    <td>0x0A</td>
+    <td><span class="constant">ProfileCacheMisses</span> </td>
+    <td>Emon </td>
+  </tr>
+  <tr>
+    <td>0x0B</td>
+    <td><span class="constant">ProfileBranchMispredictions</span> </td>
+    <td>Emon <br>
+    Amd64 </td>
+  </tr>
+  <tr>
+    <td>0x0C</td>
+    <td><span class="constant">ProfileStoreInstructions</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0D</td>
+    <td><span class="constant">ProfileFpInstructions</span> </td>
+    <td>Amd64 </td>
+  </tr>
+  <tr>
+    <td>0x0E</td>
+    <td><span class="constant">ProfileIntegerInstructions</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0F</td>
+    <td><span class="constant">Profile2Issue</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10</td>
+    <td><span class="constant">Profile3Issue</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x11</td>
+    <td><span class="constant">Profile4Issue</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x12</td>
+    <td><span class="constant">ProfileSpecialInstructions</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x13</td>
+    <td><span class="constant">ProfileTotalCycles</span> </td>
+    <td>Emon </td>
+  </tr>
+  <tr>
+    <td>0x14</td>
+    <td><span class="constant">ProfileIcacheIssues</span> </td>
+    <td>Amd64 </td>
+  </tr>
+  <tr>
+    <td>0x15</td>
+    <td><span class="constant">ProfileDcacheAccesses</span> </td>
+    <td>Amd64 </td>
+  </tr>
+  <tr>
+    <td>0x16</td>
+    <td><span class="constant">ProfileMemoryBarrierCycles</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x17</td>
+    <td><span class="constant">ProfileLoadLinkedIssues</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x18</td>
+    <td><span class="constant">ProfileMaximum</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>higher </td>
+    <td>processor-specific profile sources </td>
+    <td>Emon <br>
+    Amd64 </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 3rd
+  <a href="../../../../../../new/17/01.htm">January 2017</a> and was last modified 
+  on 23rd November 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c1718.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="55327" -->
+</div>
+
+</body>
+
+</html>

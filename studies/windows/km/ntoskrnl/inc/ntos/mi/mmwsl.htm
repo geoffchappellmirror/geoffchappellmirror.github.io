@@ -1,0 +1,1022 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MMWSL</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>MMWSL </h1>
+  <p>The <span class="struct">MMWSL</span> is the Memory Manager’s modelling of 
+  a Working Set List. Every working set, as modelled by an <span class="struct">
+  <a href="../ps/mmsupport.htm">MMSUPPORT</a></span>, has one: it’s 
+  pointed to from the latter’s <span class="member">VmWorkingSetList</span> member.
+  </p>
+  <h2>Availability
+  </h2>
+  <p>Windows was born with the notion of working sets for the management of 
+  virtual address space. All known versions have the <span class="struct">MMWSL</span> 
+  structure, but the 1607 edition of Windows 10 renames it as
+  <span class="struct"><a href="mmwsl_full.htm">MMWSL_FULL</a></span>. This comprises new <span class="struct"><a href="mmwsl_instance.htm">MMWSL_INSTANCE</a></span> 
+  and <span class="struct"><a href="mmwsl_shared.htm">MMWSL_SHARED</a></span> structures 
+  which each have a different selection of the old <span class="struct">MMWSL</span> 
+  members. 
+  </p>
+  <p>Some measure of the <span class="struct">MMWSL</span> structure’s importance 
+  in memory management is that it’s one of the few structures (in contrast to 
+  mere arrays of small types) that Windows builds 
+  at a preset address. Through much of the history of Windows, every process has 
+  its working set’s <span class="struct">MMWSL</span> at the same address: </p>
+  <table class="PresetAddresses">
+    <colgroup>
+      <col class="Version"><col class="Address" span="3">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Address (x86) </th>
+        <th>Address (PAE) </th>
+        <th>Address (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3.10 to 3.50 </td>
+        <td>0xC0482000 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.51 to 5.0 </td>
+        <td>0xC0502000 </td>
+        <td>0xC0882000 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>5.1 to early 5.2 </td>
+        <td>0xC0503000 <br>
+        0xC0503800 </td>
+        <td>0xC0883000 <br>
+        0xC0883800 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.2 </td>
+        <td>0xC0502000 <br>
+        0xC0502800 </td>
+        <td>0xC0881000 <br>
+        0xC0881800 </td>
+        <td rowspan="2">0xFFFFF700`00081000 </td>
+      </tr>
+      <tr>
+        <td>6.0 </td>
+        <td>0xC0401000 </td>
+        <td>0xC0801000 </td>
+      </tr>
+      <tr>
+        <td>6.1 to 6.2 </td>
+        <td>0xC0402000 </td>
+        <td>0xC0802000 </td>
+        <td>0xFFFFF700`01080000 </td>
+      </tr>
+      <tr>
+        <td>6.3 to 1511 </td>
+        <td>&nbsp;</td>
+        <td>0xC0802000 </td>
+        <td>0xFFFFF580`10804000 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The early 32-bit builds, both with and without support for Physical Address 
+  Extension (PAE), access the current process’s <span class="struct">MMWSL</span> 
+  through an internal variable named <span class="variable">MmWorkingSetList</span> 
+  which is initialised to this fixed address and is thereafter left alone. Versions 5.1 and 5.2 can vary this variable’s initialisation by 0x00000800 when 
+  a virtual bias applies, as for the <span class="switch">/3GB</span> boot option. 
+  Starting with version 6.1, the variable is discarded in favour of hard-coding 
+  the address. All known 64-bit kernels that have the structure hard-code the address. </p>
+  <p>Whether the predictability of this address for the <span class="struct">MMWSL</span> 
+  was ever exploitable is not known, but the 1703 release of Windows 10 does 
+  away with it. </p>
+  <h2>Variability </h2>
+  <p>As an internal structure with little, if any, visibility outside the kernel, 
+  the <span class="struct">MMWSL</span> varies greatly between versions and even 
+  between builds: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="3">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (PAE) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3.10 </td>
+        <td>0x0868 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.50 </td>
+        <td>0x0468 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.51 to 4.0 </td>
+        <td>0x0470 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>early 5.0 (before SP3) </td>
+        <td>0x06A0 </td>
+        <td>0x0D00 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.0 (starting with SP3) </td>
+        <td>0x06A8 </td>
+        <td>0x0D08 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>5.1 </td>
+        <td>0x069C </td>
+        <td>0x0CFC </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>5.2 </td>
+        <td>0x0698 </td>
+        <td>0x0CF8 </td>
+        <td>0x80 </td>
+      </tr>
+      <tr>
+        <td>early 6.0 (before SP1) </td>
+        <td>0x06A8 </td>
+        <td>0x0D08 </td>
+        <td>0x0488 </td>
+      </tr>
+      <tr>
+        <td>late 6.0 (starting with SP1) </td>
+        <td>0x06B8 </td>
+        <td>0x0D18 </td>
+        <td>0x0498 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0x06A8 </td>
+        <td>0x0D08 </td>
+        <td>0x0488 </td>
+      </tr>
+      <tr>
+        <td>6.2 </td>
+        <td>&nbsp;</td>
+        <td>0x0D9C </td>
+        <td>0x0530 </td>
+      </tr>
+      <tr>
+        <td>6.3 </td>
+        <td>&nbsp;</td>
+        <td>0x0DBC </td>
+        <td>0x0260 </td>
+      </tr>
+      <tr>
+        <td>10.0 </td>
+        <td>&nbsp;</td>
+        <td>0x0E20 </td>
+        <td>0x0300 </td>
+      </tr>
+      <tr>
+        <td>1511 </td>
+        <td>&nbsp;</td>
+        <td>0x0E48 </td>
+        <td>0x0350 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout </h2>
+  <p>The preceding sizes, and the names, offsets and types in the tables that follow, are 
+  from Microsoft’s symbol files for the kernel, starting with Windows 2000 SP3. 
+  What little information is given below for earlier versions—even for early builds 
+  of version 5.0—is at best tentative. What’s known of Microsoft’s names and types 
+  for these versions is something of a guess. Where use of a member corresponds 
+  closely with that of a version for which Microsoft’s symbols are available, it 
+  seems reasonable to suppose continuity. Some use, however, has no correspondence, 
+  the code having changed too much. Even where the use hasn’t changed, tracking 
+  it down exhaustively would be difficult, if not impossible, even with source code—and 
+  I haven’t yet tried to track it down exhaustively. </p>
+  <p>For many of the integral members, the value is a 0-based index into an 
+  array of <span class="struct">MMWSLE</span> structures. This index was widened 
+  from 32 bits to 64 for 64-bit Windows 8.1. Microsoft almost certainly defines 
+  a type for this index. The KDEXTS.DLL debugger extension confirms with high 
+  confidence that Microsoft’s name for this type is <span class="type">
+  WSLE_NUMBER</span>. For the table below, <span class="type">WSLE_NUMBER</span> 
+  is ordinarily a <span class="type">ULONG</span> but is a
+  <span class="type">ULONG_PTR</span> in 64-bit Windows version 6.3 and higher. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 (3.10 to 5.1) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG Quota;</pre>
+        </td>
+        <td>3.10 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x04 (3.10 to 5.1); <br>
+        0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">WSLE_NUMBER FirstFree;</pre>
+        </td>
+        <td>3.10 to 1511 </td>
+        <td>next at 0x00 in <span class="struct">MMWSL_SHARED</span> </td>
+      </tr>
+      <tr>
+        <td>0x08 (3.10 to 5.1); <br>
+        0x04 </td>
+        <td>0x04 (5.2 to 6.2); <br>
+        0x08 </td>
+        <td>
+        <pre class="source">WSLE_NUMBER FirstDynamic;</pre>
+        </td>
+        <td>3.10 to 1511 </td>
+        <td>next at 0x04 and 0x08 in <span class="struct">MMWSL_SHARED</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x0C (3.10 to 5.1); <br>
+        0x08 </td>
+        <td>0x08 (5.2 to 6.2); <br>
+        0x10 </td>
+        <td>
+        <pre class="source">WSLE_NUMBER LastEntry;</pre>
+        </td>
+        <td>3.10 to 1511 </td>
+        <td>next at 0x08 and 0x10 in <span class="struct">MMWSL_SHARED</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x10 (3.10 to 5.1); <br>
+        0x0C </td>
+        <td>0x0C (5.2 to 6.2); <br>
+        0x18 </td>
+        <td>
+        <pre class="source">WSLE_NUMBER NextSlot;</pre>
+        </td>
+        <td>3.10 to 1511 </td>
+        <td>next at 0x00 in <span class="struct">MMWSL_INSTANCE</span> </td>
+      </tr>
+      <tr>
+        <td>0x14 (3.10 to 5.1); <br>
+        0x10 (5.2 to 6.1) </td>
+        <td>0x10 (5.2 to 6.1) </td>
+        <td>
+        <pre class="source">MMWSLE *Wsle;</pre>
+        </td>
+        <td>3.10 to 6.1 </td>
+        <td>next at 0x9C and 0xB0 </td>
+      </tr>
+      <tr>
+        <td>0x14 (6.0 to 6.1) </td>
+        <td>0x18 (6.0 to 6.1) </td>
+        <td>
+        <pre class="source">PVOID LowestPagableAddress;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>next at 0x2C and 0x30 </td>
+      </tr>
+      <tr>
+        <td>0x18 (3.10 to 5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG NumberOfCommittedPageTables;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next at 0x28 </td>
+      </tr>
+      <tr>
+        <td>0x1C (3.10 to 3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        unaccounted
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td><br>
+        0x20 (3.10 to 3.50); <br>
+        0x1C (3.51 to 5.0); <br>
+        0x18 (5.1); <br>
+        0x14 (5.2); <br>
+        0x18 (6.0 to 6.1); <br>
+        0x10 </td>
+        <td>0x18 (5.2); <br>
+        0x20 (6.0 to 6.1); <br>
+        0x10 (6.2); <br>
+        0x20 </td>
+        <td>
+        <pre class="source">WSLE_NUMBER LastInitializedWsle;</pre>
+        </td>
+        <td>3.10 to 1511 </td>
+        <td>next at 0x0C and 0x18 in <span class="struct">MMWSL_SHARED</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C (6.0) </td>
+        <td>0x24 (6.0) </td>
+        <td>
+        <pre class="source">WSLE_NUMBER NextEstimationSlot;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x20 (6.0); <br>
+        0x1C (6.1); <br>
+        0x14 </td>
+        <td>0x28 (6.0); <br>
+        0x24 (6.1); <br>
+        0x14 (6.2); <br>
+        0x28 </td>
+        <td>
+        <pre class="source">WSLE_NUMBER NextAgingSlot;</pre>
+        </td>
+        <td>6.0 to 1511 </td>
+        <td>next at 0x04 and 0x08 in <span class="struct">MMWSL_INSTANCE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td>0x18 (6.2); <br>
+        0x30 </td>
+        <td>
+        <pre class="source">WSLE_NUMBER NextAccessClearingSlot;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>next at 0x08 and 0x10 in <span class="struct">MMWSL_INSTANCE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C </td>
+        <td>0x1C (6.2); <br>
+        0x38 </td>
+        <td>
+        <pre class="source">ULONG LastAccessClearingRemainder;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>next at 0x0C and 0x18 in <span class="struct">MMWSL_INSTANCE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td>0x20 (6.2); <br>
+        0x3C </td>
+        <td>
+        <pre class="source">ULONG LastAgingRemainder;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>next at 0x10 and 0x1C in <span class="struct">MMWSL_INSTANCE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x24 </td>
+        <td>0x24 (6.2); <br>
+        0x40 </td>
+        <td>
+        <pre class="source">ULONG WsleSize;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>next at 0x10 and 0x20 in <span class="struct">MMWSL_SHARED</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x24 (6.0) </td>
+        <td>0x2C (6.0) </td>
+        <td>
+        <pre class="source">ULONG EstimatedAvailable;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x28 (6.0) </td>
+        <td>0x30 (6.0) </td>
+        <td>
+        <pre class="source">ULONG GrowthSinceLastEstimate;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2C (6.0); <br>
+        0x20 (6.1) </td>
+        <td>0x34 (6.0); <br>
+        0x28 (6.1) </td>
+        <td>
+        <pre class="source">ULONG NumberOfCommittedPageTables;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>previously at 0x24 and 0x2C; <br>
+        next at 0x00 in <span class="struct">MI_USER_VA_INFO</span> </td>
+      </tr>
+      <tr>
+        <td>0x30 (6.0); <br>
+        0x24 (6.1) </td>
+        <td>0x38 (6.0); <br>
+        0x2C (6.1) </td>
+        <td>
+        <pre class="source">ULONG VadBitMapHint;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>previously at 0x34 and 0x44; <br>
+        next at 0x08 in <span class="struct">MI_USER_VA_INFO</span> </td>
+      </tr>
+      <tr>
+        <td>0x20 (5.0); <br>
+        0x1C (5.1); <br>
+        0x18 (5.2); <br>
+        0x34 (6.0); <br>
+        0x28 </td>
+        <td>0x1C (5.2); <br>
+        0x3C (6.0); <br>
+        0x30 (6.1); <br>
+        0x28 (6.2); <br>
+        0x48 </td>
+        <td>
+        <pre class="source">WSLE_NUMBER NonDirectCount;</pre>
+        </td>
+        <td>5.0 to 1511 </td>
+        <td>next at 0x14 and 0x28 in <span class="struct">MMWSL_SHARED</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x24 (5.0); <br>
+        0x20 (5.1); <br>
+        0x1C (5.2) </td>
+        <td>0x20 (5.2) </td>
+        <td>
+        <pre class="source">MMWSLE_HASH *HashTable;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x28 (5.0); <br>
+        0x24 (5.1); <br>
+        0x20 (5.2) </td>
+        <td>0x28 (5.2) </td>
+        <td>
+        <pre class="source">ULONG HashTableSize;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x24 (3.10 to 3.50); <br>
+        0x2C (3.51 to 5.0) </td>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">KEVENT *ImageMappingPteEvent;</pre>
+        </td>
+        <td>3.10 to early 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KEVENT ImageMappingPteEvent;</pre>
+        </td>
+        <td>late 5.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x28 (5.1); <br>
+        0x24 (5.2) </td>
+        <td>0x2C (5.2) </td>
+        <td>
+        <pre class="source">ULONG NumberOfCommittedPageTables;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>previously at 0x18; <br>
+        next at 0x2C and 0x34 </td>
+      </tr>
+      <tr>
+        <td>0x38 (late 6.0); <br>
+        0x2C (6.1) </td>
+        <td>0x40 (late 6.0); <br>
+        0x34 (6.1) </td>
+        <td>
+        <pre class="source">ULONG LastVadBit;</pre>
+        </td>
+        <td>late 6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3C (late 6.0); <br>
+        0x30 (6.1) </td>
+        <td>0x44 (late 6.0); <br>
+        0x38 (6.1) </td>
+        <td>
+        <pre class="source">ULONG MaximumLastVadBit;</pre>
+        </td>
+        <td>late 6.0 to 6.1 </td>
+        <td>next at 0x1C in <span class="struct">MI_USER_VA_INFO</span> </td>
+      </tr>
+      <tr>
+        <td>0x40 (late 6.0); <br>
+        0x34 (6.1) </td>
+        <td>0x48 (late 6.0); <br>
+        0x3C (6.1) </td>
+        <td>
+        <pre class="source">ULONG LastAllocationSizeHint;</pre>
+        </td>
+        <td>late 6.0 to 6.1 </td>
+        <td>next at 0x0C in <span class="struct">MI_USER_VA_INFO</span> </td>
+      </tr>
+      <tr>
+        <td>0x44 (late 6.0); <br>
+        0x38 (6.1) </td>
+        <td>0x4C (late 6.0); <br>
+        0x40 (6.1) </td>
+        <td>
+        <pre class="source">ULONG LastAllocationSize;</pre>
+        </td>
+        <td>late 6.0 to 6.1 </td>
+        <td>next at 0x10 in <span class="struct">MI_USER_VA_INFO</span> </td>
+      </tr>
+      <tr>
+        <td>0x2C </td>
+        <td>0x30 (6.2); <br>
+        0x50 </td>
+        <td>
+        <pre class="source">PVOID LowestPagableAddress;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>previously at 0x14 and 0x18; <br>
+        next at 0x18 and 0x30 in <span class="struct">MMWSL_SHARED</span> </td>
+      </tr>
+      <tr>
+        <td>0x38 (early 6.0); <br>
+        0x48 (late 6.0); <br>
+        0x3C (6.1); <br>
+        0x30 </td>
+        <td>0x40 (early 6.0); <br>
+        0x50 (late 6.0); <br>
+        0x48 (6.1); <br>
+        0x38 (6.2); <br>
+        0x58 </td>
+        <td>
+        <pre class="source">MMWSLE_NONDIRECT_HASH *NonDirectHash;</pre>
+        </td>
+        <td>6.0 to 1511 </td>
+        <td>next at 0x1C and 0x38 in <span class="struct">MMWSL_SHARED</span>
+        </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x30 (early 5.0); <br>
+        0x3C (late 5.0); <br>
+        0x2C (5.1); <br>
+        0x28 (5.2); <br>
+        0x3C (early 6.0); <br>
+        0x4C (late 6.0); <br>
+        0x40 (6.1); <br>
+        0x34 </td>
+        <td rowspan="2">0x30 (5.2); <br>
+        0x48 (early 6.0); <br>
+        0x58 (late 6.0); <br>
+        0x50 (6.1); <br>
+        0x40 (6.2); <br>
+        0x60 </td>
+        <td>
+        <pre class="source">PVOID HashTableStart;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">MMWSLE_HASH *HashTableStart;</pre>
+        </td>
+        <td>6.0 to 1511 </td>
+        <td>next at 0x20 and 0x40 in <span class="struct">MMWSL_SHARED</span>
+        </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x34 (early 5.0); <br>
+        0x40 (late 5.0); <br>
+        0x30 (5.1); <br>
+        0x2C (5.2); <br>
+        0x40 (early 6.0); <br>
+        0x50 (late 6.0); <br>
+        0x44 (6.1); <br>
+        0x38 </td>
+        <td rowspan="2">0x38 (5.2); <br>
+        0x50 (early 6.0); <br>
+        0x60 (late 6.0); <br>
+        0x58 (6.1); <br>
+        0x48 (6.2); <br>
+        0x68 </td>
+        <td>
+        <pre class="source">PVOID HighestPermittedHashAddress;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">MMWSLE_HASH *HighestPermittedHashAddress;</pre>
+        </td>
+        <td>6.0 to 1511 </td>
+        <td>next at 0x24 and 0x48 in <span class="struct">MMWSL_SHARED</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x44 (late 5.0); <br>
+        0x34 (5.1); <br>
+        0x30 (5.2) </td>
+        <td>0x40 (5.2) </td>
+        <td>
+        <pre class="source">ULONG NumberOfImageWaiters;</pre>
+        </td>
+        <td>late 5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x38 (5.1); <br>
+        0x34 (5.2) </td>
+        <td>0x44 (5.2) </td>
+        <td>
+        <pre class="source">ULONG VadBitMapHint;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>next at 0x30 and 0x38 </td>
+      </tr>
+      <tr>
+        <td>0x44 (early 6.0); <br>
+        0x54 (late 6.0) </td>
+        <td>0x48 (5.2); <br>
+        0x58 (early 6.0); <br>
+        0x68 (late 6.0) </td>
+        <td>
+        <pre class="source">PVOID HighestUserAddress;</pre>
+        </td>
+        <td>6.0 only (x86); <br>
+        5.2 to 6.0 (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The x86 builds of versions before version 6.2 end with arrays whose sizes vary with 
+  how many page tables can be needed for the whole of the user-mode address 
+  space. Description is eased by hypothesising <span class="symbol">
+  MAX_USER_PAGE_TABLES</span> as a symbolic name for this number: </p>
+  <ul>
+    <li>0x0200 before version 5.0; </li>
+    <li>0x0300 in version 5.0 and higher without PAE; </li>
+    <li>0x0600 in version 5.0 and higher with PAE. </li>
+  </ul>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (PAE) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x28 (3.10 to 3.50); <br>
+        0x30 (3.51 to 4.0); <br>
+        0x40 (early 5.0); <br>
+        0x48 (late 5.0); <br>
+        0x3C (5.1); <br>
+        0x38 (5.2); <br>
+        0x48 (early 6.0); <br>
+        0x58 (late 6.0); <br>
+        0x48 (6.1) </td>
+        <td rowspan="2">0x40 (early 5.0); <br>
+        0x48 (late 5.0); <br>
+        0x3C (5.1); <br>
+        0x38 (5.2); <br>
+        0x48 (early 6.0); <br>
+        0x58 (late 6.0); <br>
+        0x48 (6.1) </td>
+        <td>
+        <pre class="source">USHORT UsedPageTableEntries [0x0400];</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT UsedPageTableEntries [MAX_USER_PAGE_TABLES];</pre>
+        </td>
+        <td>3.50 to 6.1 </td>
+        <td>next at 0x3C in <span class="struct">MI_USER_VA_INFO</span> </td>
+      </tr>
+      <tr>
+        <td>0x0828 (3.10); <br>
+        0x0428 (3.50); <br>
+        0x0430 (3.51 to 4.0); <br>
+        0x0640 (early 5.0); <br>
+        0x0648 (late 5.0); <br>
+        0x063C (5.1); <br>
+        0x0638 (5.2); <br>
+        0x0648 (early 6.0); <br>
+        0x0658 (late 6.0); <br>
+        0x0648 (6.1) </td>
+        <td>0x0C40 (early 5.0); <br>
+        0x0C48 (late 5.0); <br>
+        0x0C3C (5.1); <br>
+        0x0C38 (5.2); <br>
+        0x0C48 (early 6.0); <br>
+        0x0C58 (late 6.0); <br>
+        0x0C48 (6.1) </td>
+        <td>
+        <pre class="source">ULONG CommittedPageTables [MAX_USER_PAGE_TABLES / 0x20];</pre>
+        </td>
+        <td>3.10 to 6.1 </td>
+        <td>next at 0x0C3C in <span class="struct">MI_USER_VA_INFO</span>; <br>
+        last member in 3.10 to 6.1 (x86)  <br>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The x64 builds of versions before 6.2 end very differently. The one member 
+  in common with the x86 builds is <span class="member">CommittedPageTables</span>, 
+  but it is a pointer, not an array. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x50 (5.2); <br>
+        0x60 (early 6.0); <br>
+        0x70 (late 6.0); <br>
+        0x60 (6.1) </td>
+        <td>
+        <pre class="source">ULONG MaximumUserPageTablePages;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x54 (5.2); <br>
+        0x64 (early 6.0); <br>
+        0x74 (late 6.0); <br>
+        0x64 (6.1) </td>
+        <td>
+        <pre class="source">ULONG MaximumUserPageDirectoryPages;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x58 (5.2); <br>
+        0x68 (early 6.0); <br>
+        0x78 (late 6.0); <br>
+        0x68 (6.1) </td>
+        <td>
+        <pre class="source">ULONG *CommittedPageTables;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x60 (5.2); <br>
+        0x70 (early 6.0); <br>
+        0x80 (late 6.0); <br>
+        0x70 (6.1) </td>
+        <td>
+        <pre class="source">ULONG NumberOfCommittedPageDirectories;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x68 (5.2); <br>
+        0x78 (early 6.0); <br>
+        0x88 (late 6.0); <br>
+        0x78 (6.1) </td>
+        <td>
+        <pre class="source">ULONG *CommittedPageDirectories;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG CommittedPageDirectories [0x80];</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>next at 0x70 in <span class="struct">MI_USER_VA_INFO</span> </td>
+      </tr>
+      <tr>
+        <td>0x70 (5.2); <br>
+        0x0478 (early 6.0); <br>
+        0x0488 (late 6.0); <br>
+        0x0478 (6.1) </td>
+        <td>
+        <pre class="source">ULONG NumberOfCommittedPageDirectoryParents;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x78 (5.2); <br>
+        0x0480 (early 6.0); <br>
+        0x0490 (late 6.0); <br>
+        0x0480 (6.1) </td>
+        <td>
+        <pre class="source">ULONGLONG CommittedPageDirectoryParents [1];</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>next at 0x0470 in <span class="struct">MI_USER_VA_INFO</span>; <br>
+        last member in 5.2 to 6.1 (x64) <br>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Added For Windows 8 &nbsp;</h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x3C </td>
+        <td rowspan="3">0x50 (6.2); <br>
+        0x70 </td>
+        <td>
+        <pre class="source">ULONG ActiveWsleCounts [8];</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR ActiveWsleCounts [8];</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR ActiveWsleCounts [0x10];</pre>
+        </td>
+        <td>10.0 to 1511 </td>
+        <td>next at 0x14 and 0x20 in <span class="struct">MMWSL_INSTANCE</span>
+        </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x5C (6.2 to 6.3); <br>
+        0x7C </td>
+        <td rowspan="3">0x70 (6.2); <br>
+        0xB0 (6.3); <br>
+        0xF0 </td>
+        <td>
+        <pre class="source">MI_ACTIVE_WSLE ActiveWsles [8];</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">MI_ACTIVE_WSLE_LISTHEAD ActiveWsles [8];</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">MI_ACTIVE_WSLE_LISTHEAD ActiveWsles [0x10];</pre>
+        </td>
+        <td>10.0 to 1511 </td>
+        <td>next at 0x54 and 0xA0 in <span class="struct">MMWSL_INSTANCE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x9C (6.2 to 6.3); <br>
+        0xFC </td>
+        <td>0xB0 (6.2); <br>
+        0x0130 (6.3); <br>
+        0x01F0 </td>
+        <td>
+        <pre class="source">MMWSLE *Wsle;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>previously at 0x10; <br>
+        next at 0x30 and 0x50 in <span class="struct">MMWSL_SHARED</span> </td>
+      </tr>
+      <tr>
+        <td>0xA0 (6.2 to 6.3); <br>
+        0x0100 </td>
+        <td>0xB8 (6.2); <br>
+        0x0138 (6.3); <br>
+        0x01F8 </td>
+        <td>
+        <pre class="source"><a href="mi_user_va_info.htm">MI_USER_VA_INFO</a> UserVaInfo;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 4th May 2019 but was not published 
+    until 26th <a href="../../../../../../../new/19/05.htm">May 2019</a>. It was 
+    last modified on 31st July 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1922.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5309" -->
+  </div>
+</div>
+
+</body>
+
+</html>

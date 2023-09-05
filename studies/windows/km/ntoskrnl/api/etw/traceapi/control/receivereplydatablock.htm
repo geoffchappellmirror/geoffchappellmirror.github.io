@@ -1,0 +1,164 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Receive Reply Data Block</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<!--webbot bot="Include" U-Include="../../../../../_include/placeholder.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">PLACEHOLDER FOR WORK THAT MAY NEVER BE DONE - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="62046" -->
+<h1>Receive Reply Data Block </h1>
+<p>When given 0x13 as its <span class="argument">FunctionCode</span> argument, the
+<span class="function"><a href="index.htm">NtTraceControl</a></span> function receives 
+a data block of a sort that expects a reply. Microsoft’s name for this function 
+code is not known. This note deals only with the function’s behaviour that is specific 
+to this function code. The function’s general behaviour is here taken as assumed 
+knowledge. </p>
+<h2>Behaviour </h2>
+<p>Microsoft presumably has a name for the eight-byte structure that is expected 
+as the function’s input, but no such name is known. It is perhaps both too simple 
+and too awkward: </p>
+<table class="struct">
+  <tr>
+    <th>Offset </th>
+    <th>Interpretation </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00 </td>
+    <td>unknown 64-bit container for <span class="type">HANDLE</span> to reply object
+    </td>
+    <td>6.0 only </td>
+  </tr>
+  <tr>
+    <td>unknown four bytes as handle to reply object </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>unknown <span class="type">ULONG</span> as timeout in milliseconds </td>
+    <td>6.1 and higher </td>
+  </tr>
+</table>
+<p>To be clear: the preceding applies to both 32-bit and 64-bit Windows. It seems 
+the expected input was originally an 8-byte allowance for a <span class="type">HANDLE</span>, 
+using just the first four bytes in 32-bit Windows but all eight in 64-bit, but then 
+the timeout was squeezed in. Quite why this was done without changing the expected 
+size of input is not known. A consequence is that 64-bit Windows 7 and higher have 
+only four bytes for the handle. </p>
+<p>The output on success will be the received data block. It begins with an
+<span class="struct"><a href="../notification_header.htm">ETW_NOTIFICATION_HEADER</a></span> 
+and may continue arbitrarily. The total size, in bytes, is in the header as the
+<span class="member">NotificationSize</span>. </p>
+<h3>Parameter Validation </h3>
+<p>The function returns <span class="constant">STATUS_INVALID_PARAMETER</span> if 
+either of the following is true: </p>
+<ul>
+  <li>the input buffer is not exactly eight bytes; </li>
+  <li>in version 6.0 only, the output buffer is too small for an
+  <span class="struct">ETW_NOTIFICATION_HEADER</span>. </li>
+</ul>
+<p>No reason is yet known that version 6.1 drops the minimum requirement for output. 
+As noted below, if a reply is available for receipt but the output buffer is too 
+small, then in all versions the reply is lost. </p>
+<h3>Reply Object </h3>
+<p>The input handle must be to an EtwRegistration object and allow
+<span class="constant">WMIGUID_NOTIFICATION</span> permission to its user-mode caller. 
+Failure to reference the object is fatal to the function. The object is an
+<span class="struct"><a href="../../register/reg_entry/index.htm">ETW_REG_ENTRY</a></span> 
+but specifically of a sort that was created as a reply object. If the referenced 
+object is not the right sort, with <span class="member">DbgReplyRegistration</span> 
+set among its <span class="member"><a href="../../register/reg_entry/flags.htm">
+Flags</a></span>, the function returns <span class="constant">STATUS_INVALID_HANDLE</span>.
+</p>
+<p>The reply object will have been created as a specialised registration when a 
+notification was sent to all or some of the user-mode registrations of some event 
+provider and the notification requested a reply. </p>
+<p>The most distinctive property of a reply registration is that it has a
+<span class="member">RepyQueue</span>. This is an <span class="struct">
+<a href="../../register/reply_queue.htm">ETW_REPLY_QUEUE</a></span> that collects 
+all the replies into a <span class="struct">KQUEUE</span>. The function retrieves 
+one reply from the queue. This retrieval is what the timeout in the input is for. 
+Version 6.0 hard-codes the timeout as 60 seconds. The configurable timeout in later 
+versions has no special interpretations: in effect, zero means not to wait at all, 
+but <span class="constant">INFINITE</span> means to wait approximately 49 days. 
+If no reply is available, the function returns <span class="constant">STATUS_TIMEOUT</span> 
+or <span class="constant">STATUS_USER_APC</span>. </p>
+<h3>Data Block </h3>
+<p>Each reply is an <span class="struct"><a href="../../notify/queue_entry.htm">
+ETW_QUEUE_ENTRY</a></span> from which to obtain the data block that
+<span class="emphasis">is</span> the reply as far as the caller will ever know. 
+The output buffer receives a copy of the whole data block, both fixed-size header 
+and any variable-size continuation. The total size is in the header, as the
+<span class="member">NotificationSize</span> and is separately reported to the caller 
+in the variable whose address was given as the <span class="argument">ReturnSize</span> 
+argument. </p>
+<p>If the output buffer is not large enough for this copy, the function returns
+<span class="constant">STATUS_BUFFER_TOO_SMALL</span>. See that this is an error. 
+There is no recovery from it. The data block is not restored to the queue: the reply 
+is lost. The function’s caller is, however, told how much was lost: nothing is put 
+in the output buffer but the <span class="member">NotificationSize</span> is reported 
+through the <span class="argument">ReturnSize</span> argument. </p>
+<h4>Implementation Detail </h4>
+<p>The data block as it existed in the queue in kernel mode is treated as beginning 
+with an <span class="struct"><a href="../../notify/notification_header.htm">ETWP_NOTIFICATION_HEADER</a></span>. 
+This is broadly compatible with the <span class="struct">ETW_NOTIFICATION_HEADER</span> 
+that is here thought to be what the caller is intended to see as beginning the user-mode 
+copy. The only difference that matters to this function is that what the public 
+structure provides for an <span class="member">Offset</span> from one header to 
+the next in a sequence of replies is a <span class="member">RefCount</span> in the 
+private structure. </p>
+<p>The caller who cares to look can see what was the <span class="member">RefCount</span> 
+at the time of the copy and the <span class="member">ReplyHandle</span> that was 
+used to send the reply. Of course, the expected caller doesn’t look. The expected 
+caller is the NTDLL function <span class="function">EtwSendNotification</span>, 
+which both sends a notification and receives the replies. </p>
+<p><span class="alert">TO BE DONE?</span> </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 22nd April 2020 from material first 
+  published on 31st <a href="../../../../../../../../new/18/12.htm">December 2018</a>. 
+  It was last modified on 28th <a href="../../../../../../../../new/20/05.htm">May 
+  2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14474" -->
+</div>
+
+</body>
+
+</html>

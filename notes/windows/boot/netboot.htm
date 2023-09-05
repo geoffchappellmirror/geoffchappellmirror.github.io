@@ -1,0 +1,277 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Boot Windows from a Network</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Boot Windows from a Network </h1>
+  <p>For many years, through a succession of articles in the Microsoft Knowledge 
+  Base such as <a target="_top" href="http://support.microsoft.com/kb/314079">How 
+  to use system files to create a boot disk to guard against being unable to start 
+  Windows XP</a>, Microsoft has gone to some trouble to describe how a Windows system 
+  that is already installed on a hard disk can be booted from a specially prepared 
+  floppy disk. This is said to be useful when the installed system is healthy but 
+  does not get to start because of some problem early in the boot sequence. </p>
+  <p>Given that the problem was not uncommon, else Microsoft might not have troubled 
+  to keep writing about it, what is anyone who is faced with this problem to do 
+  about it nowadays when so many computers are not fitted with a floppy disk drive? 
+  One solution is to boot the local system from across the network. The “secret” 
+  is to configure a Remote Installation Services (RIS) server in a way that Microsoft 
+  seems not to document. </p>
+  <p>Of course, a significant detraction of this solution is that an RIS server 
+  is not installed with client editions of Windows such as Windows XP. In practice, 
+  the procedure described in this note is available only if the network has at least 
+  one machine that runs Windows 2000 Server or Windows Server 2003. For the following 
+  directions, I assume that you have such a machine set up as a domain controller 
+  and either this machine or another set up as an RIS server. I also assume that 
+  you have configured the target computer to boot from a network. This may require 
+  you to enter the BIOS setup to change the boot sequence and possibly also to enable 
+  the Pre-boot Execution Environment (PXE). </p>
+  <h2>Directions </h2>
+  <p>Broadly speaking, there are two steps. The first is to set up the RIS server 
+  with a directory that contains the files that would otherwise have been on a bootable 
+  floppy disk for the target computer. The second is to configure the Active Directory 
+  Services to recognise the target computer as needing to boot from those particular 
+  files on the RIS server. As with a bootable floppy disk, it helps to prepare all 
+  this in advance of needing it. </p>
+  <h3>Simulate a Bootable Floppy Disk at an RIS Server </h3>
+  <p>At the RIS server, in the directory that is shared as REMINST, create a new 
+  directory for simulated boot disks, e.g., RemoteBoot. Create a subdirectory for 
+  each computer that you might boot from the RIS server (or for each set of computers 
+  that may each be booted from the same files). To this directory, copy the following 
+  files from an installation image of Windows for at least the latest version that 
+  is on the target computer: </p>
+  <ul>
+    <li>STARTROM.COM or STARTROM.N12 </li>
+    <li>OSLOADER.EXE but renamed as NTLDR </li>
+    <li>NTDETECT.COM </li>
+  </ul>
+  <p>A suitable installation image may already be present at the RIS server. Otherwise, 
+  the files can be expanded from the installation CD for the latest Windows version 
+  that is on the target computer. They will not ordinarily be present already on 
+  the target computer. The difference between STARTROM.COM and STARTROM.N12 is that 
+  the former requires you to press F12 during a 3-second interval at startup if 
+  you want to proceed with booting from the network, but the latter proceeds automatically. 
+  In all that follows, you may substitute the one for the other. </p>
+  <p>To the same directory, add the following from the root directory of the boot 
+  partition of the hard disk that the target computer would ordinarily boot from:
+  </p>
+  <ul>
+    <li>BOOT.INI </li>
+    <li>NTBOOTDD.SYS if present </li>
+    <li>BOOTSECT.DOS if present </li>
+  </ul>
+  <p>Though NTDETECT.COM is present on the target computer, it is better taken from 
+  the same installation image that is used for STARTROM.COM and OSLOADER.EXE. The 
+  others are particular to the target computer. The BOOT.INI file is the record 
+  of what to show on the boot menu for the target computer. You need this even if 
+  there is ordinarily no boot menu to show. An NTBOOTDD.SYS driver is present only 
+  if the target computer’s hard disk does not have BIOS support, most likely because 
+  the disk is a SCSI device. There will be no BOOTSECT.DOS file unless the target 
+  computer has a multi-boot configuration that includes some other operating system, 
+  most notably a version of the sort of Windows that boots from DOS (i.e., Windows 
+  95, Windows 98 or Windows Me). </p>
+  <p>Except for STARTROM.COM and the variation concerning NTLDR, these six files 
+  are the same as would be needed for a bootable floppy disk to use for the same 
+  computer. </p>
+  <h3>Pre-Stage in Active Directory </h3>
+  <p>To boot the target computer’s own Windows installations, it is necessary that 
+  a domain controller should recognise the target computer as needing to be booted 
+  from a particular set of files at an RIS server. It is not necessary that the 
+  target computer ever be joined to a domain. It just has to be pre-staged. In the 
+  language of Active Directory, this means that there must exist a Computer object 
+  with a <span class="attribute">netbootGUID</span> attribute whose value is the 
+  target computer’s GUID. </p>
+  <p>The GUID is typically shown by the BIOS when trying to boot from the network. 
+  Some experimentation may be required to determine the byte ordering. For instance, 
+  the BIOS may report the GUID as </p>
+  <pre class="output">44454C4C 3800 1046 8042 B9C04F544331</pre>
+  <p>but although this suggests the usual grouping of hexadecimal digits in a GUID, 
+  the GUID is actually {4C4C4544-0038-4610-8042-B9C04F544331}. </p>
+  <p>If the target computer has no GUID, derive one from the Media Access Control 
+  (MAC) address by padding to the left with null bytes. For instance, the MAC address 
+  00-30-13-DA-77-9A becomes the GUID {00000000-0000-0000-0000-00003013DA779A}. The 
+  MAC address is typically shown by the BIOS when trying to boot from the network. 
+  On a running machine, it is shown as Physical Address in the output of the
+  <span class="command">ipconfig /all</span> command and in the Network Connection 
+  Details dialog produced by the Details button on the Support tab of the network 
+  connection’s Status. </p>
+  <p>If you cannot find the GUID or suspect that you do not have the correct GUID, 
+  enable the BINLSVC debug log at the server and see what GUID turns up in the log 
+  when you try booting the target computer. Directions are given by Microsoft, for 
+  a different purpose, in the article
+  <a target="_top" href="http://support.microsoft.com/kb/842608">You cannot install 
+  a RIS image on a PXE client computer when your RIS server is also a DHCP server 
+  in Windows 2000 or Windows Server 2003</a>. </p>
+  <h3>Set the Path for Boot Files at the RIS Server </h3>
+  <p>The location of boot files for the target computer is determined by the same 
+  Computer object’s <span class="attribute">netbootMachineFilePath</span> attribute. 
+  This is in two parts. The first, which is documented, is the fully qualified DNS 
+  name of the machine that hosts the RIS server. </p>
+  <p>The second part is an optional continuation. This is not documented, though 
+  it is hinted at by “Whistler: Can indicate the startrom that the client gets” 
+  in Microsoft’s documentation of <span class="attribute">netbootMachineFilePath</span> 
+  in the Active Directory Schema. It is supported by BINLSVC.DLL version 5.0 and 
+  higher, i.e., starting from Windows 2000. The form is a backslash and then the 
+  pathame for the desired STARTROM.COM relative to the RIS server’s REMINST share.
+  </p>
+  <p>Thus, if the RIS server is hosted on a machine named
+  <span class="placeholder">server</span> in the domain
+  <span class="placeholder">domain</span> and the boot files for the target computer 
+  are in a directory </p>
+  <blockquote>
+    \\<span class="placeholder">server</span>\reminst\RemoteBoot\<span class="placeholder">computer</span>
+  </blockquote>
+  <p>then <span class="attribute">netbootMachineFilePath</span> must be set to
+  </p>
+  <blockquote>
+    <span class="placeholder">server</span>.<span class="placeholder">domain</span>\RemoteBoot\<span class="placeholder">computer</span>\startrom.com
+  </blockquote>
+  <h3>User Interface </h3>
+  <p>You can create the Computer object and set the <span class="attribute">netbootGUID</span> 
+  and <span class="attribute">netbootMachineFilePath</span> attributes using the 
+  ADSI Edit tool that Microsoft supplies with the Windows Support Tools. </p>
+  <p>Only one way is known to arrange all this through a user-interface tool that 
+  is ordinarily installed with Windows. The following steps assume that the target 
+  computer is not already known to Active Directory. </p>
+  <ol>
+    <li>Start the “Active Directory Users and Computers” administrative tool.
+    </li>
+    <li>In the left pane, expand a domain, select the Computers folder, and create 
+    a New entry for a Computer. At the “New Object - Computer” dialog, enter a name 
+    for the target computer and click Next. </li>
+    <li>At the Managed page, check “This is a managed computer”, enter the GUID 
+    for the target computer, and click Next. </li>
+    <li>At the Host Server page, click “The following remote installation server” 
+    and use the Search button to find the RIS server that holds the boot files for 
+    the target computer. Append \RemoteBoot\<span class="placeholder">computer</span>\startrom.com. 
+    Click Finish. </li>
+    <li>There may be a complaint that this is not the name of an RIS server, but 
+    you are asked if “you still want to use the server name”. Click Yes, and the 
+    server name with the appended path is accepted as the value for
+    <span class="attribute">netbootMachineFilePath</span>. </li>
+  </ol>
+  <p>If the target computer is already listed in a Computers folder, e.g., because 
+  the computer actually is joined to a domain, then provided that the computer was 
+  set up as a managed computer, its Properties will have a Remote Install tab at 
+  which to take steps similar to 4 and 5 above. </p>
+  <h3>Boot the Target Computer </h3>
+  <p>When the target computer tries to boot from the network, it will download the 
+  designated STARTROM.COM. When this starts executing, it will prompt you to press 
+  F12 if you want to proceed with booting from the RIS server. If you don’t press 
+  F12, the target computer will abandon booting from the network. </p>
+  <p>If you do press F12, then you should see the boot menu that is expected for 
+  the target computer and you should be able to start whichever operating system 
+  configuration you select. The main difference from a normal boot sequence is that 
+  where files would have been loaded from the boot partition of a local hard disk 
+  or might have been loaded from a bootable floppy disk, they are instead downloaded 
+  from the RIS server across a network. </p>
+  <p>If you press F12 but see a welcome screen for installing a choice of operating 
+  systems, then the likely reason is that the target computer’s GUID has not been 
+  recognised and the download has instead gone as expected for a remote installation. 
+  Check the GUID, as described above. </p>
+  <h2 class="draft">Explanation </h2>
+  <p class="draft">The early stages of the ordinary booting of Windows from a hard 
+  disk are well known. The BIOS loads and executes the hard disk’s first sector, 
+  which is called the Master Boot Record (MBR). This sector has both some code and 
+  a very important table that describes how the hard disk is partitioned. The MBR 
+  code identifies one partition as the boot partition, then loads and executes this 
+  partition’s first sector, which is called a boot sector. Code in this sector, 
+  perhaps with help from more sectors near the start of the partition, knows enough 
+  of the file system to be able to find a file named NTLDR, and either load the 
+  whole file or at least load the file’s first sector having set up enough support 
+  that this first sector’s code can then load the rest of the file. </p>
+  <p class="draft">This NTLDR file is built in parts. The first few tens of KB are 
+  in assembly language. This part handles the execution in real mode and the transitions 
+  to and from protected mode. The remainder is a 32-bit Windows executable, i.e., 
+  with a PE header. </p>
+  <p class="draft alert">SOMETHING TO BE WRITTEN HERE SOME DAY </p>
+  <h2>Applicability </h2>
+  <p>This note is based on inspection of the startup files for Windows XP SP1 and 
+  the BINLSVC.DLL from the original Windows Server 2003. (Yes, it took me something 
+  like five years to get round to writing this up.) I expect that the scheme allows 
+  any RIS server from any Windows 2000 Server or Windows Server 2003 to boot any 
+  Windows 2000, Windows XP or Windows Server 2003. Please note, however, that I 
+  have not checked all those possible combinations. </p>
+  <h3>Windows Vista </h3>
+  <p>Booting Windows Vista is also possible, with different files and with an unfortunate 
+  limitation. </p>
+  <p>To the \\<span class="placeholder">server</span>\reminst\RemoteBoot\<span class="placeholder">computer</span> 
+  directory, copy the following: </p>
+  <ul>
+    <li>PXEBOOT.COM or PXEBOOT.N12 </li>
+    <li>BOOTMGR.EXE </li>
+  </ul>
+  <p>These files can be extracted from BOOT.WIM on the Windows Vista CD. As for 
+  the directions above, you should extract from the latest version that is on the 
+  target computer. </p>
+  <p>To the \\<span class="placeholder">server</span>\reminst\Boot directory, copy 
+  the following from the Boot directory of the target computer’s boot partition:
+  </p>
+  <ul>
+    <li>BCD </li>
+  </ul>
+  <p>Set <span class="attribute">netbootMachineFilePath</span> to </p>
+  <blockquote>
+    <span class="placeholder">server</span>.<span class="placeholder">domain</span>\RemoteBoot\<span class="placeholder">computer</span>\pxeboot.com
+  </blockquote>
+  <p>This is enough to get the Windows Boot Menu displayed such that an installed 
+  Windows Vista can be started. It does not work for booting earlier versions of 
+  Windows. </p>
+  <p>The limitation is of course that there can be only one BCD. This is because 
+  BOOTMGR.EXE asks the RIS server for \Boot\BCD, with a leading backslash. Quite 
+  reasonably, the RIS sever interprets this as relative to the REMINST share, not 
+  to the directory implied by <span class="attribute">netbootMachineFilePath</span>. 
+  There is not much to be done about this, short of patching the leading backslash 
+  out of BOOTMGR.EXE. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 26th February 2009 and was last modified 
+    on 11th March 2012. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c0912.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009-2012. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62847" -->
+  </div>
+</div>
+
+</body>
+
+</html>

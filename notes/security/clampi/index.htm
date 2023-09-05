@@ -1,0 +1,263 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>A Small Study of the Clampi Trojan</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>A Small Study of the Clampi Trojan </h1>
+  <p>A newspaper article
+  <a target="_top" href="http://www.theaustralian.news.com.au/story/0,25197,26105159-2703,00.html">
+  Scammers use Trojan virus to get bank details, then rob accounts</a> caught my 
+  attention one morning late in September 2009. Even allowing for the usual transformations 
+  of technical stories on their way to the popular press, the subject of this report 
+  looked to be just the sort of thing I always try to describe to my bank when resisting 
+  their many attempts to have me expose my accounts to the Internet. I explain that 
+  organised crime will eventually find it worthwhile to pay someone like me—not 
+  me, of course—to write a seemingly innocuous program that watches for such activity 
+  as password entry and sends what it finds over the Internet to build a useful 
+  database for stealing from bank accounts. To an expert on Windows, the coding 
+  to get useful data is relatively simple. The difficulty lies almost entirely with 
+  evading detection and being patient about the pay-off. A decade ago, the bank 
+  would indulgently assure me that their technology was perfectly secure, but in 
+  recent years they seem to know immediately what I mean! </p>
+  <p>The “Trojan virus” in the newspaper article, named Clampi there, but apparently 
+  also known as Ilomo, Ligats and Rscan, turns out to be not quite the incarnation 
+  of my fears, but it is close enough to have my attention. It is certainly much 
+  more sophisticated than the last malware I looked at (in 2003). It may even be 
+  sophisticated enough that the anti-virus industry is at the limits of its analytical 
+  abilities: a recurring theme in technical reports of the Clampi Trojan is of excuses 
+  that the thing is not just specially difficult to analyse but “almost impossible”.
+  </p>
+  <p>You will get no such excuses from me, but there are limits to what I can cover.
+  </p>
+  <p>This study is formed almost entirely from what some refer to as
+  <span class="emphasis">static</span> analysis. That’s certainly not an excuse. 
+  If you want to know everything that a program can do, you don’t watch it, however 
+  closely and intelligently. No, you disassemble it and study its code. Your only 
+  need for observation is later, to test what you already know, by designing experiments 
+  which predict both positive and negative outcomes for different circumstances 
+  of operation. The limit here is that I have done no such experiments with Clampi. 
+  What you read in the accompanying pages is almost entirely an intellectual exercise. 
+  I have run the Clampi program only as far as needed for extracting its executable 
+  code from the layers of obfuscation, encryption and compression. Though I document 
+  the program’s Internet communications, I have not observed them at all. Though 
+  I document the program’s interface with the downloadable modules that are obviously 
+  where this malware’s threat is coded, I have not observed the interface in actual 
+  use. Yet for both those points of documentation, I expect this study will be invaluable 
+  to anyone who is observing the work of those modules. </p>
+  <p>Talking of the downloadable modules brings me to this study’s most noticeable 
+  limit. Its scope stops at the general support for those modules. I do not document 
+  any particular modules. I have not even obtained any of them for inspection, because 
+  I have drawn a line at how much unpaid work I will do for my curiosity or distraction. 
+  Regular readers of this website will be familiar with my long history of research 
+  into Windows and of writing up my results for what I see as a public good. However, 
+  I cannot justify extending this to studying malware. There is a computer security
+  <span class="emphasis">industry</span>. Anti-virus companies have products to 
+  sell. They make money, even serious amounts of it. They employ people as analysts 
+  and reverse engineers. This self-funded study can’t hope to be as broad, but it 
+  is far more detailed than anything published by a computer security company, for 
+  probably nothing like the same number of man-hours, and I invite you to wonder 
+  how that can be. </p>
+  <h2>Overview </h2>
+  <p>That detail is on separate pages, one of which is quite long: </p>
+  <ul>
+    <li><a href="installer.htm">installer</a> </li>
+    <li><a href="kernel.htm">kernel</a> </li>
+  </ul>
+  <p>It is well known that the initial program, roughly 610KB for the copy I have 
+  studied, executes first as an installer of a persistent program. The installer 
+  extracts the persistent program, sets it up in the registry, starts it executing, 
+  and then deletes itself. The setting up arranges that the extracted program should 
+  run automatically each time Windows starts, and also provides the program with 
+  initial values for some configurable parameters. These include most notably a 
+  list of controllers to contact over the Internet and a 2048-bit RSA public key 
+  for the secure encryption of a randomly generated 448-bit Blowfish key that will 
+  protect most subsequent communication in both directions. </p>
+  <p>The persistent program, roughly 501KB for the copy I have studied, establishes 
+  secure communications with a controller and then enters a loop in which it receives 
+  commands and sends responses. Among other things, the commands provide for receiving 
+  more code to execute. The program is very much just a kernel for an extensible 
+  system of named modules. Additional modules are DLLs that are received over the 
+  Internet at the whim of the controller. They add functionality to the Clampi process 
+  and are presumably the actual agents of theft or damage. They can be executed 
+  in memory without being written to disk, or they can be saved (encrypted) in the 
+  registry and reloaded, again at the whim of the controller. Another of the commands 
+  provides for receiving a program, writing it to disk as a temporary file and running 
+  it as a new process. In short, to let Clampi run on your computer (while connected 
+  to the Internet) is to let someone unknown run whatever they want on your computer 
+  whenever they want. </p>
+  <h2>Reverse Engineering </h2>
+  <p>I have noted already that most reports on Clampi complain of how it is coded 
+  to frustrate inspection. The installer and kernel both have their code obfuscated 
+  so that execution first passes through hundreds of fragments for doing nonsense 
+  arithmetic before getting to anything useful. This layer of disguise is pretty 
+  much what I expect of any malware. To work through it by hand in a disassembly 
+  is a chore that you’d much prefer be done by a research student or intern. I’d 
+  have trusted it to my (admittedly bright) teenage nephews for pocket money, except 
+  that they’d have too soon got bored. Anyone who can write that this is “difficult 
+  to bypass” (see
+  <a target="_top" href="http://us.trendmicro.com/imperia/md/content/us/trendwatch/researchandanalysis/ilomo_external.pdf">
+  Ilomo Botnet</a>) really should find other work (or get their employer to invest 
+  more in training). </p>
+  <p>That said, Clampi does have some obfuscation that is not so easily worked around. 
+  The kernel is written as a C++ program much like any other but it has been passed 
+  through some tool so that the x86 instructions are repackaged as bytes from the 
+  instruction set of a (simple) virtual machine. The kernel is essentially a p-code 
+  interpreter. The effect of an x86 instruction is reproduced by interpreting multiple 
+  p-code instructions, sometimes several dozen of them, and there are typically 
+  many different p-code sequences that can produce the same effect. Still, reversing 
+  the conversion from x86 to p-code looks to be a well-defined problem. I did it 
+  by hand for a few days, partly because I always value getting immersed in the 
+  data and partly to estimate the success of the obfuscation. At a rough guess, 
+  having to “recover” the x86 code before I could study it my usual way slowed me 
+  down by two orders of magnitude. That’s enough to make it impractical, of course, 
+  and the authors of this obfuscation should be pleased. On the other hand, it’s 
+  also enough to make an investment in automation seem relatively small. I, who 
+  had never much considered the problem of decompilation except to dismiss it, set 
+  about writing a tool to recover something like the original x86 code. Two weeks 
+  later I had a decompiler that was good enough to leave me with acceptably little 
+  to finish by hand. Obviously, the depth and detail that is presented in this study’s 
+  accompanying pages would never be discovered without some such decompiler. </p>
+  <p>Several reports identify the obfuscation tool and although I haven’t verified 
+  their identification for myself, I have no reason to doubt them. A page of details 
+  at the website for the cited tool,
+  <a target="_top" href="http://www.vmprotect.ru/vmprotect.php">VMProtect</a>, is 
+  certainly consistent with the obfuscation in Clampi. The tool is believably intended 
+  to help the writers of legitimate software protect their intellectual property. 
+  The expense of undoing it is much greater than the typical cost of any one copy 
+  of a program that is protected this way. Whether it is prohibitive for pirates, 
+  who make money from selling many copies of a cracked program, is another matter. 
+  To VMProtect’s customers who hope to stop their software from being reverse engineered 
+  back to its source code so that trade secrets might be built into a competing 
+  product, I say that if your competitors engage someone like me—not me, of course—to 
+  steal your work this way, then you should know that all VMProtect buys you is 
+  a few weeks of delay. </p>
+  <p>To the makers of VMProtect, I say: cooperate meaningfully with the computer 
+  security industry to ensure that your product is not used to disguise malware. 
+  Otherwise, one or another anti-virus company, or a consortium, will eventually 
+  find it worthwhile to pay someone like me—and it actually could be me—to perfect 
+  a tool that reverses yours. Though you would always be one step ahead when developing 
+  new obfuscations, being tied up with always doing that won’t be what you counted 
+  on for your business model. </p>
+  <p>To the computer security industry, I say: lift your game. Though we all know 
+  that working out what’s happening in a computer program isn’t anywhere near as 
+  easy as suggested in the movies, we reasonably expect that the computer security 
+  industry is as good at this work as anyone can possibly be. You encourage this 
+  by talking of “in-depth analysis” (see, for instance,
+  <a target="_top" href="http://www.trustdefender.com/blog/2009/08/19/why-is-clampi-ilomo-so-effective-an-analysis-with-detectionremoval-info/">
+  Why is Clampi/Ilomo so effective? An analysis with detection/removal info</a>) 
+  and of “details” in your reports, yet the reality is that you barely scratch the 
+  surface and many of your inferences from observation are incorrect on the sort 
+  of small points that count as details. Of all the reports on Clampi that I have 
+  seen for appraising my own study, only one claims to have developed a tool for 
+  reversing the work of VMProtect (see
+  <a target="_top" href="http://www.symantec.com/content/en/us/enterprise/media/security_response/whitepapers/inside_trojan_clampi.pdf">
+  Inside the Jaws of Trojan.Clampi</a>), and even it doesn’t (yet) have anything 
+  to show for its effort: the report contains no details that are obviously derived 
+  from its analysts having studied an approximate reconstitution of Clampi’s original 
+  x86 code, and many things that would easily be known from access to such a reconstitution 
+  are left alone or described as “obscure”. If VMProtect is at all a significant 
+  element in your collectively not having long ago worked out all that this malware 
+  can do, then either invest more in reverse engineering or stop making out that 
+  you’ve been defeated by something special. </p>
+  <p>In defence of the computer security industry, I had better add that they mostly 
+  don’t need to discover everything that any malware is capable of. The immediate 
+  commercial need is satisfied just by identifying the software as malicious and 
+  by devising reliable means of detection and removal. Clampi is not special in 
+  this sense. Though one writer (see
+  <a target="_top" href="http://voices.washingtonpost.com/securityfix/2009/09/clamping_down_on_clampi.html">
+  Clamping Down on the ‘Clampi’ Trojan</a>) says that finding it “on a computer 
+  inside your network is a little like spotting a single termite crawling into a 
+  crack in the wall”, it is in fact easy to notice and easy to remove. It can only 
+  be good that so much effort evidently has been directed at studying Clampi to 
+  understand it better than needed just to detect it and remove it. For if it is 
+  not soon removed, then according to all recent reports it can cause great damage 
+  by collecting sensitive data and sending it to who knows whom, to be acted on 
+  who knows when. </p>
+  <p>Clampi has apparently been around for years—from as long ago as 2005 according 
+  to some reports (and substantiated by details in the code). In much of that time, 
+  many have rated it as a low threat and some still do. It seems to have succeeded 
+  very well as a slow burner. If the model becomes popular, it will be important 
+  that such malware can quickly be understood more than is needed just for detection 
+  and removal. Is the industry up to the job? </p>
+  <h2>Acknowledgements </h2>
+  <p>The immediate practical difficulty for someone outside the industry to study 
+  any particular malware is to get a copy for inspection.
+  <a target="_top" href="http://www.secureworks.com/research/threats/clampi-trojan">
+  Joe Stewart</a>, of SecureWorks, may have thought my request a little odd, but 
+  without his prompt assistance this study might never have got started. I especially 
+  thank him for helpful discussions when I wondered how much to write up and which 
+  technical details might matter the most to other researchers with other methods 
+  (which are mostly a mystery to me). </p>
+  <h2>Research History </h2>
+  <p>I began the analysis on 23rd September. To keep my options for reporting as 
+  open as possible, I worked in a slightly unusual way, going so far as to generate 
+  a source-code approximation for every routine, no matter how insignificant. That’s 
+  a little slower than is really necessary just for understanding what a program 
+  does, but I imagined it might save time by sparing me a write-up. By 26th September, 
+  I had completed this process for the installer, and moved on to the kernel. After 
+  a few days of evaluating the VMProtect obfuscation and practising my decoding 
+  of it by hand, I decided to write a decompiler. This occupied me from 2nd October 
+  to 12th October, by which time a test run suggested to me that I had a balance 
+  between time spent on refining my automation and time spent on fixing incompleteness 
+  by hand. After a couple of days of massaging, my run from 12th October became 
+  my effective listing of the kernel’s x86 code. I then set about my usual methods 
+  of studying such listings, though again taking the unusual step of reconstituting 
+  a comprehensive approximation to source code. This was complete but for touch-ups 
+  by 2nd November and I moved on to writing a plain-language description of everything 
+  the code can do. Writing up is in some ways harder than studying the code, not 
+  least because of the discipline it imposes on you to synthesise what you can of 
+  a coherent design for the code from its many small capabilities. I considered 
+  the write-up fit to show without caution by 13th November and essentially complete 
+  by 27th November. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 2nd November 2009 and was last modified 
+    on 17th December 2009. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="41384" -->
+  </div>
+</div>
+
+</body>
+
+</html>

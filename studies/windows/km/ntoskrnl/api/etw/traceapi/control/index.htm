@@ -1,0 +1,427 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>NtTraceControl</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<h1>NtTraceControl </h1>
+<p>This function is the central control point for Event Tracing For Windows (ETW). 
+It supports many user-mode API functions for managing tracing sessions. Even the 
+private tracing sessions that are implemented mostly in user mode need some support 
+from the kernel and get it from this function. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+NtTraceControl (
+    ULONG FunctionCode, 
+    PVOID InBuffer, 
+    ULONG InBufferLen, 
+    PVOID OutBuffer, 
+    ULONG OutBufferLen, 
+    ULONG *ReturnSize);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">FunctionCode</span> argument selects from the function’s 
+many operations. </p>
+<p>The optional <span class="argument">InBuffer</span> and
+<span class="argument">InBufferLen</span> arguments are respectively the address 
+and size (in bytes) of a buffer that provides the function with input. What the 
+function interprets of this input depends on the <span class="argument">FunctionCode</span>.
+</p>
+<p>The optional <span class="argument">OutBuffer</span> and
+<span class="argument">OutBufferLen</span> arguments are respectively the address 
+and size (in bytes) of a buffer that receives the function’s output. What the function 
+puts into this buffer depends on the <span class="argument">FunctionCode</span>.
+</p>
+<p>The required <span class="argument">ReturnSize</span> argument is the address 
+of a variable whose value on output tells how many bytes the successful function 
+has put into the output buffer or may tell how much the failed function might have 
+put into the output buffer (had it been large enough). </p>
+<h3>Return Value </h3>
+<p>On failure, the function returns a negative error code. The usual return for 
+success is <span class="constant">STATUS_SUCCESS</span>. For a few function codes, 
+the function can return some other (positive) indication of success, such as
+<span class="constant">STATUS_MORE_ENTRIES</span>. </p>
+<h2>Availability </h2>
+<p>Both the <span class="function">NtTraceControl</span> and
+<span class="function">ZwTraceControl</span> functions are exported by name from 
+NTDLL in version 6.0 and higher. There, in user mode, the functions are aliases 
+for a stub that transfers execution to the <span class="routine">NtTraceControl</span> 
+implementation in kernel mode such that the execution is recognised as originating 
+in user mode. </p>
+<p>This <span class="function">NtTraceControl</span> implementation is exported 
+by name from the kernel in version 6.0 and higher. Only in version 10.0 and higher 
+does the kernel also export a <span class="function">ZwTraceControl</span>. The 
+kernel-mode version of <span class="function">ZwTraceControl</span> is also a stub 
+that transfers execution to the <span class="routine">NtTraceControl</span> implementation 
+but such that the execution is recognised as originating in kernel mode. </p>
+<p>Though no <span class="function">NtTraceControl</span> exists before version 
+6.0, the kernel in versions 5.1 and 5.2 does export functions that are recognisable 
+as precursors in the sense that each does the work that is later done through an
+<span class="function">NtTraceControl</span> function code. These earlier functions 
+are <span class="function">WmiStartTrace</span>, <span class="function">WmiStopTrace</span>,
+<span class="function">WmiQueryTrace</span>, <span class="function">WmiUpdateTrace</span> 
+and <span class="function">WmiFlushTrace</span>. This and other functionality of
+<span class="function">NtTraceControl</span> is also supported in versions 5.0 to 
+5.2 as Device I/O Control through the WMI support device. Except for this paragraph 
+to note that <span class="function">NtTraceControl</span> did not arrive out of 
+the blue for Windows Vista, none of this earlier support in any form is any concern 
+here. </p>
+<h2>Documentation Status </h2>
+<p>Though the <span class="function">NtTraceControl</span> and
+<span class="function">ZwTraceControl</span> functions are not documented under 
+either name, C-language declarations have been published by Microsoft in headers 
+from the Enterprise edition of the Windows Driver Kit (WDK) for Windows 10 version 
+1511: <span class="function">NtTraceControl</span> in NTWMI.H and
+<span class="function">ZwTraceControl</span> in ZWAPI.H. Thus are Microsoft’s names 
+and types known for the declaration above. </p>
+<h2>Behaviour </h2>
+<p>The following implementation notes are from inspection of the kernel from the 
+original release of Windows 10 only. They may some day get revised to account for 
+other versions, whether to update or to follow through with the history. Meanwhile, 
+where anything is added about earlier versions, take it not as an attempt at comprehensiveness 
+but as a bonus from my being unable to resist a trip down memory lane. </p>
+<h3>User-Mode Defences </h3>
+<p>If executing for a user-mode request, the function has some general defensiveness 
+about addresses passed as arguments. Failure at any of these defences is failure 
+for the function, which typically returns <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span> 
+or <span class="constant">STATUS_ACCESS_VIOLATION</span> (showing in kernel mode 
+as raised but handled exceptions). </p>
+<h4>Buffers </h4>
+<p>The <span class="argument">InBuffer</span> argument can be
+<span class="constant">NULL</span> to provide no input, in which case
+<span class="argument">InBufferLen</span> is ignored (literally, treated as zero). 
+If an input buffer is given, meaning here that <span class="argument">InBuffer</span> 
+is not <span class="constant">NULL</span> and <span class="argument">InBufferLen</span> 
+is not zero, then the whole of the buffer must be in user-mode address space.
+</p>
+<p>The <span class="argument">OutBuffer</span> argument can be
+<span class="constant">NULL</span> so that no output is requested, in which case
+<span class="argument">OutBufferLen</span> is ignored (literally, treated as zero). 
+If an output buffer is given, meaning here that <span class="argument">OutBuffer</span> 
+is not <span class="constant">NULL</span> and <span class="argument">OutBufferLen</span> 
+is not zero, then the whole buffer must be in user-mode address space and be writable 
+(at its first byte and also for a byte at each page boundary that is inside the 
+buffer). </p>
+<h4>Return Size </h4>
+<p>A variable for learning how much output is or could be produced is required. 
+The variable must be in user-mode address space and be writable. If instead
+<span class="argument">ReturnSize</span> is <span class="constant">NULL</span>, 
+the function returns <span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<h3>Kernel-Mode Acceptance </h3>
+<p>If executing for a kernel-mode request, all arguments are trusted as given. This 
+means in particular that behaviour is undefined if a non-zero buffer size is given 
+for a <span class="constant">NULL</span> address and there is no rejection of
+<span class="constant">NULL</span> for ReturnSize. </p>
+<h3>Double-Buffering </h3>
+<p>Except for the following function codes in the applicable versions </p>
+<ul>
+  <li>0x0C (6.2 and higher); </li>
+  <li>0x0E (6.2 and higher); </li>
+  <li>0x1B (10.0 and higher) </li>
+</ul>
+<p>or if given no buffer for either input or output, the function double-buffers. 
+Specifically, it obtains from the paged pool an allocation whose size is the larger 
+of the input and output buffers. If it cannot get this memory, it returns
+<span class="constant">STATUS_NO_MEMORY</span>. If an input buffer is given, the 
+function copies the whole of it to the double buffer so that all further work with 
+the input is from the double buffer, not from the input buffer. If the function 
+prepares output, it does so in the double buffer and copies to the caller-supplied 
+output buffer only when about to return <span class="constant">STATUS_SUCCESS</span>.
+</p>
+<h3>Exception Handling </h3>
+<p>The function never accesses <span class="argument">InBuffer</span>,
+<span class="argument">OutBuffer</span> or <span class="argument">ReturnSize</span> 
+without preparing for exceptions. The occurrence of an exception during such access 
+is fatal to the function, which returns the exception code as its own result.
+</p>
+<h3>Valid Function Codes </h3>
+<p>Microsoft’s names for eight of the valid function codes are known from type information 
+in symbol files that Microsoft first published for Windows 8—though even then, not 
+the symbol files for the kernel, which interprets the codes, nor for the obvious 
+low-level user-mode DLLs that use the codes for their calls to
+<span class="function">NtTraceControl</span>. Instead, they somehow find their way 
+into symbol files for such things as AppXDeploymentClient.dll. </p>
+<p>If only as known to these user-mode modules, the function codes apparently take 
+their values from an enumeration named <span class="enum">ETWTRACECONTROLCODE</span>. 
+A formal C-language definition is published in the NTETW.H from the Enterprise WDK 
+for Windows 10 version 1511, but repeats just the eight that had been disclosed 
+in symbol files. This header’s inclusion by source code for some of Microsoft’s 
+user-mode software is presumably where those few symbol files get type information 
+for the enumeration. It is not impossible that the full enumeration is defined for 
+the kernel from some other header and even to give it a different name. </p>
+<p>The table below lists the function codes that the function does not dismiss as 
+invalid (after the preceding defences). For all others, the function returns
+<span class="constant">STATUS_INVALID_DEVICE_REQUEST</span>. </p>
+<table>
+  <tr>
+    <th>Numeric Value </th>
+    <th>Symbolic Name </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x01 </td>
+    <td><span class="constant"><a href="starttrace.htm">EtwStartLoggerCode</a></span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td><span class="constant"><a href="stoptrace.htm">EtwStopLoggerCode</a></span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x03 </td>
+    <td><span class="constant"><a href="querytrace.htm">EtwQueryLoggerCode</a></span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td><span class="constant"><a href="updatetrace.htm">EtwUpdateLoggerCode</a></span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x05 </td>
+    <td><span class="constant"><a href="flushtrace.htm">EtwFlushLoggerCode</a></span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0B </td>
+    <td><a href="realtimeconnect.htm">real-time connect</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td><span class="constant"><a href="createactivityid.htm">EtwActivityIdCreate</a></span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0D </td>
+    <td><span class="constant"><a href="wdidispatchcontrol.htm">EtwWdiScenarioCode</a></span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0E </td>
+    <td><a href="realtimedisconnectconsumerbyhandle.htm">real-time disconnect consumer 
+    by handle</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0F </td>
+    <td><a href="registerumguid.htm">register user-mode GUID</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td><a href="receivenotification.htm">receive notification</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x11 </td>
+    <td><a href="sendnotification.htm">send notification</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x12 </td>
+    <td><a href="sendreplydatablock.htm">send reply data block</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x13 </td>
+    <td><a href="receivereplydatablock.htm">receive reply data block</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td><span class="constant"><a href="wdisemupdate.htm">EtwWdiSemUpdate</a></span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x15 </td>
+    <td><a href="gettraceguidlist.htm">get trace GUID list</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x16 </td>
+    <td><a href="gettraceguidinfo.htm">get trace GUID information</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x17 </td>
+    <td><a href="enumeratetraceguids.htm">enumerate trace GUIDs</a> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td><a href="registersecurityprovider.htm">register security provider</a>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x19 </td>
+    <td><a href="queryreferencetime.htm">query reference time</a> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1A </td>
+    <td><a href="trackproviderbinary.htm">track provider binary</a> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1B </td>
+    <td><a href="addnotificationevent.htm">add notification event</a> </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td><a href="updatedisallowlist.htm">update disallow list</a> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1E </td>
+    <td><a href="setprovidertraitsum.htm">set provider traits</a> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1F </td>
+    <td><a href="usedescriptortypeum.htm">use descriptor type</a> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td><a href="gettracegrouplist.htm">get trace group list</a> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x21 </td>
+    <td><a href="gettracegroupinfo.htm">get trace group information</a> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x22 </td>
+    <td><a href="getdisallowlist.htm">get disallow list</a> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x23 </td>
+    <td>set compression settings </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>get compression settings </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td>0x25 </td>
+    <td>update periodic capture state </td>
+    <td>1703 and higher </td>
+  </tr>
+  <tr>
+    <td>0x26 </td>
+    <td>get private session trace handle </td>
+    <td>1703 and higher </td>
+  </tr>
+  <tr>
+    <td>0x27 </td>
+    <td>register private session </td>
+    <td>1703 and higher </td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>query session demux object </td>
+    <td>1703 and higher </td>
+  </tr>
+  <tr>
+    <td>0x29 </td>
+    <td>set provider binary tracking </td>
+    <td>1709 and higher </td>
+  </tr>
+  <tr>
+    <td>0x2A </td>
+    <td>&nbsp;</td>
+    <td>1709 and higher </td>
+  </tr>
+</table>
+<p>The function’s behaviour varies greatly with the function code. Follow the links.
+</p>
+<h3>Output </h3>
+<p>For each function code, the function may of course succeed or fail. If it succeeds, 
+it may have prepared output in the double buffer. If so, it copies this output to 
+the caller-supplied <span class="argument">OutBuffer</span>. With or without output, 
+the successful function also sets the variable at <span class="argument">ReturnSize</span> 
+to the number of bytes it has placed in the output buffer. </p>
+<p>The failed function does not produce output but it may set the variable at
+<span class="argument">ReturnSize</span> to show what output it might have produced 
+in different circumstances. The obvious such circumstance is that
+<span class="argument">OutBufferLen</span> was too small. This is indicated by the 
+return of <span class="constant">STATUS_BUFFER_TOO_SMALL</span> for the following 
+function codes: </p>
+<ul>
+  <li>0x0F (6.1 and higher); </li>
+  <li>0x10; </li>
+  <li>0x15; </li>
+  <li>0x16. </li>
+</ul>
+<p>No matter what the error code, the function sets the variable at
+<span class="argument">ReturnSize</span> if the function code is any of: </p>
+<ul>
+  <li>0x13; </li>
+  <li>0x17; </li>
+  <li>0x20 (10.0 and higher); </li>
+  <li>0x21 (10.0 and higher); </li>
+  <li>0x22 (10.0 and higher); </li>
+  <li>0x24 (1607 and higher); </li>
+  <li>0x26 (1703 and higher); </li>
+  <li>0x27 (1703 and higher); </li>
+  <li>0x28 (1703 and higher). </li>
+</ul>
+<div class="Footer">
+  <p class="Dates">This page was created on 26th November 2016 but was not published 
+  until 31st <a href="../../../../../../../../new/18/12.htm">December 2018</a>. 
+  It was last modified on 28th <a href="../../../../../../../../new/20/05.htm">May 
+  2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14474" -->
+</div>
+
+</body>
+
+</html>

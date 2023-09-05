@@ -1,0 +1,196 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Expression Web 3 Crashes When Enabling Manual Style Application</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Expression Web 3 Crashes When Enabling Manual Style Application </h1>
+  <p>Though the long title above does not describe the circumstances completely, 
+  it does not miss by much. As extra, it’s enough just that there be no page open 
+  at the time. </p>
+  <h2>Problem </h2>
+  <p>Start Expression Web 3 and close any page that is opened automatically. From 
+  the Tools menu, call up the Page Editor Options dialog. At the CSS tab, click 
+  on Manual Style Application. Then click OK. (This assumes you presently have Auto 
+  Style Application enabled, which is the default.) </p>
+  <p>These few easy steps reliably induce Expression Web 3 to crash. For me, the 
+  Microsoft .NET Framework’s Error Reporting gives the following “problem details” 
+  in a dialog box titled simply Microsoft Windows: </p>
+  <pre class="output">Problem signature
+  Problem Event Name:           CLR20r3
+  Problem Signature 01:         expressionweb.exe
+  Problem Signature 02:         3.0.1762.0
+  Problem Signature 03:         4a5de873
+  Problem Signature 04:         mscorlib
+  Problem Signature 05:         2.0.0.0
+  Problem Signature 06:         4889dc80
+  Problem Signature 07:         f4f
+  Problem Signature 08:         7
+  Problem Signature 09:         N3CTRYE2KN3C34SGL4ZQYRBFTE4M13NB
+  OS Version:	                6.0.6000.2.0.0.256.1
+  Locale ID:	                3081
+</pre>
+  <p>All these details, even the OS Version, are exactly the same whether the problem 
+  is reproduced on the original (32-bit) Windows Vista or on Windows Vista SP1.
+  </p>
+  <h2>Cause </h2>
+  <p>It’s well disguised in the problem details, but the immediate cause is an access 
+  violation in FPEDITAX.DLL, specifically at offset 0x00084860. This is seen more 
+  readily, with a slightly different offset, when the steps are repeated after installing 
+  Expression Web 3 Service Pack 1: </p>
+  <pre class="output">Problem signature
+  Problem Event Name:           APPCRASH
+  Application Name:             ExpressionWeb.exe
+  Application Version:          3.0.3813.0
+  Application Timestamp:        4afaebc1
+  Fault Module Name:            fpeditax.dll
+  Fault Module Version:         3.0.3813.0
+  Fault Module Timestamp:       4afae9db
+  Exception Code:               c0000005
+  Exception Offset:             00084c6f
+  OS Version:                   6.0.6001.2.1.0.256.1
+  Locale ID:                    3081
+</pre>
+  <p>The faulting instruction is in a routine that prepares the Page Editor Options 
+  dialog, gets it displayed and interprets the new options. Microsoft’s name for 
+  this routine is not known, but the routine is a member function of a class that 
+  has a virtual function table, and Run Time Type Information in the FPEDITAX executable 
+  names this class as <span class="class">CWPEApp</span>. The function begins at 
+  offset 0x000846E4 in version 3.0.1762.0 and offset 0x00084AF3 in version 3.0.3813.0.
+  </p>
+  <p>Of particular interest for present purposes is that the function notes the 
+  state of Manual Style Application both before and after the dialog, so that if 
+  the state changes from off to on, the function then ensures that the Style Application 
+  toolbar is showing. For this last step, the function uses an
+  <span class="interface">IFPACApplication</span> interface for its
+  <span class="method">GetUIHostFromWindow</span> method and then an
+  <span class="interface">IFPACUIHost</span> interface for its
+  <span class="method">ShowToolbar</span> method. (Names for these interfaces and 
+  methods are known from the second of FPEDITAX’s type libraries.) For the first 
+  method, the function needs a window handle. The function gets this from the
+  <span class="member">m_hWnd</span> member of a <span class="class">CView</span> 
+  class (as documented for the MFC Library). The coding error is that the function 
+  merely assumes it has the address of a <span class="class">CView</span> class 
+  from earlier. If there is no open page, then this address is
+  <span class="constant">NULL</span> and the attempt to dereference the
+  <span class="member">m_hWnd</span> member faults. </p>
+  <p>Curiously, where the <span class="class">CView</span> is used earlier in the 
+  same function (for the different purpose of loading character sets), the code 
+  does allow that its pointer to the <span class="class">CView</span> may be
+  <span class="constant">NULL</span>. This bug would therefore have been avoided 
+  had the programmer who added code for showing the toolbar just taken a moment 
+  to look at what the code that was already in the same function could tell him 
+  about the variable that he was about to put to new use. </p>
+  <h2>Don’t They Test Before Release? </h2>
+  <p>Of course, coding oversights of this sort are inevitable even with the best 
+  discipline. The wonder is not with how the bug got written into the code but with 
+  how it can have escaped detection during pre-release testing and post-release 
+  review. It’s not as if Manual Style Application is especially obscure. The Internet 
+  has no shortage of commentary on enabling this feature, even in Expression Web 
+  3 specifically, but has nothing (that I could find today, 12th January 2010) to 
+  warn that enabling the feature while no page is open will crash the program. Surely 
+  they would warn of the crash if they had seen it. Surely they don’t write about 
+  the feature without having ever enabled it. That they say nothing can only mean 
+  that all of them enabled the feature only while having a page open. If so, then 
+  to have missed a crash that is as easy to reproduce as this one—six mouse clicks 
+  from first starting the program—brings with it a strong suggestion that the testing 
+  of this product is done much too narrowly. It’s no good having thousands of testers 
+  if they all use the program the same way! </p>
+  <p>But how can it be that Microsoft’s Expression Web team and all their pre-release 
+  testers and all the experts who have written about this program since its release 
+  always had a page open if they thought to enable Manual Style Application? The 
+  first thing I want to do when Expression Web presents me with an untitled unsaved 
+  page is to close it. Such a page is useless to me in Expression Web. This program 
+  is not a general-purpose word processor which I might use to run up a document 
+  and print it without ever wanting to save it. No, Expression Web is a tool for 
+  writing pages in a website. To me, a new page has reason to exist only if I have 
+  already decided where to save it, and my habit is correspondingly to create new 
+  pages via the context menu in the Folder List. If the user interface provided 
+  an option for not having the program start with an untitled unsaved page, I would 
+  set that option and never look back. I would not have thought I could be alone 
+  in this, but apparently I must be. </p>
+  <p>I’d also have thought that working from a clean slate when reconfiguring any 
+  program is just an obvious good practice of cautious computer users. If you’re 
+  going to change some settings that affect a program’s handling of documents, why 
+  risk that the changes might not all take immediate affect on documents that are 
+  still open? My habit, mostly unconscious, is to close those documents, change 
+  the settings and then re-open the documents, and it’s not unknown that I go as 
+  far as restarting the program. When upgrading a program, it’s just natural to 
+  set your known preferences at the earliest opportunity and especially before the 
+  new program is given any chance to modify existing data according to default settings 
+  that might not be wanted. And so it came to be that after using the initial page 
+  to sound out the program’s look and feel, and find that my several
+  <a href="../bugs/index.htm">demonstrations of bugs in the original Expression 
+  Web</a> mostly still apply to Expression Web 3, I restarted the program, closed 
+  the initial page and started applying my preferences. <span class="highlight">
+  For an outlay of several hundred dollars, I had bought a program that I could 
+  crash reliably within hours of purchase.</span> </p>
+  <p>Someone at Microsoft ought to be ashamed of that as an outcome for any customer. 
+  I say this not to demand a public show of being ashamed but to point out that
+  <span class="highlight">the product plainly isn’t being manufactured to professional 
+  standards</span> by people who are demonstrably taking professional pride in their 
+  work. There seems to be a systemic deficiency in the way this product is tested 
+  both before and after release, almost as if nobody at Microsoft wants to look 
+  too hard for faults. They’ll fix what’s reported but they don’t answer for how 
+  there can be such simple faults to report. </p>
+  <h2>Fix </h2>
+  <p>The coding error described above got fixed at least in time for Expression 
+  Web 4. Inspection confirms that the fix is the obvious and simple one of allowing 
+  that the <span class="method">GetUIHostFromWindow</span> method be passed
+  <span class="constant">NULL</span> as a window handle instead of the
+  <span class="member">m_hWnd</span> member of the <span class="class">CView</span> 
+  if in fact the function has no <span class="class">CView</span>. </p>
+  <p>As I review this in 2016, I can’t resist noting that Microsoft eventually opted 
+  for the ultimate “fix”, not for this coding error but for the many others: the 
+  product was made into a free download, as if nothing more need be said. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 9th January 2010 and was last modified 
+    on 20th July 2016. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c1016.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010-2016. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="50789" -->
+  </div>
+</div>
+
+</body>
+
+</html>

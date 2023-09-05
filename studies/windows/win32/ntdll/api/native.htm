@@ -1,0 +1,3401 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Native API Functions</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/win32.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="63592" -->
+<div class="Main">
+  <h1>Native API Functions </h1>
+  <p>Whether or not <a href="../index.htm">NTDLL</a> belongs to the Win32 subsystem 
+  particularly or is more generally the kernel’s user-mode face for supporting all 
+  subsystems, it is indisputably on the user-mode side of the boundary with kernel 
+  mode. The highest-level functionality in kernel mode is also the lowest-level 
+  functionality in user mode. This functionality is sometimes called the native 
+  API. Its functions are described as <span class="definition">native system services</span> 
+  in Microsoft’s documentation for device driver programming and are sometimes referred 
+  to just as system calls. </p>
+  <p>The extra qualification as native has significance, however. Ever since version 
+  3.51 (and explicitly not before), the kernel has allowed for multiple distinct 
+  sets of system services: at first four, but limited to two starting with version 
+  5.2 in the build for Windows 2003 SP1. The first of these sets is native. The 
+  second supports user-mode communication with WIN32K.SYS, which surely is important 
+  but is just as surely not native. </p>
+  <p>The native API functions are distinguished by names that begin with
+  <span class="function">Nt</span> or <span class="function">Zw</span>. They are 
+  exported from NTDLL in user mode and from the NTOSKRNL module (i.e., the kernel, 
+  whatever its filename) in kernel mode, though not all functions are exported in 
+  both modes or with both prefixes. Indeed, very many are exported only in user 
+  mode even as late as Windows 10, some two decades after the first 32-bit Windows 
+  that doesn’t run as an MS-DOS program. Many more were exported only in user mode 
+  to begin with, until their usefulness for kernel-mode programming (at least for 
+  Microsoft’s) was compelling enough that they became kernel-mode exports too.
+  </p>
+  <p>As user-mode exports, the native API functions tend to be known by their
+  <span class="function">Nt</span> prefix (for reasons given below). They are mostly 
+  undocumented, in part for the obviously good reason that their functionality is 
+  better reached through the documented functions of the Win32 API. Documented or 
+  not, they have long attracted the attention of various sorts of programmers for 
+  good reasons and bad. Among the bad must be counted hackers, not just malware 
+  writers but some programmers of security tools too, who by-pass the documented 
+  Win32 APIs in the hope of doing their otherwise more or less ordinary work without 
+  being readily detected. Even some of Microsoft’s own programmers, not only of 
+  low-level user-mode software such as services but also of so-called middleware, 
+  could not resist the siren call of the native API, such that Microsoft felt compelled 
+  in 2002 to document some of the API for user-mode programming, albeit with warnings.
+  </p>
+  <p>The suggestion seems strong, then, that the native API functions exist to be 
+  called from user mode even if most user-mode software would better not call them. 
+  Yet where these notes document native API functions they do so in the
+  <a href="../../../km/index.htm">Kernel</a> section. Why? </p>
+  <h2>Implementation </h2>
+  <p>The reason is that the kernel is where these functions are coded. Even if the 
+  function is exported only in user mode, NTDLL has none of the implementation. 
+  Though the native API functions are <a href="index.htm">NTDLL exports</a>, NTDLL 
+  provides nothing more than one or another type of stub for the transition to kernel 
+  mode. For other NTDLL exports, I do (or mean to) place my documentation of them 
+  here with NTDLL because even if most of their work, e.g., to create a file, is 
+  ultimately done in kernel mode, NTDLL provides at least some non-trivial pre- 
+  or post-processing. But for whatever native API functions I yet document, look 
+  in the Kernel section. Here, there are just these general notes. </p>
+  <p>If a native API function is exported in user mode, which almost all are, then 
+  with only one exception NTDLL exports it in both the <span class="function">Nt</span> 
+  and <span class="function">Zw</span> forms, which are aliases. This user-mode 
+  function is just a stub to effect a transition to kernel mode for the real handling. 
+  It is there picked up by a routine whose name has the <span class="routine">Nt</span> 
+  prefix. In kernel mode, the <span class="function">Nt</span> and
+  <span class="function">Zw</span> names are not aliases. The
+  <span class="function">Nt</span> function has the substantial implementation. 
+  It may be exported from the kernel, but more likely is not. Indeed, most of these
+  <span class="routine">Nt</span> routines exist only to service the corresponding 
+  user-mode functionality. If the functionality is exposed in kernel mode for use 
+  from outside the kernel, e.g., from drivers, there may instead (or also) be an 
+  export with the <span class="function">Zw</span> prefix. This is a stub which 
+  simulates a transition from user mode to kernel mode, ending up in the kernel’s
+  <span class="routine">Nt</span> routine, except for recording that the call actually 
+  originated in kernel mode. </p>
+  <h2>Usage </h2>
+  <p>The clearly intended usage is that user-mode clients will call the functions 
+  whose names have the <span class="function">Nt</span> prefix and kernel-mode clients 
+  will call the <span class="function">Zw</span> functions. If everyone sticks to 
+  this, then the underlying <span class="routine">Nt</span> routine in kernel mode 
+  can reliably distinguish whether it is executing for a kernel-mode or user-mode 
+  caller. Though it doesn’t matter which of the <span class="function">Nt</span> 
+  and <span class="function">Zw</span> forms is called in user mode, since they 
+  are just aliases there, calling the wrong one in kernel mode can bring surprises.
+  </p>
+  <h3>User Mode </h3>
+  <p>Of particular importance is that user-mode requests are subject to the natural 
+  distrust that everything executing in kernel mode must have for any parameters, 
+  but especially addresses, that can possibly have originated in user mode. As user-mode 
+  calls to an <span class="function">Nt</span> or <span class="function">Zw</span> 
+  function make the transition to kernel mode, the thread’s so-called
+  <span class="definition">previous mode</span>—actually named
+  <span class="member">PreviousMode</span> in the <span class="struct">
+  <a href="../../../km/ntoskrnl/inc/ntos/ke/kthread/index.htm">KTHREAD</a></span>—is 
+  set to <span class="constant">UserMode</span> (1) and the kernel-mode
+  <span class="routine">Nt</span> routine then knows to distrust all parameters.
+  </p>
+  <p>What distrust means in general is that all addresses, whether given as arguments 
+  or passed indirectly in structures whose addresses are given as arguments, must 
+  be in user-mode address space, are typically also subject to alignment requirements, 
+  and may have to be writable even if it turns out that there’s nothing to write. 
+  All access through these addresses, whether for reading or writing, is done with 
+  exception handling. Where data at these addresses is to be read as input for kernel-mode 
+  processing, the kernel captures a copy to validate and then work from so that 
+  it is not vulnerable to the user-mode caller changing the data after validation.
+  </p>
+  <p>Good practice in user mode is to avoid these functions. Instead, call them 
+  indirectly through Win32 API functions, even if undocumented. Know about the underlying 
+  native function, as much as it helps to understand the higher-level wrapping, 
+  but keep to the higher level for real-world use unless you have a very good reason 
+  not to. </p>
+  <h3>Kernel-Mode Zw Calls </h3>
+  <p>A kernel-mode call to the <span class="function">Zw</span> form goes through 
+  a stub that directs the handling to the same <span class="routine">Nt</span> routine 
+  as from user mode, but with the previous mode set to <span class="constant">KernelMode</span> 
+  (0). It will then be handled as if trusted. The usual case will be that some kernel-mode 
+  caller forms a request for its own purposes, with parameters that are in kernel-mode 
+  address space and will remain meaningful if the handling switches to an arbitrary 
+  thread. For this, the <span class="function">Zw</span> call is natural and appropriate.
+  </p>
+  <p>It is not of itself unsound to call a <span class="function">Zw</span> function 
+  with arguments that are user-mode addresses, but since these addresses will all 
+  be trusted, the caller has the entire responsibility for whatever might get done 
+  with those user-mode addresses. </p>
+  <h3>Kernel-Mode Nt Calls </h3>
+  <p>By contrast, a kernel-mode call to the <span class="function">Nt</span> form, 
+  if it is exported, passes through no stub. It goes directly to the internal handling. 
+  The previous mode is unchanged. The call may be handled as trusted or not. The 
+  caller had better know which. The kernel-mode caller of an
+  <span class="function">Nt</span> function has the responsibility of knowing the 
+  previous mode. It is generally better to call the <span class="function">Zw</span> 
+  function, but there are two notable cases where the <span class="function">Nt</span> 
+  function has the edge. </p>
+  <p>If the previous mode is <span class="constant">KernelMode</span>, as when the 
+  caller is handling a kernel-mode request, then calling the
+  <span class="function">Nt</span> function is effectively the same as calling the
+  <span class="function">Zw</span> function except for being faster and using less 
+  stack. The efficiency makes it irresistable to some programmers, and indeed the 
+  use of less stack means that calling the <span class="function">Nt</span> function 
+  actually is safer, e.g., for re-entrant file I/O by file system filter drivers. 
+  However, the caller must be certain that the previous mode truly is
+  <span class="constant">KernelMode</span>. Get this wrong and the kernel-mode addresses 
+  that would be perfectly fine as parameters for a call to the
+  <span class="function">Zw</span> function will instead be rejected by the
+  <span class="function">Nt</span> function. </p>
+  <p>Calling the <span class="function">Nt</span> function can also be right when 
+  the previous mode is <span class="constant">UserMode</span>. Here, the kernel-mode 
+  caller knows it is handling a user-mode request and wants its own further operations 
+  to continue being treated as user-mode requests. One reason, though probably rare 
+  in drivers such as can be added by third-party programmers, is that it will pass 
+  user-mode addresses to those operations. Another is that it truly does want access 
+  rights and privileges within those operations to be evaluated as if for a user-mode 
+  request. </p>
+  <h2>Available Functions </h2>
+  <p>As noted above, not all system functions are exported in both user mode and 
+  kernel mode, and not all are exported with both the <span class="function">Nt</span> 
+  and <span class="function">Zw</span> prefixes. The following table lists the modes 
+  and prefixes, and summarises the applicable Windows versions. Where
+  <span class="definition">user</span> or <span class="definition">kernel</span> 
+  is shown without parentheses, infer that the function is exported in that mode 
+  with both prefixes in the corresponding versions. If a function is exported in 
+  both modes using both prefixes, it is shown as <span class="definition">all</span>.
+  </p>
+  <p>Also given the shorthand <span class="definition">all</span> is any function 
+  that is exported in all known versions all the way back to Windows NT 3.10.
+  </p>
+  <p>Not one NT API function is exported with the <span class="function">Zw</span> 
+  prefix unless it is also exported with the <span class="function">Nt</span> prefix. 
+  In user mode, only one is not exported with both prefixes. This exceptional case 
+  is <span class="function">NtGetTickCount</span>: both it and
+  <span class="function">ZwGetTickCount</span> were dropped as exports for Windows 
+  XP but only the latter stayed dropped. </p>
+  <p>One other function, named <span class="function">NtCurrentTeb</span>, is also 
+  exported from NTDLL only with the <span class="function">Nt</span> prefix, and 
+  only then in x86 builds, but it is not included below because although its name 
+  starts with <span class="function">Nt</span>, it is not handled through a transition 
+  to kernel mode and is not regarded here as a native API function. Two functions 
+  are exported in kernel mode with the <span class="function">Nt</span> prefix only 
+  and not at all in user mode. They are <span class="function">NtGetEnvironmentVariableEx</span> 
+  and <span class="function">NtQueryEnvironmentVariableInfoEx</span>. They are here 
+  treated as being not actually intended as native API functions. Also omitted from 
+  the table, if only for now, are nearly two dozen user-mode functions that NTDLL 
+  exports with both the <span class="function">Nt</span> and
+  <span class="function">Zw</span> prefixes, but only from the wow64 builds. These 
+  are meant to look in some sense like native API functions, yet they are not.
+  </p>
+  <p>Note that many native API functions that are exported in kernel mode were not 
+  always. Many were first exported with one prefix but only much later with the 
+  other. What governs Microsoft’s thinking about which functions are also exposed 
+  for use in kernel mode but from outside the kernel is anyone’s guess. It seems 
+  at least plausible, however, that these functions are intended first as user-mode 
+  exports and then get exported in kernel mode as and when Microsoft discovers a 
+  need for Microsoft’s purposes. </p>
+  <table class="Functions">
+    <colgroup>
+      <col class="Name"><col class="Architecture"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Function </th>
+        <th>Modes and Prefixes </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="function">NtAcceptConnectPort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAccessCheck</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAccessCheckAndAuditAlarm</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAccessCheckByType</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAccessCheckByTypeAndAuditAlarm</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAccessCheckByTypeResultList</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAccessCheckByTypeResultListAndAuditAlarm</span>
+        </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAccessCheckByTypeResultListAndAuditAlarmByHandle</span>
+        </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAcquireCMFViewOwnership</span> </td>
+        <td>user </td>
+        <td>6.0 only </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAddAtom</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAddAtomEx</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAddBootEntry</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAddDriverEntry</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAdjustGroupsToken</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtAdjustPrivilegesToken</span>
+        </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAdjustTokenClaimsAndDeviceGroups</span>
+        </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlertResumeThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtAlertThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlertThreadById</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtAllocateLocallyUniqueId</span>
+        </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAllocateReserveObject</span> </td>
+        <td>user </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAllocateUserPhysicalPages</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAllocateUuids</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAllocateVirtualMemory</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcAcceptConnectPort</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcCancelMessage</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcConnectPort</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcConnectPortEx</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcCreatePort</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcCreatePortSection</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcCreateResourceReserve</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcCreateSectionView</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcCreateSecurityContext</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcDeletePortSection</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcDeleteResourceReserve</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcDeleteSectionView</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcDeleteSecurityContext</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcDisconnectPort</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcImpersonateClientContainerOfPort</span>
+        </td>
+        <td>user </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcImpersonateClientOfPort</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcOpenSenderProcess</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtAlpcOpenSenderThread</span>
+        </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcQueryInformation</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtAlpcQueryInformationMessage</span>
+        </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcRevokeSecurityContext</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcSendWaitReceivePort</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAlpcSetInformation</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtApphelpCacheControl</span> </td>
+        <td>user </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtAreMappedFilesTheSame</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtAssignProcessToJobObject</span>
+        </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtAssociateWaitCompletionPacket</span>
+        </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCallbackReturn</span> </td>
+        <td>user </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCancelDeviceWakeupRequest</span> </td>
+        <td>user </td>
+        <td>5.0 to 6.0 </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCancelIoFile</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCancelIoFileEx</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCancelSynchronousIoFile</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCancelTimer</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCancelTimer2</span> </td>
+        <td>user </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCancelWaitCompletionPacket</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtClearAllSavepointsTransaction</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>6.0 before SP1 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtClearEvent</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtClearSavepointTransaction</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>6.0 before SP1 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtClose</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCloseObjectAuditAlarm</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCommitComplete</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCommitEnlistment</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCommitTransaction</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCompactKeys</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCompareObjects</span> </td>
+        <td>user (Nt) </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCompareTokens</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCompleteConnectPort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCompressKey</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtConnectPort</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtContinue</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateChannel</span> </td>
+        <td>user </td>
+        <td>4.0 to 5.0 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateDebugObject</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateDirectoryObject</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateDirectoryObjectEx</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateEnlistment</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCreateEvent</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateEventPair</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateFile</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateIRTimer</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCreateIoCompletion</span> </td>
+        <td>user </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCreateJobObject</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateJobSet</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateKeyTransacted</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateKeyedEvent</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateLowBoxToken</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateMailslotFile</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateMutant</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateNamedPipeFile</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/mm/modwrite/create.htm">NtCreatePagingFile</a></span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/mm/partition/create.htm">NtCreatePartition</a></span>
+        </td>
+        <td>user </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreatePort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreatePrivateNamespace</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateProcess</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateProcessEx</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/profile/create.htm">NtCreateProfile</a></span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/profile/createex.htm">NtCreateProfileEx</a></span>
+        </td>
+        <td>user </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateResourceManager</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateSection</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateSemaphore</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateSymbolicLinkObject</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateThreadEx</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCreateTimer</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51, and 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateTimer2</span> </td>
+        <td>user </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateToken</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateTokenEx</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateTransaction</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCreateTransactionManager</span>
+        </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCreateUserProcess</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtCreateWaitCompletionPacket</span>
+        </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateWaitablePort</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateWnfStateName</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtCreateWorkerFactory</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDebugActiveProcess</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDebugContinue</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDelayExecution</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeleteAtom</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeleteBootEntry</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeleteDriverEntry</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeleteFile</span> </td>
+        <td>all </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeleteKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeleteObjectAuditAlarm</span> </td>
+        <td>user </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeletePrivateNamespace</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeleteValueKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeleteWnfStateData</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeleteWnfStateName</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDeviceIoControlFile</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDisableLastKnownGood</span> </td>
+        <td>user </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDisplayString</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDrawText</span> </td>
+        <td>user </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtDuplicateObject</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtDuplicateToken</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtEnableLastKnownGood</span> </td>
+        <td>user </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtEnumerateBootEntries</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtEnumerateBus</span> </td>
+        <td>user </td>
+        <td>3.51 only </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtEnumerateDriverEntries</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtEnumerateKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtEnumerateSystemEnvironmentValuesEx</span>
+        </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtEnumerateTransactionObject</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtEnumerateValueKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtExtendSection</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFilterBootOption</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFilterToken</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFilterTokenEx</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFindAtom</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtFlushBuffersFile</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFlushBuffersFileEx</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFlushInstallUILanguage</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtFlushInstructionCache</span>
+        </td>
+        <td>user; </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFlushKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFlushProcessWriteBuffers</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtFlushVirtualMemory</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFlushWriteBuffer</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFreeUserPhysicalPages</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFreeVirtualMemory</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFreezeRegistry</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtFreezeTransactions</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtFsControlFile</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtGetCachedSigningLevel</span>
+        </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetCompleteWnfStateSubscription</span> </td>
+        <td>user </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetContextThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetCurrentProcessorNumber</span> </td>
+        <td>user </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetCurrentProcessorNumberEx</span> </td>
+        <td>user </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetDevicePowerState</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <!-- tr>
+    <td><span class="function">NtGetEnvironmentVariableEx</span> </td>
+    <td>kernel (Nt) </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr -->
+      <tr>
+        <td><span class="function">NtGetMUIRegistryInfo</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtGetNextProcess</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetNextThread</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetNlsSectionPtr</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetNotificationResourceManager</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetPlugPlayEvent</span> </td>
+        <td>user </td>
+        <td>3.51 to 6.1 </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtGetTickCount</span> </td>
+        <td>user (Nt) </td>
+        <td>all except 5.1 </td>
+      </tr>
+      <tr>
+        <td>user (Zw) </td>
+        <td>3.10 to 5.0 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtGetWriteWatch</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtImpersonateAnonymousToken</span>
+        </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtImpersonateClientOfPort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtImpersonateThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtInitializeNlsFiles</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtInitializeRegistry</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtInitializeVDM</span> </td>
+        <td>user </td>
+        <td>3.10 only </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtInitiatePowerAction</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtIsProcessInJob</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtIsSystemResumeAutomatic</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtIsUILanguageComitted</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtListTransactions</span> </td>
+        <td>user </td>
+        <td>6.0 before SP1 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtListenChannel</span> </td>
+        <td>user </td>
+        <td>4.0 to 5.0 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtListenPort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtLoadDriver</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtLoadKey</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtLoadKey2</span> </td>
+        <td>user </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtLoadKeyEx</span> </td>
+        <td>user </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtLockFile</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtLockProductActivationKeys</span>
+        </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtLockRegistryKey</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtLockVirtualMemory</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtMakePermanentObject</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtMakeTemporaryObject</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/mm/partition/manage.htm">NtManagePartition</a></span>
+        </td>
+        <td>user </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtMapCMFModule</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtMapUserPhysicalPages</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtMapUserPhysicalPagesScatter</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtMapViewOfSection</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtMarshallTransaction</span> </td>
+        <td>all </td>
+        <td>6.0 before SP1 </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtModifyBootEntry</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtModifyDriverEntry</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtNotifyChangeDirectoryFile</span>
+        </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtNotifyChangeKey</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtNotifyChangeMultipleKeys</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtNotifyChangeSession</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenChannel</span> </td>
+        <td>user </td>
+        <td>4.0 to 5.0 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenDirectoryObject</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenEnlistment</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtOpenEvent</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenEventPair</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenFile</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenIoCompletion</span> </td>
+        <td>user </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtOpenJobObject</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.1 and higher</td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenKeyEx</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenKeyTransacted</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenKeyTransactedEx</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenKeyedEvent</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenMutant</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenObjectAuditAlarm</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/mm/partition/open.htm">NtOpenPartition</a></span>
+        </td>
+        <td>user </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenPrivateNamespace</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3"><span class="function">NtOpenProcess</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenProcessToken</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenProcessTokenEx</span> </td>
+        <td>all </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenResourceManager</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenSection</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenSemaphore</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtOpenSession</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenSymbolicLinkObject</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtOpenThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtOpenThreadToken</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenThreadTokenEx</span> </td>
+        <td>all </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtOpenTimer</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtOpenTransaction</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtOpenTransactionManager</span>
+        </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtPlugPlayControl</span> </td>
+        <td>user </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtPowerInformation</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtPrePrepareComplete</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtPrePrepareEnlistment</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtPrepareComplete</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtPrepareEnlistment</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtPrivilegeCheck</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtPrivilegeObjectAuditAlarm</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtPrivilegedServiceAuditAlarm</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtPropagationComplete</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtPropagationFailed</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtProtectVirtualMemory</span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtPullTransaction</span> </td>
+        <td>all </td>
+        <td>6.0 before SP1 </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtPulseEvent</span> </td>
+        <td>user <br>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryAttributesFile</span> </td>
+        <td>user </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryBootEntryOrder</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryBootOptions</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryDebugFilterState</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryDefaultLocale</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryDefaultUILanguage</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryDirectoryFile</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryDirectoryObject</span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryDriverEntryOrder</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryEaFile</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <!-- tr>
+    <td><span class="function">NtQueryEnvironmentVariableInfoEx</span> </td>
+    <td>kernel (Nt) </td>
+    <td>6.0 SP1 and higher </td>
+  </tr -->
+      <tr>
+        <td><span class="function">NtQueryEvent</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryFullAttributesFile</span>
+        </td>
+        <td>user </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInformationAtom</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInformationEnlistment</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInformationFile</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryInformationJobObject</span>
+        </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInformationPort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="3"><span class="function">NtQueryInformationProcess</span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInformationResourceManager</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryInformationThread</span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInformationToken</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInformationTransaction</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInformationTransactionManager</span>
+        </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInformationWorkerFactory</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryInstallUILanguage</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/profile/queryinterval.htm">NtQueryIntervalProfile</a></span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryIoCompletion</span> </td>
+        <td>user </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/slmem/queryvalue.htm">NtQueryLicenseValue</a></span>
+        </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryMultipleValueKey</span> </td>
+        <td>user </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryMutant</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryObject</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryOleDirectoryFile</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>4.0 only </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryOpenSubKeys</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryOpenSubKeysEx</span> </td>
+        <td>user </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryPerformanceCounter</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryPortInformationProcess</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryQuotaInformationFile</span>
+        </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQuerySection</span> </td>
+        <td>user <br>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQuerySecurityAttributesToken</span> </td>
+        <td>all </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQuerySecurityObject</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQuerySemaphore</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQuerySymbolicLinkObject</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQuerySystemEnvironmentValue</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQuerySystemEnvironmentValueEx</span>
+        </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3"><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/sysinfo/query.htm">NtQuerySystemInformation</a></span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/sysinfo/queryex.htm">NtQuerySystemInformationEx</a></span>
+        </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQuerySystemTime</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryTimer</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryTimerResolution</span> </td>
+        <td>user </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryValueKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtQueryVirtualMemory</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryVolumeInformationFile</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryWnfStateData</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueryWnfStateNameInformation</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueueApcThread</span> </td>
+        <td>user </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtQueueApcThreadEx</span> </td>
+        <td>user </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRaiseException</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRaiseHardError</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReadFile</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReadFileScatter</span> </td>
+        <td>user </td>
+        <td>4.0 SP2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtReadOnlyEnlistment</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReadRequestData</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReadVirtualMemory</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtRecoverEnlistment</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtRecoverResourceManager</span>
+        </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtRecoverTransactionManager</span>
+        </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRegisterNewDevice</span> </td>
+        <td>user </td>
+        <td>3.51 only </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRegisterProtocolAddressInformation</span>
+        </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRegisterThreadTerminatePort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReleaseCMFViewOwnership</span> </td>
+        <td>user </td>
+        <td>6.0 only </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReleaseKeyedEvent</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReleaseMutant</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReleaseProcessMutant</span> </td>
+        <td>user </td>
+        <td>3.10 to 3.51 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReleaseSemaphore</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReleaseWorkerFactoryWorker</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtRemoveIoCompletion</span> </td>
+        <td>user </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRemoveIoCompletionEx</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRemoveProcessDebug</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtRenameKey</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.1 SP1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRenameTransactionManager</span> </td>
+        <td>user </td>
+        <td>6.0 SP1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRenameValueKey</span> </td>
+        <td>user </td>
+        <td>3.10 only </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtReplaceKey</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReplacePartitionUnit</span> </td>
+        <td>user </td>
+        <td>6.0 SP1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReplyPort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReplyWaitReceivePort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReplyWaitReceivePortEx</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReplyWaitReplyPort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtReplyWaitSendChannel</span> </td>
+        <td>user </td>
+        <td>4.0 to 5.0 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRequestDeviceWakeup</span> </td>
+        <td>user </td>
+        <td>5.0 to 6.0 </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtRequestPort</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtRequestWaitReplyPort</span>
+        </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRequestWakeupLatency</span> </td>
+        <td>user </td>
+        <td>5.0 to 6.0 </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtResetEvent</span> </td>
+        <td>user <br>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtResetWriteWatch</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtRestoreKey</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtResumeProcess</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtResumeThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRevertContainerImpersonation</span> </td>
+        <td>user </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtRollbackComplete</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRollbackEnlistment</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRollbackSavepointTransaction</span> </td>
+        <td>user </td>
+        <td>6.0 before SP1 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRollbackTransaction</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtRollforwardTransactionManager</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSaveKey</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSaveKeyEx</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSaveMergedKeys</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSavepointComplete</span> </td>
+        <td>all </td>
+        <td>6.0 before SP1 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSavepointTransaction</span> </td>
+        <td>all </td>
+        <td>6.0 before SP1 </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSecureConnectPort</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.2 SP1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSendWaitReplyChannel</span> </td>
+        <td>user </td>
+        <td>4.0 to 5.0 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSerializeBoot</span> </td>
+        <td>user </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetBootEntryOrder</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetBootOptions</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetCachedSigningLevel</span> </td>
+        <td>all </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetContextChannel</span> </td>
+        <td>user </td>
+        <td>4.0 to 5.0 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetContextThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetDebugFilterState</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetDefaultHardErrorPort</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetDefaultLocale</span> </td>
+        <td>user <br>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetDefaultUILanguage</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetDriverEntryOrder</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetEaFile</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetEvent</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetEventBoostPriority</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetHighEventPair</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetHighWaitLowEventPair</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetHighWaitLowThread</span> </td>
+        <td>user </td>
+        <td>3.10 to 4.0 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetIRTimer</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetInformationDebugObject</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetInformationEnlistment</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetInformationFile</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetInformationJobObject</span>
+        </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetInformationKey</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetInformationObject</span>
+        </td>
+        <td>user </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetInformationProcess</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetInformationResourceManager</span>
+        </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetInformationSymbolicLink</span> </td>
+        <td>user </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetInformationThread</span>
+        </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetInformationToken</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetInformationTransaction</span> </td>
+        <td>all </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetInformationTransactionManager</span>
+        </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetInformationVirtualMemory</span> </td>
+        <td>all </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetInformationWorkerFactory</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/profile/setinterval.htm">NtSetIntervalProfile</a></span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetIoCompletion</span> </td>
+        <td>user </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetIoCompletionEx</span> </td>
+        <td>user </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetLdtEntries</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetLowEventPair</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetLowWaitHighEventPair</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetLowWaitHighThread</span> </td>
+        <td>user </td>
+        <td>3.10 to 4.0 </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetQuotaInformationFile</span>
+        </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetSecurityObject</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetSystemEnvironmentValue</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetSystemEnvironmentValueEx</span>
+        </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/sysinfo/set.htm">NtSetSystemInformation</a></span>
+        </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetSystemPowerState</span> </td>
+        <td>user </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetSystemTime</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetThreadExecutionState</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetTimer</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51, and 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetTimer2</span> </td>
+        <td>user </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetTimerEx</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetTimerResolution</span> </td>
+        <td>user </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetUuidSeed</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetValueKey</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtSetVolumeInformationFile</span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSetWnfProcessNotificationEvent</span> </td>
+        <td>user </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtShutdownSystem</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Nt) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtShutdownWorkerFactory</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSignalAndWaitForSingleObject</span> </td>
+        <td>user </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSinglePhaseReject</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/profile/start.htm">NtStartProfile</a></span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtStartTm</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>6.0 before SP1 </td>
+      </tr>
+      <tr>
+        <td><span class="function">
+        <a href="../../../km/ntoskrnl/api/ex/profile/stop.htm">NtStopProfile</a></span>
+        </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSubscribeWnfStateChange</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSuspendProcess</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSuspendThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtSystemDebugControl</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtTerminateJobObject</span> </td>
+        <td>user </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtTerminateProcess</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtTerminateThread</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtTestAlert</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtThawRegistry</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtThawTransactions</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtTraceControl</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtTraceEvent</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtTranslateFilePath</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtUmsThreadYield</span> </td>
+        <td>user </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtUnloadDriver</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtUnloadKey</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtUnloadKey2</span> </td>
+        <td>user </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtUnloadKeyEx</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtUnlockFile</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtUnlockVirtualMemory</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtUnmapViewOfSection</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtUnmapViewOfSectionEx</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtUnsubscribeWnfStateChange</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtUpdateWnfStateData</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtVdmControl</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtVdmStartExecution</span> </td>
+        <td>user </td>
+        <td>3.10 only </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtW32Call</span> </td>
+        <td>user </td>
+        <td>3.51 to 4.0 SP3 </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWaitForAlertByThreadId</span> </td>
+        <td>user </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWaitForDebugEvent</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWaitForKeyedEvent</span> </td>
+        <td>user </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtWaitForMultipleObjects</span>
+        </td>
+        <td>user <br>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.51 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWaitForMultipleObjects32</span> </td>
+        <td>user </td>
+        <td>5.2 SP1 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWaitForProcessMutant</span> </td>
+        <td>user </td>
+        <td>3.10 to 3.51 </td>
+      </tr>
+      <tr>
+        <td rowspan="2"><span class="function">NtWaitForSingleObject</span> </td>
+        <td>user; <br>
+        kernel (Nt) </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>kernel (Zw) </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWaitForWnfNotifications</span> </td>
+        <td>user </td>
+        <td>6.2 only </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWaitForWorkViaWorkerFactory</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWaitHighEventPair</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWaitLowEventPair</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWorkerFactoryWorkerReady</span> </td>
+        <td>user </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <!-- tr>
+    <td><span class="function">NtWow64AllocateVirtualMemory64</span> </td>
+    <td>user </td>
+    <td>6.2 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CallFunction64</span> </td>
+    <td>user </td>
+    <td>6.0 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrAllocateCaptureBuffer</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrAllocateMessagePointer</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrCaptureMessageBuffer</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrCaptureMessageString</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrClientCallServer</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrClientConnectToServer</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrFreeCaptureBuffer</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrGetProcessId</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrIdentifyAlertableThread</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrNewThread</span> </td>
+    <td>user </td>
+    <td>some 5.2 and some 6.0 (wow64 only); <br>
+    in 5.2 from Windows Server 2003 SP1 and higher; <br>
+    in 6.0 before SP1 </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrSetPriorityClass</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 to 6.0 before SP1 (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64CsrVerifyRegion</span> </td>
+    <td>user </td>
+    <td>6.0 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64DebuggerCall</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64GetCurrentProcessorNumberEx</span> </td>
+    <td>user </td>
+    <td>6.1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64GetNativeSystemInformation</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64InterlockedPopEntrySList</span> </td>
+    <td>user </td>
+    <td>6.1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64IsProcessorFeaturePresent</span> </td>
+    <td>user </td>
+    <td>10.0 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64QueryInformationProcess64</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64QueryVirtualMemory64</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64ReadVirtualMemory64</span> </td>
+    <td>user </td>
+    <td>5.2 SP1 and higher (wow64 only) </td>
+  </tr>
+  <tr>
+    <td><span class="function">NtWow64WriteVirtualMemory64</span> </td>
+    <td>user </td>
+    <td>6.0 and higher (wow64 only) </td>
+  </tr -->
+      <tr>
+        <td><span class="function">NtWriteFile</span> </td>
+        <td>all </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWriteFileGather</span> </td>
+        <td>user </td>
+        <td>4.0 SP2 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWriteRequestData</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtWriteVirtualMemory</span> </td>
+        <td>user </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td><span class="function">NtYieldExecution</span> </td>
+        <td>user; <br>
+        kernel (Zw) </td>
+        <td>4.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 31st
+    <a href="../../../../../new/16/10.htm">October 2016</a> from material first 
+    published in 2008. It was last modified on 21st May 2022. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c0822.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5507" -->
+  </div>
+</div>
+
+</body>
+
+</html>

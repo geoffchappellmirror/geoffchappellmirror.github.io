@@ -1,0 +1,436 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WINSRV User API Routines</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+<h1>WINSRV User API Routines </h1>
+<p>As a <a href="../../../../csrsrv/api/srvloadr/index.htm">CSRSS Server DLL</a>, 
+the user server in WINSRV.DLL implements API routines which a CSRSS client can call 
+through the NTDLL function <span class="function">
+<a href="../../../../ntdll/api/csrutil/clientcallserver.htm">CsrClientCallServer</a></span> 
+and which other DLLs in the server process may be allowed to call through the CSRSRV 
+function <span class="function">
+<a href="../../../../csrsrv/api/apireqst/callserverfromserver.htm">CsrCallServerFromServer</a></span>. 
+Although most CSRSS server DLLs allow most API routines to be called from the server 
+process, the user server does not. For the following table, an API routine is invalid 
+as a server call unless explicitly noted as valid. </p>
+<p>The caller selects a routine by specifying an API number. The high word is a 
+0-based index for the user server as a CSRSS server DLL. Known clients and WINSRV 
+itself (for the slightly different matter of accessing server-specific per-process 
+data) assume that this index is 3. Whatever symbolic names Microsoft has for the 
+API numbers as constants to use when calling the corresponding API routines are 
+not known. The tables below give only the name of each API routine as known from 
+public symbol files for WINSRV.DLL. </p>
+<p>In an immediate sense, the user server is here named the user server because 
+of the function, named <span class="function">UserServerDllInitialization</span>, 
+that WINSRV exports for CSRSRV is to call for initialising this server rather than 
+the one or two others that WINSRV has hosted. The intended caller of by far the 
+most API routines that the user server has ever implemented is USER32.DLL. </p>
+<h2>User-Mode Windowing </h2>
+<p>In early versions, the user server does almost all the work that is nowadays 
+done in kernel mode by WIN32K.SYS. Cross-process calls to the user server’s API 
+routines must have been very frequent. Decent performance would be unachievable 
+if every one of them is a Local Procedure Call (LPC) through the
+<span class="function">CsrClientCallServer</span> function. In these versions, the 
+user server’s API routines are written on the assumption that they are reached through 
+something named QLPC that exchanges messages—indeed, batches of messages—in shared 
+memory and is managed from the client side by calling <span class="function">CsrClientSendMessage</span> 
+instead. </p>
+<p>If only in version 3.10, the user server’s API routines may in principle have 
+the usual prototype </p>
+<pre class="source">ULONG <span class="placeholder">ApiRoutine</span> (<a href="../../../../csrsrv/api/apireqst/api_msg.htm">CSR_API_MSG</a> *, <a href="../../../../csrsrv/api/apireqst/reply_status.htm">CSR_REPLY_STATUS</a> *);</pre>
+<p>for being called by CSRSRV, but the first argument is in fact the address of 
+a <span class="struct">CSR_QLPC_API_MSG</span>, not of a <span class="struct">CSR_API_MSG</span>. 
+Version 3.51 throws this away in the apparent pursuit of yet more efficiency. The 
+user server in this version sets a routine into the <span class="member">ApiDispatchRoutine</span> 
+member of the <span class="struct">CSR_SERVER_DLL</span> such that API routines 
+are not called from CSRSRV. Their distribution is instead an internal matter for 
+WINSRV. One effect is that some (but not all) API routines in version 3.51 have 
+the prototype </p>
+<pre class="source">ULONG FASTCALL <span class="placeholder">ApiRoutine</span> (CSR_QLPC_API_MSG *, WND *);</pre>
+<p>Plainly none of this internal detail matters to a client and wouldn’t matter 
+here if the functionality of the API routines could instead be described by naming 
+the API numbers. It’s far from clear that the API routines are even worth listing: 
+were a list to be made, it might go something like… </p>
+<table>
+  <tr>
+    <th>API Number </th>
+    <th>API Routine </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00030000 (3.51) </td>
+    <td><span class="routine">__ChildWindowFromPointEx</span> </td>
+    <td>3.51 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030001 (3.51) </td>
+    <td><span class="routine">__CsCreateCaret</span> </td>
+    <td>3.51 only </td>
+    <td>previously 0x003001B </td>
+  </tr>
+  <tr>
+    <td>0x00030002 (3.51) </td>
+    <td><span class="routine">__CsEndPaint</span> </td>
+    <td>3.51 only </td>
+    <td>previously 0x00030021 </td>
+  </tr>
+  <tr>
+    <td>0x00030003 (3.51) </td>
+    <td><span class="routine">__CsExcludeUpdateRgn</span> </td>
+    <td>3.51 only </td>
+    <td>previously 0x00030023 </td>
+  </tr>
+  <tr>
+    <td>0x00030004 (3.51) </td>
+    <td><span class="routine">__CsGetCPD</span> </td>
+    <td>3.51 only </td>
+    <td>previously 0x0003014F </td>
+  </tr>
+  <tr>
+    <td><span class="alert">TO BE DONE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030013 (3.51) </td>
+    <td><span class="routine">__ServerGetWindowLong</span> </td>
+    <td>3.51 </td>
+    <td>previously 0x00030150 </td>
+  </tr>
+  <tr>
+    <td><span class="alert">TO BE DONE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030000 (3.10); <br>
+    0x0003006E (3.51) </td>
+    <td><span class="routine">__ActivateKeyboardLayout</span> </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030001 (3.10); <br>
+    0x0003006F (3.51) </td>
+    <td><span class="routine">__AppendMenu</span> </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030002 (3.10) </td>
+    <td><span class="routine">__ArrangeIconicWindows</span> </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030003 (3.10); <br>
+    0x00030070 (3.51) </td>
+    <td><span class="routine">__AttachThreadInput</span> </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030004 (3.10) </td>
+    <td><span class="routine">__BeginDeferWindowPos</span> </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030005 (3.10); <br>
+    0x00030071 (3.51) </td>
+    <td><span class="routine">__BringWindowToTop</span> </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030006 (3.10) </td>
+    <td><span class="routine">__CalcChildScroll</span> </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030007 (3.10); <br>
+    0x00030072 (3.51) </td>
+    <td><span class="routine">__CallMsgFilter</span> </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="alert">TO BE DONE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0003001B (3.10) </td>
+    <td><span class="routine">__CsCreateCaret</span> </td>
+    <td>3.10 only </td>
+    <td>next as 0x00030001 </td>
+  </tr>
+  <tr>
+    <td><span class="alert">TO BE DONE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030021 (3.10) </td>
+    <td><span class="routine">__CsEndPaint</span> </td>
+    <td>3.10 only </td>
+    <td>next as 0x00030002 </td>
+  </tr>
+  <tr>
+    <td><span class="alert">TO BE DONE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030023 (3.10) </td>
+    <td><span class="routine">__CsExcludeUpdateRgn</span> </td>
+    <td>3.10 only </td>
+    <td>next as 0x00030003 </td>
+  </tr>
+  <tr>
+    <td><span class="alert">TO BE DONE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0003014F (3.10) </td>
+    <td><span class="routine">__CsGetCPD</span> </td>
+    <td>3.10 only </td>
+    <td>next as 0x00030004 </td>
+  </tr>
+  <tr>
+    <td>0x00030150 (3.10) </td>
+    <td><span class="routine">__ServerGetWindowLong</span> </td>
+    <td>3.10 only </td>
+    <td>next as 0x00030013 </td>
+  </tr>
+  <tr>
+    <td>0x00030151 (3.10) </td>
+    <td><span class="routine">__TransferInputBits</span> </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030152 (3.10); <br>
+    0x00030102 (3.51) </td>
+    <td><span class="routine">__ResyncKeyState</span> </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="alert">TO BE DONE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<h2>Kernel-Mode Windowing </h2>
+<p>The change to in-process calls in kernel mode left the user server with a greatly 
+reduced role in version 4.0. Not only are there many fewer API routines but they 
+revert to the usual prototype: </p>
+<pre class="source">ULONG <span class="placeholder">ApiRoutine</span> (CSR_API_MSG *, CSR_REPLY_STATUS *);</pre>
+<p>Pehaps to avoid all misunderstanding, not that mismatching low-level DLLs such 
+as CSRSRV and USER32 seems likely ever to produce anything but chaos, the API numbers 
+begin with a non-zero base for the low word. </p>
+<table>
+  <tr>
+    <th>API Number </th>
+    <th>API Routine </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00030A00 (4.0); <br>
+    0x00030400 </td>
+    <td><span class="routine">SrvExitWindowsEx</span> </td>
+    <td>4.0 and higher </td>
+    <td>conditionally valid as server call in 5.0 to 5.2; <br>
+    valid as server call in 6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00030A01 (4.0); <br>
+    0x00030401 </td>
+    <td><span class="routine">SrvEndTask</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030A02 (4.0) </td>
+    <td><span class="routine">SrvInitSoundDriver</span> </td>
+    <td>4.0 only </td>
+    <td>valid as server call </td>
+  </tr>
+  <tr>
+    <td>0x00030A03 (4.0) </td>
+    <td><span class="routine">SrvPlaySound</span> </td>
+    <td>4.0 only </td>
+    <td>valid as server call </td>
+  </tr>
+  <tr>
+    <td>0x00030A04 (4.0); <br>
+    0x00030402 </td>
+    <td><span class="routine">SrvLogon</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030A05 (4.0) </td>
+    <td><span class="routine">SrvServiceMessageBox</span> </td>
+    <td>4.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030A06 (4.0); <br>
+    0x00030403 (5.0 to 6.0) </td>
+    <td><span class="routine">SrvRegisterServicesProcess</span> </td>
+    <td>4.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030A07 (4.0); <br>
+    0x00030404 (5.0 to 6.0); <br>
+    0x00030403 </td>
+    <td><span class="routine">SrvActivateDebugger</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030A08 (4.0); <br>
+    0x00030405 (5.0 to 6.0) </td>
+    <td><span class="routine">SrvGetThreadConsoleDesktop</span> </td>
+    <td>4.0 to 6.0 </td>
+    <td>valid as server call </td>
+  </tr>
+  <tr>
+    <td>0x00030406 (5.0 to 6.0); <br>
+    0x00030404 (6.1 to 6.2) </td>
+    <td><span class="routine">SrvDeviceEvent</span> </td>
+    <td>5.0 to 6.2 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030407 (5.0 to 6.0) </td>
+    <td><span class="routine">SrvRegisterLogonProcess</span> </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030408 (5.0 to 5.1) </td>
+    <td><span class="routine">SrvWin32HeapStat</span> </td>
+    <td>5.0 to 5.1 </td>
+    <td>succeeds trivially </td>
+  </tr>
+  <tr>
+    <td>0x00030409 (5.0 to 5.1) </td>
+    <td><span class="routine">SrvWin32HeapFail</span> </td>
+    <td>5.0 to 5.1 </td>
+    <td>succeeds trivially </td>
+  </tr>
+  <tr>
+    <td>0x0003040A (5.1); <br>
+    0x00030408 (5.2 to 6.0); <br>
+    0x00030405 (6.1 to 6.2); <br>
+    0x00030404 </td>
+    <td><span class="routine">SrvCreateSystemThreads</span> </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030409 (5.2 to 6.0); <br>
+    0x00030406 (6.1 to 6.2); <br>
+    0x00030405 </td>
+    <td><span class="routine">SrvRecordShutdownReason</span> </td>
+    <td>5.2 and higher </td>
+    <td>valid as server call </td>
+  </tr>
+  <tr>
+    <td>0x0003040A (6.0); <br>
+    0x00030407 (6.1 to 6.2); <br>
+    0x00030406 </td>
+    <td><span class="routine">SrvCancelShutdown</span> </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00030408 (6.1) </td>
+    <td><span class="routine">SrvConsoleHandleOperation</span> </td>
+    <td>6.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0003040B (6.0); <br>
+    0x00030409 (6.1) </td>
+    <td><span class="routine">SrvGetSetShutdownBlockReason</span> </td>
+    <td>6.0 to 6.1 </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>In versions 5.0 to 5.2 inclusive, the API numbered 0x00030400 (for exiting Windows) 
+is enabled for server-side calls when running on a Terminal Server (in the sense 
+of having the 0x0010 bit set in the product suite). </p>
+<p>The two routines <span class="routine">SrvWin32HeapStat</span> and
+<span class="routine">SrvWin32HeapFail</span> both succeed trivially and have the 
+same address. It is not known which has which API number! Presumably, they are not 
+trivial in some checked build. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 6th
+  <a href="../../../../../../../new/19/07.htm">July 2019</a> and was last modified 
+  on 7th July 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,637 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The !pfn Debugger Extension Command</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/km.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="63592" -->
+<div class="Main">
+  <h1>The !pfn Debugger Extension Command </h1>
+  <div class="Abstract">
+    <p>The <span class="command">!pfn</span> command takes one documented parameter 
+    and dumps the corresponding <span class="struct">MMPFN</span> structure. Microsoft 
+    documents that the command can dump the entire page frame database but does 
+    not document how: <span class="command">!pfn 0 1</span> does it in all versions 
+    since 3.51. Some other undocumented incantations may be useful. Some are defective.
+    </p>
+  </div>
+  <p>It will surprise nobody that Microsoft’s seemingly substantial Debugger Reference 
+  (still helpfully included with the debugger for offline use) omits very much that 
+  Microsoft’s debuggers can do. What may surprise is how old an undocumented feature 
+  can be yet remain undocumented. The undocumented functionality that this note 
+  presents of the <span class="command">!pfn</span> command dates from the KDEXTX86.DLL 
+  debugger extension as supplied with the Device Driver Kit (DDK) for Windows NT 
+  3.51. </p>
+  <p>Can this really have gone unnoticed for so long? Much of the point to debugger 
+  extension commands is that they’re easy to use. They are just as easily used differently 
+  from what’s documented. Where a command is documented as taking one argument, 
+  as is <span class="command">!pfn</span>, it must sometimes happen that programmers 
+  enter a second argument by accident if not just for fun or mischief. If the command 
+  then behaves differently, and especially if it produces something useful, news 
+  of it soon circulates as folklore. Surely? </p>
+  <p>For the <span class="command">!pfn</span> command in particular, Microsoft 
+  itself gives a big hint that there’s something to look for. It’s even fair to 
+  say that Microsoft documents that the command can do something undocumented. Starting 
+  with the DDK for Windows XP, the <span class="command">!pfn</span> documentation 
+  begins with the following one-line summary of what the command can do: </p>
+  <blockquote>
+    The <b>!pfn</b> extension displays information about a specific page frame or 
+    the entire page frame database.
+  </blockquote>
+  <p>Presumably, this sentence was not composed without someone at Microsoft having 
+  thought that dumping the entire page frame database may be useful (and without 
+  their being aware that this extra functionality is undocumented). But then what’s 
+  given as the syntax is only </p>
+  <blockquote>
+    <b>!pfn </b><i>PageFrame</i></blockquote>
+  <p>and the one argument is described as </p>
+  <blockquote>
+    Specifies the hexadecimal number of the page frame to be displayed.
+  </blockquote>
+  <p>Where then is the means of displaying information about the “entire page frame 
+  database”? The answer, of course, is that what Microsoft documents as the syntax 
+  is incomplete. </p>
+  <h2>Syntax </h2>
+  <pre class="input">!pfn <span class="placeholder">PageFrame</span> [<span class="placeholder">Flags</span> [<span class="placeholder">Partition</span>]]</pre>
+  <h3>Parameters </h3>
+  <p>The <span class="placeholder">PageFrame</span> parameter is ordinarily a page 
+  frame number. It can instead be the address of an <span class="struct">
+  <a href="../../ntoskrnl/api/mm/pfnlist/mmpfn/index.htm">MMPFN</a></span> structure 
+  if the <span class="placeholder">Flags</span> parameter is zero or is missing.
+  </p>
+  <p>The <span class="placeholder">Flags</span>, for want of a better name, select 
+  from different methods of progressing through the database. </p>
+  <p>The <span class="placeholder">Partition</span> is the address of a memory partition 
+  object. This parameter is ignored unless <span class="placeholder">Flags</span> 
+  is non-zero. </p>
+  <h3>Expression Evaluation </h3>
+  <p>The MASM expression evaluator is forced for the first two parameters. The current 
+  expression evaluator is used for the third. For all, the expression can contain 
+  aliases. </p>
+  <h2>Availability </h2>
+  <p>The <span class="command">!pfn</span> command is ancient. It’s among the few 
+  dozen that are built into the I386KD.EXE from the DDK for Windows NT 3.1. It was 
+  surely transferred to the first debugger extensions. Certainly it’s implemented 
+  as a debugger extension command by KDEXTX86.DLL in the DDK for Windows NT 3.51. 
+  It was then transferred to KDEXTS.DLL with the introduction of the Debugger Engine 
+  (DBGENG.DLL) in Windows XP. I do not intend to track the changes of behaviour 
+  through all these versions. This note is prepared from inspection of KDEXTS version 
+  10.0.16299.91, which I refer to below as this note’s reference version. </p>
+  <p>At the heart of the <span class="command">!pfn</span> command is that it dumps 
+  the <span class="struct">MMPFN</span> structure. The command’s modern implementation 
+  requires at the very least that the debugger has the use of a symbol file for 
+  the kernel and that this symbol file has type information for
+  <span class="type">nt!_MMPFN</span>. This type information is present in all known 
+  public symbol files for the kernel starting from Windows 2000 SP3. </p>
+  <p>Less obvious is that although Microsoft documents the <span class="command">
+  !pfn</span> command as supported through KDEXTS in “Windows XP and later”, the
+  <span class="command">!pfn</span> command depends on memory-manager state that 
+  this note’s reference version of KDEXTS does not initialise unless the Windows 
+  build number at the target machine is at least 7600, i.e., unless the target machine 
+  is running Windows 7 or higher. Try to use the <span class="command">!pfn</span> 
+  command when debugging an earlier version and you will be told </p>
+  <pre class="output">Target machine operating system not supported</pre>
+  <h2>Behaviour </h2>
+  <p>As suggested by Microsoft’s one-line description, the <span class="command">
+  !pfn</span> command has two modes. Given one parameter, or zero as the second, 
+  the <span class="command">!pfn</span> command dumps one <span class="struct">MMPFN</span> 
+  structure. Otherwise, the <span class="command">!pfn</span> command dumps potentially 
+  very many <span class="struct">MMPFN</span> structures, including the whole of 
+  them. </p>
+  <h3>Single Mode </h3>
+  <p>For dumping one <span class="struct">MMPFN</span> structure, the
+  <span class="command">!pfn</span> command’s value relative to using the
+  <span class="command">dt</span> command to inspect the type directly is: </p>
+  <ul>
+    <li>the convenience of finding the correct <span class="struct">MMPFN</span> 
+    structure for the page frame number; </li>
+    <li>if the address is already known, then the convenience of a shorter command;
+    </li>
+    <li>a more accessible, friendly or useful display of information. </li>
+  </ul>
+  <p>For any given page frame number, the corresponding <span class="struct">MMPFN</span> 
+  can be located by using the page frame number as an index into an array whose 
+  address is given by the internal variable <span class="variable">MmPfnDatabase</span>. 
+  The debugger may instead know this address from the same-named
+  <span class="struct">KDDEBUGGER_DATA</span> member. Before the 1607 release of 
+  Windows 10, programmers also have the shortcut of knowing that 64-bit Windows 
+  keeps its <span class="struct">MMPFN</span> array at the preset address 0xFFFFFA80`00000000.
+  </p>
+  <p>If the <span class="placeholder">PageFrame</span> parameter is less than what 
+  the debugger knows for <span class="variable">MmPfnDatabase</span>, then it is 
+  a page frame number. Otherwise, since it is at or above the beginning of the
+  <span class="struct">MMPFN</span> array, it is interpreted as an address in the 
+  array and the command dumps the <span class="struct">MMPFN</span> that begins 
+  at or contains this address. Either way, the command does not validate that the 
+  address it computes for the <span class="struct">MMPFN</span> is not beyond the
+  <span class="variable">MmPfnDatabase</span> array (or has not wrapped round).
+  </p>
+  <p>The dump continues for multiple lines, necessarily including the following 
+  five: </p>
+  <pre class="output">&nbsp;&nbsp;&nbsp;&nbsp;PFN <span class="placeholder">pfn</span>      at address <span class="placeholder">mmpfn</span>
+    flink       <span class="placeholder">flink</span>     blink / share count <span class="placeholder">blink</span>     pteaddress <span class="placeholder">pteaddr</span>
+    reference count <span class="placeholder">ref</span>     used entry count  <span class="placeholder">used</span>      <span class="placeholder">cache</span>     color <span class="placeholder">color</span>  Priority <span class="placeholder">priority</span>
+    restore pte <span class="placeholder">original</span>  containing page <span class="placeholder">pteframe</span>  <span class="placeholder">location</span>   <span class="placeholder">flagcodes</span>
+    <span class="placeholder">flagtext</span>
+</pre>
+  <p>The first line tells which <span class="struct">MMPFN</span> is being dumped, 
+  both by the page frame number of the physical page that the
+  <span class="struct">MMPFN</span> describes and by the address of the
+  <span class="struct">MMPFN</span> itself. The remaining lines are resolved from 
+  members of the <span class="struct">MMPFN</span>: </p>
+  <table>
+    <tr>
+      <th>Placeholder </th>
+      <th>MMPFN Source </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td><span class="placeholder">flink</span> </td>
+      <td><span class="member">u1.Flink</span> </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">blink</span> </td>
+      <td><span class="member">u2.Blink</span> </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">pteaddr</span> </td>
+      <td><span class="member">PteAddress</span> </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">ref</span> </td>
+      <td><span class="member">u3.e2.ReferenceCount</span> </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">used</span> </td>
+      <td><span class="member">UsedPageTableEntries</span> <br>
+      <span class="member">OriginalPte.u.Soft.UsedPageTableEntries</span> </td>
+      <td>x64 only </td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">cache</span> </td>
+      <td><span class="member">u3.e1.CacheAttribute</span> </td>
+      <td>plain-text representation, see below </td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">color</span> </td>
+      <td><span class="member">u4.PageColor</span> <br>
+      <span class="member">u3.e1.PageColor</span> </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">priority</span> </td>
+      <td><span class="member">u3.e3.Priority</span> <br>
+      <span class="member">u3.e1.Priority</span> </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">original</span> </td>
+      <td><span class="member">OriginalPte</span> </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">pteframe</span> </td>
+      <td><span class="member">u4.PteFrame</span> <br>
+      <span class="member">PteFrame</span> </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">location</span> </td>
+      <td><span class="member">u3.e1.PageLocation</span> </td>
+      <td>plain-text representation, see below </td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">flagcodes</span> </td>
+      <td>various </td>
+      <td>single-character codes, see below </td>
+    </tr>
+    <tr>
+      <td><span class="placeholder">flagtext</span> </td>
+      <td>various </td>
+      <td>plain-text representations, see below </td>
+    </tr>
+  </table>
+  <p>See that the command resolves some fields from alternative locations in the
+  <span class="struct">MMPFN</span> structure. This is a heavily overloaded structure 
+  which Microsoft has evidently been determined should not grow. Over the nearly 
+  20 years of Windows versions that the <span class="command">!pfn</span> command 
+  is documented as supporting, many of the <span class="struct">MMPFN</span> members 
+  have moved around, even in terms of the symbols that are needed for referring 
+  to them programmatically. For all the convenience of this command’s sparing the 
+  programmer from the details, there is the occasional oversight (whether of the 
+  coding or of getting “Windows XP and later” updated in the documentation): for 
+  instance, before version 6.0, the <span class="placeholder">priority</span> would 
+  need to be found from <span class="member">u4.Priority</span>. </p>
+  <p>The 2-bit <span class="member">CacheAttribute</span> takes its values from 
+  the <span class="enum">MI_PFN_CACHE_ATTRIBUTE</span> enumeration. What the
+  <span class="command">!pfn</span> command resolves these to for the
+  <span class="placeholder">cache</span> placeholder is: </p>
+  <ul>
+    <li>NonCached </li>
+    <li>Cached </li>
+    <li>WriteComb </li>
+    <li>NotMapped </li>
+  </ul>
+  <p>The 3-bit <span class="member">PageLocation</span> takes its values from the
+  <span class="enum">MMLISTS</span> enumeration. What the <span class="command">
+  !pfn</span> command resolves these to for the <span class="placeholder">location</span> 
+  placeholder is: </p>
+  <ul>
+    <li>Zeroed </li>
+    <li>Free </li>
+    <li>Standby </li>
+    <li>Modified </li>
+    <li>ModNoWrt </li>
+    <li>Bad </li>
+    <li>Active </li>
+    <li>Trans </li>
+  </ul>
+  <p>The <span class="placeholder">location</span> is specially important for interpreting 
+  what shows for <span class="placeholder">flink</span> and
+  <span class="placeholder">blink</span>. A <span class="placeholder">location</span> 
+  other than Active or Trans means that the <span class="struct">MMPFN</span> is 
+  in one or another list. The <span class="placeholder">flink</span> and
+  <span class="placeholder">blink</span> then are page frame numbers of the next 
+  and previous <span class="struct">MMPFN</span> in the same list. For pages whose
+  <span class="placeholder">location</span> is Active or Trans, the four or eight 
+  bytes that hold the <span class="member">u1.Flink</span> and
+  <span class="member">u2.Blink</span> members are available for other use, hence 
+  their definitions as members of unions. The most notable other use is indicated 
+  by the output’s header: the <span class="placeholder">blink</span> may instead 
+  be a share count. However, the output does not get this share count from the
+  <span class="member">u2.ShareCount</span> member. What shows for
+  <span class="placeholder">flink</span> and <span class="placeholder">blink</span> 
+  is only ever obtained from <span class="member">u1.Flink</span> and
+  <span class="member">u2.Blink</span>. In recent versions, one (in 32-bit Windows) 
+  or both (in 64-bit) is only a bit field so that what shows for
+  <span class="placeholder">flink</span> and <span class="placeholder">blink</span> 
+  is only a portion of what other use is made of the same space. This is problematic 
+  in 64-bit Windows since <span class="placeholder">flink</span> may show just the 
+  first 36 bits of a 64-bit pointer. To see the whole pointer, you must resort to 
+  some alternative such as dumping the <span class="struct">MMPFN</span> in detail 
+  by feeding its address to the <span class="command">dt</span> command. </p>
+  <p>Eight single-bit <span class="struct">MMPFN</span> members are described in 
+  the <span class="placeholder">flagcodes</span> and <span class="placeholder">flagtext</span> 
+  placeholders, all but one in both: </p>
+  <table>
+    <tr>
+      <th>Code </th>
+      <th>Text </th>
+      <th>Source </th>
+    </tr>
+    <tr>
+      <td>M </td>
+      <td>Modified </td>
+      <td><span class="member">u3.e1.Modified</span> </td>
+    </tr>
+    <tr>
+      <td>P </td>
+      <td>Shared </td>
+      <td><span class="member">u4.PrototypePte</span> <br>
+      <span class="member">u3.e1.PrototypePte</span> </td>
+    </tr>
+    <tr>
+      <td>R </td>
+      <td>ReadInProgress </td>
+      <td><span class="member">u3.e1.ReadInProgress</span> </td>
+    </tr>
+    <tr>
+      <td>W </td>
+      <td>WriteInProgress </td>
+      <td><span class="member">u3.e1.WriteInProgress</span> </td>
+    </tr>
+    <tr>
+      <td>E </td>
+      <td>InPageError </td>
+      <td><span class="member">u3.e3.InPageError</span> <br>
+      <span class="member">u3.e1.InPageError</span> <br>
+      <span class="member">u4.InPageError</span> </td>
+    </tr>
+    <tr>
+      <td>X </td>
+      <td>ParityError </td>
+      <td><span class="member">u3.e3.ParityError</span> <br>
+      <span class="member">u3.e1.ParityError</span> </td>
+    </tr>
+    <tr>
+      <td>Y </td>
+      <td>RemovalRequested </td>
+      <td><span class="member">u3.e3.RemovalRequested</span> <br>
+      <span class="member">u3.e1.RemovalRequested</span> </td>
+    </tr>
+    <tr>
+      <td>V </td>
+      <td>VerifierAllocation </td>
+      <td><span class="member">u4.VerifierAllocation</span> <br>
+      <span class="member">u3.e1.VerifierAllocation</span> </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>LockedDown </td>
+      <td>see below </td>
+    </tr>
+  </table>
+  <p>Additional lines of output are possible between these two representations of 
+  1-bit flags. Both are outside the present scope of this note. Information can 
+  be shown about the page’s inclusion in a memory partition, as determined from 
+  the <span class="member">u4.Partition</span> member. Even more information, in 
+  this case about large and even huge pages, according to whether
+  <span class="member">PteFrame</span> has any of several special values, will not 
+  in practice be seen outside Microsoft—at least not by those of us who have only 
+  the public symbol files—since it requires type information for an internal variable 
+  named <span class="variable">nt!MiLargePageSizes</span>. This also applies, by 
+  the way, to LockedDown in what is otherwise the plain-text representation of single-bit 
+  flags. </p>
+  <h3>Database Mode </h3>
+  <p>When given a non-zero <span class="placeholder">Flags</span> parameter, the
+  <span class="command">!pfn</span> command displays one line of information for 
+  each of potentially very many page frames—including the whole of them, just as 
+  promised by Microsoft’s description. Zero for the <span class="placeholder">PageFrame</span> 
+  parameter has a conventional meaning of surveying the <span class="variable">MmPfnDatabase</span> 
+  from start to end in the straightforward order. Anything other than zero for the
+  <span class="placeholder">PageFrame</span> is a page frame number from which to 
+  start the survey, which is then filtered in various ways depending on the starting 
+  page and on the <span class="placeholder">Flags</span>. </p>
+  <p>This note presently simplifies by ignoring that the
+  <span class="placeholder">Partition</span> parameter can constrain the survey 
+  just to pages that belong to the given partition. </p>
+  <h4>Whole </h4>
+  <p>For the straightforward survey of the whole database, give zero for the
+  <span class="placeholder">PageFrame</span>. The <span class="placeholder">Flags</span> 
+  are immaterial, except for zero and seven. The command <span class="command">!pfn 
+  0 0</span> just dumps the <span class="struct">MMPFN</span> for page frame 0 as 
+  if <span class="placeholder">Flags</span> had been omitted. Since this
+  <span class="struct">MMPFN</span> is empty, the dump is not useful (except as 
+  another way to obtain the base address of the <span class="struct">MMPFN</span> 
+  array). The command <span class="command">!pfn 0 7</span> attempts to follow an
+  <span class="member">OriginalPte</span> chain (see below) from this empty
+  <span class="struct">MMPFN</span> for page frame 0, which becomes infinite.
+  </p>
+  <p>When dumping the entire page frame database, successive
+  <span class="struct">MMPFN</span> structures in the array are each described by 
+  one line, all under the one header: </p>
+  <pre class="output">&nbsp;Page    Flink  Blk/Shr Ref V    PTE   Address  SavedPTE Frame  State
+<span class="placeholder">pfn</span>   <span class="placeholder">flink</span>    <span class="placeholder">blink</span>   <span class="placeholder">ref</span>    <span class="placeholder">pteaddr</span> <span class="placeholder">address</span> <span class="placeholder">original</span> <span class="placeholder">pteframe</span> <span class="placeholder">location</span> <span class="placeholder">flagcodes</span></pre>
+  <p>This one-line dump for each <span class="struct">MMPFN</span> necessarily misses 
+  some of what is shown over multiple lines when asking about just one
+  <span class="struct">MMPFN</span>. Apart from fields that are omitted entirely, 
+  there is also that the <span class="placeholder">flagcodes</span> in this one-line 
+  dump do not allow for Y or V. There is, however, an addition, even a useful one: 
+  the <span class="placeholder">address</span> is the one virtual address that maps 
+  to the physical page, if there is indeed just one, else is zero if the page is 
+  shared. </p>
+  <p>Dumping the whole of the page frame database can of course take very many minutes. 
+  Memory is fetched from the target in blocks of up to 2000 <span class="struct">
+  MMPFN</span> structures. The dump is easily cancelled because the command checks 
+  for termination, e.g., through Ctrl-Break, after interpreting each structure.
+  </p>
+  <h4>Filtered </h4>
+  <p>With a non-zero <span class="placeholder">PageFrame</span> and non-zero
+  <span class="placeholder">Flags</span>, the survey is only of some of the database:
+  </p>
+  <ol>
+    <li><span class="placeholder">PageFrame</span> specifies a page at which to 
+    start; </li>
+    <li>the dump is only of pages that have the same <span class="placeholder">location</span> 
+    as the starting page; </li>
+    <li><span class="placeholder">Flags</span> specifies an order in which to proceed 
+    through the database. </li>
+  </ol>
+  <p>The selected <span class="struct">MMPFN</span> structures are each described 
+  by one line, all under the one header, as above except to append the
+  <span class="placeholder">priority</span> (in decimal): </p>
+  <pre class="output">&nbsp;Page    Flink  Blk/Shr Ref V    PTE   Address  SavedPTE Frame  State
+<span class="placeholder">pfn</span>   <span class="placeholder">flink</span>    <span class="placeholder">blink</span>   <span class="placeholder">ref</span>    <span class="placeholder">pteaddr</span> <span class="placeholder">mappedva</span> <span class="placeholder">original</span> <span class="placeholder">pteframe</span> <span class="placeholder">location</span> <span class="placeholder">flagcodes</span> <span class="placeholder">priority</span></pre>
+  <p>If the starting page’s <span class="placeholder">location</span> is Active 
+  or Trans, the dump necessarily continues in increasing order of page frame number:
+  <span class="placeholder">Flags</span> is ignored. </p>
+  <p>For any other <span class="placeholder">location</span>, the starting page 
+  is in a list and the dump can usefully follow the list’s links, either forwards 
+  or backwards. That the <span class="command">!pfn</span> command can do this obviously 
+  very helpful work goes back at least to the implementation in the KDEXTX86.DLL 
+  from the DDK for Windows NT 3.51. In those simple days, the list is ordinarily 
+  followed forwards, with <span class="member">u1.Flink</span> as the page frame 
+  number to proceed to, but backwards, using <span class="member">u2.Blink</span>, 
+  if <span class="placeholder">Flags</span> is 3. </p>
+  <p>Nowadays, strong caution is in order. More values are recognised for the
+  <span class="placeholder">Flags</span>, but some are coded defectively. The following 
+  summary is only of what seems to be intended: </p>
+  <table>
+    <tr>
+      <th>Flags </th>
+      <th>Description </th>
+      <th>Requirements </th>
+    </tr>
+    <tr>
+      <td>1 (or any non-zero not below) </td>
+      <td>forward through list </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>2 </td>
+      <td>forward through list but for the same NUMA node </td>
+      <td>starting page has Standby as <span class="placeholder">location</span>;
+      <br>
+      target is 64-bit Windows build 8000 or higher </td>
+    </tr>
+    <tr>
+      <td>3 </td>
+      <td>backward through list </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>4 </td>
+      <td>backward through list but for the same NUMA node </td>
+      <td>starting page has Standby as <span class="placeholder">location</span>;
+      <br>
+      target is 64-bit Windows build 8000 or higher </td>
+    </tr>
+    <tr>
+      <td>5 </td>
+      <td>forward through <span class="member">OriginalPte</span> chain </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>7 </td>
+      <td>backward through <span class="member">OriginalPte</span> chain </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>9 </td>
+      <td>up through <span class="member">PteFrame</span> chain </td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <p>For cases 2 and 4 for <span class="placeholder">Flags</span>, failure to meet 
+  the Requirements produces the complaints: </p>
+  <pre class="output">PFN <span class="placeholder">pfn</span> is not a standby page</pre>
+  <p>or </p>
+  <pre class="output">This build does not support per-NUMA-node standby lists</pre>
+  <h5>NUMA Node Links </h5>
+  <p>Most defects seem to originate with the introduction of per-NUMA-node standby 
+  lists in advance of 64-bit Windows 8. These have their own forward and backward 
+  links, each split into high and low parts according to where they could be made 
+  to fit. What KDEXTS does to piece these links together has little in common with 
+  how the kernel (now) does it. The thinking here is that KDEXTS retains code that 
+  actually does work for some pre-release build of Windows 8 but which never got 
+  updated as the kernel’s implementation evolved. This might explain why KDEXTS 
+  depends on the <span class="struct">MMPFN</span> to have a member named
+  <span class="member">StandbyBits</span> which is shown in no public symbol file 
+  for any of the <a href="../../ntoskrnl/history/index.htm">kernel versions</a> 
+  that are known to this study. However this mismatch of interpretation came about, 
+  the practical result is that cases 1, 2, 3 and 4 for <span class="placeholder">
+  Flags</span> are defective if the starting page’s <span class="placeholder">location</span> 
+  is Standby and the target is 64-bit Windows build 8000 or higher. </p>
+  <p>See that for standby pages, the defect applies to the ordinary forward and 
+  backward links, not just the per-NUMA-node links. KDEXTS interprets the
+  <span class="member">Flink</span> and <span class="member">Blink</span> very differently 
+  for pages on standby lists than for others. No evidence exists of interpretation 
+  through formally defined bit fields for the per-node links. KDEXTS instead makes 
+  its own interpretation of the <span class="member">Flink</span> and
+  <span class="member">Blink</span> in two equal parts and picks up spare bits from 
+  a miscellany of other locations: </p>
+  <table>
+    <tr>
+      <th>Link in Standby List </th>
+      <th>KDEXTS Interpretation </th>
+      <th>Kernel Interpretation </th>
+    </tr>
+    <tr>
+      <td>ordinary forward link </td>
+      <td>high 32 bits from low 32 bits of <span class="member">Flink</span>;
+      <br>
+      low 4 bits from <span class="member">StandbyBits</span> </td>
+      <td>all 36 bits of <span class="member">Flink</span> </td>
+    </tr>
+    <tr>
+      <td>ordinary backward link </td>
+      <td>high 32 bits from low 32 bits of <span class="member">Blink</span>;
+      <br>
+      low 4 bits from <span class="member">VaType</span> </td>
+      <td>all 36 bits of <span class="member">Blink</span> </td>
+    </tr>
+    <tr>
+      <td>per-NUMA-node forward link </td>
+      <td>high 32 bits from high 32 bits of <span class="member">Flink</span>;
+      <br>
+      low 4 bits from low 4 bits of <span class="member">ViewCount</span> </td>
+      <td>high 28 bits from <span class="member">NodeFlinkHigh</span>; <br>
+      low 8 bits from <span class="member">NodeFlinkLow</span> </td>
+    </tr>
+    <tr>
+      <td>per-NUMA-node backward link </td>
+      <td>high 32 bits from high 32 bits of <span class="member">Blink</span>;
+      <br>
+      low 4 bits from high 4 bits of <span class="member">ViewCount</span> </td>
+      <td>high 20 bits from <span class="member">NodeBlinkHigh</span>; <br>
+      low 16 bits from <span class="member">NodeBlinkLow</span> </td>
+    </tr>
+  </table>
+  <p>This is as good a reminder as any that internal detail surmised from a debugging 
+  aid is not certainly correct. Debugger extensions, in particular, are written 
+  separately from whatever component they have internal knowledge of. Such knowledge 
+  can be out of date, as looks to have happened here, or can be wrong because the 
+  debugger extension and the component are built differently. Examples are even 
+  known of incorrect type information in public symbol files, as with the
+  <span class="struct"><a href="../../win32k/structs/processinfo/index.htm">PROCESSINFO</a></span> 
+  and <span class="struct"><a href="../../win32k/structs/threadinfo/index.htm">THREADINFO</a></span> 
+  structures for Windows 7. </p>
+  <h5>OrginalPte Chain </h5>
+  <p>In the <span class="member">OriginalPte</span> chain for cases 5 and 7 of the
+  <span class="placeholder">Flags</span>, KDEXTS interprets the
+  <span class="member">OriginalPte.u.Long</span> in one <span class="struct">MMPFN</span> 
+  as the page frame number of the next in the chain. This is not, of course, what 
+  the <span class="member">OriginalPte</span> ordinarily holds. The circumstances 
+  in which the whole of it is a page frame number are not presently understood for 
+  recent Windows versions. </p>
+  <p>Even if an <span class="struct">MMPFN</span> does have an
+  <span class="member">OriginalPte</span> chain, following the chain backwards has 
+  no formal support. What KDEXTS does when <span class="placeholder">Flags</span> 
+  is 7 is to search the whole database from the start for the first
+  <span class="struct">MMPFN</span> whose <span class="member">OriginalPte.u.Long</span> 
+  is the page frame number to move backwards from. Presumably in anticipation of 
+  repeating this search and eventually of having to search to the end, giving 7 
+  for <span class="placeholder">Flags</span> causes KDEXTS to fetch the whole of 
+  the page frame database from the target before even looking at the
+  <span class="struct">MMPFN</span> for <span class="placeholder">PageFrame</span>. 
+  It fetches the database in blocks of up to 2000 <span class="struct">MMPFN</span> 
+  structures, just as when dumping the whole database, but instead of showing a 
+  header and dumping a line for each <span class="struct">MMPFN</span>, it instead 
+  shows one period for every 256 page frames, presumably to assure that progress 
+  is being made. </p>
+  <p>Unfortunately, the <span class="member">OriginalPte.u.Long</span> in an
+  <span class="struct">MMPFN</span> can be within range for a page frame number 
+  without being intended as one: if the <span class="command">!pfn</span> command 
+  with 5 or 7 for <span class="placeholder">Flags</span> doesn’t stop with the start 
+  page, it typically hangs (needing termination by Ctrl-Break). </p>
+  <h5>PteFrame Chain </h5>
+  <p>See that the <span class="command">!pfn</span> dump of a single
+  <span class="struct">MMPFN</span> presents the <span class="member">u4.PteFrame</span> 
+  (previously a direct <span class="member">PteFrame</span> member) as a containing 
+  page. It’s only natural to ask for the containing page of the containing page 
+  and thence to make a <span class="member">PteFrame</span> chain. Some hint of 
+  the usefulness is that Microsoft’s own example in the <span class="command">!pfn</span> 
+  documentation shows two <span class="command">!pfn</span> commands, one for the 
+  containing page of the other. Showing the <span class="member">PteFrame</span> 
+  chain seems to be the intention when <span class="placeholder">Flags</span> is 
+  9. The usefulness, however, is greatly diminished because successive pages in 
+  this chain will not have the same <span class="placeholder">location</span> and 
+  therefore don’t show in the dump. This does not matter in practice, though, because 
+  the dump is anyway defective. The chain must terminate at the highest level of 
+  the page mapping algorithm, i.e., with a page that is its own containing page, 
+  but KDEXTS does not allow for this and so the <span class="command">!pfn</span> 
+  dump with 9 for <span class="placeholder">Flags</span> hangs. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 18th May 2019 but was not published 
+    until 26th <a href="../../../../../new/19/05.htm">May 2019</a>. It was last 
+    modified on 16th July 2020. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c1920.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5667" -->
+  </div>
+</div>
+
+</body>
+
+</html>

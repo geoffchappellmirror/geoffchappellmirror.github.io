@@ -1,0 +1,183 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EtwSendNotification</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+<h1>EtwSendNotification </h1>
+<p>This function sends a data block through the kernel to user-mode registrations 
+of an event provider, and optionally receives replies. </p>
+<h2>Declaration </h2>
+<pre>ULONG 
+EtwSendNotification (
+    <a href="../../../../../km/ntoskrnl/api/etw/traceapi/notification_header.htm">ETW_NOTIFICATION_HEADER</a> *DataBlock, 
+    ULONG ReceiveDataBlockSize, 
+    PVOID ReceiveDataBlock, 
+    ULONG *ReplyReceived, 
+    ULONG *ReplySizeNeeded);</pre>
+<h3>Parameters </h3>
+<p>The required <span class="argument">DataBlock</span> argument is the address 
+of the data block to send. Its size in bytes is in the header on input. </p>
+<p>The optional <span class="argument">ReceiveDataBlock</span> and
+<span class="argument">ReceiveDataBlockSize</span> are respectively the address 
+and size of an ouput buffer that is to receive the replies. Whether any reply is 
+sought must be specified in the header on input. If no reply is sought then these 
+arguments and the next two are ignored. But if a reply is sought, then these arguments 
+and the next two are required. </p>
+<p>The optional <span class="argument">ReplyReceived</span> argument is the address 
+of a variable that the function may set on output. On success, it tell how many 
+replies were received. On failure, it may tell how many replies were available.
+</p>
+<p>The optional <span class="argument">ReplySizeNeeded</span> argument is the address 
+of a variable that the function may set on output. On success, it tells how many 
+bytes of the output buffer have been used for replies. On failure, it may tell how 
+many bytes were needed. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/winerror.htm" TAG="BODY" startspan -->
+
+<p>The function returns zero for success, else a Win32 error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="16666" -->
+<p>The error code <span class="constant">ERROR_INSUFFICIENT_BUFFER</span> is the 
+function’s indication that it failed only because the output buffer was too small 
+for the replies. The fuction sets the variables at <span class="argument">ReplyReceived</span> 
+and <span class="argument">ReplySizeNeeded</span> but the contents of the output 
+buffer are undefined. For other error codes, the variables at
+<span class="argument">ReplyReceived</span> and <span class="argument">ReplySizeNeeded</span> 
+may be set but not meaningfully. </p>
+<h2>Availability </h2>
+<p>The <span class="function">EtwSendNotification</span> function is exported by 
+name from NTDLL.DLL in version 6.0 and higher. </p>
+<h2>Documentation Status </h2>
+<p>Microsoft does not document <span class="function">EtwSendNotification</span>.
+</p>
+<p>A C-language declaration of <span class="function">EtwSendNotification</span> 
+is published by Microsoft in a file named NTETW.H in the Enterprise edition of the 
+Windows Driver Kit (WDK) for Windows 10 Version 1511. </p>
+<h2>Behaviour </h2>
+<p>The function’s communication with the kernel is through
+<span class="function">
+<a href="../../../../../km/ntoskrnl/api/etw/traceapi/control/index.htm">NtTraceControl</a></span> 
+with
+<a href="../../../../../km/ntoskrnl/api/etw/traceapi/control/sendnotification.htm">
+0x11</a> as the <span class="argument">FunctionCode</span> to send and
+<a href="../../../../../km/ntoskrnl/api/etw/traceapi/control/receivereplydatablock.htm">
+0x13</a> to receive. The first is called just once to send the input. The second 
+may be called multiple times to build successive replies in the output buffer. Note 
+that the kernel may edit the input, notably to tell how many replies to receive.
+</p>
+<h3>Sending the Notification </h3>
+<p>The function’s input is a fixed-size header followed by arbitrary other data. 
+The function’s only interpretation of the header on input is that: </p>
+<ul>
+  <li><span class="member">NotificationSize</span> is the input’s total size in 
+  bytes, including the header; </li>
+  <li><span class="member">ReplyRequested</span> is non-zero if the function is 
+  also to receive replies; </li>
+  <li><span class="member">Timeout</span> is how long in milliseconds to allow for 
+  receiving replies; </li>
+  <li>and if <span class="member">ReplyRequested</span> is specifically
+  <span class="constant">TRUE</span> and <span class="member">Timeout</span> is 
+  zero, then the timeout defaults to 60 seconds. </li>
+</ul>
+<p>The kernel, of course, interprets more of this header and of the data block beyond. 
+Especially notable on the kernel side are: </p>
+<ul>
+  <li>the <span class="member">NotificationType</span> affects interpretation and 
+  defines the input’s continuation beyond the header; </li>
+  <li>the <span class="member">TargetPID</span> specifies that notifications are 
+  delivered only to user-mode event providers in the given process, else is zero;
+  </li>
+  <li>the <span class="member">DestinationGuid</span> selects an event provider 
+  whose user-mode registrations are to receive the notification. </li>
+</ul>
+<p>Kernel-level detail is in preparation for publication elsewhere. </p>
+<p>If the input is sent successfully, its header will have been reused as the kernel’s 
+output. If the function is to receive replies, then </p>
+<ul>
+  <li><span class="member">ReplyCount</span> tells how many replies to expect;
+  </li>
+  <li><span class="member">ReplyHandle</span> is a handle to an EtwRegistration 
+  object from which to get the replies. </li>
+</ul>
+<p>Note that although the header on input is formally an <span class="struct">ETW_NOTIFICATION_HEADER</span>, 
+the function interprets the header on output (from the kernel) as an
+<span class="struct">
+<a href="../../../../../km/ntoskrnl/api/etw/notify/notification_header.htm">ETWP_NOTIFICATION_HEADER</a></span>. 
+(or knows to interpret the former’s <span class="member">Reserved2</span> as the 
+latter’s <span class="member">ReplyHandle</span>). If the function is given distinct 
+input and output buffers, the kernel’s changes to the input persist and the curious 
+caller can learn what handle was used, though it will by then be stale: the kernel 
+creates the object and the function closes the handle. </p>
+<h3>Receiving the Replies </h3>
+<p>Given that the input is sent successfully and <span class="member">ReplyRequested</span> 
+was non-zero on input, the function aims to call the kernel <span class="member">
+ReplyCount</span> times to collect that many replies. Each reply is a fixed-size
+<span class="struct">ETW_NOTIFICATION_HEADER</span> followed by arbitrary other 
+data. Successive replies are received successively further into the buffer, each 
+with 8-byte alignment. The function trusts that each reply has its size as
+<span class="member">NotificationSize</span>. The function itself records as
+<span class="member">Offset</span> the distance in bytes from the start of one reply 
+to the start of the next, with zero signifying the last reply. </p>
+<p>Once the total time taken for replies exceeds the timeout, the function returns
+<span class="constant">ERROR_TIMEOUT</span> without setting the variables at
+<span class="argument">ReplyReceived</span> or <span class="argument">ReplySizeNeeded</span>. 
+Perhaps from a coding oversight, it does this even if the reply that times out is 
+the last that’s sought and has succeeded. </p>
+<p>Special handling applies when the <span class="member">NotificationType</span> 
+is <span class="constant">EtwNotificationTypeEnable</span>. The function reads replies 
+but to a buffer on the stack. The replies are discarded and the
+<span class="argument">ReceiveDataBlock</span> and <span class="argument">ReceiveDataBlockSize</span> 
+arguments are ignored, even though the successful function does set the variables 
+at <span class="argument">ReplyReceived</span> and <span class="argument">ReplySizeNeeded</span> 
+as if the output buffer has meaningful content. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 19th May 2020 but was not published 
+  until 28th <a href="../../../../../../../new/20/05.htm">May 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

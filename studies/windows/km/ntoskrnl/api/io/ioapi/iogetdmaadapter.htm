@@ -1,0 +1,154 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>IoGetDmaAdapter</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<h1>IoGetDmaAdapter </h1>
+<p>This function gets or creates an adapter object for a given device’s DMA operations.
+</p>
+<h2>Declaration </h2>
+<pre class="source">PDMA_ADAPTER
+IoGetDmaAdapter (
+    PDEVICE_OBJECT DeviceObject,
+    PDEVICE_DESCRIPTION DeviceDescription,
+    ULONG *NumberOfMapRegisters);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">DeviceObject</span> argument is the address of a structure 
+that represents the device that seeks to perform DMA. This argument can be
+<span class="constant">NULL</span>. </p>
+<p>The <span class="argument">DeviceDescription</span> argument is the address of 
+a structure that describes the device’s DMA requirements. </p>
+<p>The <span class="argument">NumberOfMapRegisters</span> argument is the address 
+of a variable that is to receive the maximum number of map registers that the device 
+can use for any DMA operation. </p>
+<h3>Return Value </h3>
+<p>If successful, the function returns the address of a structure that represents 
+the DMA adapter. The function returns <span class="constant">NULL</span> to indicate 
+failure. </p>
+<h2>Availability </h2>
+<p>The <span class="function">IoGetDmaAdapter</span> function is exported by name 
+from the kernel in version 5.0 and higher. </p>
+<h2>Documentation Status </h2>
+<p>The function is documented. For Microsoft’s description of the implied PnP request, 
+look to the documentation of <span class="constant">IRP_MN_QUERY_INTERFACE</span>.
+</p>
+<h2>Behaviour </h2>
+<p>The DMA adapter may be found in either of two ways. One is to send a PnP request 
+through the given device object to see if the bus driver has its own routine for 
+getting a DMA adapter. The other is to default to the HAL, essentially through the 
+obsolete <span class="function">HalGetAdapter</span> function. </p>
+<h3>PnP </h3>
+<p>The PnP method is possible only if a device object is given. Moreover, the device 
+object must be a physical device object (PDO). This means specifically that it must 
+be associated with a device node that is fully created and is not about to be destroyed. 
+If this is not true of the given device object, the function raises the bug check
+<span class="constant">PNP_DETECTED_FATAL_ERROR</span> (0xCA). The first bug-check 
+argument is 2, the second is the address of the device object, and the remaining 
+two are zero. </p>
+<p>In Windows 10, the function first calls whatever routine it finds as the
+<span class="member">HalDmaLinkDeviceObjectByToken</span> member of the
+<span class="variable">HalPrivateDispatchTable</span>. The latter is a jump table 
+in the kernel, but it is exported and might be diverted by anyone who knows the
+<span class="struct"><a href="../../../inc/ntos/hal/hal_private_dispatch.htm">HAL_PRIVATE_DISPATCH</a></span> 
+type. The routine is passed a token and <span class="argument">DeviceObject</span>. 
+The token happens to be the address of the current thread’s <span class="struct">
+<a href="../../../inc/ntos/ke/kthread/index.htm">KTHREAD</a></span>, but it is likely 
+intended that the routine treat this as opaque. When the function is done, whether 
+it succeeds or fails, and whether it turns out to default to the HAL, it calls the 
+routine again, passing the same token but with <span class="constant">NULL</span> 
+instead of <span class="argument">DeviceObject</span>. </p>
+<p>If the <span class="member">InterfaceType</span> member of the
+<span class="struct">DEVICE_DESCRIPTION</span> is either <span class="constant">
+InterfaceTypeUndefined</span> or <span class="constant">PnPBus</span>, the function 
+substitutes whatever interface type is obtained by calling the
+<span class="function">IoGetDeviceProperty</span> function for
+<span class="constant">DevicePropertyLegacyBusType</span>. If this fails, the function 
+substitutes a default, which is presently <span class="constant">Isa</span>. (The 
+substitution is done in a copy of the given <span class="struct">DEVICE_DESCRIPTION</span>, 
+as if the given structure is read-only.) </p>
+<p>The function sends a synchronous <span class="constant">IRP_MJ_PNP</span> request 
+to the top of the given device object’s I/O stack. Failure to build the request 
+is failure for the function. If the request fails, the function defaults to calling 
+the HAL (see below). The PnP request is specifically an <span class="constant">IRP_MN_QUERY_INTERFACE</span> 
+for the interface represented by <span class="constant">GUID_BUS_INTERFACE_STANDARD</span>, 
+asking for version 1 of the interface, expecting some driver in the stack to provide 
+a <span class="struct">BUS_INTERFACE_STANDARD</span> structure. Three members in 
+this structure matter: <span class="member">Context</span>, <span class="member">
+InterfaceDereference</span> and <span class="member">GetDmaAdapter</span>. The last, 
+of course, is the point. If <span class="member">GetDmaAdapter</span> is not
+<span class="constant">NULL</span>, the function calls it to get the DMA adapter 
+object, passing the <span class="member">Context</span> member, the address of the
+<span class="struct">DEVICE_DESCRIPTION</span> structure (which may be a slightly 
+modified copy) and the <span class="argument">NumberOfMapRegisters</span> argument. 
+The <span class="member">Context</span> and <span class="member">InterfaceDereference</span> 
+members always matter, since the function passes the former to the latter when done 
+with the interface. </p>
+<h3>HAL </h3>
+<p>If the <span class="argument">DeviceObject</span> argument is
+<span class="constant">NULL</span> or the <span class="constant">IRP_MN_QUERY_INTERFACE</span> 
+request fails or the <span class="member">GetDmaAdapter</span> routine returns
+<span class="constant">NULL</span>, then the function defaults to calling the HAL. 
+The ordinary effect is of reverting to the obsolete function
+<span class="function">HalGetAdapter</span>, passing the <span class="argument">
+DeviceDescription</span> and <span class="argument">NumberOfMapRegisters</span> 
+arguments. </p>
+<p>A less ordinary, perhaps even unusual, effect is possible because the call does 
+not go directly to the function that the HAL exports as <span class="function">HalGetAdapter</span>. 
+It goes instead through the <span class="member">HalGetDmaAdapter</span> member 
+of the <span class="variable">HalDispatchTable</span>. The latter is a jump table 
+in the kernel, but it is exported and its type, <span class="struct">
+<a href="../../../inc/ntos/hal/hal_dispatch.htm">HAL_DISPATCH</a></span>, is public. 
+Though the dispatch table is ordinarily set by the HAL, surely the only point to 
+it is that its entries can be modified, and the call to the HAL for getting a DMA 
+adapter object can therefore be filtered. </p>
+<p class="draft">The function is implemented in paged code and is to be called only 
+at <span class="constant">PASSIVE_LEVEL</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 26th April 2009 and was last modified 
+  on 28th July 2016. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c0916.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009-2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5301" -->
+</div>
+
+</body>
+
+</html>

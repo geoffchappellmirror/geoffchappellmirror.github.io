@@ -1,0 +1,130 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RtlSetProcessIsCritical</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="29544" endspan -->
+<h1>RtlSetProcessIsCritical </h1>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+RtlSetProcessIsCritical (
+    BOOLEAN bNew,
+    BOOLEAN *pbOld,
+    BOOLEAN bNeedScb);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">bNew</span> argument is the desired new setting for 
+whether the current process is critical. </p>
+<p>The <span class="argument">pbOld</span> argument provides the address of a variable 
+that is to receive the old setting. This argument can be NULL to mean that the old 
+setting is not wanted. </p>
+<p>The <span class="argument">bNeedScb</span> argument specifies whether to require 
+that system critical breaks be already enabled for the current process. </p>
+<h2>Behaviour </h2>
+<p>If the <span class="argument">bNeedScb</span> argument is non-zero but system 
+critical breaks are not enabled, then the function fails (returning
+<span class="constant">STATUS_UNSUCCESSFUL</span>). </p>
+<p>If the <span class="argument">pbOld</span> argument is not NULL, the function 
+asks whether the current process is critical. The answer is stored at the address 
+given by <span class="argument">pbOld</span>. If the query fails, the answer defaults 
+to false, i.e., that the process is not critical. </p>
+<p>The function then sets whether the current process is critical, according to 
+whether the <span class="argument">bNew</span> argument is non-zero. Success or 
+failure becomes the result of the function. </p>
+<h3>Definitions </h3>
+<p>System critical breaks are deemed enabled if the process’s own
+<span class="member">NtGlobalFlag</span> (as a member of the
+<span class="struct">PEB</span>) has the 0x00100000 bit set. The GFLAGS.EXE utility 
+and the <span class="command">!gflag</span> debugger command represent this bit 
+as “scb” and describe its action as “Enable system critical breaks”. </p>
+<p>The status of a process as being critical is set and queried through the kernel 
+as process information, i.e., through <span class="function">ZwSetInformationProcess</span> 
+and <span class="function">ZwQueryInformationProcess</span>. The class of process 
+information is <span class="constant">ProcessBreakOnTermination</span> (0x1D), operating 
+on a dword-sized boolean. The kernel explicitly requires debug privilege when setting 
+whether a process is critical. The setting itself is the <span class="member">BreakOnTermination</span> 
+flag in the process’s <span class="struct">EPROCESS</span>. </p>
+<h3>Effects </h3>
+<p>The point to setting a process as critical is that if the process stops then 
+so must the system. </p>
+<p>Without a kernel debugger, the system simply halts with a bug check. The stop 
+code is <span class="constant">CRITICAL_PROCESS_DIED</span> (0xEF) if termination 
+was orderly (as when the process is terminated simply because its last running thread 
+has exited), else <span class="constant">CRITICAL_OBJECT_TERMINATION</span> (0xF4).
+</p>
+<p>If a kernel debugger is enabled, the termination is described as either of the 
+lines </p>
+<pre class="output">Critical process <span class="placeholder">address</span> (<span class="placeholder">filename</span>) exited</pre>
+<pre class="output">Terminating critical process <span class="placeholder">address</span> (<span class="placeholder">filename</span>)</pre>
+<p>according to whether termination was orderly or unexpected. If the debugger can 
+take a prompt, a choice is then offered to </p>
+<pre class="output">Break, or Ignore (bi)? </pre>
+<p>Breaking to the debugger and then continuing is effectively the same as ignoring. 
+Any other response to the prompt leaves the kernel having to stop as if no debugger 
+is enabled, except that now the bug check code is <span class="constant">CRITICAL_OBJECT_TERMINATION</span> 
+no matter how the process terminated. </p>
+<h2>Availability </h2>
+<p>The <span class="function">RtlSetProcessIsCritical</span> function is exported 
+from NTDLL in version 5.1 and higher. The notes above are from inspection of the 
+version from Windows Vista. </p>
+<h3>Documentation Status </h3>
+<p>As with many NTDLL functions, Microsoft does not document
+<span class="function">RtlSetProcessIsCritical</span>. Unlike many, no KERNEL32 
+function corresponds roughly to it. </p>
+<p>The closest that <span class="function">RtlSetProcessIsCritical</span> seems to 
+have come to being documented is in the Debugging Tools for Windows, specifically 
+in documentation of the GFLAGS.EXE tool. The “Enable system critical breaks” flag 
+is there said to be “effective only when the process calls the
+<span class="function">RtlSetProcessBreakOnExit</span> and
+<span class="function">RtlSetThreadBreakOnExit</span> interfaces.” Neither of these 
+seems to exist in any Windows release, but perhaps the former is an early name for
+<span class="function">RtlSetProcessIsCritical</span>. </p>
+<h3>Use by Microsoft </h3>
+<p>The only known users of this function are the following handful: </p>
+<ul>
+  <li>csrss.exe, lsass.exe, services.exe, smss.exe, svchost.exe and wininit.exe
+  </li>
+</ul>
+<p>Of these, only CSRSS asks to be treated as critical even without the “Enable 
+system critical breaks” configuration. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 7th October 2008 and was last modified 
+  on 31st October 2008. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c08.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="6530" endspan -->
+</div>
+
+</body>
+
+</html>

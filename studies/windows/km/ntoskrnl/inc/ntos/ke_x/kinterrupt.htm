@@ -1,0 +1,709 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KINTERRUPT</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>KINTERRUPT </h1>
+  <p>The <span class="struct">KINTERRUPT</span> structure (formally
+  <span class="struct">_KINTERRUPT</span>) is the supporting data for the kernel’s 
+  distribution of a hardware interrupt to device drivers that register for the interrupt’s 
+  handling. Each processor has its own Interrupt Descriptor Table (IDT) of addresses 
+  to divert execution to. A given interrupt vector can therefore be handled differently 
+  on different processors. Drivers do not themselves provide the interrupt handler. 
+  They instead provide one or another sort of Interrupt Service Routine (ISR) that 
+  the kernel is to call from the true interrupt handler. The ISR and various parameters 
+  related to its calling are modelled by the <span class="struct">KINTERRUPT</span>. 
+  There is at least one <span class="struct">KINTERRUPT</span> for each processor 
+  that the interrupt is prepared for. That there can be more than one is because 
+  the kernel provides that its handler can call multiple ISRs, typically each from 
+  a different driver that indicates its willingness to share the interrupt’s handling.
+  </p>
+  <p>Drivers register their interrupt handling through the I/O Manager’s
+  <span class="function">IoConnectInterrupt</span> function or, more recently,
+  <span class="function">IoConnectInterruptEx</span>. These allow the driver to 
+  specify multiple processors for the interrupt. They present the driver with apparently 
+  one <span class="struct">KINTERRUPT</span> structure but it is in a larger allocation 
+  with other data, which can include additional <span class="struct">KINTERRUPT</span> 
+  structures or at least pointers to them in their separate allocations. This note 
+  is not concerned with this larger-scale representation, just with the
+  <span class="struct">KINTERRUPT</span> as representing the Core Kernel’s part 
+  of one interrupt’s handling for one processor. </p>
+  <h2>Accessibility </h2>
+  <p>On modern versions of Windows, the <span class="struct">KINTERRUPT</span> object 
+  that governs the handling of an interrupt vector for any one processor is relatively 
+  accessible from the processor’s <span class="struct"><a href="../kprcb.htm">KPRCB</a></span>. 
+  In version 6.3 and higher, the <a href="../i386_x/kprcb/index.htm">x86
+  <span class="struct">KPRCB</span></a> has a member named <span class="member">
+  VectorToInterruptObject</span> which is formally an array of 0xD0 pointers to
+  <span class="struct">KINTERRUPT</span> objects for the possible hardware interrupts 
+  numbered 0x30 to 0xFF. The <a href="../amd64_x/kprcb/index.htm">x64
+  <span class="struct">KPRCB</span></a> does not have a similar array until version 
+  10.0 and it is inevitably named differently, as <span class="member">InterruptObject</span>. 
+  Formally, it is an array of pointers to <span class="type">void</span>, but each 
+  pointer is indeed the address of a <span class="struct">KINTERRUPT</span>. Less 
+  of&nbsp; a formality is that the x64 array has 0x0100 pointers for the whole range 
+  of interrupt vectors 0x00 to 0xFF. </p>
+  <p>Through much of the history of Windows, however, <span class="struct">KINTERRUPT</span> 
+  objects were much harder to locate. The only known way, as used for instance by 
+  the debugger extension command <span class="command">!idt</span>, depends on knowing 
+  that connecting a hardware interrupt diverts the corresponding IDT entry to an 
+  interrupt handler that is inside the <span class="struct">KINTERUPT</span> object. 
+  Yes, even as late as 64-bit Windows 8.1, the <span class="struct">KINTERRUPT</span> 
+  is not just a data structure but contains executable code. This is more easily 
+  presented after the layout, below. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="struct">KINTERRUPT</span> structure is documented only as 
+  an opaque object. Drivers obtain one by calling some such documented function 
+  as <span class="function">IoConnectInterrupt</span>. They are then given its address 
+  as an argument to their Interrupt Service Routine and they may pass this address 
+  to other documented functions such as <span class="function">KeSynchronizeExecution</span> 
+  and <span class="function">KeAcquireInterruptSpinLock</span>. They may eventually 
+  release their access to the <span class="struct">KINTERRUPT</span> by calling 
+  some such documented function as <span class="function">IoDisconnectInterrupt</span>. 
+  All the while, the <span class="struct">KINTERRUPT</span> is something whose existence 
+  they know of and which is theirs, in some sense, but it is not for their interpretation.
+  </p>
+  <h2>Variability </h2>
+  <p>As an opaque structure that is allocated to drivers by the kernel, the
+  <span class="struct">KINTERRUPT</span> has no compatibility constraints even for 
+  its size. The <span class="struct">KINTERRUPT</span> is, however, shared with 
+  the HAL and so it varies less within versions than do many other structures whose 
+  internal detail is undocumented. The following changes of size are known: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3.10 to 3.5 1</td>
+        <td>0x01DC </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>4.0 to 5.2 </td>
+        <td>0x01E4 </td>
+        <td>0x80 </td>
+      </tr>
+      <tr>
+        <td>6.0 </td>
+        <td>0x0270 </td>
+        <td>0xA0 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0x0278 </td>
+        <td>0xA0 </td>
+      </tr>
+      <tr>
+        <td>6.2 </td>
+        <td>0x02A0 </td>
+        <td>0xB0 </td>
+      </tr>
+      <tr>
+        <td>6.3 </td>
+        <td>0xA8 </td>
+        <td>0x0100 </td>
+      </tr>
+      <tr>
+        <td>10.0 to 1903 </td>
+        <td>0xB0 </td>
+        <td>0x0100 </td>
+      </tr>
+      <tr>
+        <td>2004 </td>
+        <td>0xD0 </td>
+        <td>0x0120 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout </h2>
+  <p>These sizes, and the offsets, types and names in the table that follows, are 
+  from type information in public symbol files for the kernel, starting with Windows 
+  2000 SP3. For earlier versions, Microsoft’s names and types are something of a 
+  guess from comparing different versions of the binaries. Where use of a member 
+  corresponds closely with that of a version for which type information is available 
+  in Microsoft’s symbol files, it seems reasonable to infer continuity. </p>
+  <p>As with other kernel objects, the <span class="struct">KINTERRUPT</span> begins 
+  with a <span class="member">Type</span> from the <span class="enum">
+  <a href="../ke/kobjects.htm">KOBJECTS</a></span> enumeration. For a
+  <span class="struct">KINTERRUPT</span>, the <span class="member">Type</span> is 
+  specifically <span class="constant">InterruptObject</span>. Note that the numerical 
+  value of this <span class="member">Type</span> took a few versions to settle on 
+  0x16. The <span class="member">Size</span> is in bytes. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">SHORT Type;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td>0x02 </td>
+        <td>
+        <pre class="source">SHORT Size;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">LIST_ENTRY InterruptListEntry;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0C </td>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">KSERVICE_ROUTINE *ServiceRoutine;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">KMESSAGE_SERVICE_ROUTINE *MessageServiceRoutine;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14 </td>
+        <td>0x28 </td>
+        <td>
+        <pre class="source">ULONG MessageIndex;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x10 (3.10 to 5.2); <br>
+        0x18 </td>
+        <td>0x20 (5.2); <br>
+        0x30 </td>
+        <td>
+        <pre class="source">PVOID ServiceContext;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14 (3.10 to 5.2); <br>
+        0x1C </td>
+        <td>0x28 (5.2); <br>
+        0x38 </td>
+        <td>
+        <pre class="source">KSPIN_LOCK SpinLock;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x18 (4.0 to 5.2); <br>
+        0x20 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG Spare1;</pre>
+        </td>
+        <td>4.0 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x30 (5.2); <br>
+        0x40 </td>
+        <td>
+        <pre class="source">ULONG TickCount;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x18 (3.10 to 3.51); <br>
+        0x1C (4.0 to 5.2); <br>
+        0x24 </td>
+        <td>0x38 (5.2); <br>
+        0x48 </td>
+        <td>
+        <pre class="source">KSPIN_LOCK *ActualLock;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1C (3.10 to 3.51); <br>
+        0x20 (4.0 to 5.2); <br>
+        0x28 </td>
+        <td>0x40 (5.2); <br>
+        0x50 </td>
+        <td>
+        <pre class="source">VOID (*DispatchAddress) (VOID);</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x20 (3.10 to 3.51); <br>
+        0x24 (4.0 to 5.2); <br>
+        0x2C </td>
+        <td>0x48 (5.2); <br>
+        0x58 </td>
+        <td>
+        <pre class="source">ULONG Vector;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x24 (3.10 to 3.51); <br>
+        0x28 (4.0 to 5.2); <br>
+        0x30 </td>
+        <td>0x4C (5.2); <br>
+        0x5C </td>
+        <td>
+        <pre class="source">KIRQL Irql;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x25 (3.10 to 3.51); <br>
+        0x29 (4.0 to 5.2); <br>
+        0x31 </td>
+        <td>0x4D (5.2); <br>
+        0x5D </td>
+        <td>
+        <pre class="source">KIRQL SynchronizeIrql;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x26 (3.10 to 3.51); <br>
+        0x2A (4.0 to 5.2); <br>
+        0x32 </td>
+        <td>0x4E (5.2); <br>
+        0x5E </td>
+        <td>
+        <pre class="source">BOOLEAN FloatingSave;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x27 (3.10 to 3.51); <br>
+        0x2B (4.0 to 5.2); <br>
+        0x33 </td>
+        <td>0x4F (5.2); <br>
+        0x5F </td>
+        <td>
+        <pre class="source">BOOLEAN Connected;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x28 (3.10 to 3.51); <br>
+        0x2C (4.0 to 5.2); <br>
+        0x34 </td>
+        <td rowspan="2">0x50 (5.2); <br>
+        0x60 </td>
+        <td>
+        <pre class="source">CHAR Number;</pre>
+        </td>
+        <td>3.10 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Number;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2D (4.0 to 5.2); <br>
+        0x35 (6.0); <br>
+        0x38 </td>
+        <td>0x51 (5.2); <br>
+        0x61 (6.0); <br>
+        0x64 </td>
+        <td>
+        <pre class="source">BOOLEAN  ShareVector;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>previously 0x30 </td>
+      </tr>
+      <tr>
+        <td>0x39 (6.1) </td>
+        <td>0x65 (6.1) </td>
+        <td>
+        <pre class="source">CHAR Pad [3];</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x39 </td>
+        <td>0x65 </td>
+        <td>
+        <pre class="source">BOOLEAN EmulateActiveBoth;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3A </td>
+        <td>0x66 </td>
+        <td>
+        <pre class="source">USHORT ActiveCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x3C </td>
+        <td>0x68 </td>
+        <td>
+        <pre class="source">LONG InternalState;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x2C (3.10 to 3.51); <br>
+        0x30 (4.0 to 5.2); <br>
+        0x38 (6.0); <br>
+        0x3C (6.1); <br>
+        0x40 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">INT Mode;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x54 (5.2); <br>
+        0x64 (6.0); <br>
+        0x68 (6.1); <br>
+        0x6C </td>
+        <td>
+        <pre class="source">KINTERRUPT_MODE Mode;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x30 (3.10 to 3.51) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN ShareVector;</pre>
+        </td>
+        <td>3.10 to 3.51 </td>
+        <td>next at 0x2D </td>
+      </tr>
+      <tr>
+        <td>0x3C (6.0); <br>
+        0x40 (6.1); <br>
+        0x44 </td>
+        <td>0x68 (6.0); <br>
+        0x6C (6.1); <br>
+        0x70 </td>
+        <td>
+        <pre class="source">KINTERRUPT_POLARITY Polarity;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x34 (4.0 to 5.2); <br>
+        0x40 (6.0); <br>
+        0x44 (6.1); <br>
+        0x48 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG Spare2;</pre>
+        </td>
+        <td>4.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x58 (5.2); <br>
+        0x6C (6.0); <br>
+        0x70 (6.1); <br>
+        0x74 </td>
+        <td>
+        <pre class="source">ULONG ServiceCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x38 (4.0 to 5.2); <br>
+        0x44 (6.0); <br>
+        0x48 (6.1); <br>
+        0x4C </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG Spare3;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x5C (5.2); <br>
+        0x70 (6.0); <br>
+        0x74 (6.1); <br>
+        0x78 </td>
+        <td>
+        <pre class="source">ULONG DispatchCount;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x48 (6.0); <br>
+        0x50 (6.1) </td>
+        <td>0x78 (6.0 to 6.1) </td>
+        <td>
+        <pre class="source">ULONGLONG Rsvd1;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x50 </td>
+        <td>0x80 </td>
+        <td>
+        <pre class="source">KEVENT *PassiveEvent;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x60 (5.2); <br>
+        0x80 (6.0 to 6.1); <br>
+        0x88 </td>
+        <td>
+        <pre class="source"><a href="../ktrap_frame.htm">KTRAP_FRAME</a> *TrapFrame;</pre>
+        </td>
+        <td>5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x68 (5.2); <br>
+        0x88 (6.0 to 6.1) </td>
+        <td>
+        <pre class="source">PVOID Reserved;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x34 (3.10 to 3.51); <br>
+        0x3C (4.0 to 5.2); <br>
+        0x50 (6.0); <br>
+        0x58 (6.1); <br>
+        0x54 (6.2) </td>
+        <td>0x70 (5.2); <br>
+        0x90 (6.0 to 6.3) </td>
+        <td>
+        <pre class="source">ULONG DispatchCode [DISPATCH_LENGTH];</pre>
+        </td>
+        <td>3.10 to 6.2 (x86); <br>
+        5.2 to 6.3 (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0298 (6.2); <br>
+        0x54 </td>
+        <td>0xA0 (6.2 to 6.3); <br>
+        0x90 </td>
+        <td>
+        <pre class="source">PVOID DisconnectData;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x029C (6.2); <br>
+        0x58 </td>
+        <td>0xA8 (6.2 to 6.3); <br>
+        0x98 </td>
+        <td>
+        <pre class="source"><a href="../ke/kthread/index.htm">KTHREAD</a> * volatile ServiceThread;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x5C </td>
+        <td>0xA0 </td>
+        <td>
+        <pre class="source">INTERRUPT_CONNECTION_DATA *ConnectionData;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>previously 0xA0 and 0xF0 </td>
+      </tr>
+      <tr>
+        <td>0x60 </td>
+        <td>0xA8 </td>
+        <td>
+        <pre class="source">PVOID IntTrackEntry;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x60 (6.3); <br>
+        0x68 </td>
+        <td>0xB0 </td>
+        <td>
+        <pre class="source"><a href="isrdpcstats.htm">ISRDPCSTATS</a> IsrDpcStats;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA0 (6.3) </td>
+        <td>0xF0 (6.3) </td>
+        <td>
+        <pre class="source">INTERRUPT_CONNECTION_DATA *ConnectionData;</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>next at 0x5C and 0xA0 </td>
+      </tr>
+      <tr>
+        <td>0xA8 (10.0 to 1903); <br>
+        0xC8 </td>
+        <td>0xF0 (10.0 to 1903); <br>
+        0x0110 </td>
+        <td>
+        <pre class="source">PVOID RedirectObject;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0xF8 (6.3 to 1903) </td>
+        <td>
+        <pre class="source">UCHAR Padding [8];</pre>
+        </td>
+        <td>6.3 to 1903 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xCC </td>
+        <td>0x0118 </td>
+        <td>
+        <pre class="source">PVOID PhysicalDeviceObject;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>No use is known of the <span class="member">ServiceCount</span> before version 
+  5.0. The name <span class="member">Spare2</span> is proposed as fitting the sequence 
+  frrom <span class="member">Spare1</span> to <span class="member">Spare3</span> 
+  that is known from later symbol files. </p>
+  <p>The <span class="member">DispatchCode</span> truly is code. Initialisation 
+  of a <span class="struct">KINTERRUPT</span> copies code from a template in the 
+  kernel. Connection of the <span class="struct">KINTERRUPT</span> sets this copy 
+  as the interrupt handler whose address is in the IDT entry. Before the WDK for 
+  Windows Vista, the NTDDK.H defines the allowed length of this
+  <span class="member">DispatchCode</span> in dwords as <span class="constant">DISPATCH_LENGTH</span>. 
+  How or why this slipped into the header is not known—the macro is not referenced 
+  from any other header—but had its definition continued to be published, its values 
+  would be: </p>
+  <ul>
+    <li>106 in versions 3.10 to 5.2 (x86); </li>
+    <li>135 in versions 6.0 to 6.1 (x86); </li>
+    <li>145 in version 6.2 (x86); </li>
+    <li>4 in versions 5.2 to 6.3 (x64). </li>
+  </ul>
+  <div class="Footer">
+    <p class="Dates">This page was created on 14th December 2019 and was last modified 
+    on 20th <a href="../../../../../../../new/23/02.htm">February 2023</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1923.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5325" -->
+  </div>
+</div>
+
+</body>
+
+</html>

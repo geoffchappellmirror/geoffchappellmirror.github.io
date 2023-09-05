@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Security-Policy" content="base-uri 'none'; default-src 'none'; form-action 'none'; frame-src 'self'; img-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+<title>Bug Details</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<style type="text/css">
+table.ProtoRoutineAddresses td {
+  text-align: right;
+}
+table.ProtoRoutineAddresses col.Version, 
+table.ProtoRoutineAddresses td:first-child {
+  text-align: left;
+}
+</style>
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Bug Details </h1>
+  <p>In <a href="allegations.htm">allegations</a> by someone presenting himself 
+  as Phil Bucking, a buffer overflow bug is said to exist in the AIM client software 
+  and a particular data packet is reproduced which is said to trigger that bug. 
+  Although no other clue is given to the bug’s location, it may at least be taken 
+  as granted that Phil Bucking has given the packet in its entirety, showing all 
+  the bytes. In an attempt to locate the bug, assuming it does exist, the obvious 
+  question must be: how would the AIM client software handle the Phil Bucking packet?
+  </p>
+  <h2>The AIM Client Software </h2>
+  <p>Note that you do not need to trace such handling, e.g., in a debugger. It is 
+  enough to disassemble the software, producing a text file of assembly mnemonics, 
+  the same ones that you would see when debugging, and then to follow the execution 
+  as an exercise in logic, as if doing the debugging hypothetically. Still, the 
+  AIM client software must, in practice, be installed at least enough to see its 
+  executable files. </p>
+  <p>A glance at the directory in which the AIM client software is installed will 
+  show many files. The client is run by executing the AIM.EXE program. However, 
+  this little AIM.EXE program is just a stub to start the main component of the 
+  AIM client (much as Microsoft’s IEXPLORE.EXE program is just a stub to start the 
+  Internet Explorer package that is actually implemented mostly as SHDOCVW.DLL). 
+  This main AIM component is named OSCORE.DLL. It exports numerous functions for 
+  the shared use of the many smaller modules that handle the various features of 
+  Instant Messaging. </p>
+  <h2>The AIM Protocol </h2>
+  <p>Among these smaller modules, the one of particular interest here is PROTO.OCM 
+  since it has the job of sending and receiving data packets in the language, or
+  <span class="definition">protocol</span>, that is understood by the AIM server. 
+  Within PROTO.OCM is a routine that receives data packets and parses them according 
+  to the AIM protocol. </p>
+  <h3>Packet Header </h3>
+  <p>Inspection of this routine, hereafter called the <span class="definition">read</span> 
+  routine, produces the highest level of syntax in the AIM protocol. All data packets 
+  that conform to the protocol begin with a 6-byte packet header, to be followed 
+  immediately by packet data: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>byte </td>
+      <td>necessarily 2Ah </td>
+    </tr>
+    <tr>
+      <td>01h </td>
+      <td>byte </td>
+      <td>channel number </td>
+    </tr>
+    <tr>
+      <td>02h </td>
+      <td>word </td>
+      <td>serial number of packet </td>
+    </tr>
+    <tr>
+      <td>04h </td>
+      <td>word </td>
+      <td>size, in bytes, of packet data that follows </td>
+    </tr>
+    <tr>
+      <td>06h </td>
+      <td>&nbsp;</td>
+      <td>packet data (size given at offset 04h) </td>
+    </tr>
+  </table>
+  <p>The ordering of bytes within words is the opposite of the usual ordering on 
+  Intel machines. Specifically, the first of the two bytes is the more significant.
+  </p>
+  <p>PROTO reads the packet 0200h bytes at a time (using the documented WinSock 
+  function named <span class="function">recv</span>) to a 0200h-byte buffer on the 
+  stack. There is defensiveness, most notably against the possibility that a packet 
+  will be received with fewer bytes than required for a valid packet header. Also, 
+  packets must be received in sequence, as indicated by the serial number at offset 
+  02h. </p>
+  <p>If a non-zero size is given for the packet data that is to follow the packet 
+  header, PROTO obtains a memory block of that size and builds a copy of the packet 
+  data there for further analysis. As suggested above, this may be done in parts, 
+  reading from WinSock to the temporary location on the stack, 0200h bytes at a 
+  time. Note that the given size is believed without question. Everything that follows 
+  the packet header is interpreted as packet data, belonging to this one packet, 
+  until the given number of bytes have been received. </p>
+  <p>When this read routine has a complete packet, it calls a subroutine that will 
+  distribute the handling of that packet data according to (among other things) 
+  the channel number given in the packet header. This subroutine, hereafter called 
+  the <span class="definition">dispatch</span> routine, recognises valid channel 
+  numbers 01h to 04h inclusive. </p>
+  <h3>Message Groups </h3>
+  <p>The Phil Bucking packet has <a href="bucking.htm#Channel">channel number 02h</a>, 
+  and attention is henceforth restricted to this case. For this channel number, 
+  PROTO simply assumes that there are at least two words of packet data. These are 
+  interpreted as a <span class="definition">group</span> number and a
+  <span class="definition">function</span> number respectively. Again, the ordering 
+  of bytes within words is the opposite of the usual ordering on Intel machines.
+  </p>
+  <p>By group, it is meant here to draw a correspondence with the
+  <span class="keyword">on_group</span>, <span class="keyword">on_message</span> 
+  and <span class="keyword">on_type</span> keywords, as recognised in the AIM client’s 
+  configuration file (the text file specified through the <span class="switch">/c</span> 
+  switch on the AIM command line, defaulting to AIM.ODL). An AIM
+  <span class="definition">message</span> is a communication between modules of 
+  the AIM client package. AIM messages are distinguished by type and group numbers. 
+  AIM modules register handlers for messages of a particular type, a particular 
+  group or a particular combination. In general, analysis of packet data is passed 
+  by PROTO to other AIM modules as an AIM message of type 0001h, with the group 
+  number as given in the packet data. However, group 0001h is internal to PROTO.OCM.
+  </p>
+  <h3>SNAC Header </h3>
+  <p>The Phil Bucking packet has <a href="bucking.htm#Group">group number 0001h</a>, 
+  and attention is henceforth restricted to this case. For this group number, PROTO 
+  assumes that the packet data begins not just with two words but with what may 
+  as well be named a SNAC Header (because interpretation is performed by calling 
+  a function that is imported from OSCORE.DLL under the name
+  <span class="function">SNACGetHeader</span>). </p>
+  <p>Two forms of SNAC header are supported by OSCORE. The one of concern here is 
+  the simpler: a ten-byte structure consisting of three words and a dword: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>word </td>
+      <td>group number </td>
+    </tr>
+    <tr>
+      <td>02h </td>
+      <td>word </td>
+      <td>function number </td>
+    </tr>
+    <tr>
+      <td>04h </td>
+      <td>word </td>
+      <td>short parameter </td>
+    </tr>
+    <tr>
+      <td>06h </td>
+      <td>dword </td>
+      <td>long parameter </td>
+    </tr>
+  </table>
+  <p>The ordering of bytes within words and dwords is the opposite of the usual 
+  ordering on Intel machines. </p>
+  <p>For group 0001h, the function numbers that are recognised one way or another 
+  are 0001h, 0003h, 0005h, 0007h, 000Ah, 000Bh, 000Dh, 000Fh, 0010h, 0012h, 0013h 
+  and 0018h. For each, PROTO passes further analysis to yet another subroutine.
+  </p>
+  <h3>Function 0013h </h3>
+  <p>The Phil Bucking packet has <a href="bucking.htm#Function">function number 
+  0013h</a>, and attention is henceforth restricted to this case. For this function 
+  number, the SNAC header is assumed to be followed immediately by a word that serves 
+  as a subfunction number and then by an array of variably-sized data elements, 
+  which continue to the end of the packet. </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>word </td>
+      <td>subfunction number </td>
+    </tr>
+    <tr>
+      <td>02h </td>
+      <td>&nbsp;</td>
+      <td>array of variably-sized data elements </td>
+    </tr>
+  </table>
+  <p>Each of these variably-sized data elements is given as a type, length and value:
+  </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>word </td>
+      <td>element type </td>
+    </tr>
+    <tr>
+      <td>02h </td>
+      <td>word </td>
+      <td>size, in bytes, of element data that follows </td>
+    </tr>
+    <tr>
+      <td>04h </td>
+      <td>number of bytes given at offset 02h </td>
+      <td>element data </td>
+    </tr>
+  </table>
+  <p>Again, the ordering of bytes within words is the opposite of the usual ordering 
+  on Intel machines. </p>
+  <p>Formal recognition is given one way or another to subfunction numbers 0001h 
+  to 0004h inclusive, but not until all the remaining packet data has been scanned 
+  as a series of data elements. The only elements of which PROTO takes lasting notice 
+  are those whose element type is 000Bh. For each such element, the element data 
+  that follows is copied to the one 0100h-byte buffer on the stack and a null byte 
+  is then appended, as if to treat the copied data as a string. The copy is just 
+  assumed to fit, with room left for one more byte. Also, there is just the one 
+  buffer, as if to assume either that there is just the one element of type 000Bh 
+  or that only the last such element matters. </p>
+  <p>That the copy is just assumed to fit is a buffer overflow bug. This subroutine 
+  that handles channel 02h, group 0001h, function 0013h is hereafter called the
+  <span class="definition">buggy</span> routine. </p>
+  <h2>The Buffer Overflow </h2>
+  <p>The Phil Bucking packet has <a href="bucking.htm#Subfunction">subfunction 00FFh</a>. 
+  There is then one data element, with <a href="bucking.htm#ElementType">type 000Bh</a> 
+  and <a href="bucking.htm#ElementDataSize">size 0118h bytes</a>. Before discovering 
+  that subfunction 00FFh is unsupported, the buggy routine would copy the 0118h 
+  bytes of element data to the 0100h-byte buffer. </p>
+  <p>This buffer overflow is therefore the one whose existence is alleged in the 
+  Phil Bucking correspondence. PROTO simply has no defence against receiving a packet 
+  with channel 02h, group 0001h, function 0013h and a data element of type 000Bh 
+  that gives its size as 0100h bytes or more. Receipt of such a packet will corrupt 
+  memory on the stack beyond the end of the buffer. </p>
+  <h3>Representation in C </h3>
+  <p>To assist reviewers who do not easily read binary code as presented in terms 
+  of 80x86 assembly language mnemonics by a debugger or file dumping utility (such 
+  as Microsoft’s own DUMPBIN), there follows a C-language representation of the 
+  PROTO.OCM routine that has the buffer overflow bug. Lest the acknowledgement not 
+  be clear from the context of these several pages, the following text is a representation 
+  in the C programming language of presumably original work in the intellectual 
+  property of America Online. This representation is published here as an aid to 
+  critical review of that work. </p>
+  <pre class="source">#include    &lt;windows.h&gt;
+
+/*  Some declarations for SNAC access through OSCORE  */
+
+typedef PVOID SNACHANDLE;
+
+BOOL SNACGetWord (SNACHANDLE, WORD *);
+WORD SNACBytesRemaining (SNACHANDLE);
+VOID SNACSkipBytes (SNACHANDLE, WORD);
+BOOL SNACGetBlock (SNACHANDLE, WORD, CHAR *);
+
+/*  Representation of buggy routine  */
+
+VOID __cdecl ProtoFunc0013h (PVOID Irrelevant, SNACHANDLE hSnac, DWORD Dword)
+{
+    CHAR buf [0x0100];
+    WORD subfunc;
+    WORD type;
+    WORD size;
+
+    /*  Read the subfunction number. Simply assume it is there (i.e., do not
+        check SNACGetWord for its indication of success or failure).  */
+
+    SNACGetWord (hSnac, &amp;subfunc);
+
+    /*  For as long as there is more packet data, process it.  */
+
+    while (SNACBytesRemaining (hSnac) &gt; 0) {
+
+        /*  Whenever there is more packet data, interpret it as another data
+            element. Read the element type and the size of the element data.
+            Simply assume that they are there (i.e., do not check
+            SNACGetWord for its indication of success or failure).  */
+
+        SNACGetWord (hSnac, &amp;type);
+        SNACGetWord (hSnac, &amp;size);
+
+        /*  If the element type is anything other than 000Bh, the data that
+            follows is of no interest: just skip it.  */
+
+        if (type != 0x000B) {
+            SNACSkipBytes (hSnac, size);
+        }
+        else {
+
+            /*  For element type 000Bh, copy the element data to a buffer on
+                the stack. Simply assume that the data is there (i.e., do
+                not check SNACGetBlock for its indication of success or
+                failure). Simply assume that the data, plus a terminating
+                null byte, will fit in the buffer. (This is the buffer 
+                overflow bug.)  */
+
+            SNACGetBlock (hSnac, size, buf);
+            buf [size] = &#39;\0&#39;;
+        }
+    }
+
+    /*  etc, including to interpret the subfunction number  */
+}</pre>
+  <p>Note the several cases of not checking functions for success or failure. In 
+  the work of the rather many programmers who do not check for success or failure 
+  just as a point of basic discipline, buffer overflow bugs are no surprise. </p>
+  <h3>Addresses </h3>
+  <p>Readers who do read 80x86 assembly-language mnemonics may want to follow for 
+  themselves the coding of the three routines described above: </p>
+  <!--webbot bot="Include" U-Include="_include/routines.htm" TAG="BODY" startspan -->
+
+<ul>
+  <li>the read routine, being the top-level routine that reads a packet </li>
+  <li>the dispatch routine, which determines what further handling is required for 
+  the packet </li>
+  <li>the buggy routine, specific to channel 02h, group 0001h, function 0013h
+  </li>
+</ul>
+
+<!--webbot bot="Include" endspan i-checksum="18971" -->
+  <p>The following table gives the Relative Virtual Address (RVA) of each routine, 
+  in each of the <a href="index.htm#VersionDetails">PROTO.OCM versions known to 
+  this study</a>. </p>
+  <table class="ProtoRoutineAddresses">
+    <colgroup>
+      <col class="Version"><col class="Address" span="3">
+    </colgroup>
+    <tr>
+      <th>Version </th>
+      <th>Read Routine </th>
+      <th>Dispatch Routine </th>
+      <th>Buggy Routine </th>
+    </tr>
+    <tr>
+      <td>2.0 </td>
+      <td>452D </td>
+      <td>4299 </td>
+      <td>41F8 </td>
+    </tr>
+    <tr>
+      <td>2.1 </td>
+      <td>453B </td>
+      <td>42A7 </td>
+      <td>4206 </td>
+    </tr>
+    <tr>
+      <td>3.0 </td>
+      <td>4A46 </td>
+      <td>478E </td>
+      <td>4560 </td>
+    </tr>
+  </table>
+  <h2>Next… </h2>
+  <p>So, the alleged buffer overflow bug does actually exist, not just as an inference 
+  from observations of the data flow, but actually as code that can be found in 
+  a disassembly and interpreted as an exercise in deduction. Next, consider AOL’s
+  <a href="exploit.htm">exploitation</a> of the bug. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 26th August 1999 and was last modified 
+    on 16th June 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9908.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1999-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63783" -->
+  </div>
+</div>
+
+</body>
+
+</html>

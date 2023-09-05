@@ -1,0 +1,365 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ZwQuerySystemInformationEx</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+<h1>ZwQuerySystemInformationEx </h1>
+<p>This function gets a wide range of system properties but allows for refining 
+the query by specifying such things as a processor group. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+ZwQuerySystemInformationEx (
+    <a href="class.htm">SYSTEM_INFORMATION_CLASS</a> SystemInformationClass, 
+    PVOID InputBuffer, 
+    ULONG InputBufferLength, 
+    PVOID SystemInformation, 
+    ULONG SystemInformationLength, 
+    ULONG *ReturnLength);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SystemInformationClass</span> argument tells what 
+sort of information is sought. There are many supported values. </p>
+<p>The <span class="argument">InputBuffer</span> and <span class="argument">InputBufferLength</span> 
+arguments are respectively the address and size (in bytes) of a buffer that provides 
+data to refine the query. What the function interprets in this buffer depends on 
+the information class. </p>
+<p>The <span class="argument">SystemInformation</span> and
+<span class="argument">SystemInformationLength</span> arguments are respectively 
+the address and size (in bytes) of a buffer that receives the information. What 
+the function puts into this buffer depends on the information class. </p>
+<p>The <span class="argument">ReturnLength</span> argument is the address of a variable 
+whose value on output tells how much information, in bytes, the successful function 
+has put into the buffer or may tell how much the failed function might have put 
+into the buffer (had the buffer been large enough). This argument can be
+<span class="constant">NULL</span> if the caller does not want to know how much 
+information is available. </p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+<p>Of particular importance are <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> 
+and <span class="constant">STATUS_BUFFER_TOO_SMALL</span>, which are the function’s 
+indications that the information buffer was given with the wrong size. A size that 
+would have sufficed for a full return of available information will have been set 
+into the variable, if any, that was specified through the <span class="argument">
+ReturnLength</span> argument. </p>
+<p>A size may be returned via <span class="argument">ReturnLength</span> for other 
+error codes, but this outcome is here treated as unintended since it looks unreliable.
+</p>
+<h2>Availability </h2>
+<p>The <span class="function">ZwQuerySystemInformationEx</span> and
+<span class="function">NtQuerySystemInformationEx</span> functions are exported 
+by name from NTDLL in version 6.1 and higher. In user mode, the functions are aliases 
+for a stub that transfers execution to the <span class="function">NtQuerySystemInformationEx</span> 
+implementation in kernel mode such that the execution is recognised as originating 
+in user mode. </p>
+<p>As named exports from the kernel, <span class="function">NtQuerySystemInformationEx</span> 
+also dates from version 6.1 but <span class="function">ZwQuerySystemInformationEx</span> 
+is exported only in version 6.3 and higher. In kernel mode,
+<span class="function">ZwQuerySystemInformationEx</span> is also a stub that transfers 
+execution to <span class="function">NtQuerySystemInformationEx</span> but such that 
+the execution is recognised as originating in kernel mode. </p>
+<h2>Documentation Status </h2>
+<p>Under any name, this function is not documented. As <span class="function">ZwQuerySystemInformationEx</span> 
+only, it is declared in the ZWAPI.H that seems to have been first published in a 
+Windows Driver Kit (WDK) for Windows 10. </p>
+<p>The <span class="enum">SYSTEM_INFORMATION_CLASS</span> enumeration has a C-language 
+definition in WINTERNL.H from the Software Development Kit (SDK), for use with the
+<span class="function"><a href="query.htm">NtQuerySystemInformation</a></span> 
+function which is documented as an NTDLL export. The definition given there is plainly 
+not what Microsoft itself uses but is instead a contrivance for the relative handful 
+of cases that Microsoft discloses. Two of those cases, however, are acceptable to
+<span class="function">NtQuerySystemInformationEx</span>. </p>
+<h2>Behaviour </h2>
+<p>The following implementation notes are from inspection of the kernel from the 
+original release of Windows 10. They may some day get revised to account for earlier 
+versions. Meanwhile, where anything is added about earlier versions, take it as 
+a bonus from my being unable to resist at least a quick look into the history, not 
+as an attempt at comprehensiveness. </p>
+<h3>Immediate Failure </h3>
+<p>The function exists only to get information that varies with some input specification. 
+If <span class="argument">InputBuffer</span> is <span class="constant">NULL</span> 
+or <span class="argument">InputBufferLength</span> is zero, the function fails, 
+returning <span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<p>A table below lists the acceptable information classes. For all others the function 
+fails, returning <span class="constant">STATUS_INVALID_INFO_CLASS</span>. </p>
+<h3>User-Mode Defences </h3>
+<p>If executing for a user-mode request, the function has some general defensiveness 
+about addresses passed as arguments. Failure at any of these defences is failure 
+for the function, typically showing as a return of <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span> 
+or <span class="constant">STATUS_ACCESS_VIOLATION</span> (as raised but handled 
+exceptions). </p>
+<h4>Input Buffer </h4>
+<p>The input buffer must be word-aligned ordinarily but dword-aligned for information 
+classes <span class="constant">SystemLogicalProcessorAndGroupInformation</span> 
+(0x6B) and <span class="constant">SystemCpuSetInformation</span> (0xAF), and qword-aligned 
+for <span class="constant">SystemIsolatedUserModeInformation</span> (0xA5). Of course, 
+the whole of the input buffer must lie in user-mode address space. </p>
+<h4>Information Buffer </h4>
+<p>If an information buffer is given, meaning here that <span class="argument">SystemInformationLength</span> 
+is non-zero, then its address <span class="argument">SystemInformation</span> must 
+have 4-byte alignment and must be in user-mode address space and must be writable 
+(at its first byte and also for a byte at each page boundary that is inside the 
+buffer). </p>
+<h4>Return Length </h4>
+<p>If a variable is given by address in the <span class="argument">ReturnLength</span> 
+argument for learning how much information is or could be produced, then this variable 
+too must be in user-mode address space and be writable. </p>
+<h3>Exception Handling </h3>
+<p>Except if noted explicitly below, the function never reads the
+<span class="argument">InputBuffer</span> or accesses the <span class="argument">
+SystemInformation</span> or writes to the variable at <span class="argument">ReturnLength</span> 
+without preparing for exceptions. If executing for a user-mode request, the occurrence 
+of an exception during such access is fatal for the function, which returns the 
+exception code as its own result. If executing for a kernel-mode request, exceptions 
+are handled only to continue as if unhandled, which will typically be fatal to Windows.
+</p>
+<h3>Valid Information Classes </h3>
+<p>The following table lists the information classes that <span class="function">
+ZwQuerySystemInformationEx</span> does not dismiss as invalid. For all others the 
+function fails, returning <span class="constant">STATUS_INVALID_INFO_CLASS</span>.
+</p>
+<table>
+  <tr>
+    <th>Numeric Value </th>
+    <th>Symbolic Name </th>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td><span class="constant">SystemProcessorPerformanceInformation</span> </td>
+  </tr>
+  <tr>
+    <td>0x17 </td>
+    <td><span class="constant">SystemInterruptInformation</span> </td>
+  </tr>
+  <tr>
+    <td>0x2A </td>
+    <td><span class="constant">SystemProcessorIdleInformation</span> </td>
+  </tr>
+  <tr>
+    <td>0x3D </td>
+    <td><span class="constant">SystemProcessorPowerInformation</span> </td>
+  </tr>
+  <tr>
+    <td>0x49 </td>
+    <td><span class="constant">SystemLogicalProcessorInformation</span> </td>
+  </tr>
+  <tr>
+    <td>0x53 </td>
+    <td><span class="constant">SystemProcessorIdleCycleTimeInformation</span>
+    </td>
+  </tr>
+  <tr>
+    <td>0x64 </td>
+    <td><span class="constant">SystemProcessorPerformanceDistribution</span>
+    </td>
+  </tr>
+  <tr>
+    <td>0x6B </td>
+    <td><span class="constant">SystemLogicalProcessorAndGroupInformation</span>
+    </td>
+  </tr>
+  <tr>
+    <td>0x6C </td>
+    <td><span class="constant">SystemProcessorCycleTimeInformation</span> </td>
+  </tr>
+  <tr>
+    <td>0x79 </td>
+    <td><span class="constant">SystemNodeDistanceInformation</span> </td>
+  </tr>
+  <tr>
+    <td>0x8D </td>
+    <td><span class="constant">SystemProcessorPerformanceInformationEx</span>
+    </td>
+  </tr>
+  <tr>
+    <td>0xA0 </td>
+    <td><span class="constant">SystemProcessorCycleStatsInformation</span> </td>
+  </tr>
+  <tr>
+    <td>0xA5 </td>
+    <td><span class="constant">SystemIsolatedUserModeInformation</span> </td>
+  </tr>
+  <tr>
+    <td>0xAF </td>
+    <td><span class="constant">SystemCpuSetInformation</span> </td>
+  </tr>
+</table>
+<p>All remaining behaviour varies with the information class, but many have some 
+similar elements to their treatment. This allows some shorthands. Notably, where 
+the descriptions below say simply that the function sets the return length, it’s 
+left as understood that what gets set is the variable at the address given by
+<span class="argument">ReturnLength</span> if the latter is not
+<span class="constant">NULL</span>. </p>
+<p>For each information class, the function expects a fixed-size parameter in the 
+input buffer. The descriptions below leave as understood that if the input buffer 
+is too small for the expected parameter, then the function fails, returning
+<span class="constant">STATUS_INVALID_PARAMETER</span>. For most information classes, 
+the parameter is specifically the <span class="type">USHORT</span> group number 
+of the processor group for which information is wanted. If this group number is 
+not smaller than the current count of active groups, then the function fails, returning
+<span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<p>For many information classes, the information buffer must either provide exactly 
+a fixed-size structure for the function to fill or be at least large enough for 
+this structure. If, the <span class="argument">SystemInformationLength</span> is 
+not an exact fit or is too small, respectively, then the function sets the return 
+length to the expected size and returns <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. 
+Otherwise, the function fills in the structure, sets the return length to the size 
+of that structure and returns <span class="constant">STATUS_SUCCESS</span>. Where 
+the descriptions below simply state that the information buffer must provide exactly 
+or at least some structure for the function to fill in, then this is the whole behaviour. 
+The meaning of whatever the function puts in the structure is taken up, if at all, 
+in the separate documentation of that structure. </p>
+<p>Please understand that devising shorthands so that the behaviour can be described 
+accurately without tedious repetition is a work in progress, surely requiring multiple 
+passes, each susceptible to error. Take more care than would be usual even for draft 
+material. </p>
+<h3>SystemProcessorPerformanceInformation (0x08) </h3>
+<p>The input buffer must specify a processor group. The information buffer is to 
+receive an array of <span class="struct"><a href="processor_performance.htm">SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION</a></span> 
+structures, one for each active processor in the specified processor group. If the 
+information buffer is not an exact fit for one or more such structures, the function 
+sets the return length to the size of the array it could produce, and fails, returning
+<span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+fills the buffer with as many structures as fit, up to the number of processors, 
+and sets the return length to the size of what has been put in the buffer. Even 
+if this is not the whole array that the function could have put in the buffer, the 
+function declares success. </p>
+<h3>SystemInterruptInformation (0x17) </h3>
+<p><span class="alert">TO BE DONE</span> </p>
+<h3>SystemProcessorIdleInformation (0x2A) </h3>
+<p><span class="alert">TO BE DONE</span> </p>
+<h3>SystemProcessorPowerInformation (0x3D) </h3>
+<p><span class="alert">TO BE DONE</span> </p>
+<h3>SystemLogicalProcessorInformation (0x49) </h3>
+<p>The input buffer must specify a processor group. The information buffer is to 
+receive an array of <span class="struct">SYSTEM_LOGICAL_PROCESSOR_INFORMATION</span> 
+structures, one for each active processor in the specified processor group. (The 
+structure is declared in WDM.H and WINNT.H, for kernel-mode and user-mode programming, 
+respectively.) </p>
+<p>For this information class, the function is the essence of the documented user-mode 
+function <span class="function">GetLogicalProcessorInformation</span>. </p>
+<h3>SystemProcessorIdleCycleTimeInformation (0x53) </h3>
+<p>The input buffer must specify a processor group. The information buffer is to 
+receive an array of <span class="struct">
+<a href="processor_idle_cycle_time.htm">SYSTEM_PROCESSOR_IDLE_CYCLE_TIME</a></span> 
+structures, one for each active processor in the specified processor group. If the 
+information buffer is too small for even one such structure, the function sets the 
+return length to the size of the array it could produce, and fails, returning
+<span class="constant">STATUS_BUFFER_TOO_SMALL</span>. Otherwise, the function fills 
+the buffer with as many structures as fit, up to the number of processors, and sets 
+the return length to the size of the whole array. If the buffer is too small for 
+the whole array, the function fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> 
+(but with meaningful data in the buffer). </p>
+<p>For this information class, the function is the essence of the documented user-mode 
+function <span class="function">QueryIdleProcessorCycleTimeEx</span>. </p>
+<h3>SystemProcessorPerformanceDistribution (0x64) </h3>
+<p><span class="alert">TO BE DONE</span> </p>
+<h3>SystemLogicalProcessorAndGroupInformation (0x6B) </h3>
+<p>The input buffer must specify a <span class="enum">LOGICAL_PROCESSOR_RELATIONSHIP</span>. 
+The information buffer is to receive an array of <span class="struct">SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX</span> 
+structures, one for each logical processor that is known to the system. (The enumeration 
+and the structure are defined in WDM.H and WINNT.H, for kernel-mode and user-mode 
+programming, respectively.) </p>
+<p>For this information class, the function is the essence of the documented user-mode 
+function <span class="function">GetLogicalProcessorInformationEx</span>. </p>
+<h3>SystemProcessorCycleTimeInformation (0x6C) </h3>
+<p>The input buffer must specify a processor group. The information buffer is to 
+receive an array of <span class="struct">SYSTEM_PROCESSOR_CYCLE_TIME</span> structures, 
+one for each active processor in the specified processor group. If the information 
+buffer is too small for even one such structure, the function sets the return length 
+to the size of the array it could produce, and fails, returning
+<span class="constant">STATUS_BUFFER_TOO_SMALL</span>. Otherwise, the function fills 
+the buffer with as many structures as fit, up to the number of processors, and sets 
+the return length to the size of the whole array. If the buffer is too small for 
+the whole array, the function fails, returning <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span> 
+(but with meaningful data in the buffer). </p>
+<p>For this information class, the function is the essence of the documented user-mode 
+function <span class="function">GetProcessorSystemCycleTime</span>. </p>
+<h3>SystemNodeDistance (0x79) </h3>
+<p><span class="alert">TO BE DONE</span> </p>
+<h3>SystemProcessorPerformanceInformationEx (0x8D) </h3>
+<p>The input buffer must specify a processor group. The information buffer is to 
+receive an array of <span class="struct"><a href="processor_performance_ex.htm">
+SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION_EX</a></span> structures, one for each 
+active processor in the specified processor group. If the information buffer is 
+not an exact fit for one or more such structures, the function sets the return length 
+to the size of the array it could produce, and fails, returning
+<span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. Otherwise, the function 
+fills the buffer with as many structures as fit, up to the number of processors, 
+and sets the return length to the size of what has been put in the buffer. Even 
+if this is not the whole array that the function could have put in the buffer, the 
+function declares success. </p>
+<h3>SystemProcessorCycleStatsInformation (0xA0) </h3>
+<p><span class="alert">TO BE DONE</span> </p>
+<h3>SystemIsolatedUserModeInformation (0xA5) </h3>
+<p><span class="alert">TO BE DONE</span> </p>
+<h3>SystemCpuSetInformation (0xAF) </h3>
+<p>The input buffer must provide a <span class="type">HANDLE</span> for a
+<span class="definition">target process</span>. The data that this function produces 
+in the information buffer will indicate which CPU sets are allocated to this process. 
+This handle can be <span class="constant">NULL</span> if this indication is not 
+wanted, i.e., to mean that there is no target process. Otherwise, failure to reference 
+the target process for <span class="constant">PROCESS_QUERY_LIMITED_INFORMATION</span> 
+access is failure for the function. </p>
+<!--webbot bot="Include" U-Include="_include/cpu_set.htm" TAG="BODY" startspan -->
+
+<p>The information buffer is to receive an array of <span class="struct">SYSTEM_CPU_SET_INFORMATION</span> 
+structures, one for each CPU set. (The structure is defined in WDM.H and WINNT.H, 
+for kernel-mode and user-mode programming, respectively.) If the information buffer 
+is not large enough for them all, the function sets the return length to the size 
+of the array it could produce, and fails, returning <span class="constant">STATUS_BUFFER_TOO_SMALL</span>.
+</p>
+
+<!--webbot bot="Include" endspan i-checksum="10951" -->
+<p>For this information class, the function is the essence of the documented user-mode 
+function <span class="function">GetSystemCpuSetInformation</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th July 2016 but was not published 
+  until 24th <a href="../../../../../../../new/16/10.htm">October 2016</a> and was 
+  last modified on 4th November 2016. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c16.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6338" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,2055 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>LOADER_PARAMETER_EXTENSION</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>LOADER_PARAMETER_EXTENSION </h1>
+  <p>The <span class="struct">LOADER_PARAMETER_EXTENSION</span> structure is part 
+  of the mechanism through which the kernel and HAL learn the initialisation data 
+  that was gathered by the loader. It exists only as data that is pointed to from 
+  the <span class="struct"><a href="../loader_parameter_block.htm">LOADER_PARAMETER_BLOCK</a></span> 
+  whose address the loader passes to the kernel for the latter’s initialisation.
+  </p>
+  <h2>Variability </h2>
+  <p>The architectural point to having two structures is that the
+  <span class="struct">LOADER_PARAMETER_BLOCK</span> should be relatively stable 
+  across Windows versions, which indeed it was before Windows 7, but the
+  <span class="struct">LOADER_PARAMETER_EXTENSION</span> can vary significantly 
+  and often has. </p>
+  <p>This is not just theoretical. Before version 6.0, the <span class="struct">
+  LOADER_PARAMETER_BLOCK</span> really did need to be stable enough that the one 
+  NTLDR in the root directory of the bootable partition might load a kernel from 
+  a different Windows version, certainly any earlier version if not also any later 
+  one. Variability between versions was more for things that the
+  <span class="struct">LOADER_PARAMETER_BLOCK</span> points to from its stable offsets. 
+  The <span class="struct">LOADER_PARAMETER_EXTENSION</span> is one such thing. 
+  It may have been a far-sighted allowance or a way to overcome having allowed too 
+  little. The version 4.0 <span class="struct">LOADER_PARAMETER_BLOCK</span> is 
+  known to have defined a <span class="member">Spare1</span>, and earlier versions 
+  perhaps had a <span class="member">Spare</span> or <span class="member">Spare0</span>. 
+  An expansion of the <span class="struct">LOADER_PARAMETER_BLOCK</span> for Windows 
+  NT 4.0 SP3 caused compatibility problems with new kernels assuming new information 
+  that an old NTLDR did not know to provide. The goal that one NTLDR could load 
+  a kernel from a future Windows version was broken. If problems of this sort were 
+  not to recur, it may have seemed better that all future variability in what’s 
+  pointed to from the <span class="struct">LOADER_PARAMETER_BLOCK</span> be wrapped 
+  into one <span class="struct">LOADER_PARAMETER_EXTENSION</span>. Or so goes my 
+  current best attempt at inferring a history. The first loader that is known to 
+  create a <span class="struct">LOADER_PARAMETER_EXTENSION</span> is from Windows 
+  2000. </p>
+  <p>Compatibility considerations changed with Windows Vista. It split NTLDR in 
+  two. A boot manager, e.g., BOOTMGR, enumerates the installed Windows versions 
+  and chooses which to boot. The remaining work is done by a boot loader, e.g., 
+  WINLOAD, within the chosen Windows installation. The boot loader should always 
+  match the kernel of whatever Windows is being booted. Since it is the boot loader 
+  that prepares the <span class="struct">LOADER_PARAMETER_BLOCK</span>, considerations 
+  for backwards compatibility (in Windows Vista and higher) have essentially disappeared. 
+  Subsequent changes are not just from growth at the end: members are removed, changed 
+  and inserted without regard for continuity. Especially notable among the changes 
+  is that Windows 7 does away with the <span class="member">MajorVersion</span> 
+  and <span class="member">MinorVersion</span>—or, if you prefer, moves them to 
+  the <span class="struct">LOADER_PARAMETER_BLOCK</span>. Within the
+  <span class="struct">LOADER_PARAMETER_EXTENSION</span>, all that remains for identifying 
+  which version did the preparation is the <span class="member">Size</span> at the 
+  start. </p>
+  <p>It cannot be stressed enough that the <span class="struct">LOADER_PARAMETER_EXTENSION</span>, 
+  however vital as shared data between the loader, kernel and HAL, is highly variable. 
+  Though early versions (before 6.1) change organically, i.e., by adding only to 
+  the end so that the <span class="member">Size</span> at the start differentiates 
+  the layouts, they change even between builds. The structure is greatly expanded 
+  in later versions and successive releases of Windows 10 vary the structure more 
+  than ever before, including to insert and delete: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>5.0 </td>
+        <td>0x28 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>original 5.1 (before SP1) </td>
+        <td>0x3C </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.1 </td>
+        <td>0x40 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>early 5.2 (before SP1) </td>
+        <td>0x50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.2 </td>
+        <td>0x58 </td>
+        <td>0x88 </td>
+      </tr>
+      <tr>
+        <td>6.0 </td>
+        <td>0x7C </td>
+        <td>0xB8 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0xE8 </td>
+        <td>0x0148 </td>
+      </tr>
+      <tr>
+        <td>6.2 </td>
+        <td>0x0870 </td>
+        <td>0x0920 </td>
+      </tr>
+      <tr>
+        <td>6.3 </td>
+        <td>0x08E0 </td>
+        <td>0x0988 </td>
+      </tr>
+      <tr>
+        <td>10.0 </td>
+        <td>0x0920 </td>
+        <td>0x09E0 </td>
+      </tr>
+      <tr>
+        <td>1511 </td>
+        <td>0x0930 </td>
+        <td>0x09F0 </td>
+      </tr>
+      <tr>
+        <td>1607 </td>
+        <td>0x0950 </td>
+        <td>0x0A28 </td>
+      </tr>
+      <tr>
+        <td>1703 to 1709 </td>
+        <td>0x0B60 </td>
+        <td>0x0C38 </td>
+      </tr>
+      <tr>
+        <td>1803 </td>
+        <td>0x0B68 </td>
+        <td>0x0C40 </td>
+      </tr>
+      <tr>
+        <td>1809 </td>
+        <td>0x0C88 </td>
+        <td>0x0D60 </td>
+      </tr>
+      <tr>
+        <td>1903 </td>
+        <td>0x0CE8 </td>
+        <td>0x0DD0 </td>
+      </tr>
+      <tr>
+        <td>2004 </td>
+        <td>0x0D00 </td>
+        <td>0x0DF0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Beware that changes within version 5.1 date to Windows XP Service Pack 1. On 
+  numerous other pages at this website, the abbreviation “late 5.1” means version 
+  5.1 starting with Windows XP SP2. This is because many advances and fixes that 
+  came with the introduction of the amd64 architecture for the version 5.2 from 
+  Windows Server 2003 SP1 found their way into the roughly contemporaneous Windows 
+  XP SP2. But none of this affected the <span class="struct">LOADER_PARAMETER_EXTENSION</span>: 
+  its changes for version 5.1 had already happened. </p>
+  <h2>Documentation Status </h2>
+  <p>Microsoft is not known ever to have documented the <span class="struct">LOADER_PARAMETER_EXTENSION</span>.
+  </p>
+  <p>For many years, Microsoft’s names for the <span class="struct">LOADER_PARAMETER_EXTENSION</span> 
+  and the definitions of its members were known from type information in public 
+  symbol files for the kernel (and sometimes also the HAL), though only for occasional 
+  Windows versions: first for Windows 2000 SP3 and SP4, and then for all releases 
+  of Windows Vista and Windows 7. How the type information gets into the public 
+  symbols for some versions but not others is not known. </p>
+  <p>Windows 10 brought something new. For the original Windows 10 and its 1511 
+  revision, the Windows Driver Kit (WDK) supplies a header file named
+  <a href="../../../../source/inc/arc.htm">arc.h</a> which contains a C-language 
+  definition of the <span class="struct">LOADER_PARAMETER_EXTENSION</span>. This 
+  appears to be Microsoft’s first formal disclosure of the structure’s layout. It 
+  comes with no conditional compilation blocks for accommodating earlier versions. 
+  As supplied, it is immediately useful only for programming that targets a specific 
+  release of Windows 10, yet doesn’t say so. Add that the header is beneath a subdirectory 
+  named “um”, presumably to mean user-mode, but that the <span class="struct">LOADER_PARAMETER_EXTENSION</span> 
+  is long gone by the time any user-mode software gets to execute, and one might 
+  wonder if this structure’s definition was published by mistake. </p>
+  <p>Still, published it is. Then, just as that seemed to be the end of disclosure, 
+  perhaps forever, Microsoft’s names and types returned to the public symbol files 
+  for the kernel in the 1803 release of Windows 10. </p>
+  <p>Though this apparently continuing provision of type information in symbol files 
+  is welcome, it still leaves the historian with some difficulty for versions 5.1 
+  and 5.2, and then for 6.2 and 6.3, and then again for the 1607 to 1709 releases 
+  of version 10.0. It turns out that type information is published for these too—well, 
+  for most of them—but a little obscurely, being in a statically linked library 
+  instead of in symbol files. The library is named CLFSMGMT.LIB. Microsoft distributes 
+  it with the Software Development Kit (SDK) for user-mode programming. It has type 
+  information for the <span class="struct">LOADER_PARAMETER_EXTENSION</span> in 
+  32-bit versions starting with Windows Vista and 64-bit starting with Windows 8. 
+  For no reason yet known, this type information is gone from this library in the 
+  SDK for Version 2004. </p>
+  <h2>Layout </h2>
+  <p>The following table of offsets, names, types for the <span class="struct">LOADER_PARAMETER_EXTENSION</span> 
+  is from the published C-language definition in ARC.H for the original and 1511 
+  releases of Windows 10. For other versions, the layout is from type information 
+  in public symbols and libraries, if available, as described above. Names, types 
+  and offsets for all other versions are something of a guess from assuming continuity 
+  except where inspection of the loader or kernel shows that members have come or 
+  gone. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">ULONG Size;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x04 </td>
+        <td>
+        <pre class="source">PROFILE_PARAMETER_BLOCK Profile;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x14 (5.0 to 6.0) </td>
+        <td>0x14 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">ULONG MajorVersion;</pre>
+        </td>
+        <td>5.0 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>0x18 (5.0 to 6.0) </td>
+        <td>0x18 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">ULONG MinorVersion;</pre>
+        </td>
+        <td>5.0 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>0x1C (5.0 to 6.0); <br>
+        0x14 </td>
+        <td>0x20 (5.2 to 6.0); <br>
+        0x18 </td>
+        <td>
+        <pre class="source">PVOID EmInfFileImage;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x20 (5.0 to 6.0); <br>
+        0x18 </td>
+        <td>0x28 (5.2 to 6.0); <br>
+        0x20 </td>
+        <td>
+        <pre class="source">ULONG EmInfFileSize;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x24 (5.0 to 6.0); <br>
+        0x1C </td>
+        <td>0x30 (5.2 to 6.0); <br>
+        0x28 </td>
+        <td>
+        <pre class="source">PVOID TriageDumpBlock;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows XP </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x28 (5.1 to 6.0); <br>
+        0x20 (6.1) </td>
+        <td>0x38 (5.2 to 6.0); <br>
+        0x30 (6.1) </td>
+        <td>
+        <pre class="source">ULONG_PTR LoaderPagesSpanned;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>0x2C (5.1 to 6.0); <br>
+        0x24 (6.1); <br>
+        0x20 </td>
+        <td>0x40 (5.2 to 6.0); <br>
+        0x38 (6.1); <br>
+        0x30 </td>
+        <td>
+        <pre class="source">HEADLESS_LOADER_BLOCK *HeadlessLoaderBlock;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x30 (5.1 to 6.0); <br>
+        0x28 (6.1); <br>
+        0x24 </td>
+        <td rowspan="2">0x48 (5.2 to 6.0); <br>
+        0x40 (6.1); <br>
+        0x38 </td>
+        <td>
+        <pre class="source">SMBIOS_TABLE_HEADER *SMBiosEPSHeader;</pre>
+        </td>
+        <td>5.1 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">SMBIOS3_TABLE_HEADER *SMBiosEPSHeader;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x34 (5.1 to 6.0); <br>
+        0x2C (6.1); <br>
+        0x28 </td>
+        <td>0x50 (5.2 to 6.0); <br>
+        0x48 (6.1); <br>
+        0x40 </td>
+        <td>
+        <pre class="source">PVOID DrvDBImage;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x38 (5.1 to 6.0); <br>
+        0x30 (6.1); <br>
+        0x2C </td>
+        <td>0x58 (5.2 to 6.0); <br>
+        0x50 (6.1); <br>
+        0x48 </td>
+        <td>
+        <pre class="source">ULONG DrvDBSize;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x30 </td>
+        <td>0x50 </td>
+        <td>
+        <pre class="source">PVOID DrvDBPatchImage;</pre>
+        </td>
+        <td>2004 and higher </td>
+      </tr>
+      <tr>
+        <td>0x34 </td>
+        <td>0x58 </td>
+        <td>
+        <pre class="source">ULONG DrvDBPatchSize;</pre>
+        </td>
+        <td>2004 and higher </td>
+      </tr>
+      <tr>
+        <td>0x3C (late 5.1 to 6.0); <br>
+        0x34 (6.1); <br>
+        0x30 (6.2 to 1903); <br>
+        0x38 </td>
+        <td>0x60 (5.2 to 6.0); <br>
+        0x58 (6.1); <br>
+        0x50 (6.2 to 1903); <br>
+        0x60 </td>
+        <td>
+        <pre class="source">NETWORK_LOADER_BLOCK *NetworkLoaderBlock;</pre>
+        </td>
+        <td>late 5.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows Server 2003 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x40 (5.2 to 6.0); <br>
+        0x38 (6.1); <br>
+        0x34 (6.2 to 1903); <br>
+        0x3C </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PUCHAR HalpIRQLToTPR;</pre>
+        </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x44 (5.2 to 6.0); <br>
+        0x3C (6.1); <br>
+        0x38 (6.2 to 1903); <br>
+        0x40 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PUCHAR HalpVectorToIRQL;</pre>
+        </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x48 (5.2 to 6.0); <br>
+        0x40 (6.1); <br>
+        0x3C (6.2 to 1903); <br>
+        0x44 </td>
+        <td>0x68 (5.2 to 6.0); <br>
+        0x60 (6.1); <br>
+        0x58 (6.2 to 1903); <br>
+        0x68 </td>
+        <td>
+        <pre class="source">LIST_ENTRY FirmwareDescriptorListHead;</pre>
+        </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x50 (late 5.2 to 6.0); <br>
+        0x48 (6.1); <br>
+        0x44 (6.2 to 1903); <br>
+        0x4C </td>
+        <td>0x78 (5.2 to 6.0); <br>
+        0x70 (6.1); <br>
+        0x68 (6.2 to 1903); <br>
+        0x78 </td>
+        <td>
+        <pre class="source">PVOID AcpiTable;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x54 (late 5.2 to 6.0); <br>
+        0x4C (6.1); <br>
+        0x48 (6.2 to 1903); <br>
+        0x50 </td>
+        <td>0x80 (5.2 to 6.0); <br>
+        0x78 (6.1); <br>
+        0x70 (6.2 to 1903); <br>
+        0x80 </td>
+        <td>
+        <pre class="source">ULONG AcpiTableSize;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows Vista </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x58 (6.0); <br>
+        0x50 (6.1); <br>
+        0x4C (6.2 to 1903); <br>
+        0x54 </td>
+        <td>0x84 (6.0); <br>
+        0x7C (6.1); <br>
+        0x74 (6.2 to 1903); <br>
+        0x84 </td>
+        <td>
+        <pre class="source">struct {
+    /*  changing bit fields, see below  */
+};</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x5C (6.0); <br>
+        0x54 (6.1); <br>
+        0x50 (6.2 to 1903); <br>
+        0x58 </td>
+        <td rowspan="2">0x88 (6.0); <br>
+        0x80 (6.1); <br>
+        0x78 (6.2 to 1903); <br>
+        0x88 </td>
+        <td>
+        <pre class="source">LOADER_PERFORMANCE_DATA *LoaderPerformanceData;</pre>
+        </td>
+        <td>6.0 to 1803 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LOADER_PERFORMANCE_DATA LoaderPerformanceData;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x60 (6.0); <br>
+        0x58 (6.1); <br>
+        0x54 (6.2 to 1803); <br>
+        0x98 (1809); <br>
+        0xB0 (1903); <br>
+        0xB8 </td>
+        <td>0x90 (6.0); <br>
+        0x88 (6.1); <br>
+        0x80 (6.2 to 1803); <br>
+        0xC0 (1809); <br>
+        0xD8 (1903); <br>
+        0xE8 </td>
+        <td>
+        <pre class="source">LIST_ENTRY BootApplicationPersistentData;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x68 (6.0); <br>
+        0x60 (6.1); <br>
+        0x5C (6.2 to 1803); <br>
+        0xA0 (1809); <br>
+        0xB8 (1903); <br>
+        0xC0 </td>
+        <td>0xA0 (6.0); <br>
+        0x98 (6.1); <br>
+        0x90 (6.2 to 1803); <br>
+        0xD0 (1809); <br>
+        0xE8 (1903); <br>
+        0xF8 </td>
+        <td>
+        <pre class="source">PVOID WmdTestResult;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x6C (6.0); <br>
+        0x64 (6.1); <br>
+        0x60 (6.2 to 1803); <br>
+        0xA4 (1809); <br>
+        0xBC (1903); <br>
+        0xC4 </td>
+        <td>0xA8 (6.0); <br>
+        0xA0 (6.1); <br>
+        0x98 (6.2 to 1803); <br>
+        0xD8 (1809); <br>
+        0xF0 (1903); <br>
+        0x0100 </td>
+        <td>
+        <pre class="source">GUID BootIdentifier;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 7 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x74 (6.1); <br>
+        0x70 (6.2 to 1803); <br>
+        0xB4 (1809); <br>
+        0xCC (1903); <br>
+        0xD4 </td>
+        <td>0xB0 (6.1); <br>
+        0xA8 (6.2 to 1803); <br>
+        0xE8 (1809); <br>
+        0x0100 (1903); <br>
+        0x0110 </td>
+        <td>
+        <pre class="source">ULONG ResumePages;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x78 (6.1); <br>
+        0x74 (6.2 to 1803); <br>
+        0xB8 (1809); <br>
+        0xD0 (1903); <br>
+        0xD8 </td>
+        <td>0xB8 (6.1); <br>
+        0xB0 (6.2 to 1803); <br>
+        0xF0 (1809); <br>
+        0x0108 (1903); <br>
+        0x0118 </td>
+        <td>
+        <pre class="source">PVOID DumpHeader;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x7C (6.1); <br>
+        0x78 (6.2 to 1803); <br>
+        0xBC (1809); <br>
+        0xD4 (1903); <br>
+        0xDC </td>
+        <td>0xC0 (6.1); <br>
+        0xB8 (6.2 to 1803); <br>
+        0xF8 (1809); <br>
+        0x0110 (1903); <br>
+        0x0120 </td>
+        <td>
+        <pre class="source">PVOID BgContext;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80 (6.1); <br>
+        0x7C (6.2 to 1803); <br>
+        0xC0 (1809); <br>
+        0xD8 (1903); <br>
+        0xE0 </td>
+        <td>0xC8 (6.1); <br>
+        0xC0 (6.2 to 1803); <br>
+        0x0100 (1809); <br>
+        0x0118 (1903); <br>
+        0x0128 </td>
+        <td>
+        <pre class="source">PVOID NumaLocalityInfo;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x84 (6.1); <br>
+        0x80 (6.2 to 1803); <br>
+        0xC4 (1809); <br>
+        0xDC (1903); <br>
+        0xE4 </td>
+        <td>0xD0 (6.1); <br>
+        0xC8 (6.2 to 1803); <br>
+        0x0108 (1809); <br>
+        0x0120 (1903); <br>
+        0x0130 </td>
+        <td>
+        <pre class="source">PVOID NumaGroupAssignment;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x88 (6.1); <br>
+        0x84 (6.2 to 1803); <br>
+        0xC8 (1809); <br>
+        0xE0 (1903); <br>
+        0xE8 </td>
+        <td>0xD8 (6.1); <br>
+        0xD0 (6.2 to 1803); <br>
+        0x0110 (1809); <br>
+        0x0128 (1903); <br>
+        0x0138 </td>
+        <td>
+        <pre class="source">LIST_ENTRY AttachedHives;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x90 (6.1); <br>
+        0x8C (6.2 to 1803); <br>
+        0xD0 (1809); <br>
+        0xE8 (1903); <br>
+        0xF0 </td>
+        <td>0xE8 (6.1); <br>
+        0xE0 (6.2 to 1803); <br>
+        0x0120 (1809); <br>
+        0x0138 (1903); <br>
+        0x0148 </td>
+        <td>
+        <pre class="source">ULONG MemoryCachingRequirementsCount;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x94 (6.1); <br>
+        0x90 (6.2 to 1803); <br>
+        0xD4 (1809); <br>
+        0xEC (1903); <br>
+        0xF4 </td>
+        <td>0xF0 (6.1); <br>
+        0xE8 (6.2 to 1803); <br>
+        0x0128 (1809); <br>
+        0x0140 (1903); <br>
+        0x0150 </td>
+        <td>
+        <pre class="source">PVOID MemoryCachingRequirements;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x98 (6.1 to 1803); <br>
+        0xD8 (1809); <br>
+        0xF0 (1903); <br>
+        0xF8 </td>
+        <td rowspan="2">0xF8 (6.1); <br>
+        0xF0 (6.2 to 1803); <br>
+        0x0130 (1809); <br>
+        0x0148 (1903); <br>
+        0x0158 </td>
+        <td>
+        <pre class="source">TPM_BOOT_ENTROPY_LDR_RESULT TpmBootEntropyResult;</pre>
+        </td>
+        <td>6.1 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOT_ENTROPY_LDR_RESULT BootEntropyResult;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0xE0 (6.1); <br>
+        0x07A8 (6.2); <br>
+        0x0810 (6.3 to 1607); <br>
+        0x0830 (1703 to 1803); <br>
+        0x0940 (1809); <br>
+        0x0958 (1903); <br>
+        0x0960 </td>
+        <td>0x0140 (6.1); <br>
+        0x0800 (6.2); <br>
+        0x0868 (6.3 to 1607); <br>
+        0x0888 (1703 to 1803); <br>
+        0x0998 (1809); <br>
+        0x09B0 (1903); <br>
+        0x09C0 </td>
+        <td>
+        <pre class="source">ULONGLONG ProcessorCounterFrequency;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 8 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x07B0 (6.2); <br>
+        0x0818 (6.3 to 1607); <br>
+        0x0838 (1703 to 1803); <br>
+        0x0948 (1809); <br>
+        0x0960 (1903); <br>
+        0x0968 </td>
+        <td>0x0808 (6.2); <br>
+        0x0870 (6.3 to 1607); <br>
+        0x0890 (1703 to 1803); <br>
+        0x09A0 (1809); <br>
+        0x09B8 (1903); <br>
+        0x09C8 </td>
+        <td>
+        <pre class="source">LOADER_PARAMETER_HYPERVISOR_EXTENSION HypervisorExtension;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x07E8 (6.2); <br>
+        0x0850 (6.3 to 1607); <br>
+        0x0870 (1703 to 1803); <br>
+        0x0988 (1809); <br>
+        0x09A0 (1903); <br>
+        0x09A8 </td>
+        <td>0x0840 (6.2); <br>
+        0x08A8 (6.3 to 1607); <br>
+        0x08C8 (1703 to 1803); <br>
+        0x09E0 (1809); <br>
+        0x09F8 (1903); <br>
+        0x0A08 </td>
+        <td>
+        <pre class="source">GUID HardwareConfigurationId;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x07F8 (6.2); <br>
+        0x0860 (6.3 to 1607); <br>
+        0x0880 (1703 to 1803); <br>
+        0x0998 (1809); <br>
+        0x09B0 (1903); <br>
+        0x09B8 </td>
+        <td>0x0850 (6.2); <br>
+        0x08B8 (6.3 to 1607); <br>
+        0x08D8 (1703 to 1803); <br>
+        0x09F0 (1809); <br>
+        0x0A08 (1903); <br>
+        0x0A18 </td>
+        <td>
+        <pre class="source">LIST_ENTRY HalExtensionModuleList;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0800 (6.2); <br>
+        0x0868 (6.3 to 1607); <br>
+        0x0888 (1703 to 1803); <br>
+        0x09A0 (1809); <br>
+        0x09B8 (1903); <br>
+        0x09C0 </td>
+        <td>0x0860 (6.2); <br>
+        0x08C8 (6.3 to 1607); <br>
+        0x08E8 (1703 to 1803); <br>
+        0x0A00 (1809); <br>
+        0x0A18 (1903); <br>
+        0x0A28 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER SystemTime;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0808 (6.2); <br>
+        0x0870 (6.3 to 1607); <br>
+        0x0890 (1703 to 1803); <br>
+        0x09A8 (1809); <br>
+        0x09C0 (1903); <br>
+        0x09C8 </td>
+        <td>0x0868 (6.2); <br>
+        0x08D0 (6.3 to 1607); <br>
+        0x08F0 (1703 to 1803); <br>
+        0x0A08 (1809); <br>
+        0x0A20 (1903); <br>
+        0x0A30 </td>
+        <td>
+        <pre class="source">ULONGLONG TimeStampAtSystemTimeRead;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0810 (6.2); <br>
+        0x0878 (6.3 to 1607); <br>
+        0x0898 (1703 to 1803); <br>
+        0x09B0 (1809); <br>
+        0x09C8 (1903); <br>
+        0x09D0 </td>
+        <td rowspan="2">0x0870 (6.2); <br>
+        0x08D8 (6.3 to 1607); <br>
+        0x08F8 (1703 to 1803); <br>
+        0x0A10 (1809); <br>
+        0x0A28 (1903); <br>
+        0x0A38 </td>
+        <td>
+        <pre class="source">ULONGLONG BootFlags;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    ULONGLONG <a href="bootflags.htm">BootFlags</a>;
+    struct {
+        /*  changing bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0818 (6.2); <br>
+        0x0880 (6.3 to 1607); <br>
+        0x08A0 (1703 to 1803); <br>
+        0x09B8 (1809); <br>
+        0x09D0 (1903); <br>
+        0x09D8 </td>
+        <td rowspan="2">0x0878 (6.2); <br>
+        0x08E0 (6.3 to 1607); <br>
+        0x0900 (1703 to 1803); <br>
+        0x0A18 (1809); <br>
+        0x0A30 (1903); <br>
+        0x0A40 </td>
+        <td>
+        <pre class="source">ULONGLONG InternalBootFlags;</pre>
+        </td>
+        <td>6.2 to 1607 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    ULONGLONG <a href="internalbootflags.htm">InternalBootFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0820 (6.2); <br>
+        0x0888 (6.3 to 1607); <br>
+        0x08A8 (1703 to 1803); <br>
+        0x09C0 (1809); <br>
+        0x09D8 (1903); <br>
+        0x09E0 </td>
+        <td>0x0880 (6.2); <br>
+        0x08E8 (6.3 to 1607); <br>
+        0x0908 (1703 to 1803); <br>
+        0x0A20 (1809); <br>
+        0x0A38 (1903); <br>
+        </td>
+        <td>
+        <pre class="source">PVOID WfsFPData;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0824 (6.2); <br>
+        0x088C (6.3 to 1607); <br>
+        0x08AC (1703 to 1803); <br>
+        0x09C4 (1809); <br>
+        0x09DC (1903); <br>
+        0x09E4 </td>
+        <td>0x0888 (6.2); <br>
+        0x08F0 (6.3 to 1607); <br>
+        0x0910 (1703 to 1803); <br>
+        0x0A28 (1809); <br>
+        0x0A40 (1903); <br>
+        0x0A50 </td>
+        <td>
+        <pre class="source">ULONG WfsFPDataSize;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0828 (6.2); <br>
+        0x0890 (6.3 to 1607); <br>
+        0x08B0 (1703 to 1803); <br>
+        0x09C8 (1809); <br>
+        0x09E0 (1903); <br>
+        0x09E8 </td>
+        <td rowspan="2">0x0890 (6.2); <br>
+        0x08F8 (6.3 to 1607); <br>
+        0x0918 (1703 to 1803); <br>
+        0x0A30 (1809); <br>
+        0x0A48 (1903); <br>
+        0x0A58 </td>
+        <td>
+        <pre class="source">LOADER_PARAMETER_KD_EXTENSION KdExtension;</pre>
+        </td>
+        <td>6.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LOADER_BUGCHECK_PARAMETERS BugcheckParameters;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08A4 (6.3 to 1607); <br>
+        0x08C4 (1703 to 1803); <br>
+        0x09DC (1809); <br>
+        0x09F4 (1903); <br>
+        0x09FC </td>
+        <td>0x0920 (6.3 to 1607); <br>
+        0x0940 (1703 to 1803); <br>
+        0x0A58 (1809); <br>
+        0x0A70 (1903); <br>
+        0x0A80 </td>
+        <td>
+        <pre class="source">PVOID ApiSetSchema;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08A8 (6.3 to 1607); <br>
+        0x08C8 (1703 to 1803); <br>
+        0x09E0 (1809); <br>
+        0x09F8 (1903); <br>
+        0x0A00 </td>
+        <td>0x0928 (6.3 to 1607); <br>
+        0x0948 (1703 to 1803); <br>
+        0x0A60 (1809); <br>
+        0x0A78 (1903); <br>
+        0x0A88 </td>
+        <td>
+        <pre class="source">ULONG ApiSetSchemaSize;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08AC (6.3 to 1607); <br>
+        0x08CC (1703 to 1803); <br>
+        0x09E4 (1809); <br>
+        0x09FC (1903); <br>
+        0x0A04 </td>
+        <td>0x0930 (6.3 to 1607); <br>
+        0x0950 (1703 to 1803); <br>
+        0x0A68 (1809); <br>
+        0x0A80 (1903); <br>
+        0x0A90 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ApiSetSchemaExtensions;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0858 (6.2); <br>
+        0x08B4 (6.3 to 1607); <br>
+        0x08D4 (1703 to 1803); <br>
+        0x09EC (1809); <br>
+        0x0A04 (1903); <br>
+        0x0A0C&nbsp; </td>
+        <td>0x08F0 (6.2); <br>
+        0x0940 (6.3 to 1607); <br>
+        0x0960 (1703 to 1803); <br>
+        0x0A78 (1809); <br>
+        0x0A90 (1903); <br>
+        0x0AA0 </td>
+        <td>
+        <pre class="source">UNICODE_STRING AcpiBiosVersion;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0860 (6.2); <br>
+        0x08BC (6.3 to 1607); <br>
+        0x08DC (1703 to 1803); <br>
+        0x09F4 (1809); <br>
+        0x0A0C (1903); <br>
+        0x0A14 </td>
+        <td>0x0900 (6.2); <br>
+        0x0950 (6.3 to 1607); <br>
+        0x0970 (1703 to 1803); <br>
+        0x0A88 (1809); <br>
+        0x0AA0 (1903); <br>
+        0x0AB0 </td>
+        <td>
+        <pre class="source">UNICODE_STRING SmbiosVersion;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0868 (6.2); <br>
+        0x08C4 (6.3 to 1607); <br>
+        0x08E4 (1703 to 1803); <br>
+        0x09FC (1809); <br>
+        0x0A14 (1903); <br>
+        0x0A1C </td>
+        <td>0x0910 (6.2); <br>
+        0x0960 (6.3 to 1607); <br>
+        0x0980 (1703 to 1803); <br>
+        0x0A98 (1809); <br>
+        0x0AB0 (1903); <br>
+        0x0AC0 </td>
+        <td>
+        <pre class="source">UNICODE_STRING EfiVersion;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 8.1 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x08CC (6.3 to 1607); <br>
+        0x08EC (1703 to 1803); <br>
+        0x0A04 (1809); <br>
+        0x0A1C (1903); <br>
+        0x0A24 </td>
+        <td>0x0970 (6.3 to 1607); <br>
+        0x0990 (1703 to 1803); <br>
+        0x0AA8 (1809); <br>
+        0x0AC0 (1903); <br>
+        0x0AD0 </td>
+        <td>
+        <pre class="source">DEBUG_DEVICE_DESCRIPTOR *KdDebugDevice;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08D0 (6.3 to 1607); <br>
+        0x08F0 (1703 to 1803); <br>
+        0x0A08 (1809); <br>
+        0x0A20 (1903); <br>
+        0x0A28 </td>
+        <td>0x0978 (6.3 to 1607); <br>
+        0x0998 (1703 to 1803); <br>
+        0x0AB0 (1809); <br>
+        0x0AC8 (1903); <br>
+        0x0AD8 </td>
+        <td>
+        <pre class="source">OFFLINE_CRASHDUMP_CONFIGURATION_TABLE OfflineCrashdumpConfigurationTable;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x08F0 (10.0 to 1607); <br>
+        0x0910 (1703 to 1803); <br>
+        0x0A28 (1809); <br>
+        0x0A40 (1903); <br>
+        0x0A48 </td>
+        <td>0x0998 (10.0 to 1607); <br>
+        0x09B8 (1703 to 1803); <br>
+        0x0AD0 (1809); <br>
+        0x0AE8 (1903); <br>
+        0x0AF8 </td>
+        <td>
+        <pre class="source">UNICODE_STRING ManufacturingProfile;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08F8 (10.0 to 1607); <br>
+        0x0918 (1703 to 1803); <br>
+        0x0A30 (1809); <br>
+        0x0A48 (1903); <br>
+        0x0A50 </td>
+        <td>0x09A8 (10.0 to 1607); <br>
+        0x09C8 (1703 to 1803); <br>
+        0x0AE0 (1809); <br>
+        0x0AF8 (1903); <br>
+        0x0B08 </td>
+        <td>
+        <pre class="source">PVOID BbtBuffer;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0900 (10.0 to 1607); <br>
+        0x0920 (1703 to 1803); <br>
+        0x0A38 (1809); <br>
+        0x0A50 (1903); <br>
+        0x0A58 </td>
+        <td>0x09B0 (10.0 to 1607); <br>
+        0x09D0 (1703 to 1803); <br>
+        0x0AE8 (1809); <br>
+        0x0B00 (1903); <br>
+        0x0B10 </td>
+        <td>
+        <pre class="source">ULONG64 XsaveAllowedFeatures;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0908 (10.0 to 1607); <br>
+        0x0928 (1703 to 1803); <br>
+        0x0A40 (1809); <br>
+        0x0A58 (1903); <br>
+        0x0A60 </td>
+        <td>0x09B8 (10.0 to 1607); <br>
+        0x09D8 (1703 to 1803); <br>
+        0x0AF0 (1809); <br>
+        0x0B08 (1903); <br>
+        0x0B18 </td>
+        <td>
+        <pre class="source">ULONG XsaveFlags;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x090C (10.0 to 1607); <br>
+        0x092C (1703 to 1803); <br>
+        0x0A44 (1809); <br>
+        0x0A5C (1903); <br>
+        0x0A64 </td>
+        <td>0x09C0 (10.0 to 1607); <br>
+        0x09E0 (1703 to 1803); <br>
+        0x0AF8 (1809); <br>
+        0x0B10 (1903); <br>
+        0x0B20 </td>
+        <td>
+        <pre class="source">PVOID BootOptions;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0910 (1607); <br>
+        0x0930 (1703 to 1803); <br>
+        0x0A48 (1809); <br>
+        0x0A60 (1903); <br>
+        0x0A68 </td>
+        <td>0x09C8 (1607); <br>
+        0x09E8 (1703 to 1803); <br>
+        0x0B00 (1809); <br>
+        0x0B18 (1903); <br>
+        0x0B28 </td>
+        <td>
+        <pre class="source">ULONG IumEnablement;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x914 (1607); <br>
+        0x0934 (1703 to 1803); <br>
+        0x0A4C (1809); <br>
+        0x0A64 (1903); <br>
+        0x0A6C </td>
+        <td>0x09CC (1607); <br>
+        0x09EC (1703 to 1803); <br>
+        0x0B04 (1809); <br>
+        0x0B1C (1903); <br>
+        0x0B2C </td>
+        <td>
+        <pre class="source">ULONG IumPolicy;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x918 (1607); <br>
+        0x0938 (1703 to 1803); <br>
+        0x0A50 (1809); <br>
+        0x0A68 (1903); <br>
+        0x0A70 </td>
+        <td>0x09D0 (1607); <br>
+        0x09F0 (1703 to 1803); <br>
+        0x0B08 (1809); <br>
+        0x0B20 (1903); <br>
+        0x0B30 </td>
+        <td>
+        <pre class="source">NTSTATUS IumStatus;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0910 (10.0 to 1511); <br>
+        0x091C (1607); <br>
+        0x093C (1703 to 1803); <br>
+        0x0A54 (1809); <br>
+        0x0A6C (1903); <br>
+        0x0A74 </td>
+        <td>0x09C8 (10.0 to 1511); <br>
+        0x09D4 (1607); <br>
+        0x09F4 (1703 to 1803); <br>
+        0x0B0C (1809); <br>
+        0x0B24 (1903); <br>
+        0x0B34 </td>
+        <td>
+        <pre class="source">ULONG BootId;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0914 (10.0 to 1511); <br>
+        0x0920 (1607); <br>
+        0x0940 (1703 to 1803); <br>
+        0x0A58 (1809); <br>
+        0x0A70 (1903); <br>
+        0x0A78 </td>
+        <td>0x09D0 (10.0 to 1511); <br>
+        0x09D8 (1607); <br>
+        0x09F8 (1703 to 1803); <br>
+        0x0B10 (1809); <br>
+        0x0B28 (1903); <br>
+        0x0B38 </td>
+        <td>
+        <pre class="source">LOADER_PARAMETER_CI_EXTENSION *CodeIntegrityData;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0918 (10.0 to 1511); <br>
+        0x0924 (1607); <br>
+        0x0944 (1703 to 1803); <br>
+        0x0A5C (1809); <br>
+        0x0A74 (1903); <br>
+        0x0A7C </td>
+        <td>0x09D8 (10.0 to 1511); <br>
+        0x09E0 (1607); <br>
+        0x0A00 (1703 to 1803); <br>
+        0x0B18 (1809); <br>
+        0x0B30 (1903); <br>
+        0x0B40 </td>
+        <td>
+        <pre class="source">ULONG CodeIntegrityDataSize;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Appended for Version 1511 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x091C (1511); <br>
+        0x0928 (1607); <br>
+        0x0948 (1703 to 1803); <br>
+        0x0A60 (1809); <br>
+        0x0A78 (1903); <br>
+        0x0A80 </td>
+        <td>0x09E0 (1511); <br>
+        0x09E4 (1607); <br>
+        0x0A04 (1703 to 1803); <br>
+        0x0B1C (1809); <br>
+        0x0B34 (1903); <br>
+        0x0B44 </td>
+        <td>
+        <pre class="source">LOADER_HIVE_RECOVER_INFO SystemHiveRecoveryInfo;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Appended for Version 1607 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x093C (1607); <br>
+        0x095C (1703 to 1803); <br>
+        0x0A74 (1809); <br>
+        0x0A8C (1903); <br>
+        0x0A94 </td>
+        <td>0x09F8 (1607); <br>
+        0x0A18 (1703 to 1803); <br>
+        0x0B30 (1809); <br>
+        0x0B48 (1903); <br>
+        0x0B58 </td>
+        <td>
+        <pre class="source">ULONG SoftRestartCount;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0940 (1607); <br>
+        0x0960 (1703 to 1803); <br>
+        0x0A78 (1809); <br>
+        0x0A90 (1903); <br>
+        0x0A98 </td>
+        <td>0x0A00 (1607); <br>
+        0x0A20 (1703 to 1803); <br>
+        0x0B38 (1809); <br>
+        0x0B50 (1903); <br>
+        0x0B60 </td>
+        <td>
+        <pre class="source">LONGLONG SoftRestartTime;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0A08 (1607); <br>
+        0x0A28 (1703 to 1803); <br>
+        0x0B40 (1809); <br>
+        0x0B58 (1903); <br>
+        0x0B68 </td>
+        <td>
+        <pre class="source">PVOID HypercallCodeVa;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0A10 (1607); <br>
+        0x0A30 (1703 to 1803); <br>
+        0x0B48 (1809); <br>
+        0x0B60 (1903); <br>
+        0x0B70 </td>
+        <td>
+        <pre class="source">PVOID HalVirtualAddress;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0A18 (1607); <br>
+        0x0A38 (1703 to 1803); <br>
+        0x0B50 (1809); <br>
+        0x0B68 (1903); <br>
+        0x0B78 </td>
+        <td>
+        <pre class="source">ULONGLONG HalNumberOfBytes;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0A80 (1809); <br>
+        0x0A98 (1903); <br>
+        0x0AA0 </td>
+        <td>0x0B58 (1809); <br>
+        0x0B70 (1903); <br>
+        0x0B80 </td>
+        <td>
+        <pre class="source">LEAP_SECOND_DATA *LeapSecondData;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0948 (1607); <br>
+        0x0968 (1703 to 1803); <br>
+        0x0A84 (1809); <br>
+        0x0A9C (1903); <br>
+        0x0AA4 </td>
+        <td>0x0A20 (1607); <br>
+        0x0A40 (1703 to 1803); <br>
+        0x0B60 (1809); <br>
+        0x0B78 (1903); <br>
+        0x0B88 </td>
+        <td>
+        <pre class="source">ULONG MajorRelease;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x094C (1607); <br>
+        0x096C (1703 to 1803); <br>
+        0x0A88 (1809); <br>
+        0x0AA0 (1903); <br>
+        0x0AA8 </td>
+        <td>0x0A24 (1607); <br>
+        0x0A44 (1703 to 1803); <br>
+        0x0B64 (1809); <br>
+        0x0B7C (1903); <br>
+        0x0B8C </td>
+        <td>
+        <pre class="source">ULONG Reserved1;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">MajorRelease</span> is an NTDDI version number as 
+  defined in the SDKDDKVER.H header. It adds to the kernel’s validation of the
+  <span class="struct">LOADER_PARAMETER_EXTENSION</span> for the
+  <span class="constant"><a href="../../../../../bugchecks/0100.htm">LOADER_BLOCK_MISMATCH</a></span> 
+  bugcheck. Do not miss the irony that the version numbering that was removed for 
+  Windows 7 is brought back, with elaboration, now that Windows 10 makes the extension 
+  more variable than ever before. </p>
+  <h4>Appended for Version 1703 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0970 (1703 to 1803); <br>
+        0x0A8C (1809); <br>
+        0x0AA4 (1903); <br>
+        0x0AAC </td>
+        <td>0x0A48 (1703 to 1803); <br>
+        0xB68 (1809); <br>
+        0x0B80 (1903); <br>
+        0x0B90 </td>
+        <td>
+        <pre class="source">CHAR NtBuildLab [0xE0];</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0A50 (1703 to 1803); <br>
+        0x0B6C (1809); <br>
+        0x0B84 (1903); <br>
+        0x0B8C </td>
+        <td>0x0B28 (1703 to 1803); <br>
+        0x0C48 (1809); <br>
+        0x0C60 (1903); <br>
+        0x0C70 </td>
+        <td>
+        <pre class="source">CHAR NtBuildLabEx [0xE0];</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B30 (1703 to 1803); <br>
+        0x0C50 (1809); <br>
+        0x0C68 (1903); <br>
+        0x0C70 </td>
+        <td>0x0C08 (1703 to 1803); <br>
+        0x0D28 (1809); <br>
+        0x0D40 (1903); <br>
+        0x0D50 </td>
+        <td>
+        <pre class="source">LOADER_RESET_REASON ResetReason;</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Appended for Version 1803 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0B60 (1803); <br>
+        0x0C80 (1809); <br>
+        0x0C98 (1903); <br>
+        0x0CA0 </td>
+        <td>0x0C38 (1703 to 1803); <br>
+        0x0D58 (1809); <br>
+        0x0D70 (1903); <br>
+        0x0D80 </td>
+        <td>
+        <pre class="source">ULONG MaxPciBusNumber;</pre>
+        </td>
+        <td>1803 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Appended for Version 1809 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0C84 (1809); <br>
+        0x0C9C (1903); <br>
+        0x0CA4 </td>
+        <td>0x0D5C (1809); <br>
+        0x0D74 (1903); <br>
+        0x0D84 </td>
+        <td>
+        <pre class="source">ULONG FeatureSettings;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Appended for Version 1903 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0CA0 (1903); <br>
+        0x0CA8 </td>
+        <td>0x0D78 (1903); <br>
+        0x0D88 </td>
+        <td>
+        <pre class="source">ULONG HotPatchReserveSize;</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0CA4 (1903); <br>
+        0x0CAC </td>
+        <td>0x0D7C (1903); <br>
+        0x0D8C </td>
+        <td>
+        <pre class="source">ULONG RetpolineReserveSize;</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0D80 (1903); <br>
+        0x0D90 </td>
+        <td>
+        <pre class="source">struct {
+    PVOID CodeBase;
+    ULONGLONG CodeSize;
+} MiniExecutive;</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0CA8 (1903); <br>
+        0x0CB0 </td>
+        <td>0x0D90 (1903); <br>
+        0x0DA0 </td>
+        <td>
+        <pre class="source">VSM_PERFORMANCE_DATA VsmPerformanceData;</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Appended for Version 2004 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0CF0 </td>
+        <td>0x0DE0 </td>
+        <td>
+        <pre class="source">NUMA_MEMORY_RANGE *NumaMemoryRanges;</pre>
+        </td>
+        <td>2004 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0CF4 </td>
+        <td>0x0DE8 </td>
+        <td>
+        <pre class="source">ULONG NumaMemoryRangeCount;</pre>
+        </td>
+        <td>2004 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0CF8 </td>
+        <td>0x0DEC </td>
+        <td>
+        <pre class="source">ULONG IommuFaultPolicy;</pre>
+        </td>
+        <td>2004 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Bit Fields </h2>
+  <p>Version 6.0 introduced a single bit-wide flag, then at offsets 0x58 and 0x84, 
+  apparently within an anonymous structure. A likely anticipation is that there 
+  would soon be more, which indeed there were: </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x00000001 </td>
+        <td>
+        <pre class="source">ULONG BootViaWinload : 1;</pre>
+        </td>
+        <td>6.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG LastBootSucceeded : 1;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000002 </td>
+        <td>
+        <pre class="source">ULONG LastBootShutdown : 1;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000004 </td>
+        <td>
+        <pre class="source">ULONG IoPortAccessSupported : 1;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000008 </td>
+        <td>
+        <pre class="source">ULONG BootDebuggerActive : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000010 </td>
+        <td>
+        <pre class="source">ULONG StrongCodeGuarantees : 1;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000020 </td>
+        <td>
+        <pre class="source">ULONG HardStrongCodeGuarantees : 1;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000040 </td>
+        <td>
+        <pre class="source">ULONG SidSharingDisabled : 1;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000080 </td>
+        <td>
+        <pre class="source">ULONG TpmInitialized : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000100 </td>
+        <td>
+        <pre class="source">ULONG VsmConfigured : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000200 </td>
+        <td>
+        <pre class="source">ULONG IumEnabled : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000400 </td>
+        <td>
+        <pre class="source">ULONG IsSmbboot : 1;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000800 </td>
+        <td>
+        <pre class="source">ULONG BootLogEnabled : 1;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00001000 </td>
+        <td>
+        <pre class="source">ULONG DriverVerifierEnabled : 1;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00002000 </td>
+        <td>
+        <pre class="source">ULONG SuppressMonitorX : 1;</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00004000 </td>
+        <td>
+        <pre class="source">ULONG KernelCetEnabled : 1;</pre>
+        </td>
+        <td>2004 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00008000 </td>
+        <td>
+        <pre class="source">ULONG SuppressSmap : 1;</pre>
+        </td>
+        <td>2004 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x0007F000 (1803); <br>
+        0x001FE000 (1809); <br>
+        0x001FC000 (1903); <br>
+        0x001F0000 </td>
+        <td>
+        <pre class="source">ULONG FeatureSettings : 7;</pre>
+        </td>
+        <td>1803 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Unused : 8;</pre>
+        </td>
+        <td>1809 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Unused : 7;</pre>
+        </td>
+        <td>1903 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Unused : 5;</pre>
+        </td>
+        <td>2004 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01F80000 (1803); <br>
+        0x07E00000 </td>
+        <td>
+        <pre class="source">ULONG FeatureSimulations : 6;</pre>
+        </td>
+        <td>1803 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02000000 (1803); <br>
+        0x08000000 </td>
+        <td>
+        <pre class="source">ULONG MicrocodeOptedOut : 1;</pre>
+        </td>
+        <td>1803 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG MicrocodeSelfHosting : 1;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04000000 (1803); <br>
+        0x10000000 </td>
+        <td>
+        <pre class="source">ULONG XhciLegacyHandoffSkip : 1;</pre>
+        </td>
+        <td>1803 and higher </td>
+      </tr>
+      <tr>
+        <td>0x20000000 </td>
+        <td>
+        <pre class="source">ULONG DisableInsiderOptInHVCI : 1;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000000 </td>
+        <td>
+        <pre class="source">ULONG MicrocodeMinVerSupported : 1;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000000 </td>
+        <td>
+        <pre class="source">ULONG GpuIommuEnabled : 1;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="8">&nbsp;</td>
+        <td>
+        <pre class="source">ULONG Reserved : 31;</pre>
+        </td>
+        <td>6.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved : 29;</pre>
+        </td>
+        <td>6.1 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved : 28;</pre>
+        </td>
+        <td>6.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved : 25;</pre>
+        </td>
+        <td>6.3 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved : 22;</pre>
+        </td>
+        <td>10.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved : 21;</pre>
+        </td>
+        <td>1511 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved : 20;</pre>
+        </td>
+        <td>1607 to 1709 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved : 5;</pre>
+        </td>
+        <td>1803 only </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 1st
+    <a href="../../../../../../../../new/16/05.htm">May 2016</a> and was last modified 
+    on 29th <a href="../../../../../../../../new/22/12.htm">January 2023</a>.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1623.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14266" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,667 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CPUID Leaf 2</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+  <h1>CPUID Leaf 2 </h1>
+  <p>Executing the <a href="../index.htm"><span class="instruction">cpuid</span></a> 
+  instruction with 2 in <span class="register">eax</span> produces meaningful output 
+  in all four of the possible registers. The 32-bit Windows kernel uses
+  <span class="instruction">cpuid</span> leaf 2 in version 5.0 and higher for processors 
+  whose <a href="../00000000h/vendor.htm">vendor string from
+  <span class="instruction">cpuid</span> leaf 0</a> is GenuineIntel and in version 
+  6.2 and higher for processors whose vendor string is CentaurHauls. The 64-bit 
+  kernel has no code for using <span class="instruction">cpuid</span> leaf 2.
+  </p>
+  <p>The Revision History in <span class="citation">Intel® Processor Identification 
+  and the CPUID Instruction</span> (Application Note 485, apparently no longer available 
+  online from Intel) dates Intel’s documentation of <span class="instruction">cpuid</span> 
+  leaf 2 to December 1995. This leaf was then described as producing Configuration 
+  Parameters, generally, and Cache Size and Format Information where the documentation 
+  gets to the details. This expanded to Cache Size, Format and TLB Information before 
+  giving way to Cache Descriptors. This last term is specially apt since the output 
+  in <span class="register">eax</span>, <span class="register">ebx</span>,
+  <span class="register">ecx</span> and <span class="register">edx</span> is essentially 
+  a collection of single-byte descriptors of the processor’s various caches. Where 
+  the
+  <a href="https://www.intel.com/sites/default/files/managed/ad/01/253666-sdm-vol-2a.pdf">
+  Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 2A: Instruction 
+  Set Reference, A-L</a> presents the <span class="instruction">cpuid</span> instruction, 
+  it nowadays describes leaf 2 as producing TLB/Cache/Prefetch Information. This 
+  too is apt since the most plausible reason that 32-bit Windows persists with
+  <span class="instruction">cpuid</span> leaf 2 and 64-bit Windows has never bothered 
+  with it is to learn how much memory is moved closer to the processor by the
+  <span class="instruction">prefetchnta</span> instruction: 64-bit Windows has the 
+  luxury of taking this granularity to be fixed at 64 bytes, but 32-bit Windows 
+  accommodates 32 and 128 too. </p>
+  <p>Of the many defined descriptors, Windows is interested only in those for caches. 
+  Descriptors for what early editions of Application Note 485 listed as an Instruction 
+  TLB, Data TLB, “Instruction cache” and even “Data cache” are ignored. </p>
+  <p>The kernel’s first interest in <span class="instruction">cpuid</span> leaf 
+  2 was only to find a <span class="member">SecondLevelCacheSize</span> to keep 
+  in the processor’s <span class="struct">
+  <a href="../../../ntoskrnl/inc/ntos/kpcr.htm">KPCR</a></span>. In version 5.0, 
+  whichever of the recognised cache descriptors comes last is the one whose cache 
+  size is saved. Version 5.0 is unconcerned about associativity. Version 5.1 also 
+  keeps a <span class="member">SecondLevelCacheAssociativity</span> in the
+  <span class="struct">KPCR</span>. If multiple cache descriptors are recognised, 
+  the one whose cache size and associativity are saved is the one for which the 
+  cache size divided by the associativity is the largest. </p>
+  <p>Windows 2000 SP3 adds an interest in how many bytes the processor pre-fetches 
+  for Non-Temporal Access (NTA). This <span class="instruction">prefetchnta</span> 
+  granularity is 32 bytes by default. Three newly recognised descriptors for 1st-level 
+  data caches tell the kernel that the granularity is 64 bytes. </p>
+  <p>In version 5.1, the kernel starts attending to the line size for some cache 
+  descriptors so that it can determine the largest line size of any cache for any 
+  processor. This is made readily available to kernel-mode software as the return 
+  value of what was then the new <span class="function">KeGetRecommendedSharedDataAlignment</span> 
+  function and less readily to user-mode software as output from the
+  <span class="function"><a href="../../../ntoskrnl/api/ex/sysinfo/query.htm">NtQuerySystemInformation</a></span> 
+  function when given the information class <span class="constant">SystemRecommendedSharedDataAlignment</span> 
+  (0x3A). This reported line size is 32 bytes even if no processor’s
+  <span class="instruction">cpuid</span> leaf 2 reports any caches, and so the line 
+  size for any cache descriptor matters only if it is larger than 32. </p>
+  <h2>Cache Descriptors </h2>
+  <p>For brevity, the tables below distinguish releases within some versions just 
+  as early or late. The cut-offs are: </p>
+  <ul>
+    <li>late 5.0 starts with Windows 2000 SP3; </li>
+    <li>late 5.1 starts with Windows XP SP2; </li>
+    <li>late 5.2 starts with Windows Server 2003 SP1. </li>
+  </ul>
+  <p>A natural expectation not just for Intel and Microsoft but for computer users 
+  is that the latest Windows one can buy can get the most from the latest processors 
+  one can buy. This cannot happen without some cooperation between Intel and Microsoft, 
+  including advance knowledge as if Microsoft has what we might nowadays call an 
+  Insider Preview of developments at Intel. To see this at work, the table shows 
+  not just which Windows versions recognise each cache descriptor but also when 
+  each was added to Intel’s <span class="citation">Application Note 485</span> (as 
+  best as seems knowable from comparing revisions and in some cases matching with 
+  the Note’s own Revision History). Beware that Windows version order is not chronological 
+  order: </p>
+  <ul>
+    <li>5.0 built December 1999; </li>
+    <li>5.1 built August 2001; </li>
+    <li>late 5.0 built July 2002; </li>
+    <li>5.2 built March 2003; </li>
+    <li>late 5.1 built August 2004; </li>
+    <li>late 5.2 built March 2005. </li>
+  </ul>
+  <p>Beware also that what Windows interprets for a cache descriptor is not always 
+  what Intel documents for what Intel eventually defined for that same cache descriptor. 
+  Where these differ, Intel’s are in parentheses. </p>
+  <table class="Constants">
+    <tr>
+      <th>Descriptor </th>
+      <th>Cache Size </th>
+      <th>Associativity </th>
+      <th>Line Size </th>
+      <th>Versions </th>
+      <th>Intel </th>
+    </tr>
+    <tr>
+      <td>0x22 </td>
+      <td>512KB </td>
+      <td>4 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>added for 020/021 revision March/May 2002 </td>
+    </tr>
+    <tr>
+      <td>0x23 </td>
+      <td>1MB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>added for 020/021 revision March/May 2002 </td>
+    </tr>
+    <tr>
+      <td>0x24 </td>
+      <td>0 (1MB) </td>
+      <td>8 (16) </td>
+      <td>128 bytes (64) </td>
+      <td>5.1 and higher </td>
+      <td>documented in 2013 </td>
+    </tr>
+    <tr>
+      <td>0x25 </td>
+      <td>2MB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>added for 020/021 revision March/May 2002 </td>
+    </tr>
+    <tr>
+      <td>0x26 </td>
+      <td>0 </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>not listed </td>
+    </tr>
+    <tr>
+      <td>0x27 </td>
+      <td>0 </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>not listed </td>
+    </tr>
+    <tr>
+      <td>0x28 </td>
+      <td>0 </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>not listed </td>
+    </tr>
+    <tr>
+      <td>0x29 </td>
+      <td>4MB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>added for 020/021 revision March/May 2002 </td>
+    </tr>
+  </table>
+  <p>When version 5.1 was built in August 2001 with a newly recognised range of 
+  descriptors from 0x22 to 0x29, Intel was still more than six months from documenting 
+  them. The initially defined descriptors, i.e., 0x22, 0x23, 0x25 and 0x29 are all 
+  said by Intel to indicate a 3rd-level cache with a 64-byte line size but with 
+  two lines per sector, so that the line size as Windows thinks of it is 128 bytes.
+  </p>
+  <p>The undefined descriptors in the range, i.e., 0x24, 0x26, 0x27 and 0x28, are 
+  left to a default of indicating no cache. This is not inconsequential, however, 
+  for the kernel does take all the descriptors in the range as indicating a 128-byte 
+  cache line. Eventually, though not until 2013, Intel did define cache descriptor 
+  0x24. Perhaps inevitably, Intel did not then follow Microsoft’s pattern. To Intel, 
+  cache descriptor 0x24 is for a 16-way set-associative cache of 1MB with just a 
+  64-byte line size. </p>
+  <table class="Constants">
+    <tr>
+      <th>Descriptor </th>
+      <th>NTA Granularity </th>
+      <th>Versions </th>
+      <th>Intel </th>
+    </tr>
+    <tr>
+      <td>0x2C </td>
+      <td>64 bytes </td>
+      <td>late 5.1 and higher </td>
+      <td>added for 023 revision March 2003 </td>
+    </tr>
+  </table>
+  <p>Chronologically, the first recognition of cache descriptor 0x2C is in March 
+  2003 for version 5.2, timed very closely with Intel’s documentation of it. Intel 
+  has 0x2C as encoding an 8-way set-associative 1st-level data cache of 32KB with 
+  a 64-byte cache line. The only interest that the Windows kernel has in such a 
+  small cache is for efficient prefetching. </p>
+  <table class="Constants">
+    <tr>
+      <th>Descriptor </th>
+      <th>Cache Size </th>
+      <th>Associativity </th>
+      <th>Line Size </th>
+      <th>Versions </th>
+      <th>Intel </th>
+    </tr>
+    <tr>
+      <td>0x41 </td>
+      <td>128KB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>added for 004 revision December 1995 </td>
+    </tr>
+    <tr>
+      <td>0x42 </td>
+      <td>256KB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>added for 004 revision December 1995 </td>
+    </tr>
+    <tr>
+      <td>0x43 </td>
+      <td>512KB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>added for 004 revision December 1995 </td>
+    </tr>
+    <tr>
+      <td>0x44 </td>
+      <td>1MB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>added for 005 revision December 1996 </td>
+    </tr>
+    <tr>
+      <td>0x45</td>
+      <td>2MB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>added for 008 revision January 1998 </td>
+    </tr>
+    <tr>
+      <td>0x46 </td>
+      <td>4MB </td>
+      <td>4 </td>
+      <td>(64 bytes) </td>
+      <td>5.0 and higher </td>
+      <td>added for 029 revision March 2005 </td>
+    </tr>
+    <tr>
+      <td>0x47 </td>
+      <td>8MB </td>
+      <td>4 (8) </td>
+      <td>(64 bytes) </td>
+      <td>5.0 and higher </td>
+      <td>added for 029 revision March 2005 </td>
+    </tr>
+    <tr>
+      <td>0x48 </td>
+      <td>16MB (3MB) </td>
+      <td>(12) </td>
+      <td>(64 bytes) </td>
+      <td>5.0 only </td>
+      <td>added for 033 revision November 2008 </td>
+    </tr>
+    <tr>
+      <td>0x49 </td>
+      <td>32MB (4MB) </td>
+      <td>(16) </td>
+      <td>(64 bytes) </td>
+      <td>5.0 only </td>
+      <td>added for 030 revision January 2006 </td>
+    </tr>
+  </table>
+  <p>Cache descriptors 0x41 to 0x45 were well established in Intel’s literature 
+  long before Windows, for version 5.0, first thought to care. They each are said 
+  to encode a 4-way set-associative 2nd-level cache with a 32-byte cache line. They 
+  differ in the cache size, which doubles from one to the next. Microsoft apparently 
+  anticipated that this doubling might continue for another four descriptors. Version 
+  5.1 dialed back the optimism to just two more descriptors. </p>
+  <p>Of course Intel’s much later definitions of these descriptors do not follow 
+  the pattern. Both 0x46 and 0x47 encode 3rd-level caches with the cache sizes that 
+  Microsoft expected, but they have 64-byte cache lines and 0x47 is 8-way set-associative, 
+  not 4. It is perhaps just as well that cache descriptors 0x48 and 0x49 are recognised 
+  only by version 5.0. The corresponding caches have very much the “wrong” sizes—3MB 
+  and 4MB (12- and 16-way set-associative), respectively—and have 64-byte cache 
+  lines. The cache that’s represented by 0x49 is said by Intel to be a 2nd-level 
+  cache ordinarily but 3rd-level for family 15 model 6. </p>
+  <table class="Constants">
+    <tr>
+      <th>Descriptor </th>
+      <th>Cache Size </th>
+      <th>Associativity </th>
+      <th>Line Size </th>
+      <th>Versions </th>
+      <th>Intel </th>
+    </tr>
+    <tr>
+      <td>0x4A </td>
+      <td>4MB (6MB) </td>
+      <td>8 (12) </td>
+      <td>64 bytes </td>
+      <td>late 5.2 and higher </td>
+      <td>added for 030 revision January 2006 </td>
+    </tr>
+    <tr>
+      <td>0x4B </td>
+      <td>6MB (8MB) </td>
+      <td>12 (16) </td>
+      <td>64 bytes </td>
+      <td>late 5.2 and higher </td>
+      <td>added for 030 revision January 2006 </td>
+    </tr>
+    <tr>
+      <td>0x4C </td>
+      <td>8MB (12MB) </td>
+      <td>16 (12) </td>
+      <td>64 bytes </td>
+      <td>late 5.2 and higher </td>
+      <td>added for 030 revision January 2006 </td>
+    </tr>
+  </table>
+  <p>This sequence of descriptors for 3rd-level caches with 64-byte cache lines 
+  does not appear in Intel’s <span class="citation">Application Note 485</span> 
+  until almost a year after recognition was built into the kernel for Windows Server 
+  2003 SP1. </p>
+  <table class="Constants">
+    <tr>
+      <th>Descriptor </th>
+      <th>NTA Granularity </th>
+      <th>Versions </th>
+      <th>Intel </th>
+    </tr>
+    <tr>
+      <td>0x66 </td>
+      <td>64 bytes </td>
+      <td>late 5.0 and higher </td>
+      <td>present in 017 revision February 2001 </td>
+    </tr>
+    <tr>
+      <td>0x67 </td>
+      <td>64 bytes </td>
+      <td>late 5.0 and higher </td>
+      <td>present in 017 revision February 2001 </td>
+    </tr>
+    <tr>
+      <td>0x68 </td>
+      <td>64 bytes </td>
+      <td>late 5.0 and higher </td>
+      <td>present in 017 revision February 2001 </td>
+    </tr>
+  </table>
+  <p>These 1st-level data caches represented by cache descriptors 0x66 to 0x68 are 
+  the first from which the kernel infers a granularity for prefetching. All are 
+  4-way set associative with varying sizes 8KB, 16KB and 32KB. All that matters 
+  to the kernel is that prefetching a cache line will move 64 bytes. </p>
+  <table class="Constants">
+    <tr>
+      <th>Descriptor </th>
+      <th>Cache Size </th>
+      <th>Associativity </th>
+      <th>Line Size </th>
+      <th>Versions </th>
+      <th>Intel </th>
+    </tr>
+    <tr>
+      <td>0x78 </td>
+      <td>1MB </td>
+      <td>4 </td>
+      <td>64 bytes </td>
+      <td>late 5.2 and higher </td>
+      <td>added for 026 revision May 2004 </td>
+    </tr>
+    <tr>
+      <td>0x79 </td>
+      <td>128KB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>present in 017 revision February 2001 </td>
+    </tr>
+    <tr>
+      <td>0x7A </td>
+      <td>256KB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>present in 017 revision February 2001 </td>
+    </tr>
+    <tr>
+      <td>0x7B </td>
+      <td>512KB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>present in 017 revision February 2001 </td>
+    </tr>
+    <tr>
+      <td>0x7C </td>
+      <td>1MB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>5.1 and higher </td>
+      <td>present in 017 revision February 2001 </td>
+    </tr>
+    <tr>
+      <td>0x7D </td>
+      <td>2MB </td>
+      <td>8 </td>
+      <td>64 bytes </td>
+      <td>late 5.2 and higher </td>
+      <td>added for 026 revision May 2004 </td>
+    </tr>
+    <tr>
+      <td>0x7F </td>
+      <td>512KB </td>
+      <td>2 </td>
+      <td>64 bytes </td>
+      <td>late 5.2 and higher </td>
+      <td>added for 026 revision May 2004 </td>
+    </tr>
+  </table>
+  <p>The caches that Windows takes as having 128-byte cache lines are again said 
+  by Intel to have a “64-byte line size, two lines per sector”. </p>
+  <table class="Constants">
+    <tr>
+      <th>Descriptor </th>
+      <th>Cache Size </th>
+      <th>Associativity </th>
+      <th>Line Size </th>
+      <th>Versions </th>
+      <th>Intel </th>
+    </tr>
+    <tr>
+      <td>0x81 </td>
+      <td>128KB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>not listed </td>
+    </tr>
+    <tr>
+      <td>0x82 </td>
+      <td>256KB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>present in 017 revision February 2001 </td>
+    </tr>
+    <tr>
+      <td>0x83 </td>
+      <td>512KB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>added for 018 revision June 2001 </td>
+    </tr>
+    <tr>
+      <td>0x84 </td>
+      <td>1MB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>added for 015 revision May 2000 </td>
+    </tr>
+    <tr>
+      <td>0x85 </td>
+      <td>2MB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher </td>
+      <td>added for 015 revision May 2000 </td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x86 </td>
+      <td>4MB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>5.0 to early 5.2 </td>
+      <td>see note below </td>
+    </tr>
+    <tr>
+      <td>512KB </td>
+      <td>4 </td>
+      <td>64 bytes </td>
+      <td>late 5.2 and higher </td>
+      <td>added for 023 revision March 2003 </td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x87 </td>
+      <td>8MB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>5.0 to early 5.2 </td>
+      <td>see note below </td>
+    </tr>
+    <tr>
+      <td>1MB </td>
+      <td>8 </td>
+      <td>64 bytes </td>
+      <td>late 5.2 and higher </td>
+      <td>added for 023 revision March 2003 </td>
+    </tr>
+    <tr>
+      <td>0x88 </td>
+      <td>16MB </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 only </td>
+      <td>not listed </td>
+    </tr>
+    <tr>
+      <td>0x89 </td>
+      <td>32MB </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 only </td>
+      <td>not listed </td>
+    </tr>
+  </table>
+  <p>As with the sequence that starts at 0x41, Microsoft seems to have anticipated 
+  for this sequence at 0x81 that the doubling cache size for successive descriptors 
+  might continue well beyond the 2MB that was the largest that’s even roughly contemporaneous 
+  with the Windows version that first recognises any. Indeed, none of the descriptors 
+  in this range were yet documented by Intel when Windows 2000 was released, let 
+  alone while it was being written. Also like the sequence at 0x41, version 5.1 
+  accepts that to anticipate 16MB and 32MB is to let the doubling go too far. Unlike 
+  the sequence at 0x41, Windows does notice that the last two remaining in the sequence 
+  were eventually defined by Intel without continuing the doubling. </p>
+  <table class="Constants">
+    <tr>
+      <th>Descriptor </th>
+      <th>NTA Granularity </th>
+      <th>Versions </th>
+      <th>Intel </th>
+    </tr>
+    <tr>
+      <td>0xF0 </td>
+      <td>64 bytes </td>
+      <td>late 5.1 and higher </td>
+      <td>added for 026 revision May 2004 </td>
+    </tr>
+    <tr>
+      <td>0xF1 </td>
+      <td>128 bytes </td>
+      <td>late 5.1 and higher </td>
+      <td>added for 026 revision May 2004 </td>
+    </tr>
+  </table>
+  <p>Newly defined descriptors that are explicitly dedicated to telling how much 
+  data the processor prefetches are known first to Windows Server 2003, more than 
+  a year ahead of Intel’s documentation. </p>
+  <!-- h3>Not Recognised </h3>
+  <p>1st-level data cache: </p>
+  <ul>
+    <li>0x0A (8KB, 2, 32); added for 004 revision December 1995 (data cache)
+    </li>
+    <li>0x0C (16KB, 4, 32); added for 005 revision December 1996 (data cache)
+    </li>
+    <li>0x0D (16KB, 4, 64); added for 033 revision November 2008 </li>
+    <li>0x0E (24KB, 6, 64); added for 037 revision January 2011 </li>
+    <li>0x60 (16KB, 8, 64); added for 025 revision February 2004 as sectored </li>
+  </ul>
+  <p>2nd-level cache: </p>
+  <ul>
+    <li>0x1D (128KB, 2, 64); </li>
+    <li>0x21 (256KB, 8, 64); added for 033 revision November 2008 </li>
+    <li>0x39 (128KB, 4, 64, sectored); added for 020/021 revision March/May 2002; 
+    removed in 037 revision January 2011 </li>
+    <li>0x3A (192KB, 6, 64, sectored); added for 030 revision January 2006; 
+    removed in 037 revision January 2011 </li>
+    <li>0x3B (128KB, 2, 64, sectored); added for 022 revision November 2002; 
+    removed in 037 revision January 2011 </li>
+    <li>0x3C (256KB, 4, 64, sectored); added for 020/021 revision March/May 2002; 
+    removed in 037 revision January 2011 </li>
+    <li>0x3D (384KB, 6, 64, sectored); added for 030 revision January 2006; 
+    removed in 037 revision January 2011 </li>
+    <li>0x3E (512KB, 4, 64, sectored); added for 030 revision January 2006; 
+    removed in 037 revision January 2011 </li>
+    <li>0x4E (6MB, 24, 64); added for 032 revision December 2007 </li>
+    <li>0x80 (512KB, 8, 64) added for 037 revision January 2011 </li>
+  </ul>
+  <p>3rd-level cache: </p>
+  <ul>
+    <li>0x4D (16MB, 16, 64); added for 030 revision January 2006 </li>
+    <li>0xD0 (512KB, 4, 64); added for 033 revision November 2008 </li>
+    <li>0xD1 (1MB, 4, 64); added for 033 revision November 2008 </li>
+    <li>0xD2 (2MB, 4, 64); added for 033 revision November 2008 </li>
+    <li>0xD6 (1MB, 8, 64); added for 033 revision November 2008 </li>
+    <li>0xD7 (2MB, 8, 64); added for 033 revision November 2008 </li>
+    <li>0xD8 (4MB, 8, 64); added for 033 revision November 2008 </li>
+    <li>0xDC (1.5MB, 12, 64); added for 033 revision November 2008 </li>
+    <li>0xDD (3MB, 12, 64); added for 033 revision November 2008 </li>
+    <li>0xDE (6MB, 12, 64); added for 033 revision November 2008 </li>
+    <li>0xE2 (2MB, 16, 64); added for 033 revision November 2008 </li>
+    <li>0xE3 (4MB, 16, 64); added for 033 revision November 2008 </li>
+    <li>0xE4 (8MB, 16, 64); added for 033 revision November 2008 </li>
+    <li>0xEA (12MB, 24, 64); added for 034 revision March 2009 </li>
+    <li>0xEB (18MB, 24, 64); added for 034 revision March 2009 </li>
+    <li>0xEC (24MB, 24, 64) added for 034 revision March 2009 </li>
+  </ul -->
+  <div class="Footer">
+    <p class="Dates">This page was created on 18th
+    <a href="../../../../../../new/19/12.htm">January 2020</a> and was last modified 
+    on 26th January 2020. </p>
+    <!--webbot bot="Include" U-Include="../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="61845" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,488 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>HARDWARE_PTE</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>HARDWARE_PTE </h1>
+<p>The <span class="struct">HARDWARE_PTE</span> structure, including its early variants
+<span class="struct">HARDWARE_PTE_X86</span> and <span class="union">HARDWARE_PTE_X86PAE</span>, 
+is Microsoft’s representation of a Page Table Entry (PTE) as described in Intel’s 
+manuals. In Intel’s terminology, this structure applies only when the PTE has a 
+set <span class="bit">P</span> bit (masked by 0x01) to denote that the corresponding 
+page of linear address space has physical memory. </p>
+<p>Introduction for Windows 2000 of separate kernels that do and don’t use Physical 
+Page Extension (PAE) brought separate definitions for the <span class="struct">HARDWARE_PTE</span>. 
+These were at first given separate names, <span class="struct">HARDWARE_PTE_X86</span> 
+for the four-byte PTE when not using PAE and <span class="union">HARDWARE_PTE_X86PAE</span> 
+for the eight-byte PTE when using PAE. This separation of names was discontinued 
+by the version 5.1 from Windows XP SP1. </p>
+<p>Names and types in the following tables are from public symbol files for the 
+kernel, starting with Windows 2000 SP3. That these names were in use for at least 
+one earlier version is confirmed from the output of the <span class="command">
+<a href="../../../../debug/userexts/dso.htm">!dso</a></span> 
+command as implemented by the USEREXTS debugger extension from the Device Driver 
+Kit (DDK) for Windows NT 4.0. </p>
+<h2>32-Bit PTE </h2>
+<p>For the x86 builds that do not use Physical Address Extension, page table entries 
+are four bytes. The whole <span class="struct">HARDWARE_PTE</span> is a structure 
+of <span class="type">ULONG</span> bit fields: </p>
+<table class="Bits">
+  <colgroup>
+    <col class="Mask"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Mask </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00000001 </td>
+    <td>
+    <pre class="source">ULONG Valid : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">P</span>; <br>
+    must be set for processor to interpret any other bits </td>
+  </tr>
+  <tr>
+    <td>0x00000002 </td>
+    <td>
+    <pre class="source">ULONG Write : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">R/W</span> </td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td>
+    <pre class="source">ULONG Owner : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">U/S</span> </td>
+  </tr>
+  <tr>
+    <td>0x00000008 </td>
+    <td>
+    <pre class="source">ULONG WriteThrough : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">PWT</span> </td>
+  </tr>
+  <tr>
+    <td>0x00000010 </td>
+    <td>
+    <pre class="source">ULONG CacheDisable : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">PCD</span> </td>
+  </tr>
+  <tr>
+    <td>0x00000020 </td>
+    <td>
+    <pre class="source">ULONG Accessed : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">A</span> </td>
+  </tr>
+  <tr>
+    <td>0x00000040 </td>
+    <td>
+    <pre class="source">ULONG Dirty : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">D</span> in PTE for 4KB page or 4MB page; <br>
+    ignored in PDE </td>
+  </tr>
+  <tr>
+    <td>0x00000080 </td>
+    <td>
+    <pre class="source">ULONG LargePage : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">PAT</span> in PTE for 4KB page; <br>
+    else Intel’s <span class="bit">PS</span>; <br>
+    set in PTE for 4MB page; <br>
+    clear in PDE </td>
+  </tr>
+  <tr>
+    <td>0x00000100 </td>
+    <td>
+    <pre class="source">ULONG Global : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">G</span> in PTE for 4KB page or 4MB page; <br>
+    ignored in PDE </td>
+  </tr>
+  <tr>
+    <td>0x00000200 </td>
+    <td>
+    <pre class="source">ULONG CopyOnWrite : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>ignored by processor </td>
+  </tr>
+  <tr>
+    <td>0x00000400 </td>
+    <td>
+    <pre class="source">ULONG Prototype : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>ignored by processor </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG reserved : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>ignored by processor </td>
+  </tr>
+  <tr>
+    <td>0xFFFFF000 </td>
+    <td>
+    <pre class="source">ULONG PageFrameNumber : 20;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>The <span class="member">CopyOnWrite</span> and <span class="member">Prototype</span> 
+bits are how Windows uses two of the three that Intel leaves as available. Note 
+that <span class="member">Prototype</span> is preserved in the various PTE interpretations 
+that Microsoft applies when physical memory is not present. </p>
+<h2>64-Bit PTE </h2>
+<p>For 64-bit Windows but also for the x86 builds that use PAE, page table entries 
+are eight bytes. The <span class="struct">HARDWARE_PTE</span> is a structure of
+<span class="type">ULONGLONG</span> bit fields in 64-bit Windows. To the 32-bit 
+PAE kernel, however, the <span class="union">HARDWARE_PTE</span> is a union of two 
+structures, one to define the bit fields, the other to provide for accessing bits 
+together in 32-bit parts. </p>
+<pre class="source">typedef union _HARDWARE_PTE {
+    struct {
+        /*  bit fields, see below  */
+    };
+    struct {
+        ULONG LowPart;
+        ULONG HighPart;
+    };
+} HARDWARE_PTE;</pre>
+<h3>Bit Fields </h3>
+<p>The low 12 bits of the 64-bit PTE, whether for PAE and x64, match closely 
+those of the 32-bit PTE: </p>
+<table class="Bits">
+  <colgroup>
+    <col class="Mask"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Mask </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00000000`00000001 </td>
+    <td>
+    <pre class="source">ULONGLONG Valid : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">P</span>; <br>
+    must be set for processor to interpret any other bits </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000002 </td>
+    <td>
+    <pre class="source">ULONGLONG Write : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">R/W</span>; <br>
+    reserved in PDPTE (PAE) </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000004 </td>
+    <td>
+    <pre class="source">ULONGLONG Owner : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">U/S</span>; <br>
+    reserved in PDPTE (PAE) </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000008 </td>
+    <td>
+    <pre class="source">ULONGLONG WriteThrough : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">PWT</span> </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000010 </td>
+    <td>
+    <pre class="source">ULONGLONG CacheDisable : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">PCD</span> </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000020 </td>
+    <td>
+    <pre class="source">ULONGLONG Accessed : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">A</span>; <br>
+    reserved in PDPTE (PAE) </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000040 </td>
+    <td>
+    <pre class="source">ULONGLONG Dirty : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">D</span> in PTE for 4KB page, 2MB page or 1GB 
+    page; <br>
+    ignored in PDE; <br>
+    reserved in PDPTE (PAE); <br>
+    ignored in PDPTE (x64); <br>
+    ignored in PML4E </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000080 </td>
+    <td>
+    <pre class="source">ULONGLONG LargePage : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">PAT</span> in PTE for 4KB page; <br>
+    else Intel’s <span class="bit">PS</span>; <br>
+    set in PTE for 2MB page or 1GB page; <br>
+    clear in PDE; <br>
+    reserved in PDPTE (PAE); <br>
+    clear in PDPTE (x64); <br>
+    reserved in PML4E </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000100 </td>
+    <td>
+    <pre class="source">ULONGLONG Global : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">G</span> in PTE for 4KB page, 2MB page or 1GB 
+    page; <br>
+    ignored in PDE; <br>
+    reserved in PDPTE (PAE); <br>
+    ignored in PDPTE (x64); <br>
+    reserved in PML4E </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000200 </td>
+    <td>
+    <pre class="source">ULONGLONG CopyOnWrite : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>ignored by processor </td>
+  </tr>
+  <tr>
+    <td>0x00000000`00000400 </td>
+    <td>
+    <pre class="source">ULONGLONG Prototype : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>ignored by processor </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONGLONG reserved0 : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>ignored by processor </td>
+  </tr>
+</table>
+<p>The remaining bits differ 
+significantly, not just from the 32-bit PTE but between the PAE and x64 implementations:
+</p>
+<table class="Bits">
+  <colgroup>
+    <col class="Mask"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Mask (PAE) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0000000F`FFFFF000 (5.0); <br>
+    0x0000003F`FFFFF000 </td>
+    <td>
+    <pre class="source">ULONGLONG PageFrameNumber  : 24;</pre>
+    </td>
+    <td>5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONGLONG PageFrameNumber : 26;</pre>
+    </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">&nbsp;</td>
+    <td>
+    <pre class="source">ULONGLONG reserved1 : 28;</pre>
+    </td>
+    <td>5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONGLONG reserved1 : 26;</pre>
+    </td>
+    <td>5.1 to 1607 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONGLONG reserved1 : 25;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x80000000`00000000 </td>
+    <td>
+    <pre class="source">ULONGLONG NoExecute : 1;</pre>
+    </td>
+    <td>1703 and higher </td>
+    <td>Intel’s <span class="bit">XD</span> </td>
+  </tr>
+</table>
+<p>In the first PAE kernels, the <span class="member">PageFrameNumber</span> can 
+describe 16M pages, as if for 36 address lines and 64GB of physical memory. Version 
+5.1 raises this to 64M pages, as if for 38 address lines. This would allow 256GB 
+of physical memory, even though 32-bit Windows cannot possibly support so much. 
+(It has a long-standing architectural limit of 128GB caused by needing kernel-mode address space for an array of <span class="struct">
+<a href="../pfnlist/mmpfn/index.htm">MMPFN</a></span> structures, one per page of 
+physical memory. At 0x1C bytes per <span class="struct">MMPFN</span>, even 128GB 
+of physical memory requires 896MB for the <span class="struct">MMPFN</span> 
+array when at most 1GB can be available.) </p>
+<table class="Bits">
+  <colgroup>
+    <col class="Mask"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Mask (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0x000000FF`FFFFF000 (late 5.2 to 6.1); <br>
+    0x0000FFFF`FFFFF000 </td>
+    <td>
+    <pre class="source">ULONGLONG PageFrameNumber : 28;</pre>
+    </td>
+    <td>late 5.2 to early 6.1 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONGLONG PageFrameNumber : 36;</pre>
+    </td>
+    <td>late 6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">ULONGLONG reserved1 : 12;</pre>
+    </td>
+    <td>late 5.2 to early 6.1 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONGLONG reserved1 : 4;</pre>
+    </td>
+    <td>late 6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x7FF00000`00000000 </td>
+    <td>
+    <pre class="source">ULONGLONG SoftwareWsIndex : 11;</pre>
+    </td>
+    <td>all </td>
+    <td>ignored by processor (see note) </td>
+  </tr>
+  <tr>
+    <td>0x80000000`00000000 </td>
+    <td>
+    <pre class="source">ULONGLONG NoExecute : 1;</pre>
+    </td>
+    <td>all </td>
+    <td>Intel’s <span class="bit">XD</span> </td>
+  </tr>
+</table>
+<p>The first 64-bit kernels provide for 256M pages, as if for 40 address lines and 
+1TB of physical memory. Raising this waited for the version 6.1 from Windows 7 SP1, 
+whose widened <span class="member">PageFrameNumber</span> allows 48 address lines 
+and thus 256TB of physical memory. Note that the <span class="member">PageFrameNumber</span> 
+in the otherwise very close <span class="struct"><a href="mmpte/hardware.htm">MMPTE_HARDWARE</a></span> 
+got this same widening in the version 6.0 from Windows Vista SP1. It is not known 
+whether the lag in updating the <span class="struct">HARDWARE_PTE</span> had real-world 
+consequence. </p>
+<p>In the high dword, 64-bit Windows defines <span class="member">SoftwareWsIndex</span> 
+as using all 11 bits that Intel leaves as available if the processor is not using 
+protection keys. </p>
+<p>Note that for both the PAE and x64 kernels, the <span class="struct">HARDWARE_PTE</span> 
+leaves unspecified that not all the bits of the <span class="member">PageFrameNumber</span> 
+are meaningful in a PTE for a large page. In a PTE for a 2MB page—or, if you prefer, 
+a PDE for which <span class="member">LargePage</span> is set—the lowest bit of the
+<span class="member">PageFrameNumber</span> is Intel’s <span class="bit">PAT</span> 
+and the next eight are reserved, i.e., must be zero. This applies also in 64-bit 
+Windows to a PTE for a 1GB page, i.e., a PDPTE for which <span class="member">LargePage</span> 
+is set, except that nine more bits are reserved. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 16th July 2016 but was not published 
+  until 13th <a href="../../../../../../../new/19/10.htm">October 2019</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

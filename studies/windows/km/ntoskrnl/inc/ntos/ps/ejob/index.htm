@@ -1,0 +1,2041 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EJOB</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>EJOB </h1>
+  <p>The <span class="struct">EJOB</span> structure (formally
+  <span class="struct">_EJOB</span>) is the kernel’s representation of a job object. 
+  For instance, if the <span class="function">ObReferenceObjectByHandle</span> function 
+  successfully resolves a handle though directed to do so only if the object type 
+  is <span class="variable">PsJobObject</span>, then what the function produces 
+  as its point to the object is a pointer to an <span class="struct">EJOB</span> 
+  structure. </p>
+  <p>A job is a collection of processes that act with some common purpose. There 
+  is no particular definition of the purpose or even of how the processes act together, 
+  just that there be enough commonality that the processes are usefully managed 
+  collectively. </p>
+  <p>Jobs were arguably a little obscure until some of the features that had been 
+  developed for managing them as a collection of processes came to attention as 
+  being useful for security. Various restrictions that might be desired for a process 
+  but which cannot be applied directly to a process can instead be applied indirectly 
+  by putting the process into a suitably configured job, even if the job only ever 
+  has the one process. </p>
+  <p>Windows 10 brought new use to the job to support containers of the sort that 
+  Microsoft calls silos. It does not seem to have got much attention at first, but 
+  the original Windows 10 has a separate <span class="struct">
+  <a href="../esilo.htm">ESILO</a></span> structure 
+  for a silo object. The connection with jobs is that the only way to create a silo 
+  object is through the <span class="constant">JobObjectCreateSilo</span> information 
+  class of the <span class="function">NtSetInformationJobObject</span> function. 
+  This sets the created silo into the given job as the latter’s
+  <span class="member">Container</span>. That containers and silos were tightly 
+  integrated with jobs was therefore plain enough from the start (if only to those 
+  who look beyond what Microsoft documents). A heavy reworking of both the implementation 
+  and its interface (even of exported functions) as soon as Version 1511 kept 
+  something very like the
+  <span class="struct">ESILO</span> but no longer as an object and now renamed 
+  as a <span class="struct"><a href="../silo_context.htm">SILO_CONTEXT</a></span>. 
+  In this version, a silo object is already a job object but specifically one 
+  that has a <span class="struct">SILO_CONTEXT</span>. Further reworking 
+  for Version 1607 merged the <span class="struct">SILO_CONTEXT</span> into the
+  <span class="struct">EJOB</span>. Ever since, a silo is a special type of job, 
+  distinguished by a set <span class="member">Silo</span> bit in the
+  <span class="member">JobFlags</span>. The <span class="constant">JobObjectCreateSilo</span> 
+  information class now turns the given job into a silo. Call a function such as
+  <span class="function">PsGetProcessSilo</span> and what you get back nowadays 
+  is a pointer to an <span class="struct">EJOB</span>. It’s not fanciful that 
+  many security researchers are most familiar with the <span class="struct">EJOB</span> 
+  not directly from looking at processes in jobs but from their studies of 
+  breaking out of silos. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="struct">EJOB</span> is not documented. Before Windows 10, 
+  no header from a Device Driver Kit (DDK) or Windows Driver Kit (WDK) even declares 
+  the <span class="struct">EJOB</span> as an opaque type. This had to wait for NTOSP.H 
+  in the “minwin” subdirectory of headers in early editions of the WDK for Windows 
+  10, specifically for the original release and for Version 1511. Since this subdirectory 
+  is in turn in a subdirectory named “um”, as if for user-mode programming, this 
+  header’s publication was presumably an oversight (which is not known to have been 
+  repeated). The reworking of silos as jobs for Version 1607 brought with it that 
+  NTDDK.H now defines both <span class="type">PEJOB</span> and
+  <span class="type">PESILO</span> as pointers to an opaque <span class="struct">
+  _EJOB</span>. </p>
+  <h2>Access </h2>
+  <p>The <span class="struct">EJOB</span> exists only in kernel-mode memory. User-mode 
+  software has only indirect access through handles. Kernel-mode software has direct 
+  access through several undocumented kernel exports. For instance,
+  <span class="function">PsGetProcessJob</span> returns a pointer to the
+  <span class="struct">EJOB</span>, if any, for the given <span class="struct">EPROCESS</span>. 
+  It seems a fair bet that even this kernel-mode software is supposed to treat the 
+  structure as opaque. </p>
+  <h2>Size and Variability </h2>
+  <p>Inasmuch as the <span class="struct">EJOB</span> is internal to the kernel, 
+  it is free to vary widely between versions and even between builds. That said, 
+  its development over two decades has been relatively orderly. There have been 
+  insertions and deletions, and even a few rearrangements, but not nearly as many 
+  as for other Process Structure structures that are similarly internal and similarly 
+  sized. New members tend to be appended. </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Versions </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>5.0 </td>
+        <td>0x0170 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>5.1 to 5.2 </td>
+        <td>0x0180 </td>
+        <td>0x0220 </td>
+      </tr>
+      <tr>
+        <td>6.0 </td>
+        <td>0x0128 </td>
+        <td>0x01B0 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0x0138 </td>
+        <td>0x01C8 </td>
+      </tr>
+      <tr>
+        <td>6.2 </td>
+        <td>0x02B8 </td>
+        <td>0x04A8 </td>
+      </tr>
+      <tr>
+        <td>6.3 </td>
+        <td>0x02C0 </td>
+        <td>0x04B0 </td>
+      </tr>
+      <tr>
+        <td>10.0 to 1511 </td>
+        <td>0x02F8 </td>
+        <td>0x0528 </td>
+      </tr>
+      <tr>
+        <td>1607 </td>
+        <td>0x0358 </td>
+        <td>0x05C8 </td>
+      </tr>
+      <tr>
+        <td>1703 </td>
+        <td>0x0398 </td>
+        <td>0x0610 </td>
+      </tr>
+      <tr>
+        <td>1709 to 1903 </td>
+        <td>0x03A0 </td>
+        <td>0x0620 </td>
+      </tr>
+      <tr>
+        <td>2004 </td>
+        <td>0x03C0 </td>
+        <td>0x0640 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout </h2>
+  <p>These sizes, and the offsets, types and names in the table below, are from 
+  Microsoft’s public symbol files for the kernel starting with Windows 2000 SP3. 
+  The structure is not known to differ between the original Windows 2000 and the 
+  later service packs that have type information in the public symbol files. See 
+  anyway that the <span class="command">
+  <a href="../../../../../debug/kdex2x86/strct.htm">!strct</a></span> and
+  <span class="command"><a href="../../../../../debug/userkdx/dso.htm">!dso</a></span> 
+  commands of debugger extensions from the Windows 2000 DDK both list the
+  <span class="struct">EJOB</span> with something like the certainty of the missing 
+  type information. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">KEVENT Event;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">LIST_ENTRY JobLinks;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td>0x28 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ProcessListHead;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td>0x38 </td>
+        <td>
+        <pre class="source">ERESOURCE JobLock;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x58 </td>
+        <td>0xA0 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER TotalUserTime;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x60 </td>
+        <td>0xA8 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER TotalKernelTime;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x68 </td>
+        <td>0xB0 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER TotalCycleTime;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x68 (5.0 to 6.1); <br>
+        0x70 </td>
+        <td>0xB0 (5.0 to 6.1); <br>
+        0xB8 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER ThisPeriodTotalUserTime;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x70 (5.0 to 6.1); <br>
+        0x78 </td>
+        <td>0xB8 (5.0 to 6.1); <br>
+        0xC0 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER ThisPeriodTotalKernelTime;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x80 </td>
+        <td>0xC8 </td>
+        <td>
+        <pre class="source">ULONGLONG TotalContextSwitch;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x78 (5.0 to 6.1); <br>
+        0x88 </td>
+        <td>0xC0 (5.0 to 6.1); <br>
+        0xD0 </td>
+        <td>
+        <pre class="source">ULONG TotalPageFaultCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x7C (5.0 to 6.1); <br>
+        0x8C </td>
+        <td>0xC4 (5.0 to 6.1); <br>
+        0xD4 </td>
+        <td>
+        <pre class="source">ULONG TotalProcesses;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x80 (5.0 to 6.1); <br>
+        0x90 </td>
+        <td>0xC8 (5.0 to 6.1); <br>
+        0xD8 </td>
+        <td>
+        <pre class="source">ULONG ActiveProcesses;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x84 (5.0 to 6.1); <br>
+        0x94 </td>
+        <td>0xCC (5.0 to 6.1); <br>
+        0xDC </td>
+        <td>
+        <pre class="source">ULONG TotalTerminatedProcesses;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x88 (5.0 to 6.1); <br>
+        0x98 </td>
+        <td>0xD0 (5.0 to 6.1); <br>
+        0xE0 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER PerProcessUserTimeLimit;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x90 (5.0 to 6.1); <br>
+        0xA0 </td>
+        <td>0xD8 (5.0 to 6.1); <br>
+        0xE8 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER PerJobUserTimeLimit;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x98 (5.0 to 6.0) </td>
+        <td>0xE0 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">ULONG LimitFlags;</pre>
+        </td>
+        <td>5.0 to 6.0 </td>
+        <td>next at 0xA0 and 0xF0 </td>
+      </tr>
+      <tr>
+        <td>0x9C (5.0 to 6.0); <br>
+        0x98 (6.1); <br>
+        0xA8 </td>
+        <td>0xE8 (late 5.2 to 6.0); <br>
+        0xE0 (6.1); <br>
+        0xF0 </td>
+        <td>
+        <pre class="source">SIZE_T MinimumWorkingSetSize;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA0 (5.0 to 6.0); <br>
+        0x9C (6.1); <br>
+        0xAC </td>
+        <td>0xF0 (late 5.2 to 6.0); <br>
+        0xE8 (6.1); <br>
+        0xF8 </td>
+        <td>
+        <pre class="source">SIZE_T MaximumWorkingSetSize;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xA0 (6.1); <br>
+        0xB0 </td>
+        <td>0xF0 (6.1); <br>
+        0x0100 </td>
+        <td>
+        <pre class="source">ULONG LimitFlags;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously at 0x98 and 0xE0 </td>
+      </tr>
+      <tr>
+        <td>0xA4 (5.0 to 6.1); <br>
+        0xB4 </td>
+        <td>0xF8 (late 5.2 to 6.0); <br>
+        0xF4 (6.1); <br>
+        0x0104 </td>
+        <td>
+        <pre class="source">ULONG ActiveProcessLimit;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xA8 (5.0 to 6.1); <br>
+        0xB8 </td>
+        <td rowspan="2">0x0100 (late 5.2 to 6.0); <br>
+        0xF8 (6.1); <br>
+        0x0108 </td>
+        <td>
+        <pre class="source">KAFFINITY Affinity;</pre>
+        </td>
+        <td>5.0 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KAFFINITY_EX Affinity;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xAC (5.0 to 6.0); <br>
+        0xB4 (6.1) </td>
+        <td>0x0108 (late 5.2 to 6.0); <br>
+        0x0120 </td>
+        <td>
+        <pre class="source">UCHAR PriorityClass;</pre>
+        </td>
+        <td>5.0 to 6.1 </td>
+        <td>next at 0x019D and 0x0351 </td>
+      </tr>
+      <tr>
+        <td>0xB0 (5.0 to 6.0); <br>
+        0xB8 (6.1); <br>
+        0xC4 </td>
+        <td>0x0110 (6.0); <br>
+        0x0128 (6.1); <br>
+        0x01B0 </td>
+        <td>
+        <pre class="source">JOB_ACCESS_STATE *AccessState;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC8 </td>
+        <td>0x01B8 </td>
+        <td>
+        <pre class="source">PVOID AccessStateQuotaReference;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB0 (5.0 to 5.2); <br>
+        0xB4 (6.0); <br>
+        0xBC (6.1); <br>
+        0xCC </td>
+        <td>0x010C (late 5.2); <br>
+        0x0118 (6.0); <br>
+        0x0130 (6.1); <br>
+        0x01C0 </td>
+        <td>
+        <pre class="source">ULONG UIRestrictionsClass;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB4 (5.0 to 5.2) </td>
+        <td>0x0110 (late 5.2) </td>
+        <td>
+        <pre class="source">ULONG SecurityLimitFlags;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB8 (5.0 to 5.2) </td>
+        <td>0x0118 (late 5.2) </td>
+        <td>
+        <pre class="source">PVOID Token;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xBC (5.0 to 5.2) </td>
+        <td>0x0120 (late 5.2) </td>
+        <td>
+        <pre class="source">PS_JOB_TOKEN_FILTER *Filter;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC0 (5.0 to 5.2); <br>
+        0xB8 (6.0); <br>
+        0xC0 (6.1); <br>
+        0xD0 </td>
+        <td>0x0128 (late 5.2); <br>
+        0x011C (6.0); <br>
+        0x0134 (6.1); <br>
+        0x01C4 </td>
+        <td>
+        <pre class="source">ULONG EndOfJobTimeAction;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC4 (5.0 to 5.2); <br>
+        0xBC (6.0); <br>
+        0xC4 (6.1); <br>
+        0xD4 </td>
+        <td>0x0130 (late 5.2); <br>
+        0x0120 (6.0); <br>
+        0x0138 (6.1); <br>
+        0x01C8 </td>
+        <td>
+        <pre class="source">PVOID CompletionPort;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC8 (5.0 to 5.2); <br>
+        0xC0 (6.0); <br>
+        0xC8 (6.1); <br>
+        0xD8 </td>
+        <td>0x0138 (late 5.2); <br>
+        0x0128 (6.0); <br>
+        0x0140 (6.1); <br>
+        0x01D0 </td>
+        <td>
+        <pre class="source">PVOID CompletionKey;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xE0 </td>
+        <td>0x01D8 </td>
+        <td>
+        <pre class="source">ULONGLONG CompletionCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xCC (5.0 to 5.2); <br>
+        0xC4 (6.0); <br>
+        0xCC (6.1); <br>
+        0xE8 </td>
+        <td>0x0140 (late 5.2); <br>
+        0x0130 (6.0); <br>
+        0x0148 (6.1); <br>
+        0x01E0 </td>
+        <td>
+        <pre class="source">ULONG SessionId;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xD0 (5.0 to 5.2); <br>
+        0xC8 (6.0); <br>
+        0xD0 (6.1); <br>
+        0xEC </td>
+        <td>0x0144 (late 5.2); <br>
+        0x0134 (6.0); <br>
+        0x014C (6.1); <br>
+        0x01E4 </td>
+        <td>
+        <pre class="source">ULONG SchedulingClass;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xD8 (5.0 to 5.2); <br>
+        0xD0 (6.0); <br>
+        0xD8 (6.1); <br>
+        0xF0 </td>
+        <td>0x0148 (late 5.2); <br>
+        0x0138 (6.0); <br>
+        0x0150 (6.1); <br>
+        0x01E8 </td>
+        <td>
+        <pre class="source">ULONGLONG ReadOperationCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xE0 (5.0 to 5.2); <br>
+        0xD8 (6.0); <br>
+        0xE0 (6.1); <br>
+        0xF8 </td>
+        <td>0x0150 (late 5.2); <br>
+        0x0140 (6.0); <br>
+        0x0158 (6.1); <br>
+        0x01F0 </td>
+        <td>
+        <pre class="source">ULONGLONG WriteOperationCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xE8 (5.0 to 5.2); <br>
+        0xE0 (6.0); <br>
+        0xE8 (6.1); <br>
+        0x0100 </td>
+        <td>0x0158 (late 5.2); <br>
+        0x0148 (6.0); <br>
+        0x0160 (6.1); <br>
+        0x01F8 </td>
+        <td>
+        <pre class="source">ULONGLONG OtherOperationCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xF0 (5.0 to 5.2); <br>
+        0xE8 (6.0); <br>
+        0xF0 (6.1); <br>
+        0x0108 </td>
+        <td>0x0160 (late 5.2); <br>
+        0x0150 (6.0); <br>
+        0x0168 (6.1); <br>
+        0x0200 </td>
+        <td>
+        <pre class="source">ULONGLONG ReadTransferCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xF8 (5.0 to 5.2); <br>
+        0xF0 (6.0); <br>
+        0xF8 (6.1); <br>
+        0x0110 </td>
+        <td>0x0168 (late 5.2); <br>
+        0x0158 (6.0); <br>
+        0x0170 (6.1); <br>
+        0x0208 </td>
+        <td>
+        <pre class="source">ULONGLONG WriteTransferCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0100 (5.0 to 5.2); <br>
+        0xF8 (6.0); <br>
+        0x0100 (6.1); <br>
+        0x0118 </td>
+        <td>0x0170 (late 5.2); <br>
+        0x0160 (6.0); <br>
+        0x0178 (6.1); <br>
+        0x0210 </td>
+        <td>
+        <pre class="source">ULONGLONG OtherTransferCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0108 (5.0 to 5.2) </td>
+        <td>0x0178 (late 5.2) </td>
+        <td>
+        <pre class="source">IO_COUNTERS IoInfo;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0120 </td>
+        <td>0x0218 </td>
+        <td>
+        <pre class="source">PROCESS_DISK_COUNTERS *DiskIoInfo;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0138 (5.0 to 5.2); <br>
+        0x0100 (6.0); <br>
+        0x0108 (6.1); <br>
+        0x0148 </td>
+        <td>0x01A8 (late 5.2); <br>
+        0x0168 (6.0); <br>
+        0x0180 (6.1); <br>
+        0x0240 </td>
+        <td>
+        <pre class="source">SIZE_T ProcessMemoryLimit;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x013C (5.0 to 5.2); <br>
+        0x0104 (6.0); <br>
+        0x010C (6.1); <br>
+        0x014C </td>
+        <td>0x01B0 (late 5.2); <br>
+        0x0170 (6.0); <br>
+        0x0188 (6.1); <br>
+        0x0248 </td>
+        <td>
+        <pre class="source">SIZE_T JobMemoryLimit;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0150 </td>
+        <td>0x0250 </td>
+        <td>
+        <pre class="source">SIZE_T JobTotalMemoryLimit;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0140 (5.0 to 5.2); <br>
+        0x0108 (6.0); <br>
+        0x0110 (6.1); <br>
+        0x0150 (6.2 to 6.3); <br>
+        0x0154 </td>
+        <td>0x01B8 (late 5.2); <br>
+        0x0178 (6.0); <br>
+        0x0190 (6.1); <br>
+        0x0250 (6.2 to 6.3); <br>
+        0x0258 </td>
+        <td>
+        <pre class="source">SIZE_T PeakProcessMemoryUsed;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0144 (5.0 to 5.2); <br>
+        0x010C (6.0); <br>
+        0x0114 (6.1); <br>
+        0x0154 (6.2 to 6.3); <br>
+        0x0158 </td>
+        <td>0x01C0 (late 5.2); <br>
+        0x0180 (6.0); <br>
+        0x0198 (6.1); <br>
+        0x0258 (6.2 to 6.3); <br>
+        0x0260 </td>
+        <td>
+        <pre class="source">SIZE_T PeakJobMemoryUsed;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0158 (6.2 to 6.3); <br>
+        0x015C </td>
+        <td>0x0260 (6.2 to 6.3); <br>
+        0x0268 </td>
+        <td>
+        <pre class="source">KAFFINITY_EX EffectiveAffinity;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0168 </td>
+        <td>0x0308 (6.2 to 6.3); <br>
+        0x0310 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER EffectivePerProcessUserTimeLimit;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0170 </td>
+        <td>0x0310 (6.2 to 6.3); <br>
+        0x0318 </td>
+        <td>
+        <pre class="source">SIZE_T EffectiveMinimumWorkingSetSize;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0174 </td>
+        <td>0x0318 (6.2 to 6.3); <br>
+        0x0320 </td>
+        <td>
+        <pre class="source">SIZE_T EffectiveMaximumWorkingSetSize;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0178 </td>
+        <td>0x0320 (6.2 to 6.3); <br>
+        0x0328 </td>
+        <td>
+        <pre class="source">SIZE_T EffectiveProcessMemoryLimit;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x017C </td>
+        <td>0x0328 (6.2 to 6.3); <br>
+        0x0330 </td>
+        <td>
+        <pre class="source">EJOB *EffectiveProcessMemoryLimitJob;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0180 </td>
+        <td>0x0330 (6.2 to 6.3); <br>
+        0x0338 </td>
+        <td>
+        <pre class="source">EJOB *EffectivePerProcessUserTimeLimitJob;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0184 (10.0 to 1511) </td>
+        <td>0x0340 (10.0 to 1511) </td>
+        <td>
+        <pre class="source">EJOB *EffectiveDiskIoRateLimitJob;</pre>
+        </td>
+        <td>10.0 to 1511 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0188 (10.0 to 1511); <br>
+        0x0184 </td>
+        <td>0x0348 (10.0 to 1511); <br>
+        0x0340 </td>
+        <td>
+        <pre class="source">EJOB *EffectiveNetIoRateLimitJob;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x018C (10.0 to 1511); <br>
+        0x0188 </td>
+        <td>0x0350 (10.0 to 1511); <br>
+        0x0348 </td>
+        <td>
+        <pre class="source">EJOB *EffectiveHeapAttributionJob;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0184 (6.2 to 6.3); <br>
+        0x0190 (10.0 to 1511); <br>
+        0x018C </td>
+        <td>0x0338 (6.2 to 6.3); <br>
+        0x0358 (10.0 to 1511); <br>
+        0x0350 </td>
+        <td>
+        <pre class="source">ULONG EffectiveLimitFlags;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0188 (6.2 to 6.3); <br>
+        0x0194 (10.0 to 1511); <br>
+        0x0190 </td>
+        <td>0x033C (6.2 to 6.3); <br>
+        0x035C (10.0 to 1511); <br>
+        0x0354 </td>
+        <td>
+        <pre class="source">ULONG EffectiveSchedulingClass;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x018C (6.2 to 6.3); <br>
+        0x0198 (10.0 to 1511); <br>
+        0x0194 </td>
+        <td>0x0340 (6.2 to 6.3); <br>
+        0x0360 (10.0 to 1511); <br>
+        0x0358 </td>
+        <td>
+        <pre class="source">ULONG EffectiveFreezeCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0190 (6.2 to 6.3); <br>
+        0x019C (10.0 to 1511); <br>
+        0x0198 </td>
+        <td>0x0344 (6.2 to 6.3); <br>
+        0x0364 (10.0 to 1511); <br>
+        0x035C </td>
+        <td>
+        <pre class="source">ULONG EffectiveBackgroundCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0194 (6.2 to 6.3); <br>
+        0x01A0 (10.0 to 1511); <br>
+        0x019C </td>
+        <td>0x0348 (6.2 to 6.3); <br>
+        0x0368 (10.0 to 1511); <br>
+        0x0360 </td>
+        <td>
+        <pre class="source">ULONG EffectiveSwapCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0198 (6.2 to 6.3); <br>
+        0x01A4 (10.0 to 1511); <br>
+        0x01A0 </td>
+        <td>0x034C (6.2 to 6.3); <br>
+        0x036C (10.0 to 1511); <br>
+        0x0364 </td>
+        <td>
+        <pre class="source">ULONG EffectiveNotificationLimitCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x019C (6.2 to 6.3); <br>
+        0x01A8 (10.0 to 1511); <br>
+        0x01A4 </td>
+        <td>0x0350 (6.2 to 6.3); <br>
+        0x0370 (10.0 to 1511); <br>
+        0x0368 </td>
+        <td>
+        <pre class="source">UCHAR EffectivePriorityClass;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x019D (6.2 to 6.3); <br>
+        0x01A9 (10.0 to 1511); <br>
+        0x01A5 </td>
+        <td>0x0351 (6.2 to 6.3); <br>
+        0x0371 (10.0 to 1511); <br>
+        0x0369 </td>
+        <td>
+        <pre class="source">UCHAR PriorityClass;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0xB4 and 0x0120 </td>
+      </tr>
+      <tr>
+        <td>0x01AA (10.0 to 1511); <br>
+        0x01A6 </td>
+        <td>0x0372 (10.0 to 1511); <br>
+        0x036A </td>
+        <td>
+        <pre class="source">UCHAR NestingDepth;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x019E (6.2 to 6.3); <br>
+        0x01AB (10.0 to 1511); <br>
+        0x01A7 </td>
+        <td rowspan="2">0x0352 (6.2 to 6.3); <br>
+        0x0373 (10.0 to 1511); <br>
+        0x036B </td>
+        <td>
+        <pre class="source">UCHAR Reserved1 [2];</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Reserved1 [1];</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01A0 (6.2 to 6.3); <br>
+        0x01AC (10.0 to 1511); <br>
+        0x01A8 </td>
+        <td>0x0354 (6.2 to 6.3); <br>
+        0x0374 (10.0 to 1511); <br>
+        0x036C </td>
+        <td>
+        <pre class="source">ULONG CompletionFilter;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01A8 (6.2 to 6.3); <br>
+        0x01B0 </td>
+        <td>0x0358 (6.2 to 6.3); <br>
+        0x0378 (10.0 to 1511); <br>
+        0x0370 </td>
+        <td>
+        <pre class="source">union {
+    WNF_STATE_NAME WakeChannel;
+    PS_WAKE_INFORMATION WakeInfo;
+};</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01F0 (6.2); <br>
+        0x01E0 (6.3); <br>
+        0x01E8 (10.0 to 1607); <br>
+        0x01F8 </td>
+        <td>0x03A0 (6.2); <br>
+        0x0390 (6.3); <br>
+        0x03B0 (10.0 to 1511); <br>
+        0x03A8 (1607); <br>
+        0x03B8 </td>
+        <td>
+        <pre class="source">JOBOBJECT_WAKE_FILTER WakeFilter;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01F8 (6.2); <br>
+        0x01E8 (6.3); <br>
+        0x01F0 (10.0 to 1607); <br>
+        0x0200 </td>
+        <td>0x03A8 (6.2); <br>
+        0x0398 (6.3); <br>
+        0x03B8 (10.0 to 1511); <br>
+        0x03B0 (1607); <br>
+        0x03C0 </td>
+        <td>
+        <pre class="source">ULONG LowEdgeLatchFilter;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01FC (6.2); <br>
+        0x01EC (6.3); <br>
+        0x01F4 (10.0 to 1607) </td>
+        <td>0x03AC (6.2); <br>
+        0x039C (6.3); <br>
+        0x03BC (10.0 to 1511); <br>
+        0x03B4 (1607) </td>
+        <td>
+        <pre class="source">ULONG OwnedHighEdgeFilters;</pre>
+        </td>
+        <td>6.2 to 1607 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0200 (6.2); <br>
+        0x01F0 (6.3); <br>
+        0x01F8 (10.0 to 1607); <br>
+        0x0204 </td>
+        <td>0x03B0 (6.2); <br>
+        0x03A0 (6.3); <br>
+        0x03C0 (10.0 to 1511); <br>
+        0x03B8 (1607); <br>
+        0x03C8 </td>
+        <td>
+        <pre class="source">EJOB *NotificationLink;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0148 (5.0 to 5.2); <br>
+        0x0110 (6.0); <br>
+        0x0118 (6.1); <br>
+        0x0208 (6.2); <br>
+        0x01F8 (6.3); <br>
+        0x0200 (10.0 to 1607); <br>
+        0x0208 </td>
+        <td rowspan="2">0x01C8 (late 5.2); <br>
+        0x0188 (6.0); <br>
+        0x01A0 (6.1); <br>
+        0x03B8 (6.2); <br>
+        0x03A8 (6.3); <br>
+        0x03C8 (10.0 to 1511); <br>
+        0x03C0 (1607); <br>
+        0x03D0 </td>
+        <td>
+        <pre class="source">SIZE_T CurrentJobMemoryUsed;</pre>
+        </td>
+        <td>5.0 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG CurrentJobMemoryUsed;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0210 (6.2); <br>
+        0x0200 (6.3); <br>
+        0x0208 (10.0 to 1607); <br>
+        0x0210 </td>
+        <td>0x03C0 (6.2); <br>
+        0x03B0 (6.3); <br>
+        0x03D0 (10.0 to 1511); <br>
+        0x03C8 (1607); <br>
+        0x03D8 </td>
+        <td>
+        <pre class="source">JOB_NOTIFICATION_INFO *NotificationInfo;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0214 (6.2); <br>
+        0x0204 (6.3); <br>
+        0x020C (10.0 to 1607); <br>
+        0x0214 </td>
+        <td>0x03C8 (6.2); <br>
+        0x03B8 (6.3); <br>
+        0x03D8 (10.0 to 1511); <br>
+        0x03D0 (1607); <br>
+        0x03E0 </td>
+        <td>
+        <pre class="source">PVOID NotificationInfoQuotaReference;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0218 (6.2); <br>
+        0x0208 (6.3); <br>
+        0x0210 (10.0 to 1607); <br>
+        0x0218 </td>
+        <td>0x03D0 (6.2); <br>
+        0x03C0 (6.3); <br>
+        0x03E0 (10.0 to 1511); <br>
+        0x03D8 (1607); <br>
+        0x03E8 </td>
+        <td>
+        <pre class="source">IO_MINI_COMPLETION_PACKET_USER *NotificationPacket;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x021C (6.2); <br>
+        0x020C (6.3); <br>
+        0x0214 (10.0 to 1607); <br>
+        0x021C </td>
+        <td>0x03D8 (6.2); <br>
+        0x03C8 (6.3); <br>
+        0x03E8 (10.0 to 1511); <br>
+        0x03E0 (1607); <br>
+        0x03F0 </td>
+        <td>
+        <pre class="source">JOB_CPU_RATE_CONTROL *CpuRateControl;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0220 (6.2); <br>
+        0x0210 (6.3); <br>
+        0x0218 (10.0 to 1607); <br>
+        0x0220 </td>
+        <td>0x03E0 (6.2); <br>
+        0x03D0 (6.3); <br>
+        0x03F0 (10.0 to 1511); <br>
+        0x03E8 (1607); <br>
+        0x03F8 </td>
+        <td>
+        <pre class="source">PVOID EffectiveSchedulingGroup;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0218 (6.3); <br>
+        0x0220 (10.0 to 1607); <br>
+        0x0228 </td>
+        <td>0x03D8 (6.3); <br>
+        0x03F8 (10.0 to 1511); <br>
+        0x03F0 (1607); <br>
+        0x0400 </td>
+        <td>
+        <pre class="source">ULONGLONG ReadyTime;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x014C (5.0 to 5.2); <br>
+        0x0114 (6.0); <br>
+        0x0120 (6.1); <br>
+        0x0224 (6.2); <br>
+        0x0220 (6.3); <br>
+        0x0228 (10.0 to 1607); <br>
+        0x0230 </td>
+        <td rowspan="2">0x01D0 (late 5.2); <br>
+        0x0190 (6.0); <br>
+        0x01A8 (6.1); <br>
+        0x03E8 (6.2); <br>
+        0x03E0 (6.3); <br>
+        0x0400 (10.0 to 1511); <br>
+        0x03F8 (1607); <br>
+        0x0408 </td>
+        <td>
+        <pre class="source">FAST_MUTEX MemoryLimitsLock;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>last member in 5.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">EX_PUSH_LOCK MemoryLimitsLock;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x016C (5.1 to 5.2); <br>
+        0x0118 (6.0); <br>
+        0x0124 (6.1) </td>
+        <td>0x0208 (late 5.2); <br>
+        0x0198 (6.0); <br>
+        0x01B0 (6.1) </td>
+        <td>
+        <pre class="source">LIST_ENTRY JobSetLinks;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0174 (5.1 to 5.2); <br>
+        0x0120 (6.0); <br>
+        0x012C (6.1) </td>
+        <td>0x0218 (late 5.2); <br>
+        0x01A8 (6.0); <br>
+        0x01C0 (6.1) </td>
+        <td>
+        <pre class="source">ULONG MemberLevel;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0228 (6.2); <br>
+        0x0224 (6.3); <br>
+        0x022C (10.0 to 1607); <br>
+        0x0234 </td>
+        <td>0x03F0 (6.2); <br>
+        0x03E8 (6.3); <br>
+        0x0408 (10.0 to 1511); <br>
+        0x0400 (1607); <br>
+        0x0410 </td>
+        <td>
+        <pre class="source">LIST_ENTRY SiblingJobLinks;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0230 (6.2); <br>
+        0x022C (6.3); <br>
+        0x0234 (10.0 to 1607); <br>
+        0x023C </td>
+        <td>0x0400 (6.2); <br>
+        0x03F8 (6.3); <br>
+        0x0418 (10.0 to 1511); <br>
+        0x0410 (1607); <br>
+        0x0420 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ChildJobListHead;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0238 (6.2); <br>
+        0x0234 (6.3); <br>
+        0x023C (10.0 to 1607); <br>
+        0x0244 </td>
+        <td>0x0410 (6.2); <br>
+        0x0408 (6.3); <br>
+        0x0428 (10.0 to 1511); <br>
+        0x0420 (1607); <br>
+        0x0430 </td>
+        <td>
+        <pre class="source">EJOB *ParentJob;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0240 (1607) </td>
+        <td>0x0428 (1607) </td>
+        <td>
+        <pre class="source">EJOB *ParentSilo;</pre>
+        </td>
+        <td>1607 only </td>
+        <td>previously in <span class="struct">SILO_CONTEXT</span> </td>
+      </tr>
+      <tr>
+        <td>0x023C (6.2); <br>
+        0x0238 (6.3); <br>
+        0x0240 (10.0 to 1511); <br>
+        0x0244 (1607); <br>
+        0x0248 </td>
+        <td>0x0418 (6.2); <br>
+        0x0410 (6.3); <br>
+        0x0430 (10.0 to 1607); <br>
+        0x0438 </td>
+        <td>
+        <pre class="source">EJOB * volatile RootJob;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0240 (6.2); <br>
+        0x023C (6.3); <br>
+        0x0244 (10.0 to 1511); <br>
+        0x0248 (1607); <br>
+        0x024C </td>
+        <td>0x0420 (6.2); <br>
+        0x0418 (6.3); <br>
+        0x0438 (10.0 to 1607); <br>
+        0x0440 </td>
+        <td>
+        <pre class="source">LIST_ENTRY IteratorListHead;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0244 (6.3); <br>
+        0x024C (10.0 to 1511); <br>
+        0x0250 (1607); <br>
+        0x0254 </td>
+        <td>0x0428 (6.3); <br>
+        0x0448 (10.0 to 1607); <br>
+        0x0450 </td>
+        <td>
+        <pre class="source">ULONG_PTR AncestorCount;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0248 (6.3); <br>
+        0x0250 (10.0 to 1511); <br>
+        0x0254 (1607); <br>
+        0x0258 </td>
+        <td rowspan="2">0x0430 (6.3); <br>
+        0x0450 (10.0 to 1607); <br>
+        0x0458 </td>
+        <td>
+        <pre class="source">EJOB **Ancestors;</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    EJOB *Ancestors;
+    PVOID SessionObject;
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0258 (1607) </td>
+        <td>0x0458 (1607) </td>
+        <td>
+        <pre class="source">ULONG_PTR TimerListLock;</pre>
+        </td>
+        <td>1607 only </td>
+        <td>previously at 0x02B4 and 0x04B8 </td>
+      </tr>
+      <tr>
+        <td>0x025C (1607) </td>
+        <td>0x0460 (1607) </td>
+        <td>
+        <pre class="source">LIST_ENTRY TimerListHead;</pre>
+        </td>
+        <td>1607 only </td>
+        <td>previously at 0x02B8 and 0x04C0 </td>
+      </tr>
+      <tr>
+        <td>0x0248 (6.2); <br>
+        0x0250 (6.3); <br>
+        0x0258 (10.0 to 1511); <br>
+        0x0268 (1607); <br>
+        0x0260 </td>
+        <td>0x0430 (6.2); <br>
+        0x0438 (6.3); <br>
+        0x0458 (10.0 to 1511); <br>
+        0x0470 (1607); <br>
+        0x0460 </td>
+        <td>
+        <pre class="source">EPROCESS_VALUES Accounting;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0298 (6.2); <br>
+        0x02A0 (6.3); <br>
+        0x02A8 (10.0 to 1511); <br>
+        0x02C0 (1607); <br>
+        0x02B8 (1703 to 1903); <br>
+        0x02C8 </td>
+        <td>0x0480 (6.2); <br>
+        0x0488 (6.3); <br>
+        0x04A8 (10.0 to 1511); <br>
+        0x04C8 (1607); <br>
+        0x04B8 (1703 to 1903); <br>
+        0x04C8 </td>
+        <td>
+        <pre class="source">ULONG ShadowActiveProcessCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02AC (10.0 to 1511); <br>
+        0x02C4 (1607); <br>
+        0x02BC (1703 to 1903); <br>
+        0x02CC </td>
+        <td>0x04AC (10.0 to 1511); <br>
+        0x04CC (1607); <br>
+        0x04BC (1703 to 1903); <br>
+        0x04CC </td>
+        <td>
+        <pre class="source">ULONG ActiveAuxiliaryProcessCount;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x029C (6.2); <br>
+        0x02A4 (6.3); <br>
+        0x02B0 (10.0 to 1511); <br>
+        0x02C8 (1607); <br>
+        0x02C0 (1703 to 1903); <br>
+        0x02D0 </td>
+        <td>0x0484 (6.2); <br>
+        0x048C (6.3); <br>
+        0x04B0 (10.0 to 1511); <br>
+        0x04D0 (1607); <br>
+        0x04C0 (1703 to 1903); <br>
+        0x04D0 </td>
+        <td>
+        <pre class="source">ULONG SequenceNumber;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02A0 (6.2); <br>
+        0x02A8 (6.3); <br>
+        0x02B4 (10.0 to 1511) </td>
+        <td>0x0488 (6.2); <br>
+        0x0490 (6.3); <br>
+        0x04B8 (10.0 to 1511) </td>
+        <td>
+        <pre class="source">ULONG_PTR TimerListLock;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>next at 0x0258 and 0x0458 </td>
+      </tr>
+      <tr>
+        <td>0x02A4 (6.2); <br>
+        0x02AC (6.3); <br>
+        0x02B8 (10.0 to 1511) </td>
+        <td>0x0490 (6.2); <br>
+        0x0498 (6.3); <br>
+        0x04C0 (10.0 to 1511) </td>
+        <td>
+        <pre class="source">LIST_ENTRY TimerListHead;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>next at 0x025C and 0x0460 </td>
+      </tr>
+      <tr>
+        <td>0x02CC (1607); <br>
+        0x02C4 (1703 to 1903); <br>
+        0x02D4 </td>
+        <td>0x04D4 (1607); <br>
+        0x04C4 (1703 to 1903); <br>
+        0x04D4 </td>
+        <td>
+        <pre class="source">ULONG JobId;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02C0 (10.0 to 1511); <br>
+        0x02D0 (1607); <br>
+        0x02C8 (1703 to 1903); <br>
+        0x02D8 </td>
+        <td>0x04D0 (10.0 to 1511); <br>
+        0x04D8 (1607); <br>
+        0x04C8 (1703 to 1903); <br>
+        0x04D8 </td>
+        <td>
+        <pre class="source">GUID ContainerId;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02D8 (1703 to 1903); <br>
+        0x02E8 </td>
+        <td>0x04D8 (1703 to 1903); <br>
+        0x04E8 </td>
+        <td>
+        <pre class="source">GUID ContainerTelemetryId;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x02D0 (10.0 to 1511); <br>
+        0x02E0 (1607); <br>
+        0x02E8 (1703 to 1903); <br>
+        0x02F8 </td>
+        <td rowspan="3">0x04E0 (10.0 to 1511); <br>
+        0x04E8 (1607 to 1903); <br>
+        0x04F8 </td>
+        <td>
+        <pre class="source">ESILO *Container;</pre>
+        </td>
+        <td>10.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">SILO_CONTEXT *Container;</pre>
+        </td>
+        <td>1511 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ESERVERSILO_GLOBALS *ServerSiloGlobals;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>previously in <span class="struct">SILO_CONTEXT</span> </td>
+      </tr>
+      <tr>
+        <td>0x02D4 (10.0 to 1511); <br>
+        0x02E4 (1607); <br>
+        0x02EC (1703 to 1903); <br>
+        0x02FC </td>
+        <td>0x04E8 (10.0 to 1511); <br>
+        0x04F0 (1607 to 1903); <br>
+        0x0500 </td>
+        <td>
+        <pre class="source">PS_PROPERTY_SET PropertySet;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02F0 (1607); <br>
+        0x02F8 (1703 to 1903); <br>
+        0x0308 </td>
+        <td>0x0508 (1607 to 1903); <br>
+        0x0518 </td>
+        <td>
+        <pre class="source">PSP_STORAGE *Storage;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02E0 (10.0 to 1511); <br>
+        0x02F4 (1607); <br>
+        0x02FC (1703 to 1903); <br>
+        0x030C </td>
+        <td>0x0500 (10.0 to 1511); <br>
+        0x0510 (1607 to 1903); <br>
+        0x0520 </td>
+        <td>
+        <pre class="source">JOB_NET_RATE_CONTROL *NetRateControl;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02E4 (10.0 to 1511) </td>
+        <td>0x0508 (10.0 to 1511) </td>
+        <td>
+        <pre class="source">JOB_IO_RATE_CONTROL *IoRateControl;</pre>
+        </td>
+        <td>10.0 to 1511 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0178 (5.1 to 5.2); <br>
+        0x0124 (6.0); <br>
+        0x0130 (6.1); <br>
+        0x02AC (6.2); <br>
+        0x02B4 (6.3); <br>
+        0x02E8 (10.0 to 1511); <br>
+        0x02F8 (1607); <br>
+        0x0300 (1703 to 1903); <br>
+        0x0310 </td>
+        <td rowspan="2">0x021C (late 5.2); <br>
+        0x01AC (6.0); <br>
+        0x01C4 (6.1); <br>
+        0x04A0 (6.2); <br>
+        0x04A8 (6.3); <br>
+        0x0510 (10.0 to 1511); <br>
+        0x0518 (1607 to 1903); <br>
+        0x0528 </td>
+        <td>
+        <pre class="source">ULONG JobFlags;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>last member in 5.1 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="jobflags.htm">JobFlags</a>;
+    struct {
+        /*  changing bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0304 (1703 to 1903); <br>
+        0x0314 </td>
+        <td>0x051C (1703 to 1903); <br>
+        0x052C </td>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="jobflags2.htm">JobFlags2</a>;
+    struct {
+        /*  changing bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02B0 (6.2); <br>
+        0x02B8 (6.3); <br>
+        0x02EC (10.0 to 1511); <br>
+        0x02FC (1607) </td>
+        <td>0x04A4 (6.2); <br>
+        0x04AC (6.3); <br>
+        0x0514 (10.0 to 1511); <br>
+        0x051C (1607) </td>
+        <td>
+        <pre class="source">ULONG EffectiveHighEdgeFilters;</pre>
+        </td>
+        <td>6.2 to 1607 </td>
+        <td>last member in 6.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>0x02F0 (10.0 to 1511); <br>
+        0x0300 (1607); <br>
+        0x0308 (1703 to 1903); <br>
+        0x0318 </td>
+        <td>0x0518 (10.0 to 1511); <br>
+        0x0520 (1607 to 1903); <br>
+        0x0530 </td>
+        <td>
+        <pre class="source">PROCESS_ENERGY_VALUES *EnergyValues;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02F4 (10.0 to 1511); <br>
+        0x0304 (1607); <br>
+        0x030C (1703 to 1903); <br>
+        0x031C </td>
+        <td>0x0520 (10.0 to 1511); <br>
+        0x0528 (1607 to 1903); <br>
+        0x0538 </td>
+        <td>
+        <pre class="source">ULONG_PTR volatile SharedCommitCharge;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>last member in 10.0 </td>
+      </tr>
+      <tr>
+        <td>0x0308 (1607) </td>
+        <td>0x0530 (1607) </td>
+        <td>
+        <pre class="source">EJOB * volatile WakeRoot;</pre>
+        </td>
+        <td>1607 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x030C (1607); <br>
+        0x0310 (1703 to 1903); <br>
+        0x0320 </td>
+        <td>0x0538 (1607); <br>
+        0x0530 (1703 to 1903); <br>
+        0x0540 </td>
+        <td>
+        <pre class="source">ULONG DiskIoAttributionUserRefCount;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0310 (1607); <br>
+        0x0314 (1703 to 1903); <br>
+        0x0324 </td>
+        <td>0x053C (1607); <br>
+        0x0534 (1703 to 1903); <br>
+        0x0544 </td>
+        <td>
+        <pre class="source">ULONG DiskIoAttributionRefCount;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0314 (1607); <br>
+        0x0318 (1703 to 1903); <br>
+        0x0328 </td>
+        <td>0x0540 (1607); <br>
+        0x0538 (1703 to 1903); <br>
+        0x0548 </td>
+        <td>
+        <pre class="source">union {
+    PVOID DiskIoAttributionContext;
+    EJOB *DiskIoAttributionOwnerJob;
+};</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x031C (1703 to 1903); <br>
+        0x032C </td>
+        <td>0x0540 (1703 to 1903); <br>
+        0x0550 </td>
+        <td>
+        <pre class="source">JOB_RATE_CONTROL_HEADER IoRateControlHeader;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0318 (1607); <br>
+        0x0330 (1703 to 1903); <br>
+        0x0340 </td>
+        <td>0x0548 (1607); <br>
+        0x0568 (1703 to 1903); <br>
+        0x0578 </td>
+        <td>
+        <pre class="source">PS_IO_CONTROL_ENTRY GlobalIoControl;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0334 (1607); <br>
+        0x034C (1703 to 1903); <br>
+        0x035C </td>
+        <td rowspan="2">0x0580 (1607); <br>
+        0x05A0 (1703 to 1903); <br>
+        0x05B0 </td>
+        <td>
+        <pre class="source">LONG volatile VolumeIoControlLock;</pre>
+        </td>
+        <td>1607 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LONG volatile IoControlStateLock;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0338 (1607); <br>
+        0x0350 (1703 to 1903); <br>
+        0x0360 </td>
+        <td>0x0588 (1607); <br>
+        0x05A8 (1703 to 1903); <br>
+        0x05B8 </td>
+        <td>
+        <pre class="source">RTL_RB_TREE VolumeIoControlTree;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0358 (1703 to 1903); <br>
+        0x0368 </td>
+        <td>0x05B8 (1703 to 1903); <br>
+        0x05C8 </td>
+        <td>
+        <pre class="source">ULONGLONG IoRateOverQuotaHistory;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0360 (1703 to 1903); <br>
+        0x0370 </td>
+        <td>0x05C0 (1703 to 1903); <br>
+        0x05D0 </td>
+        <td>
+        <pre class="source">ULONG IoRateCurrentGeneration;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0364 (1703 to 1903); <br>
+        0x0374 </td>
+        <td>0x05C4 (1703 to 1903); <br>
+        0x05D4 </td>
+        <td>
+        <pre class="source">ULONG IoRateLastQueryGeneration;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0368 (1703 to 1903); <br>
+        0x0378 </td>
+        <td>0x05C8 (1703 to 1903); <br>
+        0x05D8 </td>
+        <td>
+        <pre class="source">ULONG IoRateGenerationLength;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x036C (1703 to 1903); <br>
+        0x037C </td>
+        <td>0x05CC (1703 to 1903); <br>
+        0x05DC </td>
+        <td>
+        <pre class="source">ULONG IoRateOverQuotaNotifySequenceId;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0370 (1703 to 1903); <br>
+        0x0380 </td>
+        <td>0x05D0 (1709 to 1903); <br>
+        0x05E0 </td>
+        <td>
+        <pre class="source">ULONGLONG LastThrottledIoTime;</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0340 (1607); <br>
+        0x0370 (1703); <br>
+        0x0378 (1709 to 1903); <br>
+        0x0388 </td>
+        <td>0x0598 (1607); <br>
+        0x05D0 (1703); <br>
+        0x05D8 (1709 to 1903); <br>
+        0x05E8 </td>
+        <td>
+        <pre class="source">EX_PUSH_LOCK IoControlLock;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0344 (1607); <br>
+        0x0374 (1703); <br>
+        0x037C (1709 to 1903); <br>
+        0x038C </td>
+        <td>0x05A0 (1607); <br>
+        0x05D8 (1703); <br>
+        0x05E0 (1709 to 1903); <br>
+        0x05F0 </td>
+        <td>
+        <pre class="source">ULONG SiloHardReferenceCount;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0348 (1607); <br>
+        0x0378 (1703); <br>
+        0x0380 (1709 to 1903); <br>
+        0x0390 </td>
+        <td>0x05A8 (1607); <br>
+        0x05E0 (1703); <br>
+        0x05E8 (1709 to 1903); <br>
+        0x05F8 </td>
+        <td>
+        <pre class="source">WORK_QUEUE_ITEM RundownWorkItem;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>last member in 1607 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0388 (1703); <br>
+        0x0390 (1709 to 1903); <br>
+        0x03A0 </td>
+        <td rowspan="2">0x0600 (1703); <br>
+        0x0608 (1709 to 1903); <br>
+        0x0618 </td>
+        <td>
+        <pre class="source">PVOID MemoryPartitionObject;</pre>
+        </td>
+        <td>1703 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID PartitionObject;</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0394 (1709 to 1903); <br>
+        0x03A4 </td>
+        <td>0x0610 (1709 to 1903); <br>
+        0x0620 </td>
+        <td>
+        <pre class="source">EJOB *PartitionOwnerJob;</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0390 (1703); <br>
+        0x0398 (1709 to 1903); <br>
+        0x03A8 </td>
+        <td>0x0608 (1703); <br>
+        0x0618 (1709 to 1903); <br>
+        0x0628 </td>
+        <td>
+        <pre class="source">JOBOBJECT_ENERGY_TRACKING_STATE EnergyTrackingState;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>last member in 1703 to 1803 </td>
+      </tr>
+      <tr>
+        <td>0x03B0 </td>
+        <td>0x0630 </td>
+        <td>
+        <pre class="source">ULONGLONG KernelWaitTime;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03B8 </td>
+        <td>0x0638 </td>
+        <td>
+        <pre class="source">ULONGLONG UserWaitTime;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>last member in 2004 </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 9th December 2020 and was last modified 
+    on 16th <a href="../../../../../../../../new/22/07.htm">August 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c2022.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="13546" -->
+  </div>
+</div>
+
+</body>
+
+</html>

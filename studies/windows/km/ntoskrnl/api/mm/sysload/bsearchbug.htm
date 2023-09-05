@@ -1,0 +1,627 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Binary Search Bug in MmGetSystemRoutineAddress</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<h1>Binary Search Bug in MmGetSystemRoutineAddress </h1>
+<p>Early versions of the <span class="function">
+<a href="mmgetsystemroutineaddress.htm">MmGetSystemRoutineAddress</a></span> function 
+have a defect in their coding of a binary search through a module’s exported names. 
+The coding error was first corrected, chronologically speaking, for the version 
+5.2 from Windows Server 2003 SP1. It is also corrected, but differently, in the 
+version 5.1 from Windows XP SP3. On versions that do not have either correction, 
+calling this function to get the address of any routine whose name is alphabetically 
+lower than <span class="function">ExAcquireFastMutex</span> will crash Windows with 
+a bugcheck if the routine happens not to be exported from whichever kernel or HAL 
+happens to be present. </p>
+<p>Though this coding error seems not to have got documented by Microsoft, its capability 
+of causing a bugcheck certainly has been well circulated among driver developers. 
+I learnt of it from visiting the
+<a target="_top" href="http://www.osronline.com">OSR Online</a> site, which presents 
+it as an “Interoffice Memorandum”
+<a target="_top" href="http://www.osronline.com/article.cfm?article=494">Re: MmGetSystemRoutineAddress 
+is BROKEN</a> from 2007, apparently to summarise discussions dating back to 2006. 
+Depending on what sort of kernel-mode drivers you write, <span class="function">
+MmGetSystemRoutineAddress</span> is the sort of thing that you might easily go a 
+whole career without ever thinking to use. Indeed, Windows did not even offer this 
+function for the five years of early history before Windows 2000, and even when 
+the function was introduced it wasn’t documented immediately. Yet when the function 
+is needed, it’s likely needed very much and will certainly be needed to work properly.
+</p>
+<h2>Defective Code </h2>
+<p>The coding error is actually in a subroutine, named
+<span class="internal routine">MiFindExportedRoutineByName</span>, which exists 
+only as a helper to the <span class="function">MmGetSystemRoutineAddress</span> 
+function. The following representation in C, whose publication I claim as fair use 
+for the purpose of analysis and criticism, will be very like what Microsoft had 
+for this subroutine’s source code when the function was introduced for Windows 2000. 
+I assume that definitions for using the export directory were available from an 
+early version of the same header file, NTIMAGE.H, that Microsoft had distributed 
+in the SDK for some years but not in the DDK until Windows XP. The code depends 
+on a structure and an exported function that remain undocumented. Microsoft’s source 
+code would presumably pick up the definition and declaration from yet more header 
+files. </p>
+<pre class="source">#define     _NTSYSTEM_
+#include    &lt;ntddk.h&gt;
+#include    &lt;ntimage.h&gt;         // not supplied with Windows 2000 DDK
+
+typedef struct _KLDR_DATA_TABLE_ENTRY {
+    /*  irrelevant six pointers  */
+    PVOID DllBase;
+    /*  irrelevant remainder  */
+} KLDR_DATA_TABLE_ENTRY;
+
+NTSYSAPI
+PVOID
+NTAPI
+RtlImageDirectoryEntryToData (
+    PVOID,
+    BOOLEAN,
+    ULONG,
+    ULONG *);
+
+#define RvaToPtr(base,rva) ((PVOID) ((PCHAR) (base) + (rva)))
+
+PVOID
+MiFindExportedRoutineByName (
+    KLDR_DATA_TABLE_ENTRY *Ldr,
+    PANSI_STRING Name)
+{
+    PVOID base;
+    IMAGE_EXPORT_DIRECTORY *exp;
+    ULONG size;
+    ULONG *names;
+    USHORT *ords;
+    ULONG low, high, n;
+    int cmp;
+    USHORT ord;
+    ULONG *funcs;
+
+    base = Ldr -&gt; DllBase;
+    exp = (IMAGE_EXPORT_DIRECTORY *) RtlImageDirectoryEntryToData (
+        base, 
+        TRUE, 
+        IMAGE_DIRECTORY_ENTRY_EXPORT, 
+        &amp;size);
+
+    names = (ULONG *) RvaToPtr (base, exp -&gt; AddressOfNames);
+    ords = (USHORT *) RvaToPtr (base, exp -&gt; AddressOfNameOrdinals);
+
+    low = 0;
+    high = exp -&gt; NumberOfNames - 1;
+    while (high &gt;= low) {
+        n = (low + high) &gt;&gt; 1;
+        cmp = strcmp (Name -&gt; Buffer, (PSTR) RvaToPtr (base, names [n]));
+        if (cmp &lt; 0) {
+            high = n - 1;
+        }
+        else if (cmp &gt; 0) {
+            low = n + 1;
+        }
+        else {
+            break;
+        }
+    }
+    if (high &lt; low) return NULL;
+
+    ord = ords [n];
+    if (ord &gt;= exp -&gt; NumberOfFunctions) return NULL;
+
+    funcs = (ULONG *) RvaToPtr (base, exp -&gt; AddressOfFunctions);
+    return RvaToPtr (base, funcs [ord]);
+}</pre>
+<p>If you fancy that bugs are best spotted by reading source code, then please indulge 
+me by spotting what’s wrong with this code before reading on. If you think the defect 
+stands out, then consider whether that’s because you have been alerted to its presence.
+</p>
+<p>The main problem is the use of unsigned variables for the low and high indices 
+in the binary search. Different programmers have very different attitudes to the 
+use of signed verus unsigned integral types. To me, perhaps from having started 
+my programming with 8086 assembly language, the indices into the export directory’s 
+array of RVAs for names look intrinsically unsigned, as much as do the RVAs themselves. 
+Yet some algorithms are more easily coded if indices are signed. A binary search 
+is one such case. The coding above is natural if using signed indices. But with 
+unsigned indices, the subtraction when the string comparison is negative risks an 
+underflow, which will not be caught by the unsigned comparison that governs the 
+loop. This disaster happens only if the name to be found is alphabetically lower 
+than all the module’s exported names. Make no mistake that this is no disaster just 
+in theory. The effect in practice is that on the next loop, a new index
+<span class="local variable">n</span> is computed that is wildly out of range, such 
+that the function faults. </p>
+<p>Broadly speaking, there are two ways to fix this problem. If the indices are 
+to be unsigned, then something must be done to guard against the underflow. Alternatively, 
+the function should switch to signed indices. </p>
+<h3>Confused Signage </h3>
+<p>This seems as good a place as any for a diversion on the potential usefulness 
+of reading binary code even when source code is available. Really, this article 
+exists mainly as an excuse to wheel out this hobby horse. </p>
+<p>In binary code, two things just can’t help stand out about the loop above. One 
+is that the comparisons of <span class="local variable">high</span> and
+<span class="local variable">low</span> are signed. The reviewer of binary code 
+gets this immediately from the instruction that tests the <span class="register">
+eflags</span> as left by the <span class="instruction">cmp</span> instruction. Conditional 
+jumps such as <span class="instruction">jl</span> imply signed operands. If instead 
+the jump is from the <span class="instruction">jb</span> family, then at least one 
+operand was unsigned, and both must be unsigned unless the programmer was irresponsible 
+enough to ignore warnings at level 3. </p>
+<p>Also standing out in binary code is that the loop’s governing condition is not 
+tested on entry but is tested twice at exit. Indeed, the reader of binary code who 
+translates to C, if only mentally, would most naturally interpret this code in terms 
+of a <span class="keyword">do</span> loop: </p>
+<pre class="source">do {
+    /* same contents as above */
+} while (high &gt;= low);
+if (high &lt; low) return NULL;</pre>
+<p>and immediately wonder at the clumsiness. Any programmer who could write the 
+preceding code, truly intending that the loop condition not be tested on entry, 
+might have noticed the duplication of comparisons at the end and have simplified 
+to: </p>
+<pre class="source">for (;;) {
+    /* same contents as above */
+    if (high &lt; low) return NULL;
+}</pre>
+<p>Since this evidently did not happen, there is a suggestion that the programmer 
+actually did intend to test the loop condition on entry, in a
+<span class="keyword">while</span> loop, and thought it meaningful to do so. See 
+that this is distinct from a programmer who codes a <span class="keyword">while</span> 
+or <span class="keyword">for</span> loop knowing full well that the governing condition 
+is satisfied trivially on entry. Many programmers do that, sometimes thinking it’s 
+clever but more often just as a preference in style (for <span class="keyword">while</span> 
+and <span class="keyword">for</span> loops over <span class="keyword">do</span> 
+loops). Here, the inference is that the programmer may not have realised that the 
+governing condition is satisfied trivially on entry, which suggests in turn that 
+the programmer may not have been fully alert to the implications of using unsigned 
+rather than signed integers. That the condition is not tested on entry but is tested 
+twice on exit is not of itself an error, but it is a cue for the reverse engineer 
+or code reviewer to look deeper. </p>
+<p>You can get to the same cue, of course, from the source code—but not nearly as 
+easily and reliably. Just to know whether comparisons are unsigned or signed requires 
+the source-code reviewer to check the types of both operands. The careful reviewer 
+will aim to do that, always, but it does require sustained attention and is therefore 
+prone to get overlooked (especially in routines that are larger than this, such 
+that the operands’ declarations are far from the comparison). Only by seeing that 
+the comparison is unsigned and that one operand is zero will the source-code reviewer 
+realise that the <span class="keyword">while</span> loop’s condition is satisfied 
+trivially on entry and may as well not be there. Even then, nothing will seem strange 
+unless the reviewer realises the implication that the condition is redundantly tested 
+twice on exit. Only now has the source-code reviewer caught up to the binary-code 
+reviewer, to begin inferring that the code may not be exactly what its programmer 
+intended. </p>
+<p>Note, by the way, that the triviality of the loop condition on entry is arguably 
+a coding lapse by itself, specifically for allowing an underflow when computing 
+the initial value of the high index for the search. This is unimportant in practice 
+because the code will execute only for the kernel and HAL: if the export directory 
+for either of these has no names, then this underflow will be the least of anyone’s 
+problems. Still, solid code would defend against this. </p>
+<h2>Attempted Fix (Windows XP) </h2>
+<p>That something was wrong with the initial code’s binary-search algorithm, and 
+specifically with whether to use signed or unsigned indices, appears to have been 
+realised for Windows XP. The significant editing is highlighted. See that the code 
+has changed in a few places for various reasons. </p>
+<pre class="source">PVOID
+MiFindExportedRoutineByName (
+    <span class="highlight">PVOID Base,</span>
+    PANSI_STRING Name)
+{
+    IMAGE_EXPORT_DIRECTORY *exp;
+    ULONG size;
+    ULONG *names;
+    USHORT *ords;
+    ULONG low, high, n;
+    int cmp;
+    USHORT ord;
+    ULONG *funcs;
+
+    exp = (IMAGE_EXPORT_DIRECTORY *) RtlImageDirectoryEntryToData (
+        Base, 
+        TRUE, 
+        IMAGE_DIRECTORY_ENTRY_EXPORT, 
+        &amp;size);
+    <span class="highlight">if (exp == NULL) return NULL;</span>
+
+    names = (ULONG *) RvaToPtr (Base, exp -&gt; AddressOfNames);
+    ords = (USHORT *) RvaToPtr (Base, exp -&gt; AddressOfNameOrdinals);
+
+    low = 0;
+    high = exp -&gt; NumberOfNames - 1;
+    while (high &gt;= low) {
+        n = (low + high) &gt;&gt; 1;
+        cmp = strcmp (Name -&gt; Buffer, (PSTR) RvaToPtr (Base, names [n]));
+        if (cmp &lt; 0) {
+            high = n - 1;
+        }
+        else if (cmp &gt; 0) {
+            low = n + 1;
+        }
+        else {
+            break;
+        }
+    }
+    if (<span class="highlight">(LONG)</span> high &lt; <span class="highlight">(LONG)</span> low) return NULL;
+
+    ord = ords [n];
+    if (ord &gt;= exp -&gt; NumberOfFunctions) return NULL;
+
+    funcs = (ULONG *) RvaToPtr (Base, exp -&gt; AddressOfFunctions);
+    return RvaToPtr (Base, funcs [ord]);
+}</pre>
+<p>Notably, the interface between <span class="function">MmGetSystemRoutineAddress</span> 
+and <span class="internal routine">MiFindExportedRoutineByName</span> is tidied, 
+so that the latter is given just what it needs from the undocumented structure that 
+holds data about loaded modules. Less notably, someone has realised the prudence 
+of checking that the module actually does have an export directory. But what stands 
+out are those casts to <span class="type">LONG</span> when testing the loop’s exit. 
+Something like them is undeniably present. The <span class="local variable">high</span> 
+and <span class="local variable">low</span> variables are still unsigned both for 
+the comparison that governs the loop and for the shift that splits their difference. 
+They are treated as signed only for the comparison that follows the loop. </p>
+<p>The casts stand out so much that my first thought when representing this function 
+as source code was that there must be an inlined subroutine so that the casting 
+can be implicit. For example: </p>
+<pre class="source">__forceinline
+static
+ULONG
+SearchExportedNames (
+    PCSTR Name,
+    PVOID Base,
+    ULONG *ExportedNames,
+    ULONG *Low,
+    ULONG *High)
+{
+    ULONG n;
+    int cmp;
+    while (*High &gt;= *Low) {
+        n = (*Low + *High) &gt;&gt; 1;
+        cmp = strcmp (Name, (PSTR) RvaToPtr (Base, ExportedNames [n]));
+        if (cmp &lt; 0) {
+            *High = n - 1;
+        }
+        else if (cmp &gt; 0) {
+            *Low = n + 1;
+        }
+        else {
+            break;
+        }
+    }
+    return n;
+}
+
+PVOID
+__stdcall
+MiFindExportedRoutineByName (
+    PVOID Base,
+    PANSI_STRING Name)
+{
+    IMAGE_EXPORT_DIRECTORY *exp;
+    ULONG size;
+    ULONG *names;
+    USHORT *ords;
+    LONG low, high, n;
+    USHORT ord;
+    ULONG *funcs;
+
+    exp = (IMAGE_EXPORT_DIRECTORY *) RtlImageDirectoryEntryToData (
+        Base, 
+        TRUE, 
+        IMAGE_DIRECTORY_ENTRY_EXPORT, 
+        &amp;size);
+    if (exp == NULL) return NULL;
+
+    names = (ULONG *) RvaToPtr (Base, exp -&gt; AddressOfNames);
+    ords = (USHORT *) RvaToPtr (Base, exp -&gt; AddressOfNameOrdinals);
+
+    low = 0;
+    high = exp -&gt; NumberOfNames - 1;
+    n = SearchExportedNames (Name -&gt; Buffer, Base, names, &amp;low, &amp;high);
+    if (high &lt; low) return NULL;
+
+    ord = ords [n];
+    if (ord &gt;= exp -&gt; NumberOfFunctions) return NULL;
+
+    funcs = (ULONG *) RvaToPtr (Base, exp -&gt; AddressOfFunctions);
+    return RvaToPtr (Base, funcs [ord]);
+}</pre>
+<p>Here, the inlined subroutine uses only unsigned indices and its caller uses only 
+signed indices. The mismatch might easily be overlooked, both when writing the code 
+and in any amount of reviewing the source code. Though the stricter type checking 
+of C++ would make an error (C2664) of the mismatch, the only alert from the C compiler 
+is a warning (C4057) at level 4, which would be noticed by hardly anyone—certainly 
+back in 2003 when even Microsoft’s own headers in the DDK didn’t compile without 
+warnings at level 4. Even this mismatch of argument types is avoidable through a 
+further variation: </p>
+<pre class="source">__forceinline
+static
+LONG
+SearchExportedNames (
+    PCSTR Name,
+    PVOID Base,
+    ULONG *ExportedNames,
+    LONG *Low,
+    LONG *High)
+{
+    ULONG low = *Low, n, high = *High;
+    int cmp;
+    while (high &gt;= low) {
+        n = (low + high) &gt;&gt; 1;
+        cmp = strcmp (Name, (PSTR) RvaToPtr (Base, ExportedNames [n]));
+        if (cmp &lt; 0) {
+            high = n - 1;
+        }
+        else if (cmp &gt; 0) {
+            low = n + 1;
+        }
+        else {
+            break;
+        }
+    }
+    *Low = low;
+    *High = high;
+    return n;
+}</pre>
+<p>Compile with this for the inlined subroutine, whether as C or C++, and the only 
+warnings even at level 4 are from Microsoft’s own header files. The hypothesis for 
+this last variation would be that the declaration of local variables as unsigned 
+in the inlined subroutine is just one careless mistake by a programmer who did intend 
+to use signed arithmetic. It’s even imaginable that the programmer started with 
+code that uses unsigned indices throughout, realised the algorithm depends on signed 
+arithmetic for correct operation, set about fixing it by changing
+<span class="type">ULONG</span> to <span class="type">LONG</span> for all indices, 
+but overlooked one occurrence. We’ve all done something similar in a quick edit, 
+and been grateful to have the compiler pick it up. This is just an editing oversight 
+that the compiler won’t have caught. </p>
+<p>All the preceding variations are plausible in the sense that compiling any of 
+them with <span class="switch">/Oxs</span> optimisation (and
+<span class="switch">/Gz</span> to have <span class="keyword">__stdcall</span> as 
+the default calling convention) using the compiler and headers from the DDK version 
+2600.1106 for Windows XP SP1 produces an assembly-language listing that’s an exact 
+match with the binary code in the NTOSKRNL.EXE build 5.1.2600.1106 from Windows 
+XP SP1.<a class="FootnoteReference" name="FtnRef_1" href="#Ftn_1">1</a> </p>
+<p>Of course, the variations with the inlined subroutine are undeniably contrived, 
+if not downright ugly. Though the binary search is entirely in the subroutine, the 
+caller is left to test for failure by inspecting how the subroutine has changed 
+the indices that were given as the search’s range. Yet removal of a binary search 
+algorithm to an inlined subroutine does have a precedent elsewhere in the kernel, 
+specifically in the <span class="internal routine">LookupEntryPoint</span> subroutine 
+which the kernel uses when loading NTDLL.DLL. Despite the contrivance then, the 
+inlined subroutine is not so easy to reject, not least for its merit of making the 
+mixing of signed and unsigned relatively easy to explain as one or another simple 
+oversight. </p>
+<p>Whatever the coding for these early builds of Windows XP, note again that the 
+reviewer of binary code has potential advantages over the source-code reviewer. 
+You could not sensibly think yourself competent as a reverse engineer if you could 
+read the binary code for <span class="internal routine">MiFindExportedRoutineByName</span> 
+in these builds but miss the mixing of signed and unsigned arithmetic. As noted 
+above, it stands out so much when reading assembly-language mnemonics because the 
+conditional jump for a comparison is a different <span class="emphasis">instruction</span> 
+if the arithmetic is signed rather than unsigned. The difference in treatment for 
+the same variables in successive comparisons is an immediate alert. If the difference 
+comes from implicit casts in source code, then it will be spotted in source code 
+only with careful attention. Even with explicit casts, the potential is that source 
+code will have comments: the programmer who inserted those casts may have left an 
+explanation, which a reviewer might easily accept too readily. </p>
+<h2>First Actual Fix (Windows Server 2003 SP1) </h2>
+<p>Remember that the main problem is that the binary search algorithm is coded with 
+unsigned arithmetic when signed is needed, with a side-effect that the high index 
+for the search is computed without allowing for an underflow in the unusual case 
+that the name being sought is alphabetically lower than all the module’s exported 
+names. The straightforward fix is to change to signed arithmetic, which is what 
+Microsoft did for Windows Server 2003 SP1: </p>
+<pre class="source">PVOID
+MiFindExportedRoutineByName (
+    PVOID Base,
+    PANSI_STRING Name)
+{
+    IMAGE_EXPORT_DIRECTORY *exp;
+    ULONG size;
+    ULONG *names;
+    USHORT *ords;
+    <span class="highlight">LONG</span> low, high, n;
+    int cmp;
+    USHORT ord;
+    ULONG *funcs;
+
+    exp = (IMAGE_EXPORT_DIRECTORY *) RtlImageDirectoryEntryToData (
+        Base, 
+        TRUE, 
+        IMAGE_DIRECTORY_ENTRY_EXPORT, 
+        &amp;size);
+    if (exp == NULL) return NULL;
+
+    names = (ULONG *) RvaToPtr (Base, exp -&gt; AddressOfNames);
+    ords = (USHORT *) RvaToPtr (Base, exp -&gt; AddressOfNameOrdinals);
+
+    low = 0;
+    high = exp -&gt; NumberOfNames - 1;
+    while (high &gt;= low) {
+        n = (low + high) &gt;&gt; 1;
+        cmp = strcmp (Name -&gt; Buffer, (PSTR) RvaToPtr (Base, names [n]));
+        if (cmp &lt; 0) {
+            high = n - 1;
+        }
+        else if (cmp &gt; 0) {
+            low = n + 1;
+        }
+        else {
+            break;
+        }
+    }
+    if (high &lt; low) return NULL;
+
+    ord = ords [n];
+    if (ord &gt;= exp -&gt; NumberOfFunctions) return NULL;
+
+    funcs = (ULONG *) RvaToPtr (Base, exp -&gt; AddressOfFunctions);
+    return RvaToPtr (Base, funcs [ord]);
+}</pre>
+<p>Using the compiler and headers from the DDK version 3790.1830 for Windows Server 
+2003 SP1, the assembly-language listing you get for the x86 architecture is an exact 
+match with the binary code in the NTOSKRNL.EXE build 5.2.3790.1830 from Windows 
+Server 2003 SP1, subject only to rearrangement of a few branches which I presume 
+is an outcome of profile-guided optimisation (PGO). In the 64-bit kernel from both 
+SP1 and SP2 of Windows Server 2003, <span class="internal routine">MiFindExportedRoutineByName</span> 
+is itself inlined into <span class="function">MmGetSystemRoutineAddress</span>, 
+as are several other functions, and matching exactly with binary code is impractical 
+enough that I have not attempted it. </p>
+<h2>Second Fix (Windows XP SP3) </h2>
+<p>A coding error that can cause <span class="function">MmGetSystemRoutineAddress</span> 
+to crash Windows clearly needed to be fixed not just in the first service pack of 
+version 5.2 to follow the bug’s first successful fix but also in the next service 
+pack of version 5.1, i.e., for Windows XP SP3. Who can know for what reason or through 
+what mechanism, but Microsoft fixed the bug differently. Instead of changing to 
+signed arithmetic, the routine in Windows XP SP3 defends explicitly against the 
+underflow: </p>
+<pre class="source">PVOID
+MiFindExportedRoutineByName (
+    PVOID Base,
+    PANSI_STRING Name)
+{
+    IMAGE_EXPORT_DIRECTORY *exp;
+    ULONG size;
+    ULONG *names;
+    USHORT *ords;
+    <span class="highlight">ULONG</span> low, high, n;
+    int cmp;
+    USHORT ord;
+    ULONG *funcs;
+
+    exp = (IMAGE_EXPORT_DIRECTORY *) RtlImageDirectoryEntryToData (
+        Base, 
+        TRUE, 
+        IMAGE_DIRECTORY_ENTRY_EXPORT, 
+        &amp;size);
+    if (exp == NULL) return NULL;
+
+    names = (ULONG *) RvaToPtr (Base, exp -&gt; AddressOfNames);
+    ords = (USHORT *) RvaToPtr (Base, exp -&gt; AddressOfNameOrdinals);
+
+    low = 0;
+    high = exp -&gt; NumberOfNames - 1;
+    while (high &gt;= low) {
+        n = (low + high) &gt;&gt; 1;
+        cmp = strcmp (Name -&gt; Buffer, (PSTR) RvaToPtr (Base, names [n]));
+        if (cmp &lt; 0) {
+            <span class="highlight">if (n == 0) return NULL;</span>
+            high = n - 1;
+        }
+        else if (cmp &gt; 0) {
+            low = n + 1;
+        }
+        else {
+            break;
+        }
+    }
+    if (<span class="highlight">(LONG)</span> high &lt; <span class="highlight">(LONG)</span> low) return NULL;
+
+    ord = ords [n];
+    if (ord &gt;= exp -&gt; NumberOfFunctions) return NULL;
+
+    funcs = (ULONG *) RvaToPtr (Base, exp -&gt; AddressOfFunctions);
+    return RvaToPtr (Base, funcs [ord]);
+}</pre>
+<p>Compile this with <span class="switch">/Oxs</span> optimisation using the compiler 
+and headers from the DDK version 3790.1830 for Windows Server 2003 SP1 and the binary 
+code you get is exactly what’s in the NTOSKRNL.EXE build 5.1.2600.5512 from Windows 
+XP SP3, subject to rearrangement of a few branches because of PGO. </p>
+<p>This different code retains the unsigned arithmetic for the algorithm but inserts 
+a check for underflow as a new sort of failure for the search. It also retains the 
+signed comparison after the loop, as introduced for the original Windows XP. This 
+suggests to me that this fix was devised by editing the pre-existing code for version 
+5.1 without reference to the chronologically earlier fix for version 5.2. </p>
+<h2>Source Code </h2>
+<p>It happens that my revising this article in 2020 was roughly concurrent with 
+thinking about the relationship of the <a href="https://reactos.org">ReactOS</a> 
+project to the reverse engineering of Windows. It also happens that the range of 
+Windows versions that are affected by the several different changes to fix this 
+bug is also the range of Windows versions that have been the target for ReactOS.
+</p>
+<p>Though <span class="internal routine">MiFindExportedRoutineByName</span> is an 
+internal routine in the Windows kernel, it is implemented in the ReactOS kernel 
+too. The ReactOS code for <span class="internal routine">
+<a href="https://doxygen.reactos.org/d4/d67/sysldr_8c_source.html">MiFindExportedRoutineByName</a></span> 
+transcribes the code from Windows Server 2003 SP1, possibly later but certainly 
+no earlier. Remember that the implementation for Windows Server 2003 SP1 is clearly 
+distinct from the code for the original Windows Server 2003 and from all releases 
+of Windows XP in that it uses signed indices throughout. In saying that the ReactOS 
+code transcribes Microsoft’s, I do not say that this was the method used, only that 
+I cannot distinguish the result from a transcription. </p>
+<p>Public symbol files for the Windows kernel, augmented by reasonable inferences 
+about how Microsoft builds its code, place <span class="internal routine">MiFindExportedRoutineByName</span> 
+in a source file named sysload.c. This source file for the Windows kernel was named 
+sysload.c even for Windows NT 3.1. The ReactOS source file is named sysldr.c.
+</p>
+<p>There I might leave the comparisons, except that what ReactOS transcribes is 
+the code from the checked build, specifically. For the Windows kernel, the checked 
+(or debug) build is distinguished from the free (or release) build by two asserts. 
+Near the start of the function’s body, at line 8,638 in Microsoft’s source file, 
+is an assert from Microsoft’s <span class="macro">PAGED_CODE</span> macro. Near 
+the end, at line 8,727, is an assert that the found address must not lie within 
+the module’s export directory. This defence is more than a theoretical check for 
+plausibility. If the given name is exported as a forward, then the found address 
+is not the address an exported routine but is instead the address of a string in 
+the export directory. </p>
+<p>The ReactOS code also has these two asserts. Because the second assert evaluates 
+a non-trivial expression, the names of three local variables survive in the binary. 
+Those that I transcribe above as <span class="variable">exp</span> and
+<span class="variable">size</span> are named <span class="variable">ExportDirectory</span> 
+and <span class="variable">ExportSize</span> by both Microsoft and ReactOS. Where 
+I return the result of a computation, the checked build instead assigns it first 
+to a local variable to use for the assert. Microsoft’s name is
+<span class="variable">FunctionAddress</span> but ReactOS’s is
+<span class="variable">Function</span>. </p>
+<div class="Footnotes">
+  <hr>
+  <p><a class="FootnoteReference" name="Ftn_1" href="#FtnRef_1">[1]</a> Windows 
+  XP SP1 is specially convenient for present purposes since <span class="symbol">
+  MiFindExportedRoutineByName</span> is contiguous as binary code. In most builds, 
+  the binary code is rearranged and scattered because of Profile Guided Optimization 
+  (PGO). </p>
+</div>
+<div class="Footer">
+  <p class="Dates">This page was created on 4th January 2011 and was last modified 
+  on 9th <a href="../../../../../../../new/20/11.htm">November 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c11.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2011. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5698" -->
+</div>
+
+</body>
+
+</html>

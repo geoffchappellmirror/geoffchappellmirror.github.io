@@ -1,0 +1,1274 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ETW_UM_LOGGER_CONTEXT</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<!--webbot bot="Include" U-Include="../../../../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+<h1>ETW_UM_LOGGER_CONTEXT </h1>
+<p>Right from its introduction for Windows 2000, before it even had its current 
+name, Event Tracing for Windows (ETW) has parallel implementations in kernel and 
+user modes. The practical difference is not just with where the code is but with 
+where the trace buffers are managed. One aim of ETW is that events are written quickly 
+into trace buffers which are then serviced independently from a logger thread, e.g., 
+to flush full buffers to an Event Trace Log (ETL) file. A tracing session that enables 
+only event providers that execute in the same user-mode process can choose the user-mode 
+ETW implementation so that the trace buffers are managed in user mode and writing 
+an event (to a trace buffer) avoids the delay of going to and from kernel mode. 
+The <span class="struct">ETW_UM_LOGGER_CONTEXT</span> structure is what NTDLL—and 
+before it, ADVAPI32—keeps for managing an event logger, known more formally as an 
+event tracing session, that has user-mode trace buffers. </p>
+<h2>Documentation Status </h2>
+<p>Microsoft seems to have been unusually careful about publicly disclosing even 
+a name for this structure. This article originally resorted to naming the structure 
+only as the user-mode <span class="struct">WMI_LOGGER_CONTEXT</span> for its correspondence 
+with a kernel-mode structure for which Microsoft’s names (not only of the structure 
+but also of its members) are known from public symbol files, starting with Windows 
+XP SP3 and Windows Server 2003 SP2. Work backwards through the kernel binaries to 
+the kernel-mode structure’s origin in Windows 2000, and it is abundantly plain that 
+whatever the user-mode structure that’s described in this article has ever been 
+named, it and the kernel-mode <span class="struct">
+<a href="../../../../../../km/ntoskrnl/api/etw/tracesup/wmi_logger_context.htm">
+WMI_LOGGER_CONTEXT</a></span> started with a shared definition: what members they 
+have in common are laid out in the same order. Though the layouts have since diverged, 
+such that they seem unlikely to be differentiated just by preprocessor directives 
+for conditional compilation, they surely still are developed each with one eye on 
+the other. </p>
+<p>The wonder is that Microsoft’s names and types for this structure haven’t slipped 
+out long before. After all, its kernel-mode correspondent seems to be no more secret 
+than many another internal detail, if only to be disclosed as an aid to kernel-mode 
+debugging. Perhaps I’ve just missed the publication or not thought what obvious 
+names to search for. </p>
+<p>Or not. User-mode ETW has much about it that Microsoft demonstrably doesn’t document. 
+This applies especially to functionality that is implemented for user-mode loggers 
+but not (yet) for tracing through the kernel—and happens often enough to suggest 
+a pattern of meaning very much not to document it. Consider, for instance, that 
+Windows 8 and higher provide for user-mode loggers to compress what they flush to 
+ETL files, but this useful trick isn't implemented for kernel-mode tracing until 
+later releases of Windows 10. Any programmer or administrator who has ever worried 
+how big their user-mode tracing session’s ETL files may get will plausibly think 
+that the <span class="constant">EVENT_TRACE_COMPRESSED_MODE</span> flag for the 
+logging mode might be a helpful thing to know. Microsoft surely agrees, else why 
+does the <span class="command">Start-EtwTraceSession</span> command in PowerShell 
+have a <span class="switch">-Compress</span> switch? Yet, if only according to Google, 
+today, 18th December 2018, the whole of Microsoft’s website has just one page that 
+mentions this flag that programmers would need to know for starting an event tracing 
+session that compresses its own ETL file—and this page is not programmer documentation 
+but PowerShell user documentation. For programmers, <span class="constant">EVENT_TRACE_COMPRESSED_MODE</span> 
+didn’t even get a C-language definition in EVNTRACE.H until the Software Development 
+Kit (SDK) for the 1607 edition of Windows 10 and it still isn’t listed among the
+<a href="https://docs.microsoft.com/windows/desktop/etw/logging-mode-constants">
+Logging Mode Constants</a>. Such lack of disclosure is not credibly by accident 
+or oversight. The more likely role of oversight is that one mention was allowed 
+to slip out in PowerShell documentation. </p>
+<p>Thus does it not surprise that Microsoft’s name for the <span class="struct">
+ETW_UM_LOGGER_CONTEXT</span> has slipped into public view but in a very particular 
+way that confirms Microsoft’s intention to treat the structure as much more for 
+the private use of Microsoft’s own programmers than are many another internal detail. 
+The only known public source of Microsoft’s name <span class="struct">ETW_UM_LOGGER_CONTEXT</span> 
+is in the Debugging Tools for Windows package, starting from the Windows Driver 
+Kit (WDK) for Windows Server 2008. This package has long included a debugger extension 
+named WMITRACE.DLL which is specialised for helping with ETW. It is written to do 
+very much more if it has the use of private symbol files, which Microsoft presumably 
+keeps to itself, rather than just the public symbol files that are readily distributed 
+as debugging aids. It expects that private symbol files for NTDLL have type information 
+for <span class="struct">ETW_UM_LOGGER_CONTEXT</span>. The text it would use to 
+form its queries when private symbol files are available is in the executable—in 
+something like plain sight—even when private symbol files are not available. </p>
+<h2>Layout </h2>
+<p>Curiously, the <span class="struct">ETW_UM_LOGGER_CONTEXT</span> has been far 
+more stable than its kernel-mode counterpart. It has grown, of course, and members 
+have come and gone, but there has been only one large-scale rearrangement (for version 
+6.1) and the move from ADVAPI32 to NTDLL in version 5.2 didn’t change the structure 
+at all. The following changes of size are known: </p>
+<table class="Sizes">
+  <colgroup>
+    <col class="Version"><col span="2" class="Size">
+  </colgroup>
+  <tr>
+    <th>Versions </th>
+    <th>Size (x86) </th>
+    <th>Size (x64) </th>
+  </tr>
+  <tr>
+    <td>5.0 </td>
+    <td>0xD0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.1 to 5.2 </td>
+    <td>0xD8 </td>
+    <td>0x0120 </td>
+  </tr>
+  <tr>
+    <td>6.0 </td>
+    <td>0xF8 </td>
+    <td>0x0150 </td>
+  </tr>
+  <tr>
+    <td>6.1 </td>
+    <td>0x0120 </td>
+    <td>0x01A0 </td>
+  </tr>
+  <tr>
+    <td>6.2 </td>
+    <td>0x0160 </td>
+    <td>0x0210 </td>
+  </tr>
+  <tr>
+    <td>6.3 to 10.0 </td>
+    <td>0x0170 </td>
+    <td>0x0220 </td>
+  </tr>
+</table>
+<p>These sizes, and the offsets, types and names in the detailed layout below, come 
+from inspection of the binaries for ADVAPI32 (in its versions 5.0 and 5.1) and NTDLL 
+(in its versions 5.2 and higher), and comparison both with similar code in contemporaneous 
+versions of the kernel and with the offsets, types and names that are known for 
+the kernel-mode structure from public symbol files for the kernel. Where correspondence 
+seems close, it seems reasonable to assume that types and names are the same for 
+both the kernel-mode and user-mode structures. Such analysis is inevitably inexact 
+and prone to oversight. Editorial decisions for cases where correspondence is not 
+so close are explained after the table. </p>
+<table class="Struct">
+  <colgroup>
+    <col span="2" class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 (5.0 to 6.0) </td>
+    <td>0x00 (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">LARGE_INTEGER StartTime;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ETW_REF_CLOCK ReferenceTime;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">ULONG ClockType;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x94 and 0xD4 </td>
+  </tr>
+  <tr>
+    <td>0x08 (5.0 to 6.0) </td>
+    <td>0x08 (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">HANDLE LogFileHandle;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x5C and 0x80 </td>
+  </tr>
+  <tr>
+    <td>0x0C (5.0 to 6.0) </td>
+    <td>0x10 (5.2 to 6.0) </td>
+    <td>unaccounted four or eight bytes </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10 (5.0 to 6.0); <br>
+    0x14 </td>
+    <td>0x18 (5.2 to 6.0); <br>
+    0x14 </td>
+    <td>
+    <pre class="source">ULONG LoggerId;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x14 (5.1 to 6.0) </td>
+    <td>0x1C (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">ULONG LocalSequence;</pre>
+    </td>
+    <td>5.1 to 6.0 </td>
+    <td>next at 0x0108 and 0x0180 </td>
+  </tr>
+  <tr>
+    <td>0x14 (5.0); <br>
+    0x18 (5.1 to 6.0) </td>
+    <td>0x20 (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">HANDLE LoggerSemaphore;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x18 (5.0); <br>
+    0x1C (5.1 to 6.0); <br>
+    0x18 </td>
+    <td>0x28 (5.2 to 6.0); <br>
+    0x18 </td>
+    <td>
+    <pre class="source">HANDLE LoggerThreadId;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1C (5.0); <br>
+    0x20 (5.1 to 5.2); <br>
+    not in 6.0; <br>
+    0x1C </td>
+    <td>0x30 (5.2); <br>
+    not in 6.0; <br>
+    0x20 </td>
+    <td>
+    <pre class="source">HANDLE LoggerThread;</pre>
+    </td>
+    <td>5.0 to 5.2; <br>
+    not in 6.0; <br>
+    6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x20 (5.0); <br>
+    0x24 (5.1 to 5.2); <br>
+    0x20 (6.0) </td>
+    <td>0x38 (5.2); <br>
+    0x30 (6.0) </td>
+    <td>
+    <pre class="source">HANDLE LoggerEvent;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x58 and 0x78 </td>
+  </tr>
+  <tr>
+    <td>0x24 (5.0); <br>
+    0x28 (5.1 to 5.2); <br>
+    0x24 (6.0); <br>
+    0x20 </td>
+    <td>0x40 (5.2); <br>
+    0x38 (6.0); <br>
+    0x28 </td>
+    <td>
+    <pre class="source">DWORD LoggerStatus;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>0x2C </td>
+    <td>
+    <pre class="source">ULONG EventMarker [1];</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>0x30 </td>
+    <td>
+    <pre class="source">ULONG ErrorMarker;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2C </td>
+    <td>0x34 </td>
+    <td>
+    <pre class="source">ULONG SizeMask;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x24 (6.1); <br>
+    0x30 </td>
+    <td>0x2C </td>
+    <td>
+    <pre class="source">GUID InstanceId;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0xC4 and 0x0108 </td>
+  </tr>
+  <tr>
+    <td>0x34 (6.1); <br>
+    0x40 </td>
+    <td>0x3C </td>
+    <td>
+    <pre class="source">ULONG InstanceCount;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x38 (6.1); <br>
+    0x44 </td>
+    <td>0x40 (6.1); <br>
+    0x50 </td>
+    <td>unknown <span class="struct">CONDITION_VARIABLE</span> </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3C (6.1); <br>
+    0x48 </td>
+    <td>0x48 (6.1); <br>
+    0x58 </td>
+    <td>unknown <span class="struct">CRITICAL_SECTION</span> </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0xD8 and 0x0120 </td>
+  </tr>
+  <tr>
+    <td>0x54 (6.1); <br>
+    0x60 </td>
+    <td>0x70 (6.1); <br>
+    0x80 </td>
+    <td>
+    <pre class="source">HANDLE FlushEvent;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x58 (6.1); <br>
+    0x64 </td>
+    <td>0x78 (6.1); <br>
+    0x88 </td>
+    <td>
+    <pre class="source">HANDLE LoggerEvent;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x20 and 0x30 </td>
+  </tr>
+  <tr>
+    <td>0x5C (6.1); <br>
+    0x68 </td>
+    <td>0x80 </td>
+    <td>
+    <pre class="source">HANDLE LogFileHandle;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x08 </td>
+  </tr>
+  <tr>
+    <td>0x28 (5.0); <br>
+    0x2C (5.1 to 5.2); <br>
+    0x28 (6.0) </td>
+    <td>0x44 (5.2); <br>
+    0x3C (6.0) </td>
+    <td>
+    <pre class="source">LONG BuffersAvailable;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x98 and 0xD8 </td>
+  </tr>
+  <tr>
+    <td>0x2C (5.0); <br>
+    0x30 (5.1 to 5.2); <br>
+    0x2C (6.0) </td>
+    <td>0x48 (5.2); <br>
+    0x40 (6.0) </td>
+    <td>
+    <pre class="source">ULONG NumberOfProcessors;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x7C and 0xBC </td>
+  </tr>
+  <tr>
+    <td>0x30 (5.0); <br>
+    0x34 (5.1 to 5.2); <br>
+    0x30 (6.0) </td>
+    <td>0x4C (5.2); <br>
+    0x44 (6.0) </td>
+    <td>unknown 32-bit page-aligned buffer size </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x88 and </td>
+  </tr>
+  <tr>
+    <td>0x34 (5.0); <br>
+    0x38 (5.1 to 5.2); <br>
+    0x34 (6.0) </td>
+    <td>0x50 (5.2); <br>
+    0x48 (6.0) </td>
+    <td>
+    <pre class="source">LIST_ENTRY FreeList;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3C (5.0); <br>
+    0x40 (5.1 to 5.2); <br>
+    0x3C (6.0) </td>
+    <td>0x60 (5.2); <br>
+    0x58 (6.0) </td>
+    <td>
+    <pre class="source">LIST_ENTRY GlobalList;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x9C and 0xE0 </td>
+  </tr>
+  <tr>
+    <td>0x44 (5.0); <br>
+    0x48 (5.1 to 5.2); <br>
+    0x44 (6.0) </td>
+    <td>0x70 (5.2); <br>
+    0x68 (6.0) </td>
+    <td>unknown pointer </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x48 (5.0); <br>
+    0x4C (5.1 to 5.2); <br>
+    0x48 (6.0) </td>
+    <td>0x78 (5.2); <br>
+    0x70 (6.0) </td>
+    <td>
+    <pre class="source">WMI_BUFFER_HEADER **ProcessorBuffers;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4C (5.0); <br>
+    0x50 (5.1); <br>
+    0x4C (6.0); <br>
+    0x60 (6.1); <br>
+    0x6C </td>
+    <td>0x80 (5.2); <br>
+    0x78 (6.0); <br>
+    0x88 (6.1); <br>
+    0x98 </td>
+    <td>
+    <pre class="source">UNICODE_STRING LoggerName;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x54 (5.0); <br>
+    0x58 (5.1); <br>
+    0x54 (6.0); <br>
+    0x68 (6.1); <br>
+    0x74 </td>
+    <td>0x90 (5.2); <br>
+    0x88 (6.0); <br>
+    0x98 </td>
+    <td>
+    <pre class="source">UNICODE_STRING LogFileName;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x70 (6.1); <br>
+    0x7C </td>
+    <td>0xA8 </td>
+    <td>
+    <pre class="source">UNICODE_STRING LogFilePattern;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x78 (6.1); <br>
+    0x84 </td>
+    <td>0xB8 </td>
+    <td>
+    <pre class="source">LONG FileCounter;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x7C (6.1); <br>
+    0x88 </td>
+    <td>0xBC </td>
+    <td>
+    <pre class="source">ULONG NumberOfProcessors;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x2C and 0x40 </td>
+  </tr>
+  <tr>
+    <td>0x80 (6.1); <br>
+    0x8C </td>
+    <td>0xC0 (6.1); <br>
+    0xD0 </td>
+    <td>
+    <pre class="source">ULONG BufferSize;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0xA0 and 0xE0 </td>
+  </tr>
+  <tr>
+    <td>0x84 (6.1); <br>
+    0x90 </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG MaximumEventSize;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x88 (6.1); <br>
+    0x94 </td>
+    <td>&nbsp;</td>
+    <td>unknown 32-bit page-aligned buffer size </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x30 and 0x44 </td>
+  </tr>
+  <tr>
+    <td>0x8C (6.1); <br>
+    0x98 </td>
+    <td>0xCC (6.1); <br>
+    0xDC </td>
+    <td>
+    <pre class="source">ULONG MaximumBuffers;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0xA8 and 0xE8 </td>
+  </tr>
+  <tr>
+    <td>0x90 (6.1); <br>
+    0x9C </td>
+    <td>0xD0 (6.1); <br>
+    0xE0 </td>
+    <td>
+    <pre class="source">ULONG MinimumBuffers;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0xAC and 0xEC </td>
+  </tr>
+  <tr>
+    <td>0x94 (6.1); <br>
+    0xA0 </td>
+    <td>0xD4 (6.1); <br>
+    0xE4 </td>
+    <td>
+    <pre class="source">ULONG NumberOfBuffers;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0xA4 and 0xE4 </td>
+  </tr>
+  <tr>
+    <td>0x98 (6.1); <br>
+    0xA4 </td>
+    <td>0xD8 (6.1); <br>
+    0xE8 </td>
+    <td>
+    <pre class="source">LONG BuffersAvailable;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x28 and 0x3C </td>
+  </tr>
+  <tr>
+    <td>0x9C (6.1); <br>
+    0xA8 </td>
+    <td>0xE0 (6.1); <br>
+    0xF0 </td>
+    <td>
+    <pre class="source">LIST_ENTRY GlobalList;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x3C and 0x58 </td>
+  </tr>
+  <tr>
+    <td>0xA4 (6.1); <br>
+    0xB0 </td>
+    <td>0xF0 (6.1); <br>
+    0x0100 </td>
+    <td>
+    <pre class="source">ETW_BUFFER_QUEUE BufferQueue;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xB0 (6.1); <br>
+    0xBC </td>
+    <td>0x0108 (6.1); <br>
+    0x0118 </td>
+    <td>unknown <span class="struct">ETW_BUFFER_QUEUE</span> </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xBC (6.1); <br>
+    0xC8 </td>
+    <td>0x0120 (6.1); <br>
+    0x0130 </td>
+    <td>
+    <pre class="source">ETW_BUFFER_QUEUE OverflowQueue;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C (5.0); <br>
+    0x60 (5.1 to 5.2); <br>
+    0x5C (6.0) </td>
+    <td>0xA0 (5.2); <br>
+    0x98 (6.0) </td>
+    <td>
+    <pre class="source">LONG CollectionOn;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0xD0 and 0x0140 </td>
+  </tr>
+  <tr>
+    <td>0x60 (5.0); <br>
+    0x64 (5.1 to 5.2) </td>
+    <td>0xA4 (5.2) </td>
+    <td>unaccounted eight bytes </td>
+    <td>5.0 to 5.2 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x60 (6.0) </td>
+    <td>0x9C (6.0) </td>
+    <td>
+    <pre class="source">ULONG RequestFlag;</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>next at 0xD4 and 0x0144 </td>
+  </tr>
+  <tr>
+    <td>0x68 (5.0); <br>
+    0x6C (5.1 to 5.2); <br>
+    0x64 (6.0); <br>
+    0xC8 (6.1); <br>
+    0xD4 </td>
+    <td>0xAC (5.2); <br>
+    0xA0 (6.0); <br>
+    0x0138 (6.1); <br>
+    0x0148 </td>
+    <td>
+    <pre class="source">ULONG MaximumFileSize;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6C (5.0); <br>
+    0x70 (5.1 to 5.2); <br>
+    0x68 (6.0); <br>
+    0xCC (6.1); <br>
+    0xD8 </td>
+    <td>0xB0 (5.2); <br>
+    0xA4 (6.0); <br>
+    0x013C (6.1); <br>
+    0x014C </td>
+    <td>
+    <pre class="source">ULONG LoggerMode; </pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xD0 (6.1); <br>
+    0xDC </td>
+    <td>0x0140 </td>
+    <td>
+    <pre class="source">LONG CollectionOn;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x5C and 0x98 </td>
+  </tr>
+  <tr>
+    <td>0xD4 (6.1); <br>
+    0xE0 </td>
+    <td>0x0144 </td>
+    <td>
+    <pre class="source">union {
+    ULONG RequestFlag;
+    struct {
+        /*  changing bit fields  */
+    };
+};</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x60 and 0x9C </td>
+  </tr>
+  <tr>
+    <td>0x70 (5.0); <br>
+    0x74 (5.1 to 5.2); <br>
+    0x6C (6.0); <br>
+    0xD8 (6.1); <br>
+    0xE4 </td>
+    <td>0xB4 (5.2); <br>
+    0xA8 (6.0); <br>
+    0x0148 </td>
+    <td>
+    <pre class="source">ULONG LastFlushedBuffer;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x78 (5.0 to 5.2); <br>
+    0x70 (6.0); <br>
+    0xE0 (6.1); <br>
+    0xE8 </td>
+    <td>0xB8 (5.2); <br>
+    0xB0 (6.0); <br>
+    0x0150 (6.1); <br>
+    0x0160 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER FlushTimer;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x80 (5.0 to 5.2); <br>
+    0x78 (6.0); <br>
+    0xE8 </td>
+    <td>0xC0 (5.2); <br>
+    0xB8 (6.0); <br>
+    0x0158 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER FirstBufferOffset;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x88 (5.0 to 5.2); <br>
+    0x80 (6.0); <br>
+    0xF0 (6.1); <br>
+    0xF8 </td>
+    <td>0xC8 (5.2); <br>
+    0xC0 (6.0); <br>
+    0x0160 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER ByteOffset;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x90 (5.0 to 5.2); <br>
+    0x88 (6.0) </td>
+    <td>0xD0 (5.2); <br>
+    0xC8 (6.0) </td>
+    <td>
+    <pre class="source">LARGE_INTEGER BufferAgeLimit;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x98 (5.1 to 5.2); <br>
+    0x90 (6.0) </td>
+    <td>0xD8 (5.2); <br>
+    0xD0 (6.0) </td>
+    <td>unaccounted four bytes </td>
+    <td>5.1 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x9C (5.1 to 5.2): <br>
+    0x94 (6.0) </td>
+    <td>0xDC (5.2); <br>
+    0xD4 (6.0) </td>
+    <td>
+    <pre class="source">ULONG ClockType;</pre>
+    </td>
+    <td>5.1 to 6.0 </td>
+    <td>next at 0x10 </td>
+  </tr>
+  <tr>
+    <td>0x98 (6.0) </td>
+    <td>0xD8 (6.0) </td>
+    <td>
+    <pre class="source">LARGE_INTEGER ReferenceTimeStamp;</pre>
+    </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x98 (5.0); <br>
+    0xA0 (5.1 to 6.0) </td>
+    <td>0xE0 (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">ULONG BufferSize;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x80 and 0xC0 </td>
+  </tr>
+  <tr>
+    <td>0x9C (5.0); <br>
+    0xA4 (5.1 to 6.0) </td>
+    <td>0xE4 (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">ULONG NumberOfBuffers;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x94 and 0xD4 </td>
+  </tr>
+  <tr>
+    <td>0xA0 (5.0); <br>
+    0xA8 (5.1 to 6.0) </td>
+    <td>0xE8 (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">ULONG MaximumBuffers;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x8C and 0xCC </td>
+  </tr>
+  <tr>
+    <td>0xA4 (5.0); <br>
+    0xAC (5.1 to 6.0) </td>
+    <td>0xEC (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">ULONG MinimumBuffers;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x90 and 0xD0 </td>
+  </tr>
+  <tr>
+    <td>0x0100 </td>
+    <td>&nbsp;</td>
+    <td>unaccounted eight bytes </td>
+    <td>6.2 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0100 </td>
+    <td>0x0178 </td>
+    <td>
+    <pre class="source">ULONG FlushThreshold;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xA8 (5.0); <br>
+    0xB0 (5.1 to 6.0); <br>
+    0xF8 (6.1); <br>
+    0x0108 (6.2); <br>
+    0x0110 </td>
+    <td>0xF0 (5.2 to 6.0); <br>
+    0x0168 (6.1); <br>
+    0x0180 (6.2); <br>
+    0x0188 </td>
+    <td>
+    <pre class="source">ULONG EventsLost;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xFC (6.1); <br>
+    0x010C (6.2); <br>
+    0x0114 </td>
+    <td>0x016C (6.1); <br>
+    0x0184 (6.2); <br>
+    0x018C </td>
+    <td>
+    <pre class="source">ULONG LogBuffersLost;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0xB8 and 0xF8 </td>
+  </tr>
+  <tr>
+    <td>0xAC (5.0); <br>
+    0xB4 (5.1 to 6.0); <br>
+    0x0100 (6.1); <br>
+    0x0110 (6.2); <br>
+    0x0118 </td>
+    <td>0xF4 (5.2 to 6.0); <br>
+    0x0170 (6.1); <br>
+    0x0188 (6.2); <br>
+    0x0190 </td>
+    <td>
+    <pre class="source">ULONG BuffersWritten;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xB0 (5.0); <br>
+    0xB8 (5.1 to 6.0) </td>
+    <td>0xF8 (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">ULONG LogBuffersLost;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0xFC and 0x016C </td>
+  </tr>
+  <tr>
+    <td>0xB4 (5.0); <br>
+    0xBC (5.1 to 6.0) </td>
+    <td>0xFC (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">ULONG RealTimeBuffersLost;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xC0 (5.1 to 6.0); <br>
+    0x0104 (6.1); <br>
+    0x0114 (6.2); <br>
+    0x011C </td>
+    <td>0x0100 (5.2 to 6.0); <br>
+    0x0178 </td>
+    <td>
+    <pre class="source">LONG *SequencePtr;</pre>
+    </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0108 (6.1); <br>
+    0x0118 (6.2); <br>
+    0x0120 </td>
+    <td>0x0180 </td>
+    <td>
+    <pre class="source">ULONG LocalSequence;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>previously at 0x14 and 0x1C </td>
+  </tr>
+  <tr>
+    <td>0xB8 (5.0); <br>
+    0xC4 (5.1 to 6.0) </td>
+    <td>0x0108 (5.2 to 6.0) </td>
+    <td>
+    <pre class="source">GUID InstanceId;</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>next at 0x24 and 0x2C </td>
+  </tr>
+  <tr>
+    <td>0xD4 (6.0) </td>
+    <td>0x0118 (6.0) </td>
+    <td>unknown dword </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xD8 (6.0) </td>
+    <td>0x0120 (6.0) </td>
+    <td>unknown <span class="struct">CRITICAL_SECTION</span> </td>
+    <td>6.0 only </td>
+    <td>next at 0x3C and 0x48 </td>
+  </tr>
+  <tr>
+    <td>0x0110 (6.1); <br>
+    0x0120 (6.2); <br>
+    0x0128 </td>
+    <td>0x0188 </td>
+    <td>
+    <pre class="source">LONGLONG BufferSequenceNumber;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xC8 (5.0); <br>
+    0xD4 (5.1 to 5.2); <br>
+    0xF0 (6.0); <br>
+    0x0118 (6.1); <br>
+    0x0128 (6.2); <br>
+    0x0130 </td>
+    <td>0x0118 (5.2); <br>
+    0x0148 (6.0); <br>
+    0x0190 </td>
+    <td>unknown pointer to trace buffers </td>
+    <td>5.0 and higher </td>
+    <td>last member in 5.0 to 6.0 </td>
+  </tr>
+</table>
+<p><span class="alert">There is something to write here!</span> </p>
+<table class="Struct">
+  <colgroup>
+    <col span="2" class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x012C (6.2); <br>
+    0x0134 </td>
+    <td>0x01B0 (6.2); <br>
+    0x01B8 </td>
+    <td>
+    <pre class="source">PVOID CompressionWorkspace;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0130 (6.2); <br>
+    0x0138 </td>
+    <td>0x01B8 (6.2); <br>
+    0x01C0 </td>
+    <td>buffer for compressed data </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0134 (6.2); <br>
+    0x013C </td>
+    <td>0x01C0 (6.2); <br>
+    0x01C8 </td>
+    <td>32-bit size of compression buffer </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0138 (6.2); <br>
+    0x0140 </td>
+    <td>0x01C4 (6.2); <br>
+    0x01CC </td>
+    <td>32-bit size of trace buffers in compression buffer </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0144 </td>
+    <td>0x01D0 </td>
+    <td>32-bit count of trace buffers in compression buffer </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0148 </td>
+    <td>0x01D4 </td>
+    <td>32-bit size of partial trace buffer in compression buffer </td>
+    <td>6.3 and higher </td>
+  </tr>
+</table>
+<p>As noted in the introduction, user-mode loggers can compress event data in version 
+6.2 and higher but there is no kernel-mode correspondent until the 1607 release 
+of Windows 10. The implementations are very different. The only known name that 
+seems safe to take as common to both implementations is that of the buffer that’s 
+used for the algorithm’s workspace. </p>
+<p>A user-mode logger compresses successive trace buffers ever deeper into a compression 
+buffer that’s the size of two trace buffers. The first is flushed whenever it fills. 
+Any overflow is then moved down to become a partial trace buffer at the start of 
+the compression buffer. See that any one flush from the compression buffer is of 
+one trace buffer’s worth of data that has been compressed from potentially many 
+trace buffers. Version 6.2 counts them altogether as one buffer written or lost. 
+Version 6.3 tracks their number. If flushing fails, version 6.2 does not reset its 
+compression buffer. In later versions, all whole trace buffers that were in the 
+compression buffer are explicitly lost. If the compression buffer began with the 
+overflow data of a partly flushed trace buffer, then this overflow is retained in 
+the compression buffer so that any subsequent flush that does succeed will complete 
+the partial trace buffer that is already in the ETL file. </p>
+<table class="Struct">
+  <colgroup>
+    <col span="2" class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x013C (6.2); <br>
+    0x014C </td>
+    <td>0x01C8 (6.2); <br>
+    0x01D8 </td>
+    <td>
+    <pre class="source">LIST_ENTRY ProviderBinaryList;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0144 (6.2); <br>
+    0x0154 </td>
+    <td>0x01D8 (6.2); <br>
+    0x01E8 </td>
+    <td>
+    <pre class="source">LIST_ENTRY WinRtProviderBinaryList;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p>It seems strange now, but not until version 6.2 do ETL files record which providers 
+are enabled for the session. </p>
+<table class="Struct">
+  <colgroup>
+    <col span="2" class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x014C (6.2); <br>
+    0x015C </td>
+    <td>0x01F8 </td>
+    <td>unknown dword </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0150 (6.2); <br>
+    0x0160 </td>
+    <td>0x0200 </td>
+    <td>unknown pointer to array of pointers </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0154 (6.2); <br>
+    0x0164 </td>
+    <td>0x0208 </td>
+    <td>unknown pointer to array of structures </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0158 (6.2); <br>
+    0x0168 </td>
+    <td>0x0200 (6.2); <br>
+    0x0210 </td>
+    <td>unknown pointer to processor stream index map </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p><span class="alert">There is something to write here!</span> </p>
+<table class="Struct">
+  <colgroup>
+    <col span="2" class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x011C (6.1); <br>
+    0x015C (6.2); <br>
+    0x016C </td>
+    <td>0x0198 (6.1); <br>
+    0x0208 (6.2); <br>
+    0x0218 </td>
+    <td>
+    <pre class="source">WMI_BUFFER_HEADER *ProcessorBuffers [ANYSIZE_ARRAY];</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>last member in 6.1 and higher </td>
+  </tr>
+</table>
+<p>Where the kernel-mode <span class="struct">WMI_LOGGER_CONTEXT</span> has objects 
+such as semaphores and events, and pointers to objects such as threads, a user-mode 
+structure can only have handles. Although the applicable members must change type, 
+they needn’t change names and it is assumed above that they don’t. </p>
+<p>Each logger creates its own thread for flushing trace buffers. All versions keep 
+the thread ID and disclose it, when queried, by copying it to the
+<span class="member">LoggerThreadId</span> member of a <span class="struct">WMI_LOGGER_INFORMATION</span>. 
+It is here proposed that the thread ID as kept in the logger context likely has 
+the same name (and type). The early versions, implemented in ADVAPI32, also keep 
+a handle to the logger thread. This stops with version 5.2, but it is assumed above 
+that the <span class="member">LoggerThread</span> remained defined (no reuse of 
+its space being known). Version 6.0 seems then to have removed it, only to have 
+version 6.1 go back to keeping the handle. </p>
+<p>The unknown <span class="struct">CONDITION_VARIABLE</span> supports
+<span class="constant">EVENT_TRACE_BLOCKING_MODE</span>. If tracing an event would 
+exhaust its processor’s current trace buffer but all other trace buffers are in 
+use (including because they are yet to be flushed) and no more can be created, then 
+the event would ordinarily be lost. Waiting for a trace buffer to become available 
+isn’t much of an option. After all, much of the point to tracing an event is that 
+it is done without disturbing whatever activity is being traced. For some loggers, 
+however, the intended activity may be relatively infrequent and take time anyway, 
+such that time spent waiting for a buffer to trace an event to is less a penalty 
+than would be the event’s loss. Blocking mode allows the wait. It’s another ETW 
+feature that’s particular to user-mode tracing sessions (and is not documented).
+</p>
+<p>See that in all versions, a user-mode logger reserves address space sufficient 
+for whatever it ends up adopting as <span class="member">MaximumBuffers</span>. 
+It immediately commits memory for whatever it ends up adopting as
+<span class="member">MinimumBuffers</span>, and thereafter commits more only when 
+more buffers actually are needed for whatever flow of events are received. For this 
+purpose of reserving and committing, each trace buffer is a whole number of pages, 
+rounded up from <span class="member">BufferSize</span> bytes. Neither the page-aligned 
+buffer size nor the address of the reservation has any correspondent in the kernel-mode 
+structure. </p>
+<p>Versions 6.1 and higher end the structure with a variable-size array of pointers, 
+one per processor, each to the trace buffer that is currently in use for that processor. 
+This too has no correspondence with the kernel-mode structure. It does, however, 
+supersede what had been a pointer to just such an array, and in such a way that 
+keeping the name would require no change to the source code. The pointer’s name,
+<span class="member">ProcessorBuffers</span>, is known from correspondence with 
+the kernel-mode structure. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 15th
+  <a href="../../../../../../../../new/18/12.htm">December 2018</a> and was last 
+  modified on 22nd May 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14474" -->
+</div>
+
+</body>
+
+</html>

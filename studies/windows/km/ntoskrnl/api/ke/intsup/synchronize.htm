@@ -1,0 +1,123 @@
+﻿<html>
+
+<head>
+<title>KeSynchronizeExecution</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KeSynchronizeExecution </h1>
+<p>This function synchronises the execution of an arbitrary routine with a 
+hardware interrupt’s service routine.
+</p>
+<h2>Declaration </h2>
+<pre class="source">BOOLEAN 
+KeSynchronizeExecution (
+    <a href="../intobj/kinterrupt.htm">KINTERRUPT</a> *Interrupt, 
+    KSYNCHRONIZE_ROUTINE *SynchronizeRoutine, 
+    PVOID SynchronizeContext);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">Interrupt</span> argument is the address of the 
+interrupt object that represents the service routine’s registration for handling 
+the interrupt. </p>
+<p>The <span class="argument">SynchronizeRoutine</span> is the address of a 
+routine to call from inside the function, synchronisation with the service 
+routine having been arranged. </p>
+<p>The <span class="argument">SynchronizeContext</span> is arbitrary 
+caller-supplied context that is to be passed back to the caller as an argument 
+to the <span class="argument">SynchronizeRoutine</span>. </p>
+<h3>Return Value </h3>
+<p>The function returns whatever the the <span class="argument">
+SynchronizeRoutine</span> returns. </p>
+<h3>Constraints </h3>
+<p>The function temporarily raises the IRQL to the Device IRQL (DIRQL) that is 
+specified for the interrupt. The IRQL on entry must be no higher. The
+<span class="argument">SynchronizeRoutine</span> executes at this raised IRQL. </p>
+<h2>Availability </h2>
+<p>The <span class="function">KeSynchronizeExecution</span> function is exported 
+by name from the kernel in all known versions, i.e., 3.10 and higher. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">KeSynchronizeExecution</span> function is documented.
+</p>
+<h2>Behaviour </h2>
+<p>Put aside some developments for version 6.2 and higher, and the
+<span class="function">KeSynchronizeExecution</span> function is in its essence 
+a convenience whose work can be done independently in three parts: </p>
+<ol>
+  <li>raise the IRQL to the interrupt’s DIRQL and acquire the interrupt’s spin 
+  lock; </li>
+  <li>call the given <span class="argument">SynchronizeRoutine</span>, passing 
+  the given <span class="argument">SynchronizeContext</span> as its one 
+  argument; </li>
+  <li>release the spin lock and restore the IRQL. </li>
+</ol>
+<p>The DIRQL is the <span class="member">SynchronizeIrql</span> in the given
+<span class="struct">KINTERRUPT</span>. It will have been set when registering 
+to handle the interrupt, e.g., as the <span class="argument">SynchronizeIrql</span> argument to the
+<span class="function">KeInitializeInterrupt</span> or
+<span class="function">IoConnectInterrupt</span> function. The spin lock is 
+built into the <span class="struct">KINTERRUPT</span> by default but 
+can have been supplied externally when registering to handle the interrupt, e.g., 
+as the <span class="argument">SpinLock</span> argument to either of those 
+functions. </p>
+<p>Before version 5.1, controlling the IRQL and the spin lock independently 
+requires that the caller remembers (accurately) what is configured in the
+<span class="struct">KINTERRUPT</span>. The <span class="function">
+KeSynchronizeExecution</span> function is preferable even if the programmer 
+thinks that working through a callback routine is cumbersome. Version 5.1 
+introduced the exported functions <span class="function">
+<a href="../interobj/acquire.htm">KeAcquireInterruptSpinLock</a></span> and
+<span class="function"><a href="../interobj/release.htm">
+KeReleaseInterruptSpinLock</a></span>, which allow the callback routine to be 
+avoided in favour of a programming style that some find more natural. </p>
+<p>The key development for version 6.2 is support for an interrupt’s service 
+routine to execute at <span class="constant">PASSIVE_LEVEL</span>. This is 
+indicated when the <span class="member">SynchronizeIrql</span> is
+<span class="constant">PASSIVE_LEVEL</span>. The synchronisation is then not at 
+higher IRQL with a spin lock but is instead with an event in a critical region, 
+i.e., with normal kernel APCs disabled. </p>
+<p>A curiosity for version 6.2 and higher is that the 32-bit coding remains in 
+assembly language. The spin lock’s acquisition to execute the
+<span class="argument">SynchronizeRoutine</span> is therefore slightly different 
+from the same lock’s acquisition by <span class="function">
+KeAcquireInterruptSpinLock</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 15th 
+  <a href="../../../../../../../new/19/12.htm">December 2019</a> and was last 
+  modified on 17th December 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

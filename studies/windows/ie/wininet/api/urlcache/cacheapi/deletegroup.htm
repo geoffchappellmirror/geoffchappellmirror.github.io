@@ -1,0 +1,202 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DeleteUrlCacheGroup</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>DeleteUrlCacheGroup </h1>
+<p>This function deletes a group from the Content cache container. </p>
+<h2>Declaration </h2>
+<pre class="source">BOOL 
+DeleteUrlCacheGroup (
+    GROUPID GroupId, 
+    DWORD dwFlags, 
+    LPVOID lpReserved);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">GroupId</span> argument specifies which group to delete.
+</p>
+<p>The <span class="argument">dwFlags</span> argument varies the behaviour of the 
+function. No bits are rejected as invalid but only one bit is meaningful: </p>
+<table>
+  <tr>
+    <td>0x02 </td>
+    <td><span class="constant">CACHEGROUP_FLAG_FLUSHURL_ONDELETE</span> </td>
+    <td>delete all URL entries that belong only to this group </td>
+  </tr>
+</table>
+<p>The <span class="argument">lpReserved</span> argument must be NULL. </p>
+<h3>Return Value </h3>
+<p>If successful, the function returns <span class="constant">TRUE</span>. The function 
+returns <span class="constant">FALSE</span> to indicate failure. An error code can 
+be retrieved by calling <span class="function">GetLastError</span>. </p>
+<h2>Behaviour </h2>
+<p>If <span class="argument">lpReserved</span> is not NULL, the function fails.
+</p>
+<p>If URL caching is not yet initialised, it gets initialised as part of this function. 
+Among other things, this involves loading the registry configuration of all cache 
+containers in the applicable registry set and creating default groups in the Content 
+container. If this initialisation fails, so too does the function. </p>
+<p>This function works only with the Content container of the applicable registry 
+set. If no Content container has been loaded, the function fails. The function also 
+fails if it cannot secure its use of the Content container. </p>
+<p>There must exist in the container file a <span class="struct">GROUP_ENTRY</span> 
+structure for the given group, i.e., with a matching group ID. Otherwise, the group 
+is not defined, and the function fails. </p>
+<p>Much of the point to a group’s existence is that URL entries may have been assigned 
+to the group. Now that the group is to be deleted, there needs to be at the very 
+least some bookkeeping so that none of those URL entries retain any reference to 
+the group. Neither should they retain any property that they possess only by belonging 
+to the group. The function therefore enumerates the entries that belong to the group, 
+intending to tidy each in turn: </p>
+<ul>
+  <li>undo any link from entry to group; </li>
+  <li>if the group being deleted is sticky, then possibly remove the entry’s stickiness;
+  </li>
+  <li>if <span class="constant">CACHEGROUP_FLAG_FLUSHURL_ONDELETE</span> is specified 
+  in <span class="argument">dwFlags</span>, then possibly delete the entry. </li>
+</ul>
+<p>Premature exit from the enumeration because of an error is not an error for the 
+function. </p>
+<p>Removing any connection between entry and group ought to be straightforward, 
+especially if the entry belongs to no other group. Worth confirming may be that 
+if a URL entry has a list of groups that it belongs to, then the
+<span class="constant">LIST_GROUP_ENTRY</span> for this group’s presence in that 
+list is removed from the list and is freed for reuse. It perhaps matters only for 
+performance, rather than as a defect, but if the URL entry is left belonging just 
+to one group, then although the <span class="struct">LIST_GROUP_ENTRY</span> for 
+the remaining group might also be freed for reuse, it is not, and the entry is kept 
+as belonging to a one-group list, as opposed to belonging directly to the one group.
+</p>
+<p>The main property a URL entry can have that depends on group membership is its 
+stickiness. If the group that is being deleted has the 0x1000000000000000 bit set 
+in its group ID, then it is a sticky group. URL entries assigned to a sticky group 
+become sticky themselves just for belonging to the group. Such entries are distinguished 
+by having the <span class="constant">STICKY_CACHE_ENTRY</span> type but no exempt 
+delta. Each such entry loses its stickiness unless it still belongs to some other 
+sticky group. </p>
+<p>Through the <span class="argument">dwFlags</span> argument, entries that belong 
+to a group can be made to depend on that group for their very existence: if
+<span class="constant">CACHEGROUP_FLAG_FLUSHURL_ONDELETE</span> is specified in
+<span class="argument">dwFlags</span>, then the function deletes URL entries that 
+belong to this group but to no other. </p>
+<p>Having dealt with all URL entries that belong to the group, the function deletes 
+the group itself. In the container file, this means freeing any
+<span class="struct">GROUP_DATA_ENTRY</span> structure that holds a group name or 
+owner storage attribute for the group, and clearing the <span class="struct">GROUP_ENTRY</span> 
+structure. </p>
+<h3>Coding Errors </h3>
+<p>The bookkeeping described above has two defects, as actually coded. First, it 
+ignores some entries. Second, it does not certainly remove all references to the 
+deleted group. </p>
+<h4>Some Entries Ignored </h4>
+<p>Enumeration of URL entries for the bookkeeping is limited just to entries that 
+match the default filter, meaning specifically those whose cache entry type has 
+no set bit that is not in either of the collections <span class="constant">URLCACHE_FIND_DEFAULT_FILTER</span> 
+or <span class="constant">INCLUDE_BY_DEFAULT_CACHE_ENTRY</span>. This allows some 
+curious but surely unwelcome effects even for entries that have been created entirely 
+in accordance with the documentation, notably ones that have the
+<span class="constant">EDITED_CACHE_ENTRY</span> or <span class="constant">SPARSE_CACHE_ENTRY</span> 
+types. For what looks to be the simplest example, try the following sequence:
+</p>
+<ol>
+  <li>create a group; </li>
+  <li>create a URL entry; </li>
+  <li>assign the URL entry to the group; </li>
+  <li>delete the group; </li>
+  <li>create another group; </li>
+  <li>search the second group for URL entries; </li>
+  <li>delete the second group; </li>
+  <li>delete the URL entry. </li>
+</ol>
+<p>The last two steps are just to clean up. Step 6 is the one to watch. The expectation 
+there is that the second group, being newly created at step 5, is empty. This expectation 
+ordinarily is satisfied. However, if the <span class="constant">EDITED_CACHE_ENTRY</span> 
+or <span class="constant">SPARSE_CACHE_ENTRY</span> type is specified when creating 
+the URL entry at step 2, then the group deletion at step 4 does not even attempt 
+to tidy the URL entry, which is left pointing to a freed <span class="struct">GROUP_ENTRY</span> 
+which gets reused at step 5. When the new group is enumerated at step 6 (taking 
+care to specify an interest in the <span class="constant">EDITED_CACHE_ENTRY</span> 
+and <span class="constant">SPARSE_CACHE_ENTRY</span> types), the URL entry that 
+was assigned to the since-deleted group magically appears to be assigned already 
+to the newly created group. </p>
+<p>Note that the behaviour is no different whether <span class="constant">CACHEGROUP_FLAG_FLUSHURL_ONDELETE</span> 
+is specified or not at step 4. The same omission that allows the entry’s link to 
+the deleted group to persist for reuse at step 5 also allows the entry itself to 
+persist even when deleting the group is supposed to delete its entries. </p>
+<h4>Incomplete Reference Removal </h4>
+<p>Even URL entries that are enumerated can run into another coding error. If the 
+URL entry belongs to a single group (as opposed to a list of groups that happens 
+to have only one member) before the group is deleted, then the function does not 
+correctly update the flags in the hash item for the URL entry. Specifically, it 
+omits to clear the flag that marks the entry as belonging to a group. Other code, 
+for enumerating URL entries, assumes that if this flag is set, then the dword at 
+offset 0x28 in the URL entry is the file offset of a <span class="struct">GROUP_ENTRY</span>. 
+It will instead be zero. An effect is that the URL entry will seem to have the file 
+header’s signature as its group entry: </p>
+<ol>
+  <li>create a group; </li>
+  <li>create a URL entry (of a type that is enumerated by default); </li>
+  <li>assign the URL entry to the group; </li>
+  <li>delete the group (without specifying <span class="constant">CACHEGROUP_FLAG_FLUSHURL_ONDELETE</span>);
+  </li>
+  <li>search for URL entries in a fake group whose group ID is 0x5520746E65696C43;
+  </li>
+  <li>delete the URL entry. </li>
+</ol>
+<p>Again, the last step is just to clean up. The problem is at step 5, where the 
+entry that was created at step 2 turns up in an enumeration with a silly group ID.
+</p>
+<h3>Usage Notes </h3>
+<p>It is not clear whether the following behaviour is by design or is permitted 
+only by oversight: the function can delete built-in groups. Of course, a deleted 
+built-in group will be re-created, albeit as an empty group, when URL caching is 
+next initialised (for the same registry set, but by any process) and there is anyway 
+only the one built-in group, specifically the one with group ID
+<span class="constant">CACHEGROUP_ID_BUILTIN_STICKY</span>. </p>
+<h2>Availability </h2>
+<p>The <span class="function">DeleteUrlCacheGroup</span> function is exported by 
+name from WININET.DLL version 4.71 and higher. It has long been documented. </p>
+<p>The behaviour described in this note is of version 7.0 from the original Windows 
+Vista. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 14th September 2010 and was last modified 
+  on 17th September 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c10.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="5570" endspan -->
+</div>
+
+</body>
+
+</html>

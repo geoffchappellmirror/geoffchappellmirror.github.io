@@ -1,0 +1,673 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>PPM_DRIVER_DISPATCH_TABLE</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>PPM_DRIVER_DISPATCH_TABLE </h1>
+  <p>In Windows 10 and higher, the <span class="struct">PPM_DRIVER_DISPATCH_TABLE</span> 
+  (formally <span class="struct">_PPM_DRIVER_DISPATCH_TABLE</span>) has the addresses 
+  of many routines to call in the kernel for various aspects of Processor Power 
+  Management (PPM). The intended callers are PPM drivers for different types of 
+  processor. Mostly, these routines tell the kernel of processor-specific details, 
+  which often includes that the drivers provide routines for the kernel to call 
+  back. Separation of these details from the kernel into drivers such as might be 
+  written differently for or by the different manufacturers of processors allows 
+  the kernel to offer PPM as an abstracted feature and the manufacturers to compete 
+  on some sort of level playing field. Or so might be the theory… </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="struct">PPM_DRIVER_DISPATCH_TABLE</span> structure is not 
+  documented. To say it is obscure would be an understatement: what Google has to 
+  say of it today, 8th November 2022, is that </p>
+  <blockquote>
+    Your search - "<i>PPM_DRIVER_DISPATCH_TABLE</i>" - did not match any documents.</blockquote>
+  <p>Bing is no different: </p>
+  <blockquote>
+    There are no results for "<b>PPM_DRIVER_DISPATCH_TABLE</b>"</blockquote>
+  <p>I labour the point for two reasons. First, there is some small surprise, for 
+  although Microsoft never has gone near to documenting the <span class="struct">
+  PPM_DRIVER_DISPATCH_TABLE</span>, the structure is not so deeply internal that 
+  its name and members have never escaped from Microsoft’s vaults or from non-disclosure 
+  agreements with the manufacturers of processors or whatever else might keep it 
+  secret. </p>
+  <p>A C-language definition was published with the original and Version 1511 editions 
+  of the Windows Driver Kit (WDK) for Windows 10. Its disclosure there, in a header 
+  named NTOSP.H, was surely an oversight and has not been repeated, but published 
+  it was. One might think this publication would get at least the structure’s name 
+  into the sort of automated indexing that passes as the Internet’s helpfulness 
+  to Window programmers for knowing which programming elements are in which headers 
+  with which changes between versions. </p>
+  <p>Microsoft has also published the practical equivalent of a C-language definition 
+  for later versions of Windows 10 too. By this I mean type information in public 
+  symbol files. For this structure, the symbol files to examine are not for the 
+  kernel but for PPM drivers. Again, this is apparently just enough unusual to be 
+  missed by websites that automate the reconstruction of C-language definitions 
+  from public symbol files as reference material for revese engineers. </p>
+  <p>That the structure shows in symbol files for only a handful of specialised 
+  drivers points to my second reason for passing more comment than usual on the 
+  structure’s absence from the searched Internet. The structure has no intended 
+  usefulness outside Microsoft except to the manufacturers of processors that run 
+  Windows. Microsoft has no small history of differential support for these manufacturers. 
+  There is arguably a public interest in knowing that the interface is available 
+  to those manufacturers on equal terms (or that if Microsoft writes the PPM drivers 
+  based on information from the manufacturers then they all get equal attention). 
+  Yet there is no sunlight here. </p>
+  <h2>Usage </h2>
+  <p>To obtain a <span class="struct">PPM_DRIVER_DISPATCH_TABLE</span>, a PPM driver 
+  calls the <span class="function">ZwPowerInformation</span> function with
+  <span class="constant">ProcessorStateHandler</span> (0x07) as the information 
+  level and provides a sufficiently large output buffer. Success copies the kernel’s
+  <span class="struct">PPM_DRIVER_DISPATCH_TABLE</span> into the output buffer.
+  </p>
+  <p>See that the kernel’s table of routines for PPM is not directly exposed, e.g., 
+  by exporting its address as done for the <span class="struct">
+  <a href="../hal/hal_dispatch.htm">HAL_DISPATCH</a></span> and
+  <span class="struct"><a href="../hal/hal_private_dispatch.htm">HAL_PRIVATE_DISPATCH</a></span> 
+  tables. Each PPM driver that asks gets only its own copy. PPM drivers’ calls to 
+  the kernel go through function pointers that are wherever the PPM drivers have 
+  cared to store their copy. </p>
+  <p>See also that the necessary information level, <span class="constant">ProcessorStateHandler</span>, 
+  is not named for its provision of a dispatch table. This is because it’s an old 
+  name for old work. This information level’s original use, in Windows 2000 when
+  <span class="function">ZwPowerInformation</span> was new, was indeed to supply 
+  the kernel with a per-processor state handler. Contemporaneous editions of NTPOAPI.H 
+  defined a <span class="struct">PROCESSOR_STATE_HANDLER</span> structure to pass 
+  in the input buffer. Windows XP elaborated with a <span class="constant">ProcessorStateHandler2</span> 
+  information level that takes a <span class="struct">PROCESSOR_STATE_HANDLER2</span> 
+  for input. The two co-existed until <span class="constant">ProcessorStateHandler</span> 
+  was discontinued—retained but failing trivially—in Windows Server 2003 SP1 and 
+  then <span class="constant">ProcessorStateHandler2</span> was discontinued in 
+  Windows Vista. That <span class="constant">ProcessorStateHandler</span> is meaningful 
+  for Windows 10 is a revival, apparently just for this new architecture but without 
+  its new purpose bringing it a new name. Microsoft’s documentation of the
+  <span class="enum">POWER_INFORMATION_LEVEL</span> online today, 8th November 2022, 
+  says of <span class="constant">ProcessorStateHandler</span> no more than “Indicates 
+  the processor state handler.” Again, no sunlight. </p>
+  <h2>Variability </h2>
+  <p>Though the structure is shared between modules, the coupling is very tight. 
+  Known PPM drivers expect an exact match with the kernel. The structure varies 
+  even between the roughly half-yearly releases that are here taken as the Windows 
+  10 equivalent of what used to be named a service pack. Though the structure has 
+  for some years now varied only by appending, the first few releases have insertions 
+  and changes of type. The following changes of size are known: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>10.0 to 1511 </td>
+        <td>0x5C </td>
+        <td>0xB8 </td>
+      </tr>
+      <tr>
+        <td>1607 </td>
+        <td>0x60 </td>
+        <td>0xC0 </td>
+      </tr>
+      <tr>
+        <td>1703 to 1803 </td>
+        <td>0x64 </td>
+        <td>0xC8 </td>
+      </tr>
+      <tr>
+        <td>1809 </td>
+        <td>0x70 </td>
+        <td>0xE0 </td>
+      </tr>
+      <tr>
+        <td>1903 to 2004 </td>
+        <td>0x78 </td>
+        <td>0x0110 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout </h2>
+  <p>The sizes in the preceding table and the offsets, names and types in the next 
+  are from public symbol files for PROCESSR.SYS, i.e., the default PPM driver, starting 
+  with Windows 10. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">ULONG InterfaceVersion;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterPerfStates) (
+    PROCESSOR_PERF_STATES *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>0x10 </td>
+        <td>
+        <pre class="source">VOID 
+(*UpdatePerfStates) (
+    PROCESSOR_PERF_STATES_UPDATE *);</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 (10.0 to 1511); <br>
+        0x0C </td>
+        <td>0x10 (10.0 to 1511); <br>
+        0x18 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterPerfCap) (
+    PROCESSOR_CAP *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0C (10.0 to 1511); <br>
+        0x10 </td>
+        <td>0x18 (10.0 to 1511); <br>
+        0x20 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterSpmSettings) (
+    HANDLE);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x10 (10.0 to 1511); <br>
+        0x14 </td>
+        <td>0x20 (10.0 to 1511); <br>
+        0x28 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterIdleStates) (
+    PROCESSOR_IDLE_STATES_EX *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x14 (10.0 to 1511); <br>
+        0x18 </td>
+        <td>0x28 (10.0 to 1511); <br>
+        0x30 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterIdleDomains) (
+    PROCESSOR_IDLE_DOMAINS const *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x18 (10.0 to 1511); <br>
+        0x1C </td>
+        <td>0x30 (10.0 to 1511); <br>
+        0x38 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterPlatformStates) (
+    PLATFORM_IDLE_STATES *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1C (10.0 to 1511); <br>
+        0x20 </td>
+        <td>0x38 (10.0 to 1511); <br>
+        0x40 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterCoordinatedStates) (
+    COORDINATED_IDLE_STATES *;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x20 (10.0 to 1511); <br>
+        0x24 </td>
+        <td>0x40 (10.0 to 1511); <br>
+        0x48 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterVetoList) (
+    PREREGISTERED_VETO_LIST *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x24 (10.0 to 1511); <br>
+        0x28 </td>
+        <td>0x48 (10.0 to 1511); <br>
+        0x50 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RemoveVetoBias) 
+    VOID);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x28 (10.0 to 1511); <br>
+        0x2C </td>
+        <td>0x50 (10.0 to 1511); <br>
+        0x58 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*UpdateProcessorIdleVeto) (
+    PROCESSOR_IDLE_VETO *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x2C (10.0 to 1511); <br>
+        0x30 </td>
+        <td>0x58 (10.0 to 1511); <br>
+        0x60 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*UpdatePlatformIdleVeto) (
+    PLATFORM_IDLE_VETO *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x30 (10.0 to 1511); <br>
+        0x34 </td>
+        <td>0x60 (10.0 to 1511); <br>
+        0x68 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterPerfStatesHv) (
+    PROCESSOR_PERF_STATES_HV const *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x34 (10.0 to 1511); <br>
+        0x38 </td>
+        <td>0x68 (10.0 to 1511); <br>
+        0x70 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterPerfCapHv) (
+    PROCESSOR_PERF_CAP_HV const *;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x38 (10.0 to 1511); <br>
+        0x3C </td>
+        <td>0x70 (10.0 to 1511); <br>
+        0x78 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterIdleStatesHv) (
+    PROCESSOR_IDLE_STATES_HV const *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x3C (10.0 to 1511); <br>
+        0x40 </td>
+        <td>0x78 (10.0 to 1511); <br>
+        0x80 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RegisterPerfStatesCountersHv) (
+    PROCESSOR_PERF_STATES_COUNTERS_HV const *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40 (10.0 to 1511); <br>
+        0x44 </td>
+        <td>0x80 (10.0 to 1511); <br>
+        0x88 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*SetProcessorPep) (
+    PVOID);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x44 (10.0 to 1511); <br>
+        0x48 </td>
+        <td>0x88 (10.0 to 1511); <br>
+        0x90 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*ParkPereferenceNotification) (
+    PVOID, 
+    PEP_PPM_PARK_SELECTION_V2 *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x48 (10.0 to 1511); <br>
+        0x4C </td>
+        <td>0x90 (10.0 to 1511); <br>
+        0x98 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*ParkMaskNotification) (
+    PVOID, 
+    PEP_PPM_PARK_MASK *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x4C (10.0 to 1511); <br>
+        0x50 </td>
+        <td>0x98 (10.0 to 1511); <br>
+        0xA0 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*IdleSelectNotification) (
+    PVOID, 
+    PEP_PPM_IDLE_SELECT *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x50 (10.0 to 1511); <br>
+        0x54 </td>
+        <td>0xA0 (10.0 to 1511); <br>
+        0xA8 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*QueryPlatformStateNotification) (
+    PVOID, 
+    PEP_PPM_QUERY_PLATFORM_STATE *, 
+    BOOLEAN);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x54 (10.0 to 1511); <br>
+        0x58 </td>
+        <td>0xA8 (10.0 to 1511); <br>
+        0xB0 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*QueryCoordinatedDependencyNotification) (
+    PVOID, 
+    PEP_PPM_QUERY_COORDINATED_DEPENDENCY *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x5C </td>
+        <td>0xB8 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*NotifyLpiCoordinatedStatesNotification) (
+    PVOID, 
+    PEP_PPM_LPI_COORDINATED_STATES *;</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x58 (10.0 to 1511); <br>
+        0x5C (1607); <br>
+        0x60 </td>
+        <td>0xB0 (10.0 to 1511); <br>
+        0xB8 (1607); <br>
+        0xC0 </td>
+        <td>
+        <pre class="source">VOID 
+(*RegisterEnergyEstimation) (
+    PROCESSOR_COMPUTE_ENERGY_ROUTINE *, 
+    PROCESSOR_SNAP_ENERGYCOUNTERS_ROUTINE *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x64 </td>
+        <td>0xC8 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*RequestProcessorHalt) (
+    ULONG, 
+    PVOID, 
+    PROCESSOR_HALT_ROUTINE *);</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x68 </td>
+        <td>0xD0 </td>
+        <td>
+        <pre class="source">UCHAR 
+(*GetHgsEnablementStatus) 
+    (VOID);</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x6C </td>
+        <td>0xD8 </td>
+        <td>
+        <pre class="source">VOID 
+(*DispatchHgsInterrupt) (
+    VOID);</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0xE0 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*ReadHiddenProcessorMsr) (
+    ULONG, 
+    ULONG, 
+    ULONG64 *;</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0xE8 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*WriteHiddenProcessorMsr) (
+    ULONG, 
+    ULONG, 
+    ULONG64, 
+    ULONG64);</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0xF0 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*ReadHiddenProcessorIoPort) (
+    ULONG, 
+    USHORT, 
+    USHORT, 
+    ULONG *;</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0xF8 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*WriteHiddenProcessorIoPort) (
+    ULONG, 
+    USHORT, 
+    USHORT, 
+    ULONG, 
+    ULONG);</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>0x70 </td>
+        <td>0x0100 </td>
+        <td>
+        <pre class="source">ULONG 
+(*QueryPackageId) (
+    ULONG);</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+      <tr>
+        <td>0x74 </td>
+        <td>0x0108 </td>
+        <td>
+        <pre class="source">ULONG 
+(*QueryPackageProcessorCount) (
+    ULONG);</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">InterfaceVersion</span> is presumaby intended to distinguish 
+  not just different layouts of the structure but different behaviour by the routines 
+  that are pointed to by the other members. PPM drivers check that the table they 
+  receive has the <span class="member">InterfaceVersion</span> they expect. Except 
+  for a slow start, successive versions of the kernel reliably increase their tables’
+  <span class="member">InterfaceVersion</span>: </p>
+  <ul>
+    <li>42 for 10.0 to 1511; </li>
+    <li>43 for 1607; </li>
+    <li>48 for 1703; </li>
+    <li>50 for 1709; </li>
+    <li>53 for 1803; </li>
+    <li>57 for 1809; </li>
+    <li>61 for 1903; </li>
+    <li>62 for 2004. </li>
+  </ul>
+  <p>All the other members are function pointers. That Microsoft defines types for 
+  these function pointers is known for the two versions for which Microsoft has 
+  published NTOSP.H. The naming has an obvious convention to it, such that
+  <span class="keyword">typedef</span> names might be guessed with high confidence 
+  for members that are added in later versions. Even so, I prefer to presents the 
+  arguments with the members, except in the few cases where the arguments are themselves 
+  function pointers. </p>
+  <p>The <span class="member">RegisterEnergyEstimation</span> member points to a 
+  routine whose two arguments are both function pointers. The first argument changed 
+  type between the original Windows 10 and Version 1511. It is </p>
+  <pre class="source">typedef 
+VOID 
+FASTCALL 
+PROCESSOR_COMPUTE_ENERGY_ROUTINE (
+    ULONG, 
+    ULONG64, 
+    ULONG64, 
+    ULONG, 
+    ULONG64 *);</pre>
+  <p>in Version 1511 and higher, but the original Windows 10 has the very different
+  </p>
+  <pre class="source">typedef 
+VOID 
+FASTCALL 
+PROCESSOR_COMPUTE_ENERGY_ROUTINE (
+    ULONG64 *, 
+    ULONG64 *, 
+    ULONG *, 
+    ULONG64 *);</pre>
+  <p>Note that this variation is not signalled by a change of either the
+  <span class="keyword">typedef</span> name or the <span class="member">InterfaceVersion</span>. 
+  The second argument’s type is </p>
+  <pre class="source">typedef 
+VOID 
+FASTCALL 
+PROCESSOR_SNAP_ENERGYCOUNTERS_ROUTINE (
+    ULONG, 
+    BOOLEAN, 
+    BOOLEAN);</pre>
+  <p>Version 1809 added another member, <span class="member">RequestProcessorHalt</span>, 
+  for which the address routine itself takes the address of a routine among its 
+  arguments. Microsoft’s name for this routine’s type is well-known from WDM.H, 
+  starting with Windows 8: </p>
+  <pre class="source">typedef 
+NTSTATUS 
+PROCESSOR_HALT_ROUTINE (
+    PVOID);</pre>
+  <p>The <span class="member">RequestProcessorHalt</span> member is distincitive 
+  for having no known implementation. Both the x86 and x64 kernels in versions 1809 
+  to 2004 inclusive and higher have <span class="constant">NULL</span> for this 
+  member. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 8th
+    <a href="../../../../../../../new/22/10.htm">November 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5890" -->
+  </div>
+</div>
+
+</body>
+
+</html>

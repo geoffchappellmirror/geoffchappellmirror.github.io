@@ -1,0 +1,176 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MMPFNLIST</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>MMPFNLIST </h1>
+  <p>For each physical page that’s in general use, the kernel keeps one
+  <span class="struct"><a href="../mi/mmpfn/index.htm">MMPFN</a></span> structure. 
+  For each physical page that’s not in active use (or at least in transition to 
+  or from active use), the <span class="struct">MMPFN</span> goes into one or another 
+  list. The <span class="struct">MMPFNLIST</span> structure (formally
+  <span class="struct">_MMPFNLIST</span>) is the list head. </p>
+  <p>Before Windows 10, the list heads are internal variables in the kernel’s data. 
+  In Windows 10 and higher, with physical memory in separate partitions, the list 
+  heads are the <span class="member">PageLists</span> and <span class="member">Vp</span> 
+  members of an <span class="struct">
+  <a href="../mi/mi_partition.htm">MI_PARTITION</a></span> structure.
+  </p>
+  <p>The <span class="struct">MMPFNLIST</span> structure is 0x14 or 0x28 bytes in 
+  32-bit and 64-bit Windows 10, respectively, since its one change for Windows 7. 
+  In earlier versions it is 0x10 or 0x20 bytes. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">ULONG_PTR Total;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source"><a href="mmlists.htm">MMLISTS</a> ListName;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>0x10 </td>
+        <td>
+        <pre class="source">PFN_NUMBER Flink;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x0C </td>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">PFN_NUMBER Blink;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">ULONG_PTR Lock;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">Total</span> is of pages in the list. The
+  <span class="member">ListName</span> has long been only a rough classification 
+  of the list’s purpose. In early versions, the kernel has six lists among its internal 
+  variables, each with a unique <span class="member">ListName</span>. Only in version 
+  3.10 does each list have its own <span class="member">ListName</span>. Version 
+  5.0 added a second list that shares <span class="constant">StandbyPageList</span> 
+  for its <span class="member">ListName</span>. Ever since, the
+  <span class="member">ListName</span> is arguably more a list type. </p>
+  <p>The kernel keeps all <span class="struct">MMPFN</span> structures in an array 
+  that is indexed by the Page Frame Number (PFN) of the corresponding pages of physical 
+  memory. For each page that’s in a list, the <span class="struct">MMPFN</span> 
+  has its <span class="member">Flink</span> and <span class="member">Blink</span> 
+  members set to the PFN of the next and previous page, respectively, or to a terminating 
+  value if the page is at the tail or head. The terminator varies with the version:
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>x86 </th>
+        <th>x64 </th>
+        <th>Version </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xFFFFFFFF </td>
+        <td>0xFFFFFFFF`FFFFFFFF </td>
+        <td>3.10 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>0x01FFFFFF </td>
+        <td>0x0000000F`FFFFFFFF </td>
+        <td>6.2 only </td>
+      </tr>
+      <tr>
+        <td>0x00FFFFFF </td>
+        <td>0x0000000F`FFFFFFFF </td>
+        <td>6.3 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This interpretation applies also to the <span class="member">Flink</span> and
+  <span class="member">Blink</span> in the <span class="struct">MMPFNLIST</span>. 
+  They are respectively the PFN of the first and last pages in the list, else they 
+  hold the terminating value. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 16th July 2016 but was not published 
+    until 26th <a href="../../../../../../../new/19/05.htm">May 2019</a>. It was 
+    last modified on 9th <a href="../../../../../../../new/22/07.htm">August 2022</a>.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4925" -->
+  </div>
+</div>
+
+</body>
+
+</html>

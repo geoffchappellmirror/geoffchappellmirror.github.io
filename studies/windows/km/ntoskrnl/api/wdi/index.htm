@@ -1,0 +1,141 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Windows Diagnostics Infrastructure (WDI)</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<h1>Windows Diagnostics Infrastructure </h1>
+<p>The Windows Diagnostics Infrastructure (WDI) is new to Windows Vista. Though 
+it is called an infrastructure, it is actually built over another feature, Event 
+Tracing for Windows (ETW). In its use of interfaces, formally defined even if undocumented, 
+it does nothing that could not be coded by non-Microsoft programmers using the kernel-mode 
+ETW functions or the corresponding user-mode functions in ADVAPI32 or NTDLL. Yet 
+much WDI functionality is coded in the kernel itself, which is not something that 
+non-Microsoft programmers could arrange for an alternative package of diagnostics 
+tools. </p>
+<p>The WDI is almost entirely undocumented. An MSDN Library CD dated January 2007 
+(and thus contemporaneous with the WDI’s appearance in Windows Vista) has just three 
+mentions of the thing. Two are nothing but talk of other features that are said 
+to be “extensions” of the WDI. The third talks of WDI “context events” and “diagnostic 
+events” and again has the feel of expecting the reader to know about the WDI from 
+elsewhere. I have written before that much of the programming details that Microsoft 
+eventually publishes in the MSDN Library and in various development kits is written 
+primarily for Microsoft’s own programmers but that some information that Microsoft 
+never really intended to disclose slips through the editing when the material is 
+published for others. The WDI may be one of those features. Its existence is documented 
+in public resources, albeit scarcely, but details, whether for programming or usage, 
+are non-existent. </p>
+<p>Though the kernel exports no functions specifically concerned with WDI, the undocumented 
+ETW functions <span class="function"><a href="wdiapi/start.htm">EtwWriteStartScenario</a></span> and
+<span class="function"><a href="wdiapi/end.htm">EtwWriteEndScenario</a></span> are variations of the documented
+<span class="function">EtwWrite</span> to support WDI and two cases of the undocumented
+<span class="function"><a href="../etw/traceapi/control/index.htm">NtTraceControl</a></span> function certainly 
+are specific to WDI. 
+Moreover, thirty functions that are very specific to WDI are exported by the user-mode 
+DLL, named WDI.DLL, that implements the “Diagnostic Service Host” and “Diagnostic 
+System Host” services. None of these are even declared in any header from the Windows 
+SDK or Windows Driver Kit (WDK). This would not matter if WDI.DLL is just the core 
+module in a suite of diagnostic tools that Microsoft supplies with Windows but which 
+doesn’t have any system interactions that aren’t available to clever non-Microsoft 
+programmers writing alternative diagnostic software. Those WDI.DLL functions would 
+then just be internal to those tools. If some enterprising programmers wanted to 
+write their own tools and try selling them in what is surely by now a thin market 
+for low-level utility software, then they too would likely have DLLs and exported 
+functions, and nobody would think that the interfaces between their components must 
+be published. But WDI is not just one of potentially any number of diagnostic suites: 
+it has that special support from the kernel. Either those WDI functions should be 
+documented so that non-Microsoft programmers can write WDI extensions or the kernel 
+facilities that WDI depends on should all be documented so that non-Microsoft programmers 
+can write whole diagnostic suites that are equally capable (and might even be superior).
+</p>
+<p>Neither are things any better for users, whether of ordinary facility with Windows 
+or advanced. The WDI is highly configurable, but the relevant registry settings 
+seem also to be completely undocumented, as if Microsoft means that configuration 
+should not be in the hands of customers. Fine perhaps, but since the point to WDI 
+is to collect, store and even transmit information about what the computer has been 
+doing, at least as seen by Windows, some might think that the process would better 
+be transparent. Though I don’t mean to suggest that WDI collects information that 
+anyone should worry about for their privacy, I do note that governments have established 
+very well by now that their only means of verifying what software does is 
+to trust the manufacturer’s lawyers. This article and its attendant pages exist in part to demonstrate what detail is obtainable 
+from sufficiently expert examination of what software actually does when collecting 
+data. Of course, that such examination is possible doesn’t mean that our society 
+can rest easy in some belief that someone will do it. </p>
+<h2>Architecture </h2>
+<p>Central to the WDI is the notion of scenarios for logging events. A 
+<a href="sem.htm">Scenario 
+Event Mapper</a> (SEM) in the kernel loads the defined scenarios from the registry fairly 
+early during the system’s initialisation. To the SEM, a scenario comprises: </p>
+<ul>
+  <li>a start event; </li>
+  <li>any number of end events; </li>
+  <li>any number of event providers, here called context providers. </li>
+</ul>
+<p>To get a scenario started, an event provider, which need not be one of the context 
+providers, writes the start event using the special function
+<span class="function">EtwWriteStartScenario</span> in kernel mode or
+<span class="function">EventWriteStartScenario</span> in user mode. The SEM then 
+enables the context providers so that a configurable selection of their events are written to a special 
+WDI logger (see below). This logging continues until one of two things happens. 
+An event provider, again not necessarily one of the context providers, may write 
+one of the end events using the special function <span class="function">EtwWriteEndScenario</span> 
+or <span class="function">EventWriteEndScenario</span>, again in kernel mode and 
+user mode respectively. Alternatively, the scenario can be stopped by the SEM on 
+a timeout. </p>
+<p>The SEM has two dedicated autologger sessions, named DiagLog and WdiContextLog. 
+The main difference between the two, as loggers, is that DiagLog delivers events 
+direct to consumers (as a so-called real-time logger) but WdiContextLog writes through 
+a file. </p>
+<p>Events written to WdiContextLog are much more readily accessible for inspection 
+by the curious. Events written to DiagLog are consumed by the Diagnostic Policy 
+Service. This is implemented in DPS.DLL, running in a SVCHOST process using the 
+SYSTEM account. It creates an ALPC port which WDI.DLL, executing in other processes, 
+can read from to learn of diagnostic messages. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 14th November 2008 and was last modified 
+  on 31st <a href="../../../../../../new/18/12.htm">December 2018</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0818.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="55391" -->
+</div>
+
+</body>
+
+</html>

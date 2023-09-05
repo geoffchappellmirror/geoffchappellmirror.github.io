@@ -1,0 +1,1984 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KUSER_SHARED_DATA</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>KUSER_SHARED_DATA </h1>
+  <p>The <span class="struct">KUSER_SHARED_DATA</span> structure defines the layout 
+  of a data area that the kernel places at a pre-set address for sharing with user-mode 
+  software. The original intention seems to have been to enable user-mode software 
+  to get frequently needed global data, notably the time, without the overhead of 
+  calling kernel mode. </p>
+  <h2>Access </h2>
+  <p>Of course, kernel-mode and user-mode access is through different addresses, 
+  and the user-mode address provides only for reading the data, not writing. </p>
+  <p>In all Windows versions since the <span class="struct">KUSER_SHARED_DATA</span> 
+  structure’s introduction for version 3.50, the structure’s addresses are pre-set. 
+  Even the kernel begins its execution with a page set aside (by the loader) for 
+  this shared data. The kernel could move it, treating the initial address as just 
+  a detail of the kernel’s interface with the loader, but does not and might never 
+  be able to even in future versions because of considerations for backwards compatibility. 
+  Not only is the kernel-mode address published but its extant use has been encouraged 
+  through macros. Notably, though the x86 kernel exports <span class="function">
+  KeQueryTickCount</span>, <span class="function">KeQuerySystemTime</span> and
+  <span class="function">KeQueryInterruptTime</span> as functions, all of them are 
+  defined as macros for x64 drivers. Very many drivers in active use have this address 
+  in their code. </p>
+  <h3>Kernel Mode </h3>
+  <p>The pre-set address for access from kernel mode is defined symbolically in 
+  WDM.H as <span class="constant">KI_USER_SHARED_DATA</span>. It helps when debugging 
+  to remember that this is 0xFFDF0000 or 0xFFFFF780`00000000, respectively, in 32-bit 
+  and 64-bit Windows. Also defined is a convenient symbol,
+  <span class="constant">SharedUserData</span>, which casts this constant address 
+  to an appropriately typed pointer: </p>
+  <pre class="source">#define SharedUserData ((KUSER_SHARED_DATA * const) KI_USER_SHARED_DATA)</pre>
+  <h3>User Mode </h3>
+  <p>The read-only user-mode address for the shared data is 0x7FFE0000, both in 
+  32-bit and 64-bit Windows. The only formal definition among headers in the Windows 
+  Driver Kit (WDK) or the Software Development Kit (SDK) is in assembly language 
+  headers: KS386.INC from the WDK and KSAMD64.INC from the SDK both define
+  <span class="constant">MM_SHARED_USER_DATA_VA</span> for the user-mode address. 
+  That they also define <span class="constant">USER_SHARED_DATA</span> for the kernel-mode 
+  address suggests that they too are intended for kernel-mode programming, albeit 
+  of a sort that is at least aware of what address works for user-mode access.
+  </p>
+  <p>Formal support that is unambiguously for user-mode access is published only 
+  for the ARM processors. For good or bad, these processors are ordinarily ignored 
+  for this study of Windows. A C-language header named NTARM.H which Microsoft published 
+  in some editions of the WDK for Windows 10 defines both <span class="constant">
+  MM_SHARED_USER_DATA_VA</span> and <span class="constant">USER_SHARED_DATA</span> 
+  for the user-mode address. The latter is, like <span class="constant">SharedUserData</span>, 
+  convenient for being appropriately typed. Neither definition in this ARM-specific 
+  header is any immediate help for x86 and x64 programming. Headers that correspond 
+  to NTARM.H but for x86 and x64 programming seem never to have been published by 
+  Microsoft. They certainly do exist, though: private symbol files for such user-mode 
+  components as URLMON.DLL have been supplied in packages of public symbols since 
+  as long ago as Windows 8 and confirm the existence of headers named NTI386.H and 
+  NTAMD64.H. Inasmuch as they are the x86 and x64 correspondents to the published 
+  NTARM.H, it’s a sound inference that these too define <span class="constant">MM_SHARED_USER_DATA_VA</span> 
+  and <span class="constant">USER_SHARED_DATA</span> for the user-mode address.
+  </p>
+  <p>The much reduced exposure of the user-mode address is presumably because the 
+  intended use is by low-level modules of Microsoft’s to support API functions. 
+  All higher-level user-mode software, if well written, would call these API functions, 
+  certainly if documented, rather than inspect the <span class="struct">KUSER_SHARED_DATA</span> 
+  directly. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="struct">KUSER_SHARED_DATA</span> structure is documented, 
+  but only as a very recent development. Microsoft’s own date is 19th August 2019 
+  and I see no reason to disbelieve it. To say it’s documented is anyway a stretch. 
+  What was yet provided when I looked on 20th October 2020 was nothing but a skeleton: 
+  a C-language definition and a list of members with no explanation. Looking again 
+  two years later, on 14th October 2022, I see that Microsoft has since fleshed 
+  out the documentation by transferring comments from the published C-language definition: 
+  it’s better than nothing. </p>
+  <p>A C-language definition of the <span class="struct">KUSER_SHARED_DATA</span> 
+  has been available in NTDDK.H ever since the Device Driver Kit (DDK) for Windows 
+  2000. Even through the decades during which the structure was not documented, 
+  it was well-known to kernel-mode programmers and was arguably the best-known of 
+  all undocumented Windows structures, so much so that it might easily not have 
+  the attention of a website that attempts to document the undocumented. That it 
+  is tabulated here is because the programmer who debugs low-level Windows code 
+  (or, not so very different, the reverse engineer who studies Windows) is likely 
+  to encounter references to this structure’s members, typically with hard-coded 
+  addresses, and may face two problems. </p>
+  <p>One is that however well circulated may be a C-language definition, it is arguably 
+  not documentation even if supported by exhaustive commenting, which the
+  <span class="struct">KUSER_SHARED_DATA</span> definition is not. What documentation 
+  Microsoft has since published is no more—or, more recently, little more—than a 
+  placeholder, the sort of thing that is presented for no more effect than to have 
+  something to point to as new openness by a new Microsoft. What alternative I can 
+  offer must for years yet, if not forever, be scrappy for most of the structure. 
+  Still, it can’t help but help. </p>
+  <p>The bigger and perhaps more lasting reason is that the structure’s changes 
+  between (and even within) Windows versions are not tracked in Microsoft’s headers. 
+  Admittedly, the changes look to be close to inconsequential to higher-level user-mode 
+  code—indeed, to any code much above NTDLL. Close to inconsequential, however, 
+  is not ignorably inconsequential. The difference sometimes matters, and has even 
+  affected security. Cases exist where things have slipped into the
+  <span class="struct">KUSER_SHARED_DATA</span> but might better not have been exposed 
+  so easily to user-mode software and notably not to malware. </p>
+  <p>For instance, through many versions of 32-bit Windows before Windows 8, this 
+  structure’s involvement in user-mode calls to kernel mode had as a side-effect 
+  that all such calls go through one or two very predictable locations, thus greatly 
+  aiding software (sadly not limited just to malware) that seeks to intercept those 
+  calls by others or to make their own calls with reduced likelihood of detection. 
+  At first, this structure’s <span class="member">SystemCall</span> member held 
+  the code to call. Later, all calls to kernel mode go through the exported NTDLL 
+  functions <span class="function">KiFastSystemCall</span> and
+  <span class="function">KiIntSystemCall</span> after passing through
+  <span class="member">SystemCall</span> as a pointer. </p>
+  <p>Another example that was removed for Windows 8 is that the protectiveness of 
+  Address Space Layout Randomization (ASLR), as far as it concerned predicting the 
+  run-time addresses of known sites in NTDLL, was reduced by this structure’s
+  <span class="member">SystemDllNativeRelocation</span> and <span class="member">
+  SystemDllWowRelocation</span> members. </p>
+  <p>Examples such as these are pretty serious blunders, especially given the context 
+  that both came about as implementation details for features that were announced 
+  at the time as <span class="emphasis">increasing</span> security. However much 
+  oversight and even outright mistakes are inevitable in system software, some record 
+  is better kept for history. Or so I’ve argued throughout my career, and thus does 
+  documenting the <span class="struct">KUSER_SHARED_DATA</span> look compelling.
+  </p>
+  <h2>Layout </h2>
+  <p>Among relatively large structures, the <span class="struct">KUSER_SHARED_DATA</span> 
+  is highly unusual for having exactly the same layout in 32-bit and 64-bit Windows. 
+  This is because the one instance must be simultaneously accessible by both 32-bit 
+  and 64-bit code on 64-bit Windows, and it’s desired that 32-bit user-mode code 
+  can run unchanged on both 32-bit and 64-bit Windows. </p>
+  <p>Large tracts of the structure either do not change or barely change between 
+  Windows versions. Changes to the <span class="struct">KUSER_SHARED_DATA</span> 
+  have come mostly from growing at the end. Yet there have been changes within the 
+  structure, including to move members from one offset to another between builds, 
+  no matter that a comment in NTDDK.H says “The layout itself cannot change since 
+  this structure has been exported in ntddk, ntifs.h, and nthal.h for some time.” 
+  The reality is that the structure has changed enough that its presentation over 
+  a range of versions is certainly not simple! </p>
+  <p>The following sizes are known (with caveats that follow the table): </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Version </th>
+        <th>Size </th>
+      </tr>
+      <tr>
+        <td>3.50 </td>
+        <td>0x2C </td>
+      </tr>
+      <tr>
+        <td>3.51 </td>
+        <td>0x0238 </td>
+      </tr>
+      <tr>
+        <td>early 4.0 (before SP3) </td>
+        <td>0x02B4 </td>
+      </tr>
+      <tr>
+        <td>mid 4.0 (SP3) </td>
+        <td>0x02BC </td>
+      </tr>
+      <tr>
+        <td>late 4.0 (SP4 and higher) </td>
+        <td>0x02D4 </td>
+      </tr>
+      <tr>
+        <td>5.0 </td>
+        <td>0x02D8 </td>
+      </tr>
+      <tr>
+        <td>early 5.1 (before SP2) </td>
+        <td>0x0320 </td>
+      </tr>
+      <tr>
+        <td>late 5.1 (SP2 and higher) </td>
+        <td>0x0338 </td>
+      </tr>
+      <tr>
+        <td>early 5.2 (before SP1) </td>
+        <td>0x0330 </td>
+      </tr>
+      <tr>
+        <td>late 5.2 (SP1 and higher) </td>
+        <td>0x0378 </td>
+      </tr>
+      <tr>
+        <td>6.0 </td>
+        <td>0x03B8 </td>
+      </tr>
+      <tr>
+        <td>6.1 to 6.3 </td>
+        <td>0x05F0 </td>
+      </tr>
+      <tr>
+        <td>10.0 to 1903 </td>
+        <td>0x0708 </td>
+      </tr>
+      <tr>
+        <td>2004 </td>
+        <td>0x0720 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>These sizes, and the offsets, types and names in the tables that follow, are 
+  from published headers for Windows 2000 and higher, supported by type information 
+  from Microsoft’s public symbol files for either or both of the kernel and NTDLL 
+  for Windows 2000 SP3 and higher. An early form of this type information somehow 
+  found its way into two statically linked libraries that Microsoft published with 
+  the DDKs for Windows NT 3.51 and Windows NT 4.0. Otherwise, what’s known of Microsoft’s 
+  names and types for early versions is instead inferred from what use the NTOSKRNL, 
+  NTDLL, KERNEL32 and other binaries are seen to make of the shared data at its 
+  known addresses. For version 3.50, which predates the availability of type information, 
+  even the structure’s size is not known with certainty since memory for the
+  <span class="struct">KUSER_SHARED_DATA</span> is allocated (and zeroed) by the 
+  loader as a whole page, i.e., with no record in the code to show how much of the 
+  page is intended for the structure. </p>
+  <h3>Original (Windows NT 3.50) </h3>
+  <p>Some variations are as simple as a change of type or name, as shown by the 
+  structure’s very first member’s change from <span class="member">TickCountLow</span> 
+  to <span class="member">TickCountLowDeprecated</span>. </p>
+  <p>The ordinary-seeming Win32 API function named <span class="function">GetTickCount</span> 
+  used to be implemented as simply as a 64-bit multiplication of the volatile 32-bit
+  <span class="member">TickCountLow</span> (being a copy of the low 32 bits of the 
+  kernel’s 64-bit tick count) by the constant <span class="member">TickCountMultiplier</span> 
+  and then a shift right by 24 bits as a speedy way to convert from kernel-mode 
+  tick counts in whatever unit of measurement the kernel uses to user-mode tick 
+  counts in milliseconds. </p>
+  <p>That the user-mode tick count can be read by executing a handful of instructions 
+  in user mode without the expense of transitions to and from kernel mode is perhaps 
+  the original motivation of the shared data area. However, using only the low 32 
+  bits of the kernel’s tick count means that the user-mode tick count in milliseconds 
+  resets to zero not only when the 32-bit result of the conversion wraps around 
+  every 49 days or so but also whenever the input to the conversion, i.e., the low 
+  32 bits of the kernel’s count, wraps around. This second wrap-around is a whole 
+  extra problem, even if its real-world occurrence is made very much less likely 
+  by needing to leave Windows to run for approximately 2 years. </p>
+  <p>The one wrap around is notorious but the other has hardly ever been mentioned, 
+  though it can’t have been unknown. To fix it, which did get Microsoft’s attention 
+  after nearly a decade, the <span class="struct">KUSER_SHARED_DATA</span> needed 
+  the whole 64 bits of the kernel’s count. Widening the 32-bit
+  <span class="member">TickCountLow</span> to 64 bits would have incompatibly shifted 
+  everything that follows. Instead, a new 64-bit <span class="member">TickCount</span> 
+  got defined at what was then the end of the structure—see offset 0x0320—and the 
+  old 32-bit <span class="member">TickCountLow</span> became unused space. Thus 
+  did <span class="member">TickCountLow</span> become <span class="member">TickCountLowDeprecated</span>:
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x00 </td>
+        <td>
+        <pre class="source">ULONG volatile TickCountLow;</pre>
+        </td>
+        <td>3.50 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG TickCountLowDeprecated;</pre>
+        </td>
+        <td>5.2 and higher </td>
+        <td>truly not used </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>
+        <pre class="source">ULONG TickCountMultiplier;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">KSYSTEM_TIME volatile InterruptTime;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14 </td>
+        <td>
+        <pre class="source">KSYSTEM_TIME volatile SystemTime;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">KSYSTEM_TIME volatile TimeZoneBias;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>last member in 3.50 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>It’s certainly no accident that the original <span class="struct">KUSER_SHARED_DATA</span> 
+  members all have something to do with time. Getting the time efficiently from 
+  user mode seems to have exercised Microsoft more than a little in the very early 
+  years of Windows. Concurrently with introducing the <span class="struct">KUSER_SHARED_DATA</span> 
+  for direct access to the kernel-mode tick count, as copied to
+  <span class="member">TickCountLow</span>, version 3.50 also dedicated an interrupt, 
+  number 0x2A, for getting the user-mode tick count more efficiently than does
+  <span class="function">NtGetTickCount</span>—still by calling the kernel but with 
+  much less overhead than going through interrupt 0x2E (which handles the generality 
+  of system calls, of which <span class="function">NtGetTickCount</span> is just 
+  one). Curiously, though some of the other dedicated interrupt numbers from early 
+  versions have been repurposed, interrupt 0x2A survives in the x86 kernel even 
+  to Windows 10, yet I never have known of any user-mode caller in any version.
+  </p>
+  <h4>TickCount </h4>
+  <p>Whether the <span class="struct">KUSER_SHARED_DATA</span> has the whole 64-bit
+  <span class="member">TickCount</span> or just the 32-bit <span class="member">
+  TickCountLow</span>, the <span class="definition">tick</span> that’s counted is 
+  not actually an interrupt from any timer device. It is instead an
+  <span class="emphasis">abstraction</span> of a timer interrupt. If only to me, 
+  programmers in general seem never to have taken in this distinction which may 
+  be long past due a few words of explanation. </p>
+  <p>To be aware of the passing of time without having to keep asking the time, 
+  the kernel (through the HAL) programs a timer device to interrupt periodically. 
+  The period should be small enough to meet expectations of precision, both by the 
+  kernel and by software in general, but not so small that overall responsiveness 
+  is degraded by the overhead of frequent interrupts. The period is allowed to vary, 
+  even at the direction of user-mode software that would like its times in milliseconds 
+  to be taken as exact. The minimum and maximum periods that are possible for the 
+  chosen clock are learnt from the HAL at initialisation and are then constant for 
+  all the rest of the kernel’s execution. No matter how the kernel varies the period, 
+  no matter what the frequency of actual interrupts, the kernel maintains the
+  <span class="member">TickCount</span> <span class="emphasis">as if</span> interrupts 
+  recur with the maximum period. </p>
+  <p>Since Windows 8.1, the kernel constrains the maximum period to be no larger 
+  than one sixty-fourth of a second, i.e., 15.625ms, which has become the typical 
+  length of a timer tick in ordinary experience—so much so that some programmers 
+  (or non-programming commentators) think it must be so. </p>
+  <h4>TickCountMultiplier </h4>
+  <p>As what was in version 3.50 the arguably best balance of efficiency between 
+  kernel-mode handling of timer interrupts and user-mode requests for the tick count 
+  in milliseconds, the <span class="member">TickCountLow</span> and in later versions 
+  the 64-bit <span class="member">TickCount</span> are raw counts of the kernel-mode 
+  ticks. Conversion to milliseconds is done only when someone wants it, as from 
+  calling <span class="function">GetTickCount</span> or <span class="function">GetTickCount64</span>.
+  </p>
+  <p>The conversion is to multiply the raw tick count by the maximum period, now 
+  understood as the length of a tick in units of 100ns, and divide by 10,000. So 
+  that the <span class="function">GetTickCount</span> functions can be faster for 
+  avoiding the division, the kernel precomputes a multiplier and puts it in the
+  <span class="struct">KUSER_SHARED_DATA</span> too. This (constant)
+  <span class="member">TickCountMultiplier</span> is the maximum period, zero-extended 
+  to 64 bits, shifted left by 24 bits, and then divided by 10,000. Each conversion 
+  of the <span class="member">TickCount</span> to milliseconds is then a multiplication 
+  by <span class="member">TickCountMultiplier</span> and a shift right by 24 bits.
+  </p>
+  <p>Astonishingly, this straightforward precomputation of the multiplier which 
+  many would expect is done in one C statement is instead done as its own routine 
+  of most likely ten C statements. This routine, named
+  <span class="internal routine">ExComputeTickCountMultiplier</span>, looks to have 
+  been retained without change for something like 30 years. I nominate it as
+  <a href="oldestunchangedcode.htm">The Oldest Unchanged Kernel Code</a>. Moreover, 
+  it is not dead code: it executes every time Windows starts. </p>
+  <p>Not that I mean to recommend it for programming, but from knowing how the
+  <span class="member">TickCountMultiplier</span> is computed you can learn the 
+  maximum period without calling the kernel: multiply the <span class="member">TickCountMultiplier</span> 
+  by 10,000, round up to the next multiple of 2 to the power of 24, and shift right 
+  by 24 bits. For instance, the commonly observed multipliers 0x0FA00000 and 0x0F99A027 
+  correspond respectively to maximum periods of 156,250 and 156,001 (remember, in 
+  units of 100ns). </p>
+  <h4>InterruptTime and SystemTime </h4>
+  <p>This notion of the timer tick as an idealised interrupt with a period that’s 
+  constant through all of the kernel’s execution dates from version 3.50. It developed 
+  naturally enough from version 3.10, which has no flexibility for the timer interrupt’s 
+  period: the timer tick in version 3.10 truly is the interrupt. If modern documentation 
+  seems not to distinguish the timer tick from the actual timer interrupt, then 
+  at least some explanation is that there once was nothing to distinguish. See, 
+  for instance, that the headline text for the kernel-mode
+  <span class="function">KeQueryTickCount</span> function even today, 20th October 
+  2020, reads “maintains a count of the interval timer interrupts that have occurred 
+  since the system was booted”. This description is exactly unchanged, word for 
+  word, since the function’s documentation in the DDK for Windows NT 3.1 in 1993, 
+  when it was correct. To unpick this, I can’t think of a better way than to follow 
+  the history. </p>
+  <p>In version 3.10, the kernel keeps a tick count and a system time as internal 
+  variables. The tick count starts at zero and literally is just a count of interrupts, 
+  starting from whenever it was during the kernel’s initialisation that whatever 
+  serves as the timer started interrupting. The system time is intended to relate 
+  to the outside world, as the time since the start of 1601 in units of 100ns. Its 
+  starting value is learnt from the HAL during the kernel’s initialisation, but 
+  it can then be changed through interfaces, including from user mode with sufficient 
+  privilege. The timer interrupts keep recurring with a constant period. Each increases 
+  the tick count by 1 and the system time by the period in units of 100ns. </p>
+  <p>In version 3.50, the kernel still keeps the tick count as a variable in its 
+  own data, though now exported (as <span class="variable">KeTickCount</span>) and 
+  widened (not just to 64 bits but extended into a <span class="struct">KSYSTEM_TIME</span> 
+  structure). What’s new for the tick count is that the kernel also maintains a 
+  copy of the low 32 bits as <span class="member">TickCountLow</span> in the
+  <span class="struct">KUSER_SHARED_DATA</span> for easy access from user mode. 
+  The system time in version 3.50 is no longer an internal variable in the kernel. 
+  Instead, the kernel keeps an interrupt time and a system time in the
+  <span class="struct">KUSER_SHARED_DATA</span> as <span class="member">InterruptTime</span> 
+  and <span class="member">SystemTime</span>. The interrupt time is new. It’s like 
+  the tick count in that it starts as zero but is like the system time in having 
+  100ns as its unit of measurement. Also new is that the time between interrupts 
+  can vary. They are still periodic but the period can be reprogrammed between a 
+  minimum and maximum which are constant. Each interrupt increases the
+  <span class="member">InterruptTime</span> by the current period in units of 100ns. 
+  If on an interrupt’s occurrence, the kernel sees that an idealised interrupt with 
+  the maximum period would have occurred since the last actual interrupt, then it 
+  increases the <span class="member">TickCount</span> by 1 and the
+  <span class="member">SystemTime</span> by the maximum period in units of 100ns.
+  </p>
+  <p>The scheme has been elaborated through the decades, but as far as concerns 
+  these first few members of the <span class="struct">KUSER_SHARED_DATA</span> the 
+  essence from the early history still holds. The <span class="member">TickCount</span> 
+  and <span class="member">InterruptTime</span> start from zero during the kernel’s 
+  initialisation. The <span class="member">InterruptTime</span> and the
+  <span class="member">SystemTime</span> are in units of 100ns. The
+  <span class="member">InterruptTime</span> is the kernel’s most recent notion of 
+  time as learnt from actual interrupts. The <span class="member">TickCount</span> 
+  and <span class="member">SystemTime</span> are maintained on the actual interrupts 
+  but the <span class="member">TickCount</span> and, before Windows Vista, the
+  <span class="member">SystemTime</span> are updated only <span class="emphasis">
+  as if</span> interrupts have the maximum period. </p>
+  <p>Although what’s wanted of the <span class="member">TickCount</span>,
+  <span class="member">InterruptTime</span> and <span class="member">SystemTime</span> 
+  is 64 bits each, they are stored as 12-byte <span class="struct">KSYSTEM_TIME</span> 
+  structures. This is an x86 consideration, but it applies also to the x64 kernel 
+  through its support for user-mode software that executes the x86 instruction set. 
+  The x86 cannot read or write 64 bits in one instruction without a
+  <span class="instruction">lock</span> prefix, which would better be avoided, and 
+  anyway the instruction (<span class="instruction">cmpxchg8b</span>) that allows 
+  this was not even available to the earliest versions. From the start, then, an 
+  efficient defence is needed against intermingled reads and writes. The defence 
+  can be highly specialised because of the tight control of the reading and writing. 
+  Only the kernel will ever write these members. The readers are more varied but 
+  are few and are ideally written only by Microsoft. Most importantly, the nature 
+  of the writes is that the high dword changes much less frequently than the low. 
+  For the members that ordinarily only ever increase as a time measured in units 
+  of 100ns, the high dword changes a little less than every 7 minutes and its old 
+  values can never recur in tens of thousands of years. The only change that needs 
+  defence is of the high dword. The design of the <span class="struct">KSYSTEM_TIME</span> 
+  is that the 64-bit value is followed by a duplicate of its high part. The kernel 
+  always writes the second high part and only then the usual low and high parts. 
+  Except for the kernel itself when it knows it cannot be interrupted, readers of 
+  the 64-bit value follow by reading the second high part and checking for equality 
+  with the first: if they differ, the reader knows to retry. </p>
+  <p>In practice, the reading is done only by Microsoft’s own low-level components 
+  which expose the results through interfaces. The function that well-behaved kernel-mode 
+  software calls for reading the <span class="member">SystemTime</span> is
+  <span class="function">KeQuerySystemTime</span>. Curiously, no equivalent was 
+  provided for the <span class="member">InterruptTime</span> until the version 5.0 
+  kernel exports <span class="function">KeQueryInterruptTime</span>. </p>
+  <p>The similarly direct user-mode interface for readng 64 bits of
+  <span class="member">SystemTime</span> is <span class="function">GetSystemTimeAsFileTime</span>, 
+  which is exported from KERNEL32.DLL in version 3.51 and higher. Less direct but 
+  older is <span class="function">GetSystemTime</span>, which reads the
+  <span class="member">SystemTime</span> but repackages it into a
+  <span class="struct">SYSTEMTIME</span> structure. User-mode exposure of the
+  <span class="member">InterruptTime</span> through a documented function had to 
+  wait for <span class="function">QueryInterruptTime</span> in version 10.0. The 
+  WINMM function <span class="function">timeGetTime</span> reads the
+  <span class="member">InterruptTime</span> in version 3.50 and higher, but it does 
+  not return all 64 bits: it divides by 10,000 to report only whole milliseconds.
+  </p>
+  <h4>TimeZoneBias </h4>
+  <p>The real-world time described by the <span class="member">SystemTime</span> 
+  is what was known in my childhood as Greenwich Mean Time (GMT) but was even then 
+  standardised as Coordinated Universal Time (UTC). Though it sometimes seems that 
+  American programmers, if not Americans generally, give little thought to a world 
+  that mostly writes the date differently, they do all know that their time of day 
+  is not that of a celebrated naval observatory not far outside London. What computer 
+  users everywhere want almost always is their own local time. </p>
+  <p>The <span class="member">TimeZoneBias</span> is what must be subtracted from 
+  the system time to produce local time. The kernel learns it from the registry 
+  initially but it can be changed through interfaces, including from user mode. 
+  Though the bias is only ever specified as a whole number of minutes, the kernel 
+  sets it into the <span class="struct">KUSER_SHARED_DATA</span> as a number of 
+  100ns units so that the subtraction from <span class="member">SystemTime</span> 
+  is straightforward. </p>
+  <p>As with the <span class="member">TickCount</span>, but unlike the
+  <span class="member">InterruptTime</span> and <span class="member">SystemTime</span>, 
+  the <span class="member">TimeZoneBias</span> in the <span class="struct">KUSER_SHARED_DATA</span> 
+  is just for user-mode access. It is a copy of a variable in the kernel’s own data. 
+  Kernel functions that work with the bias use the internal variable. No user-mode 
+  functions read it just to reveal it, only to use it for a subtraction or addition 
+  that converts to or from local time. </p>
+  <p>A possibly understated implication of the API functions’ dependence on the
+  <span class="member">TimeZoneBias</span> in the <span class="struct">KUSER_SHARED_DATA</span> 
+  for converting to and from local time is that local time is global for all processes.
+  </p>
+  <h3>Appended For Windows NT 3.51 </h3>
+  <p>Microsoft’s next choice of data to expose to user mode at fixed addresses gives 
+  our first example of <span class="struct">KUSER_SHARED_DATA</span> members that 
+  still have this exposure despite losing their known user-mode use: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x2C </td>
+        <td>
+        <pre class="source">USHORT ImageNumberLow;</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2E </td>
+        <td>
+        <pre class="source">USHORT ImageNumberHigh;</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x30 </td>
+        <td>
+        <pre class="source">WCHAR NtSystemRoot [0x0104];</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>last member in 3.51 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The x86 kernel sets both <span class="member">ImageNumberLow</span> and
+  <span class="member">ImageNumberHigh</span> to <span class="constant">IMAGE_FILE_MACHINE_I386</span> 
+  (0x014C) and the x64 kernel sets both to <span class="constant">IMAGE_FILE_MACHINE_AMD64</span> 
+  (0x8664). At first, that was the whole of the kernel’s involvement with these 
+  members: they were set just to be read from user mode. When the KERNEL32 function
+  <span class="function">CreateProcessW</span> in versions 3.51 to 4.0 and then
+  <span class="function">CreateProcessInternalW</span> in versions 5.0 to 5.2 inspects 
+  the executable file that is proposed for the new process, it checks that the machine 
+  type from the file’s PE header lies between <span class="member">ImageNumberLow</span> 
+  and <span class="member">ImageNumberHigh</span> inclusive (or, in the wow64 builds 
+  only, is equal to <span class="constant">IMAGE_FILE_MACHINE_I386</span>). Version 
+  6.0 moved this checking from KERNEL32 to the kernel: no user-mode use of these 
+  members is known in this or any later version. </p>
+  <p>The <span class="member">NtSystemRoot</span> is the path to the Windows directory. 
+  Before version 3.51 it was discovered from user mode by calling the
+  <span class="function"><a href="../../../../api/ex/sysinfo/query.htm">NtQuerySystemInformation</a></span> 
+  function and giving <span class="constant">SystemPathInformation</span> (0x04) 
+  as the information class. That the path could instead be read from shared memory 
+  was sufficiently important that for two versions more, up to and including 5.0, 
+  calling the function to get the path got a break to the kernel-mode debugger to 
+  tell the programmer </p>
+  <pre class="output">EX: SystemPathInformation now available via SharedUserData</pre>
+  <h3>Appended For Windows NT 4.0 </h3>
+  <p>Two additions for version 4.0 were re-implemented by Windows 2000 as the
+  <span class="member">DriveMap</span> and <span class="member">DriveType</span> 
+  members of the <span class="struct"><a href="../../../ntos/ob/device_map.htm">
+  DEVICE_MAP</a></span> structure. Microsoft’s names for them in the
+  <span class="struct">KUSER_SHARED_DATA</span> are preserved for archaeologists 
+  as type information in the SHELL32 import library from the DDK for Windows NT 
+  4.0. The kernel sets a bit in the <span class="member">DosDeviceMap</span> to 
+  indicate that the corresponding DOS drive is defined (bit 0 for A, 1 for B, etc.) 
+  and that the drive type is set in the corresponding element of the
+  <span class="member">DosDeviceDriveType</span> array. In Windows NT 4.0, the KERNEL32 
+  function <span class="function">GetLogicalDrives</span> is nothing but a retrieval 
+  of the <span class="member">DosDeviceMap</span> from the <span class="struct">
+  KUSER_SHARED_DATA</span>. The drive types are the same as returned by the KERNEL32 
+  function <span class="function">GetDriveType</span>. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0238 </td>
+        <td>
+        <pre class="source">ULONG DosDeviceMap;</pre>
+        </td>
+        <td>4.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG MaxStackTraceDepth;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x023C </td>
+        <td>
+        <pre class="source">ULONG CryptoExponent;</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0240 </td>
+        <td>
+        <pre class="source">ULONG TimeZoneId;</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Learning a little about DOS drives without having to call the kernel may have 
+  seemed important once but it arguably was from the start an efficiency that was 
+  taken too far. For Windows 2000, with its introduction of local DOS devices, the 
+  intrinsically global nature of the <span class="struct">KUSER_SHARED_DATA</span> 
+  changed the <span class="member">DosDeviceMap</span> and <span class="member">
+  DosDeviceDriverType</span> from (extravagant) efficiency to impediment, and both 
+  were done away with. The <span class="member">DosDeviceMap</span> was soon repurposed 
+  (not that any use of its replacement, <span class="member">MaxStackTraceDepth</span>, 
+  is yet known for any version) but the relatively substantial space taken by the
+  <span class="member">DosDeviceDriveType</span> array was left as reserved. It 
+  then shifts and shrinks as portions get redefined for use in Windows Server 2003 
+  and then in Windows 8 until it disappears when fully used for Windows 10: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0244 </td>
+        <td>
+        <pre class="source">ULONG LargePageMinimum;</pre>
+        </td>
+        <td>5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0248 </td>
+        <td>
+        <pre class="source">ULONG AitSamplingValue;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously <span class="type">ULONG volatile</span> at 0x03C8 </td>
+      </tr>
+      <tr>
+        <td>0x024C </td>
+        <td>
+        <pre class="source">ULONG AppCompatFlag;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously <span class="type">ULONG volatile</span> at 0x03CC </td>
+      </tr>
+      <tr>
+        <td>0x0250 </td>
+        <td>
+        <pre class="source">ULONGLONG RNGSeedVersion;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0258 </td>
+        <td>
+        <pre class="source">ULONG GlobalValidationRunLevel;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x025C </td>
+        <td>
+        <pre class="source">LONG volatile TimeZoneBiasStamp;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="5">0x0244 (4.0 to 5.1); <br>
+        0x0248 (5.2 to 6.1); <br>
+        0x0260 </td>
+        <td>
+        <pre class="source">UCHAR DosDeviceDriveType [0x20];</pre>
+        </td>
+        <td>4.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved2 [8];</pre>
+        </td>
+        <td>5.0 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved2 [7];</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved2;</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG NtBuildNumber;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>By redefining what remained of <span class="member">Reserved2</span> as the
+  <span class="member">NtBuildNumber</span>, Windows 10 fleshed out an area (below) 
+  that version 4.0 added for easy, well-defined information about the kernel and 
+  the processors that it runs on. This addition for version 4.0 has been stable 
+  except that Windows 8 squeezed a new member into previously undefined space that 
+  had been left by an alignment requirement: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0264 </td>
+        <td>
+        <pre class="source">NT_PRODUCT_TYPE NtProductType;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0268 </td>
+        <td>
+        <pre class="source">BOOLEAN ProductTypeIsValid;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0269 </td>
+        <td>
+        <pre class="source">BOOLEAN Reserved0 [1];</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x026A </td>
+        <td>
+        <pre class="source">USHORT NativeProcessorArchitecture;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x026C </td>
+        <td>
+        <pre class="source">ULONG NtMajorVersion;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0270 </td>
+        <td>
+        <pre class="source">ULONG NtMinorVersion;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0274 </td>
+        <td>
+        <pre class="source">BOOLEAN <a href="processorfeatures.htm">ProcessorFeatures</a> [0x40];</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>last member in early 4.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">ProcessorFeatures</span> array supports the documented 
+  kernel-mode and user-mode functions <span class="function">
+  <a href="../../../../api/ex/sysinfo/isprocessorfeaturepresent.htm">ExIsProcessorFeaturePresent</a></span> 
+  and <span class="function">IsProcessorFeaturePresent</span>. These functions provide 
+  an abstracted report of which processor features the kernel has enabled for use.
+  </p>
+  <h4>Additions for Windows NT 4.0 Service Packs </h4>
+  <p>All known symbol files that define <span class="struct">KUSER_SHARED_DATA</span> 
+  have it that the members at offsets 0x02B4 and 0x02B8 are reserved. Perhaps they 
+  were at first named <span class="member">MmHighestUserAddress</span> and
+  <span class="member">MmSystemRangeStart</span>, these being the names of the kernel 
+  variables that they are initialised from. Both variables were introduced for Windows 
+  NT 4.0 SP3 in conjunction with the BOOT.INI switch, named <span class="switch">
+  /3GB</span>, that enabled the expansion of the user address space from 2GB to 
+  3GB. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x02B4 </td>
+        <td>
+        <pre class="source">ULONG Reserved1;</pre>
+        </td>
+        <td>mid 4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02B8 </td>
+        <td>
+        <pre class="source">ULONG Reserved3;</pre>
+        </td>
+        <td>mid 4.0 and higher </td>
+        <td>last member in mid 4.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>No use of <span class="member">Reserved1</span> to learn the highest user address 
+  is yet known. This boundary had long been discoverable from user mode as the
+  <span class="member">MaximumUserModeAddress</span> member of the
+  <span class="struct"><a href="../../ntexapi/system_basic_information.htm">SYSTEM_BASIC_INFORMATION</a></span>, 
+  such as filled in by the <span class="function">NtQuerySystemInformation</span> 
+  function when given <span class="constant">SystemBasicInformation</span> (0) as 
+  the information class. </p>
+  <p>In contrast, <span class="member">Reserved3</span> did see action. Where earlier 
+  versions of the KERNEL32 functions <span class="function">GlobalLock</span> and
+  <span class="function">LocalLock</span> reject a handle for being a system address, 
+  they compare against the hard-coded 0x80000000. In the applicable Windows NT 4.0 
+  service packs, they compare against <span class="member">Reserved3</span> instead. 
+  This didn’t last long, however. The lowest system address becomes discoverable 
+  through the <span class="constant">SystemRangeStartInformation</span> (0x32) information 
+  class in version 5.0. KERNEL32 changes to this in version 5.0 and no use of
+  <span class="member">Reserved3</span> to learn the lowest system address is known 
+  in any later version. It seems at least plausible that the name
+  <span class="member">Reserved3</span> actually dates from then. This has the merit 
+  of possibly explaining the numbering: <span class="member">Reserved1</span>, with 
+  no user-mode use, was named first; <span class="member">Reserved2</span> and
+  <span class="member">Reserved3</span> lost their user-mode use concurrently and 
+  were named in ascending order. </p>
+  <p>Reserved or not, both the preceding members are still set by the kernel at 
+  least until the 2004 release of Windows 10. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td>0x02BC </td>
+        <td>
+        <pre class="source">ULONG volatile TimeSlip;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02C0 </td>
+        <td>
+        <pre class="source">ALTERNATIVE_ARCHITECTURE_TYPE AlternativeArchitecture;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02C4 </td>
+        <td>
+        <pre class="source">ULONG AltArchitecturePad [1];</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG BootId;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02C8 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER SystemExpirationDate;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>No use is known of the preceding 0x14 bytes until Windows 2000. Space that 
+  the 8-byte alignment of <span class="member">SystemExpirationDate</span> leaves 
+  after <span class="member">AlternativeArchitecture</span> got formally defined 
+  as padding in Windows 7 and eventually got used in Windows 10. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x02BC (late 4.0) </td>
+        <td>unaccounted 0x14 bytes </td>
+        <td>late 4.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02D0 </td>
+        <td>
+        <pre class="source">ULONG SuiteMask;</pre>
+        </td>
+        <td>late 4.0 and higher </td>
+        <td>last member in late 4.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Late builds of Windows NT 4.0 set one byte of the <span class="member">SuiteMask</span>, 
+  presumably because not enough
+  <a href="../../../../api/ex/exinit/productsuite.htm">product suites</a> were yet 
+  supported for a second byte. The <span class="member">SuiteMask</span> was introduced 
+  concurrently with the <span class="function">GetVersionEx</span> function’s acceptance 
+  of an <span class="struct">OSVERSIONINFOEX</span> structure to fill. For that 
+  function filling that structure, the suite mask is the low 16 bits of 32 bits 
+  read from here. </p>
+  <h3>Appended For Windows 2000 </h3>
+  <p>Though all known C-language definitions of <span class="member">KdDebuggerEnabled</span> 
+  in NTDDK.H have it as a <span class="type">BOOLEAN</span>, it is in fact a pair 
+  of bit flags. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x02D4 </td>
+        <td>
+        <pre class="source">BOOLEAN KdDebuggerEnabled;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>last member in 5.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended For Windows XP and Windows Server 2003 </h3>
+  <p>The <span class="struct">KUSER_SHARED_DATA</span> ends at offset 0x02D8 in 
+  version 5.0 but the last three bytes are just for alignment and are undefined. 
+  One byte in this space then got defined by the builds of version 5.1 starting 
+  with Windows XP SP2 and of version 5.2 starting with Windows Server 2003 SP1. 
+  This <span class="member">NXSupportPolicy</span> can validly range only from 0x00 
+  to 0x03. Windows 8 redefined it as a two-bit field and squeezed some more into 
+  the byte (and formally defined the rest of the space left by alignment as reserved).
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02D5 </td>
+        <td>
+        <pre class="source">UCHAR NXSupportPolicy;</pre>
+        </td>
+        <td>late 5.1; <br>
+        late 5.2 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="mitigationpolicies.htm">MitigationPolicies</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02D6 </td>
+        <td>
+        <pre class="source">UCHAR Reserved6 [2];</pre>
+        </td>
+        <td>6.2 to 1809 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT CyclesPerYield;</pre>
+        </td>
+        <td>1903 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Actual extension of the <span class="struct">KUSER_SHARED_DATA</span> for version 
+  5.1 begins with a set of members that are retained forever: </p>
+  <table>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td>0x02D8 </td>
+        <td>
+        <pre class="source">ULONG volatile ActiveConsoleId;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02DC </td>
+        <td>
+        <pre class="source">ULONG volatile DismountCount;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02E0 </td>
+        <td>
+        <pre class="source">ULONG ComPlusPackage;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02E4 </td>
+        <td>
+        <pre class="source">ULONG LastSystemRITEventTickCount;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02E8 </td>
+        <td>
+        <pre class="source">ULONG NumberOfPhysicalPages;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02EC </td>
+        <td>
+        <pre class="source">BOOLEAN SafeBootMode;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">ComPlusPackage</span> member caches a registry value 
+  for the KERNEL32 function <span class="function">GetComPlusPackageInstallStatus</span> 
+  to return to whoever’s interested. The kernel reads it as
+  <span class="constant">REG_DWORD</span> data from the <span class="regvalue">Enable64Bit</span> 
+  value in <span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\.NETFramework</span>, 
+  defaulting to zero. Microsoft documents 1 as <span class="constant">COMPLUS_ENABLE_64BIT</span>.
+  </p>
+  <p>Version 6.1 found some use for more space left by alignment. By version 6.2 
+  this was not nearly enough for what was wanted, and so the space returned to being 
+  reserved: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02ED </td>
+        <td>
+        <pre class="source">union {
+    UCHAR TscQpcData;
+    struct {
+        UCHAR TscQpcEnabled : 1;        // 0x01
+        UCHAR TscQpcSpareFlag : 1;      // 0x02
+        UCHAR TscQpcShift : 6;          // 0xFC
+    };
+};</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next as 16-bit union at 0x03C6 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR VirtualizationFlags;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x02EE (6.1); <br>
+        0x02ED (6.2 to 1511); <br>
+        0x02EE </td>
+        <td>
+        <pre class="source">UCHAR TscQpcPad [2];</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Reserved12 [3];</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Reserved12 [2];</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Version 5.1 defines one <span class="type">ULONG</span> for
+  <span class="member">TraceLogging</span> but elaboration of support for tracing 
+  in version 6.0 made this member available for reuse: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02F0 </td>
+        <td>
+        <pre class="source">ULONG TraceLogging;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="shareddataflags.htm">SharedDataFlags</a>;
+    struct {
+        /*  slightly changing bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Version 6.1 continues its programme of formally defining padding that follows 
+  a member because of alignment: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td>0x02F4 </td>
+        <td>
+        <pre class="source">ULONG DataFlagsPad [1];</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Use of <a href="../../../../../cpu/sep.htm">the <span class="instruction">SYSENTER</span> 
+  and <span class="instruction">SYSEXIT</span> instructions</a> for getting to and 
+  from kernel mode first had version 5.1 set aside the 32-byte
+  <span class="member">SystemCall</span> (below) as space in which the kernel assembles 
+  code. A rethink when Windows XP SP2 and Windows Server 2003 SP1 introduced Data 
+  Execution Prevention (DEP) meant that much of this space returned to being unused:
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02F8 </td>
+        <td>
+        <pre class="source">ULONGLONG Fill0;</pre>
+        </td>
+        <td>early 5.1; <br>
+        early 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG TestRetInstruction;</pre>
+        </td>
+        <td>late 5.1; <br>
+        late 5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0300 </td>
+        <td>
+        <pre class="source">ULONGLONG SystemCall [4];</pre>
+        </td>
+        <td>early 5.1; <br>
+        early 5.2 </td>
+        <td>last member in early 5.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG SystemCall;</pre>
+        </td>
+        <td>late 5.1; <br>
+        late 5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LONGLONG QpcFrequency;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0304 (late 5.1, late 5.2 to 6.1) </td>
+        <td>
+        <pre class="source">ULONG SystemCallReturn;</pre>
+        </td>
+        <td>late 5.1; <br>
+        late 5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0308 </td>
+        <td>
+        <pre class="source">ULONG SystemCall;</pre>
+        </td>
+        <td>1511 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x030C </td>
+        <td>
+        <pre class="source">ULONG SystemCallPad0;</pre>
+        </td>
+        <td>1511 to 1903 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    ULONG AllFlags;
+    struct {
+        ULONG Win32Process : 1;
+        ULONG Sgx2Enclave : 1;
+        ULONG VbsBasicEnclave : 1;
+        ULONG SpareBits : 29;
+    };
+} UserCetAvailableEnvironments;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0308 (late 5.1, late 5.2 to 10.0); <br>
+        0x0310 </td>
+        <td>
+        <pre class="source">ULONGLONG SystemCallPad [3];</pre>
+        </td>
+        <td>late 5.1; <br>
+        late 5.2 to 10.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG SystemCallPad [2];</pre>
+        </td>
+        <td>1511 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The build of version 5.1 for Windows XP SP2 picks up the new
+  <span class="member">TickCount</span> that was added chronologically earlier for 
+  version 5.2 to fix a defect in the arithmetic of the <span class="function">GetTickCount</span> 
+  function. However, this new tick count at offset 0x0320 has no known use in any 
+  build of version 5.1. It appears to be in the definition, as known from the symbol 
+  files for Windows XP SP2 and SP3, only because it’s on the way to the
+  <span class="member">Cookie</span>, which was introduced jointly for Windows XP 
+  SP2 and the version 5.2 for Windows Server 2003 SP1 to support the
+  <span class="function">EncodeSystemPointer</span> and <span class="function">DecodeSystemPointer</span> 
+  functions. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0320 </td>
+        <td>
+        <pre class="source">union {
+    KSYSTEM_TIME volatile TickCount;
+    ULONG64 volatile TickCountQuad;
+};</pre>
+        </td>
+        <td>late 5.1 to 6.0 </td>
+        <td>last member in early 5.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    KSYSTEM_TIME volatile TickCount;
+    ULONG64 volatile TickCountQuad;
+    struct {
+        ULONG ReservedTickCountOverlay [3];
+        ULONG TickCountPad [1];
+    };
+};</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0330 </td>
+        <td>
+        <pre class="source">ULONG Cookie;</pre>
+        </td>
+        <td>late 5.1; <br>
+        late 5.2 and higher </td>
+        <td>last member in late 5.1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>No build of version 5.1 continues the <span class="struct">KUSER_SHARED_DATA</span> 
+  beyond the structure’s 8-byte alignment after the <span class="member">Cookie</span>. 
+  The version 5.2 from Windows Server 2003 SP1 uses the alignment space to start 
+  a relatively large array of <span class="member">Wow64SharedInformation</span>. 
+  When Windows Vista inserted the <span class="member">ConsoleSessionForegroundProcessId</span> 
+  ahead of that array, it created the first example of a defined member (i.e., not 
+  reserved or for padding) that changes offsets between versions. The
+  <span class="member">Wow64SharedInformation</span> was reassigned for Windows 
+  8, defining nine new members and a reservation. Windows 10 deleted two of the 
+  new members, thus creating two more examples of members that shift between versions, 
+  and started using the reservation. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0334 </td>
+        <td>
+        <pre class="source">ULONG CookiePad [1];</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0338 </td>
+        <td>
+        <pre class="source">LONGLONG ConsoleSessionForegroundProcessId;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0334 (late 5.2); <br>
+        0x0340 (6.0 to 6.1) </td>
+        <td>
+        <pre class="source">ULONG Wow64SharedInformation [0x10];</pre>
+        </td>
+        <td>late 5.2 to 6.1 </td>
+        <td>last member in late 5.2 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0340 </td>
+        <td>
+        <pre class="source">ULONGLONG volatile TimeUpdateSequence;</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG TimeUpdateLock;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0348 </td>
+        <td>
+        <pre class="source">ULONGLONG BaselineSystemTimeQpc;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0350 </td>
+        <td>
+        <pre class="source">ULONGLONG BaselineInterruptTimeQpc;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0358 </td>
+        <td>
+        <pre class="source">ULONGLONG QpcSystemTimeIncrement;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0360 </td>
+        <td>
+        <pre class="source">ULONGLONG QpcInterruptTimeIncrement;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0368 (6.2 to 6.3) </td>
+        <td>
+        <pre class="source">ULONG QpcSystemTimeIncrement32;</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x036C (6.2 to 6.3) </td>
+        <td>
+        <pre class="source">ULONG QpcInterruptTimeIncrement32;</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0370 (6.2 to 6.3); <br>
+        0x0368 </td>
+        <td>
+        <pre class="source">UCHAR QpcSystemTimeIncrementShift;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0371 (6.2 to 6.3); <br>
+        0x0369 </td>
+        <td>
+        <pre class="source">UCHAR QpcInterruptTimeIncrementShift;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x036A </td>
+        <td>
+        <pre class="source">USHORT UnparkedProcessorCount;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x036C </td>
+        <td>
+        <pre class="source">ULONG EnclaveFeatureMask [4];</pre>
+        </td>
+        <td>1511 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x037C </td>
+        <td>
+        <pre class="source">ULONG TelemetryCoverageRound;</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0372 (6.2 to 6.3); <br>
+        0x036C (10.0; <br>
+        0x037C (1511 to 1703) </td>
+        <td>
+        <pre class="source">UCHAR Reserved8 [0x0E];</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Reserved8 [0x14];</pre>
+        </td>
+        <td>10.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved8;</pre>
+        </td>
+        <td>1511 to 1703 </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended For Windows Vista </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0380 </td>
+        <td>
+        <pre class="source">USHORT UserModeGlobalLogger [8];</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT UserModeGlobalLogger [16];</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0390 </td>
+        <td>
+        <pre class="source">ULONG HeapTracingPid [2];</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0398 </td>
+        <td>
+        <pre class="source">ULONG CritSecTracingPid [2];</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03A0 </td>
+        <td>
+        <pre class="source">ULONG ImageFileExecutionOptions;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03A4 </td>
+        <td>
+        <pre class="source">ULONG LangGenerationCount;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x03A8 </td>
+        <td>
+        <pre class="source">union {
+    ULONGLONG AffinityPad;
+    ULONG ActiveProcessorAffinity;
+};</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG Reserved5;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG Reserved4;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03B0 </td>
+        <td>
+        <pre class="source">ULONGLONG volatile InterruptTimeBias;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>last member in 6.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each element of the <span class="member">UserModeGlobalLogger</span> array 
+  is a two-byte <span class="struct">ETW_UMGL_KEY</span> structure. A header named 
+  NTETW.H, which Microsoft is yet known to have published only in the WDK for the 
+  original and 1511 releases of Windows 10, gives not only a C-language definition 
+  of this small structure but also defines the indexing along with many macros for 
+  convenience. The following are thus known as Microsoft’s names for meaningful 
+  indexes into the <span class="member">UserModeGlobalLogger</span> array: </p>
+  <ul>
+    <li>0 for <span class="constant">ETW_UMGL_INDEX_HEAP</span>; </li>
+    <li>1 for <span class="constant">ETW_UMGL_INDEX_CRITSEC</span>; </li>
+    <li>2 for <span class="constant">ETW_UMGL_INDEX_LDR</span>; </li>
+    <li>3 for <span class="constant">ETW_UMGL_INDEX_THREAD_POOL</span>; </li>
+    <li>4 for <span class="constant">ETW_UMGL_INDEX_HEAPRANGE</span>; </li>
+    <li>5 for <span class="constant">ETW_UMGL_INDEX_HEAPSUMMARY</span>; </li>
+    <li>6 for <span class="constant">ETW_UMGL_INDEX_UMS</span>; </li>
+    <li>7 for <span class="constant">ETW_UMGL_INDEX_WNF</span>; </li>
+    <li>8 for <span class="constant">ETW_UMGL_INDEX_THREAD</span> (10.0 and higher).
+    </li>
+  </ul>
+  <h3>Appended For Windows 7 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x03B8 </td>
+        <td>
+        <pre class="source">ULONGLONG volatile TscQpcBias;</pre>
+        </td>
+        <td>6.1 to 6.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG volatile QpcBias;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x03C0 </td>
+        <td>
+        <pre class="source">ULONG volatile ActiveProcessorCount;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG ActiveProcessorCount;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x03C4 </td>
+        <td>
+        <pre class="source">USHORT volatile ActiveGroupCount;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR volatile ActiveGroupCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03C5 </td>
+        <td>
+        <pre class="source">UCHAR Reserved9;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x03C6 </td>
+        <td>
+        <pre class="source">USHORT Reserved4;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    USHORT TscQpcData;
+    struct {
+        BOOLEAN volatile TscQpcEnabled;
+        UCHAR TscQpcShift;
+    };
+};</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>previously 8-bit union at 0x02ED </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    USHORT QpcData;
+    struct {
+        BOOLEAN volatile QpcBypassEnabled;
+        UCHAR QpcShift;
+    };
+};</pre>
+        </td>
+        <td>6.3 to 1607 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    USHORT QpcData;
+    struct {
+        UCHAR volatile QpcBypassEnabled;
+        UCHAR QpcShift;
+    };
+};</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Version 1709 changes <span class="member">QpcBypassEnabled</span> from a
+  <span class="type">UCHAR</span> that is intended to be either
+  <span class="constant">TRUE</span> or <span class="constant">FALSE</span> to one 
+  whose meaning is taken in bits. The C-language definitions of
+  <span class="struct">KUSER_SHARED_DATA</span> in the contemporaneous WDKs give 
+  Microsoft’s names for these bits: </p>
+  <ul>
+    <li>0x01 as <span class="constant">SHARED_GLOBAL_FLAGS_QPC_BYPASS_ENABLED</span>;
+    </li>
+    <li>0x02 as <span class="constant">SHARED_GLOBAL_FLAGS_QPC_BYPASS_USE_HV_PAGE</span> 
+    (WDK for 1803); </li>
+    <li>0x04 as <span class="constant">SHARED_GLOBAL_FLAGS_QPC_BYPASS_DISABLE_32BIT</span> 
+    (WDK for 1809); </li>
+    <li>0x10 as <span class="constant">SHARED_GLOBAL_FLAGS_QPC_BYPASS_USE_MFENCE</span>;
+    </li>
+    <li>0x20 as <span class="constant">SHARED_GLOBAL_FLAGS_QPC_BYPASS_USE_LFENCE</span>;
+    </li>
+    <li>0x40 as <span class="constant">SHARED_GLOBAL_FLAGS_QPC_BYPASS_A73_ERRATA</span>;
+    </li>
+    <li>0x80 as <span class="constant">SHARED_GLOBAL_FLAGS_QPC_BYPASS_USE_RDTSCP</span>.
+    </li>
+  </ul>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x03C8 (6.1) </td>
+        <td>
+        <pre class="source">ULONG volatile AitSamplingValue;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next without <span class="type">volatile</span> at 0x0248 </td>
+      </tr>
+      <tr>
+        <td>0x03CC (6.1) </td>
+        <td>
+        <pre class="source">ULONG volatile AppCompatFlag;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next without <span class="type">volatile</span> at 0x024C </td>
+      </tr>
+      <tr>
+        <td>0x03D0 (6.1) </td>
+        <td>
+        <pre class="source">ULONGLONG SystemDllNativeRelocation;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03D8 (6.1) </td>
+        <td>
+        <pre class="source">ULONG SystemDllWowRelocation;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03DC (6.1) </td>
+        <td>
+        <pre class="source">ULONG XStatePad [1];</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03C8 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER TimeZoneBiasEffectiveStart;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03D0 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER TimeZoneBiasEffectiveEnd;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03E0 (6.1); <br>
+        0x03D8 </td>
+        <td>
+        <pre class="source">XSTATE_CONFIGURATION XState;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>last member in 6.1 to 1903 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Growth of the <span class="struct">KUSER_SHARED_DATA</span> for Windows 10 
+  was a side-effect of changes within the <span class="struct">XSTATE_CONFIGURATION</span> 
+  at the end. Not until the 2004 edition does the <span class="struct">KUSER_SHARED_DATA</span> 
+  itself get anything new at its end: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0710 </td>
+        <td>
+        <pre class="source">KSYSTEM_TIME FeatureConfigurationChangeStamp;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x071C </td>
+        <td>
+        <pre class="source">ULONG Spare;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>last member in 2004 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">FeatureConfigurationChangeStamp</span> is the first 
+  new use that is known of the <span class="struct">KSYSTEM_TIME</span> structure 
+  anywhere in Windows since late builds of version 5.2 corrected the sharing of 
+  only a 32-bit <span class="member">TickCountLow</span> and instead keeps the whole
+  <span class="member">TickCount</span>. This new time stamp looks like it’s provided 
+  by the kernel for user-mode access only. The kernel uses its own copy in an undocumented 
+  structure in the kernel’s own data. The NTDLL export <span class="function">RtlQueryFeatureConfigurationChangeStamp</span> 
+  reads the value from the <span class="struct">KUSER_SHARED_DATA</span>. The same-named 
+  export from the kernel reads from the kernel’s internal variable. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 2nd
+    <a href="../../../../../../../../new/16/05.htm">May 2016</a> and was last modified 
+    on 2nd March 2023. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1623.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14266" -->
+  </div>
+</div>
+
+</body>
+
+</html>

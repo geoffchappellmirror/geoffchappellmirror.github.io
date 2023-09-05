@@ -1,0 +1,151 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Boot Options: detecthal</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="20600" -->
+<div class="Main">
+  <h1>Boot Options: detecthal </h1>
+  <p>The <span class="bcdopt">detecthal</span> option directs the loader to detect 
+  which kernel and Hardware Abstraction Layer (HAL) to load. </p>
+  <h2>Syntax </h2>
+  <p>To have the BCDEDIT tool set the <span class="bcdopt">detecthal</span> option 
+  for the currently running operating system, run the command </p>
+  <pre class="input">bcdedit /set detecthal <span class="placeholder">boolean</span> </pre>
+  <p>where <span class="placeholder">boolean</span> is one of 1,
+  <span class="keyword">on</span>, <span class="keyword">yes</span> or
+  <span class="keyword">true</span>. </p>
+  <p>To set this option at the <a href="../../editoptions.htm">Edit Boot Options 
+  Menu</a>, add <span class="switch">/detecthal</span>. </p>
+  <h2>Availability </h2>
+  <p>The BCD option <span class="bcdopt">detecthal</span> is number 0x26000010 in
+  <span class="bcdobj">osloader</span> objects. It is effective only in Windows 
+  Vista. Later versions of the loader ignore it. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="bcdopt">detecthal</span> option is documented for Windows 
+  Vista. The <span class="command">bcdedit /? types osloader</span> command summarises 
+  it as “Enables hardware abstraction layer (HAL) and kernel detection.” Later versions 
+  of the BCDEDIT tool continue to recognise the <span class="bcdopt">detecthal</span> 
+  option at least to the original release of Windows 10, presumably for operating 
+  on it in BCD stores that are used for booting Windows Vista. </p>
+  <h2>Behaviour </h2>
+  <p>The <span class="bcdopt">detecthal</span> option forces the Windows Vista loader 
+  to choose from a hard-coded selection of possible HALs and kernels. This overrides 
+  any specifications in <span class="bcdopt"><a href="hal.htm">hal</a></span> or
+  <span class="bcdopt"><a href="kernel.htm">kernel</a></span> options. It also causes 
+  the 32-bit loader to discount any HAL that’s named hal.dll. </p>
+  <p>The detected HAL for Windows Vista is: </p>
+  <table>
+    <tr>
+      <th>Condition </th>
+      <th>HAL </th>
+    </tr>
+    <tr>
+      <td>if the ACPI description tables include a Multiple APIC Description Table
+      </td>
+      <td>halmacpi.dll (x86); <br>
+      hal.dll (x64) </td>
+    </tr>
+    <tr>
+      <td>else </td>
+      <td>halacpi.dll (x86) </td>
+    </tr>
+  </table>
+  <p>The test for choosing HALMACPI.DLL requires the Advanced Configuration and 
+  Power Interface (ACPI). A Root System Description Pointer (RSDP) must be present 
+  either in the Extended BIOS Data Area or in the 128KB at 0x000E0000. From this 
+  must be found either a Root System Description Table (RSDT) or preferably an Extended 
+  System Description Table (XSDT). Each has physical addresses of other description 
+  tables. If one of these has the APIC signature expected for a Multiple APIC Description 
+  Table, then the loader chooses HALMACPI.DLL. </p>
+  <p>The 64-bit loader is similarly forced to check for a Multiple APIC Description 
+  Table but there is no HAL in reserve. The detected HAL can only be hal.dll. Without 
+  a Multiple APIC Description Table, the <span class="bcdopt">detecthal</span> option 
+  leaves 64-bit Windows Vista unable to start. </p>
+  <p>The detected kernel is: </p>
+  <table>
+    <tr>
+      <th>Condition </th>
+      <th>Kernel </th>
+    </tr>
+    <tr>
+      <td>32-bit loader translating physical memory addresses using PAE </td>
+      <td>ntkrnlpa.exe (x86) </td>
+    </tr>
+    <tr>
+      <td>else </td>
+      <td>ntoskrnl.exe </td>
+    </tr>
+  </table>
+  <p>Whether the 32-bit loader, and thence the 32-bit kernel, uses Physical Address 
+  Extension (PAE) depends on the <span class="bcdopt"><a href="pae.htm">pae</a></span> 
+  and <span class="bcdopt"><a href="nx.htm">nx</a></span> options. </p>
+  <p>Without the <span class="bcdopt">detecthal</span> option, the loader uses whatever 
+  HAL and kernel are specified by <span class="bcdopt">hal</span> or
+  <span class="bcdopt">kernel</span> options. Without a <span class="bcdopt">hal</span> 
+  option, the loader defaults to hal.dll. Without a <span class="bcdopt">kernel</span> 
+  option, the loader falls back to the same kernel it would have detected. </p>
+  <h3>After Windows Vista </h3>
+  <p>See that the only effect of <span class="bcdopt">detecthal</span> when starting 
+  32-bit Windows Vista is that the loader tests for which of halacpi.dll and halmacpi.dll 
+  to use instead of trusting that whatever file is named hal.dll is correct for 
+  the running system. For the 64-bit loader, which knows only of hal.dll, all
+  <span class="bcdopt">detecthal</span> can do is stop Windows from starting if 
+  hal.dll is not correct. </p>
+  <p>Windows 7 did away with <span class="bcdopt">detecthal</span> in favour of 
+  doing the detection anyway. Instead of overriding the <span class="bcdopt">hal</span> 
+  and <span class="bcdopt">kernel</span> options, the detection provides their defaults. 
+  Starting with Windows 8, which is supplied with only one HAL and one kernel, these 
+  defaults are trivial. The 32-bit loader doesn’t even bother with looking for a 
+  Multiple APIC description table. The detected HAL can only be halmacpi.dll and 
+  the detected kernel can only be ntoskrnl.exe. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 15th April 2009 and was last modified 
+    on 23rd December 2019. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c0919.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009-2019. Geoff Chappell. All rights reserved.
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62944" -->
+  </div>
+</div>
+
+</body>
+
+</html>

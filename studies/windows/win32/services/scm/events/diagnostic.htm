@@ -1,0 +1,252 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Microsoft Windows Services Performance Diagnostic Provider</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="54033" endspan -->
+<h1>Diagnostic Provider for SERVICES.EXE </h1>
+<p>Something new for SERVICES.EXE in Windows Vista is an event provider that writes 
+analytic events: </p>
+<table>
+  <tr>
+    <td>Provider Name: </td>
+    <td>Microsoft-Windows-Services </td>
+  </tr>
+  <tr>
+    <td>Provider GUID: </td>
+    <td>{0063715B-EEDA-4007-9429-AD526F62696E} </td>
+  </tr>
+  <tr>
+    <td>Symbolic Name for GUID: </td>
+    <td><span class="symbol">MS_Services_Provider</span> </td>
+  </tr>
+</table>
+<p>This provider is described in an instrumentation manifest, which Microsoft supplies 
+as an <span class="tag">&lt;instrumentation&gt;</span> block within the manifest that 
+represents SERVICES.EXE as an assembly. Refer to the separate note about
+<a href="../versions.htm">SERVICES Versions</a> for the name and location. The instrumentation 
+manifest is also compiled into the SERVICES resources, as WEVT_TEMPLATE. </p>
+<h2>Default Channel </h2>
+<p>The registry is installed with the Microsoft-Windows-Services provider already 
+configured as a publisher to the following log, which the instrumentation manifest 
+specifies as the default channel: </p>
+<table>
+  <tr>
+    <td>Channel: </td>
+    <td>Microsoft-Windows-Services/Diagnostic </td>
+  </tr>
+  <tr>
+    <td>Session: </td>
+    <td>Eventlog-Microsoft-Windows-Services-Diagnostic </td>
+  </tr>
+  <tr>
+    <td>Event Viewer: </td>
+    <td>Applications and Services Logs; <br>
+    Microsoft Windows Services Performance Diagnostic Provider; <br>
+    Diagnostic </td>
+  </tr>
+</table>
+<p>The name given for the session is how it appears in the Reliability and Performance 
+Monitor among the Event Trace Sessions. The channel is the name needed for WEVTUTIL.
+<span class="draft">The Event Viewer lists the session among the Applications and 
+Services Logs, as the Diagnostic channel of the Microsoft Windows Services Performance 
+Diagnostic Provider. </span></p>
+<h3>Permissions </h3>
+<p>As with other direct channels (i.e., for analytic and debug events), this one 
+is not ordinarily enabled. Unlike most others, this one is somewhat difficult to 
+enable. Indeed, the ordinary configuration does not permit this log to be enabled 
+through the Event Viewer without causing an error to be reported to the System log. 
+The event ID is 30, with Eventlog as the source: </p>
+<blockquote>
+  The event logging service encountered an error (5) while enabling publisher {0063715B-EEDA-4007-9429-AD526F62696E} 
+  to channel Microsoft-Windows-Services/Diagnostic. This doesn&#39;t affect operation 
+  of the channel, but does affect the ability for the publisher to raise events 
+  to the channel. One common cause for this error is that Provider is using ETW 
+  Provider Security and has not granted enable permissions to the Eventlog service 
+  entity.</blockquote>
+<p>The text, though arguably cryptic, is correct. The Microsoft-Windows-Services 
+provider is one of relatively few for which the ordinary configuration of Windows 
+specifies a security descriptor. Only the SYSTEM account and the Administrators 
+group are permitted any access. Though the Event Viewer runs with administrative 
+privilege, the system call that would enable the Microsoft-Windows-Services provider 
+for the Microsoft-Windows-Services/Diagnostic log is actually made by the Eventlog 
+service, executing as WEVTSVC.DLL in a SVCHOST.EXE process that runs from the LOCAL 
+SERVICE account. To enable this log without an error, you must first add suitable 
+permissions for the LOCAL SERVICE account. </p>
+<p>Permissions for the Microsoft-Windows-Services provider are set through the registry:
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WMI\Security</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">0063715b-eeda-4007-9429-ad526f62696e</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_BINARY</span> </td>
+  </tr>
+</table>
+<p>The binary data is the security descriptor for the provider. You could edit this 
+by hand, but there actually is user-interface support, albeit in a round-about way. 
+Though Windows does not come with a program for operating on security for arbitrary 
+providers and sessions, the Reliability and Performance Monitor allows for working 
+with security for providers and sessions that are started already (whether or not 
+enabled) or are registered to start automatically when Windows next starts. The 
+trick, then, begins with getting the Reliabilty and Performance Monitor to list 
+the Microsoft-Windows-Services provider. </p>
+<p>Start the Reliability and Performance Monitor. Expand the tree on the left to 
+expose Event Trace Sessions. Click on that and then start creating a Data Collector 
+Set. Give it some name such as Temporary, and elect to create manually. Ask to Add 
+a provider and when the large list of known providers appears, select Microsoft-Windows-Services 
+and then Finish. Now get Properties for your new data collector set. The Trace Providers 
+tab will allow you to set security for the Microsoft-Windows-Services provider through 
+a standard user interface. When done, click OK and then delete the Temporary data 
+collector set. Thereafter, you can enable the Microsoft-Windows-Services/Diagnostic 
+log through the Event Viewer without causing an error to appear in the System log.
+</p>
+<h2>WDI Context Provider </h2>
+<p>Microsoft-Windows-Services is a context provider for the
+<a href="../../../../../../notes/windows/wdi/index.htm">Windows Diagnostic Infrastructure</a> (WDI). This 
+means that a selection of the possible events gets written to the DiagLog and WdiContextLog 
+sessions. Both are configured in the registry as auto-loggers, and are ordinarily 
+configured to start automatically. The DiagLog is a real-time log, but the WdiContextLog 
+streams to a file, and the backups from previous Windows sessions can be loaded 
+into the Event Viewer for inspection. </p>
+<p>Events for this log are selected both by the usual mechanism, of level and keyword, 
+and also by the WDI mechanism of enabling the provider only during an applicable 
+scenario. Since all the possible events from Microsoft-Windows-Services happen to 
+have the same level and keyword, only the scenarios matter. There are four applicable 
+scenarios: </p>
+<table>
+  <tr>
+    <th>Start Event </th>
+    <th>End Event </th>
+  </tr>
+  <tr>
+    <td>6001 (<span class="symbol">WIDiagEvt_ShutdownDiagnostics_Start</span>)
+    <br>
+    from Microsoft-Windows-Wininit </td>
+    <td>48 (<span class="symbol">POP_ETW_EVENT_GRACEFULSHUTDOWN_STOP</span>) <br>
+    from Microsoft-Windows-Kernel-Power </td>
+  </tr>
+  <tr>
+    <td>6001 (<span class="symbol">WLDiagEvt_ShutdownDiagnostics_Start</span>)
+    <br>
+    from Microsoft-Windows-Winlogon </td>
+    <td>48 (<span class="symbol">POP_ETW_EVENT_GRACEFULSHUTDOWN_STOP</span>) <br>
+    from Microsoft-Windows-Kernel-Power </td>
+  </tr>
+  <tr>
+    <td>501 (<span class="symbol">KMBootEvt_SystemBoot_Start</span>) <br>
+    from Microsoft-Windows-Kernel-BootDiagnostics </td>
+    <td>5007 (<span class="symbol">WLDiagEvt_SystemBootScenario_Stop</span>) <br>
+    from Microsoft-Windows-Winlogon </td>
+  </tr>
+  <tr>
+    <td>5001 (<span class="symbol">WLDiagEvt_UserBootScenario_Start</span>) <br>
+    from Microsoft-Windows-Winlogon </td>
+    <td>5002 (<span class="symbol">WLDiagEvt_UserBootScenario_Stop</span>) <br>
+    from Microsoft-Windows-Winlogon </td>
+  </tr>
+</table>
+<p>Between the start and end events from these other event providers, the kernel 
+enables Microsoft-Windows-Services so that all events from the Microsoft-Windows-Services 
+provider are logged to WDI. </p>
+<h2>Events </h2>
+<p>There are presently just a handful of possible event IDs, but the facility is 
+surely meant to expand. Unfortunately, none of the <span class="keyword">event</span> 
+definitions in the manifest supply formatted text, e.g., through a
+<span class="keyword">message</span> attribute, and so the Event Viewer falls back 
+to the following distinctly unhelpful description: </p>
+<blockquote>
+  <p>The description for Event ID <span class="placeholder">id</span> from source 
+  Microsoft-Windows-Services cannot be found. Either the component that raises the 
+  event is not installed on your local computer or the installation is corrupted. 
+  You can install or repair the component on the local computer. </p>
+</blockquote>
+<p>Still, the manifest is useful because it labels the event data. All these events 
+have win:Informational (4) as the level and 0x8000000000000000 as the keyword. The 
+manifest has no plain-language representation of this keyword. </p>
+<table>
+  <tr>
+    <th>Event ID </th>
+    <th>Symbol </th>
+    <th>Event Data </th>
+  </tr>
+  <tr>
+    <td>101 </td>
+    <td><span class="symbol">SCMEvt_Autostart_Start</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>102 </td>
+    <td><span class="symbol">SCMEvt_Autostart_Stop</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>103 </td>
+    <td><span class="symbol">SCMEvt_StartingGroup_Start</span> </td>
+    <td><span class="placeholder">GroupName</span> </td>
+  </tr>
+  <tr>
+    <td>104 </td>
+    <td><span class="symbol">SCMEvt_StartingGroup_Stop</span> </td>
+    <td><span class="placeholder">GroupName</span> </td>
+  </tr>
+  <tr>
+    <td>105 </td>
+    <td><span class="symbol">SCMEvt_ServiceStatusChange</span> </td>
+    <td><span class="placeholder">ExecutionPhase</span> <br>
+    <span class="placeholder">CurrentState</span> <br>
+    <span class="placeholder">StartType</span> <br>
+    <span class="placeholder">PID</span> <br>
+    <span class="placeholder">ServiceName</span> <br>
+    <span class="placeholder">ImageName</span> </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 12th October 2008 and was last modified 
+  on 3rd January 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0809.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="55399" endspan -->
+</div>
+
+</body>
+
+</html>

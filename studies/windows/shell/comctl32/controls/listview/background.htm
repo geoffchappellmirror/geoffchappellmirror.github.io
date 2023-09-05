@@ -1,0 +1,273 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>List-View Backgrounds</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>List-View Backgrounds </h1>
+<p>The background of a List-View is a composition: a simple background to which 
+may be applied various decorations. </p>
+<h2>Simple Backgrounds </h2>
+<p>Except where noted otherwise, simple backgrounds are supported even in the oldest 
+known COMCTL32 versions. Broadly speaking, there are three types: </p>
+<ul>
+  <li>solid background colour </li>
+  <li>custom background </li>
+  <li>transparent background (version 6.10 and higher) </li>
+</ul>
+<h3>Background Colour </h3>
+<p>The simplest background that a List-View control can have is a solid colour. 
+The control starts with <span class="constant">COLOR_WINDOW</span> as its background 
+colour while enabled and <span class="constant">COLOR_BTNFACE</span> while disabled. 
+The background colour that is to show while the control is enabled can be changed 
+by sending the control an <span class="message">
+<a href="messages/setbkcolor.htm">LVM_SETBKCOLOR</a></span> message. A matching
+<span class="message"><a href="messages/getbkcolor.htm">LVM_GETBKCOLOR</a></span> 
+message reports which colour is currently configured to be used when the background 
+is next redrawn while the control is enabled. The background colour of a disabled 
+List-View control is not subject to either message (but see below for a loophole 
+in version 6.10). </p>
+<h3>Custom Background </h3>
+<p>Somewhat less simple is to have no background colour. This is represented programmatically 
+as a special value, <span class="constant">CLR_NONE</span>, of background colour. 
+The practical effect is that drawing the background is left to the control’s parent 
+window. Whenever the control would paint a solid colour for its background, it instead 
+sends its parent a <span class="message">WM_ERASEBKGND</span> message. This has 
+long been an opportunity to <a href="custombackground.htm">customise the background 
+of a List-View control</a> (but follow the link to learn of a complication to watch 
+for). </p>
+<h3>Transparent Background </h3>
+<p>Version 6.10 introduces an extended style, <span class="constant">LVS_EX_TRANSPARENTBKGND</span>, 
+which elaborates the case of having no background colour. Indeed, setting this style 
+clears the background colour—and setting a background colour clears the style, not 
+that any of this is mentioned in Microsoft’s documentation. If the control has this 
+transparent-background style, then whenever it would draw a simple background, it 
+first sends its parent a <span class="message">WM_PRINTCLIENT</span> message (with
+<span class="constant">PRF_ERASEBKGND</span> as the drawing options). If this message 
+returns zero, the control falls back to sending a <span class="message">WM_ERASEBKGND</span> 
+message, as above. </p>
+<p>The code for setting the <span class="constant">LVS_EX_TRANSPARENTBKGND</span> 
+style provides the only known way to give a disabled control a simple background 
+other than the solid <span class="constant">COLOR_BTNFACE</span>. When
+<span class="message">LVM_SETBKCOLOR</span> is sent to a disabled control to clear 
+the background colour, it affects only the colour that is to show should the control 
+be re-enabled. The current background colour is untouched. By contrast, when the
+<span class="constant">LVS_EX_TRANSPARENTBKGND</span> style is set while the control 
+is disabled, it clears the current background colour. Microsoft may eventually see 
+this as a coding error, and fix it. Meanwhile, it means that the parent of a List-View 
+control can arrange to be sent <span class="message">WM_PRINTCLIENT</span> or
+<span class="message">WM_ERASEBKGND</span> messages, and thence give the control 
+a custom background, even if the control is disabled. </p>
+<h2>Decorations </h2>
+<p>The simple background, which may already be visually elaborate, is then subject 
+to various decorations: </p>
+<ul>
+  <li>background image </li>
+  <li>watermark (version 6.0 and higher) </li>
+  <li>selected column (version 6.0 and higher) </li>
+  <li>themed column edges (version 6.10 and higher) </li>
+</ul>
+<p>Each of these has at least some variation, mostly configurable. </p>
+<h3>Background Image </h3>
+<p>The oldest decoration, supported since version 4.71, is to overlay the simple 
+background, partially or completely, with an arbitrary image. Programmatically, 
+the configuration is represented by an <span class="struct">
+<a href="structures/lvbkimage.htm">LVBKIMAGE</a></span> structure, passed to and 
+from the control via <span class="message"><a href="messages/setbkimage.htm">LVM_SETBKIMAGE</a></span> 
+and <span class="message"><a href="messages/getbkimage.htm">LVM_GETBKIMAGE</a></span> 
+messages. </p>
+<h4>Sources </h4>
+<p>The structure has always provided for specifying the background image in two 
+ways: </p>
+<ul>
+  <li>directly as a bitmap handle, such as obtained from loading a bitmap resource;
+  </li>
+  <li>indirectly as a string, which is interpreted as a URL for an image file.
+  </li>
+</ul>
+<p>That said, specification from a bitmap handle does not actually work until version 
+6.0. In earlier versions, the <span class="message">LVM_SETBKIMAGE</span> message 
+fails when given a bitmap handle, but that is not the end of it. A subsequent
+<span class="message">LVM_GETBKIMAGE</span> will report the rejected bitmap handle 
+as being in use for the background image. Worse, a second <span class="message">
+LVM_SETBKIMAGE</span> to set another background image, whether from a bitmap handle 
+or URL, will delete the rejected bitmap handle. Whatever caused this muddle, it 
+is correct that the first <span class="message">LVM_SETBKIMAGE</span> should fail: 
+these versions of COMCTL32 have no code for getting the image drawn! </p>
+<p>Perhaps the coding was abandoned in favour of the other case, with the image 
+known from a URL. Right from version 4.71, COMCTL32 handles this case with just 
+the very little code that is required for directing work that is all done externally. 
+Interpreting the URL, loading the image and rendering the image are all done through 
+a COM class. COMCTL32 is so little involved that it neither knows nor cares which 
+types of image are supported. This is good separation, but it is at least unsatisfactory 
+that in any standard Windows configuration, the server for this COM class is MSHTML. 
+Yes, until version 6.0 finally works for setting a background image from a bitmap 
+handle, applying a background image to a List-View control requires Internet Explorer, 
+even if the list is generated without Internet access, or the URL is for a file 
+on the local computer, or the user has installed some other web browser. (Strictly 
+speaking, the last phrase is not quite true. Any manufacturer of an alternative 
+web browser is presumably welcome to implement the relevant COM class,
+<span class="class">IImgCtx</span>, and replace MSHTML for this purpose. Mind you, 
+documentation is unsurprisingly scarce.) </p>
+<h4>Styles </h4>
+<p>There is a choice whether to draw the image just once in the List-View control’s 
+client area or to fill the area by repeating the image horizontally and vertically 
+(which process is called tiling). </p>
+<h4>Placement </h4>
+<p>The normal style has always provided for specifying where to place the one image. 
+The placement is described in terms of offsets from the left and top (to the right 
+and bottom) of the unscrolled client area, meaning here the client area as would 
+be seen were the content scrolled fully to the left and top. Each offset is given 
+as a percentage of the margins that would be available to the left and top of the 
+image were the image placed at the bottom right of the unscrolled client area. Thus, 
+0, 50 and 100 place the image at the top or left, the centre and the bottom or right, 
+respectively, of the unscrolled client area. Note that a background image in the 
+normal style necessarily moves with the content when scrolled. </p>
+<p>Like the normal style, the tiled style is available from version 4.71 onwards. 
+However, the tiled style does not provide for placement until version 6.0. The default 
+for versions 6.0 and higher is that a tiled image remains in place while the content 
+is scrolled, i.e., the content scrolls over its background. The placement is again 
+described by offsets, but these now measure how far, in pixels, the first tile is 
+displaced to the left and top from the top left of the client area. Only if the
+<span class="regvalue">ListviewScrollOver</span> effect is disabled in the
+<a href="registry.htm">List-View registry settings</a> does the image move with 
+the content, and the offsets then apply from the top left of the unscrolled client 
+area. Versions before 6.0 have none of this configurability: tiled background images 
+behave as if the offsets are zero and the scroll-over effect is disabled. </p>
+<h3>Watermark </h3>
+<p>A different sort of background image, called a watermark, is supported in versions 
+6.0 and higher. The main difference visually is that the watermark is constrained 
+to the bottom right corner of the client area, and remains there while scrolling. 
+A significant difference programmatically is that the watermark can be set only 
+from a bitmap handle. </p>
+<p>Like the ordinary background image, the watermark is operated on through the
+<span class="message">LVM_GETBKIMAGE</span> and <span class="message">LVM_SETBKIMAGE</span> 
+messages. A flag in the <span class="struct">LVBKIMAGE</span> structure, as given 
+on input to these messages, indicates which type of image they operate on. A List-View 
+control can have both a watermark and a background image simultaneously, but the 
+background image has precedence. </p>
+<p>When drawing the background, the watermark is skipped if any of the following 
+is true: </p>
+<ul>
+  <li>a background image is set and has successfully loaded; </li>
+  <li>the List-View has the <span class="constant">LVS_EX_TRANSPARENTBKGND</span> 
+  style, is in Details view and has a selected column; </li>
+  <li>the <span class="regvalue">ListviewWatermark</span> effect is disabled in 
+  the registry. </li>
+</ul>
+<p>The second of these, which is anyway irrelevant before version 6.10, is perhaps 
+a coding error. The visual consequences can be very silly: if the List-View is managed 
+such that a column is selected by clicking it and unselected by clicking it again, 
+then repeated clicking of a column makes the watermark come and go. </p>
+<h4>Alpha-Blending </h4>
+<p>Version 6.10 introduces what is so far the only configurability for a watermark, 
+namely to specify that the watermark be drawn with a very particular alpha-blending. 
+In terms of the <span class="struct">BLENDFUNCTION</span> structure used for the 
+GDI function <span class="function">GdiAlphaBlend</span>, the
+<span class="member">SourceConstantAlpha</span> is 0xFF and the
+<span class="member">AlphaFormat</span> is <span class="constant">AC_SRC_ALPHA</span>.
+</p>
+<h3>Selected Column </h3>
+<p>A new feature for version 6.0 is that one column may be selected for a distinguished 
+visual appearance when the list is in Details view. The selected column is represented 
+in <span class="message">LVM_GETSELECTEDCOLUMN</span> and <span class="message">
+LVM_SETSELECTEDCOLUMN</span> messages by a 0-based index, with -1 meaning that no 
+column is selected. Because a typical use for the selected column is to show which 
+column provides the keys for sorting the list, the selected column is also referred 
+to as the sort column, e.g., in documentation of the <span class="interface">IVisualProperties</span> 
+interface. </p>
+<p>One way that the selected column may be distinguished is by decorating its background. 
+There are two types of decoration. In one, the selected column has the same background 
+as it would have if not selected, but with a slight modification of colour. In the 
+other type of decoration, the selected column is filled with a solid colour. </p>
+<h4>Saturation </h4>
+<p>If a background image is set and has successfully loaded, then the selected column 
+is decorated only if the background image is tiled. Where the pixels in the background 
+image also lie in the selected column, their red, green and blue components are 
+each increased by 10 percent, if possible, else to the maximum of 255. </p>
+<p>If the List-View has the <span class="constant">LVS_EX_TRANSPARENTBKGND</span> 
+style (in versions 6.10 and higher), this same saturation is applied to the simple 
+background. As noted above, no watermark is drawn in this case. </p>
+<h4>Solid Sort-Column Color </h4>
+<p>With neither a successfully loaded background image nor the
+<span class="constant">LVS_EX_TRANSPARENTBKGND</span> style, the background in the 
+selected column is set to a solid colour which is ordinarily chosen by COMCTL32. 
+Because the remaining cases allow that the List-View can have a custom background, 
+a watermark, or both, COMCTL32’s choice of solid colour for the selected column 
+may have nothing to do with the background that the column would have if not selected, 
+and may not join well with the background in unselected columns on either side. 
+The visual effect can be especially silly when the selected column overlaps a watermark 
+but does not completely obscure it. </p>
+<p>Starting with version 6.10, the sort-column color is configurable. List-View 
+controls in these versions are COM objects, implementing various COM interfaces 
+which can be queried by sending an undocumented message, here named
+<span class="message"><a href="messages/queryinterface.htm">LVM_QUERYINTERFACE</a></span> 
+(Microsoft’s name not being known). One of these interfaces is
+<span class="interface">IVisualProperties</span>, whose <span class="method">GetColor</span> 
+and <span class="method">SetColor</span> methods operate on any of four types of 
+colour. One of these is the sort-column colour. Set it to something other than
+<span class="constant">CLR_DEFAULT</span> and it is what COMCTL32 will use (even 
+while the control is disabled). </p>
+<p>Otherwise (and always in version 6.0), COMCTL32 calculates from the current background 
+colour. If this is black, the colour for the selected column is grey (meaning that 
+red, blue and green are all 128). Except if the current background colour is black, 
+the following steps are taken for each of the red, blue and green components of 
+the current background colour to produce the corresponding component of the selected-column 
+colour: </p>
+<ul>
+  <li>add one tenth, if this does not overflow; </li>
+  <li>else reduce by one thirtieth, if the current background colour is bright;
+  </li>
+  <li>else settle for 255. </li>
+</ul>
+<p>A colour is considered bright if all its red, blue and green components exceed 
+240. Note that the colour for the selected column may be brighter than the current 
+background colour, or darker. It may be a coding oversight, but the programmatic 
+value <span class="constant">CLR_NONE</span> that stands for having no background 
+colour is interpreted for these calculations as white. </p>
+<h3>Themed Column Edges </h3>
+<p>One more decoration is applied in version 6.10 and higher, if the List-View is 
+in Details view and has a custom theme. This decoration lies outside the present 
+scope of this article. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 6th May 2008 and was last modified on 
+  21st November 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0810.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="55263" endspan -->
+</div>
+
+</body>
+
+</html>

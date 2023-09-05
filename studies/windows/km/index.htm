@@ -1,0 +1,161 @@
+﻿<!doctype html>
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Kernel-Mode Windows</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="_styles/km.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" u-include="_include/noscript.htm" tag="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="38980" -->
+<h1>Kernel-Mode Windows </h1>
+<p>As with many who start programming but are soon drawn to study the operating 
+system that they’re programming for, my interests have long lain with what happens 
+at the lower levels, not so much down with the hardware but certainly where the 
+operating system is the platform that’s depended on by all the software that does 
+what users see as their real work that the computer exists to help them with.
+</p>
+<p>It was this way for me immediately that I first started looking at computer programming 
+as more than a tool that a mathematician may occasionally want for numerical analysis. 
+Before I fully appreciated that my diversion from mathematics might be the start 
+of what would instead have to pass as my life’s achievement, I was picking apart 
+the IO.SYS and MSDOS.SYS from MS-DOS 3.30, all as a theoretical exercise in deduction, 
+working from debug output that I printed to continuous-feed paper and marked up 
+with ruler and pencil. As DOS gave way to protected-mode Windows and the Windows 
+that runs on DOS gave way to the Windows that we have today, I continued to feel 
+that the most rewarding study is of what these operating systems do with memory, 
+files and storage devices, and how they support the generality of code written by 
+unknown programmers of highly variable quality who may each write as if their code 
+more or less owns the machine. </p>
+<p>For the Windows that we have today, the management of memory, files and processes 
+and such is ultimately the business of a multi-megabyte kernel, highly modularised 
+internally but distributed as one executable, supported by a handful of other essential 
+executables, most notably the Hardware Abstraction Layer (HAL), which all together 
+support an extensible scheme of drivers to complete what Windows applications have 
+to take for granted as the system. </p>
+<p>Indeed, to Windows applications and to most of their programmers, the system 
+that I talk about here is more a system in a system. When a Windows programmer writes 
+a call to <span class="function">CreateFile</span> as the way to have a Windows 
+application open a file, it makes perfect sense to think that this is a call to 
+the operating system. The other side of the call, however, is still in the processor’s 
+outermost privilege ring (numbered 3, but commonly referred to as user mode). What 
+the Windows application calls is actually just a subsystem that does substantial 
+work of its own but depends in turn on the true system that executes in the processor’s 
+innermost privilege ring (numbered 0, but commonly referred to as kernel mode). 
+This section of this website is concerned solely with this kernel-mode execution, 
+and thus with </p>
+<ul>
+  <li>the kernel, whose module name is NTOSKRNL.EXE, even if loaded from a file 
+  with a different name; </li>
+  <li>the HAL, whose module name is HAL.DLL, even if loaded from a file with a different 
+  name; </li>
+  <li>and such things as device drivers, file system drivers and various other modules 
+  that extend the kernel’s functionality. </li>
+</ul>
+<p>There is inevitably some overlap with the user-mode subsystem. The user-mode 
+NTDLL.DLL is arguably less the lowest-level component of any subsystem than the 
+kernel’s user-mode footprint in every process that has user-mode code. Still, for 
+anything that executes in user mode, even if named KERNEL-something, please see 
+the separate <a href="../win32/index.htm">Win32</a> study (not that it has an introduction 
+yet). </p>
+<h2>The Cost of Black Art </h2>
+<p>Although the present Windows has from its beginning as Windows NT had vastly 
+better system-level documentation than did the earlier Windows that ran on DOS, 
+the difference was more in depth and reliability than in coverage. As with the Windows 
+that ran on DOS, there has always been much about low-level Windows NT that Microsoft 
+leaves undocumented or, worse, under-documented—or, in some ways worst, unreliably 
+documented. These problems are specially true of kernel-mode Windows. </p>
+<p>When I speak of this level of Windows as the most rewarding to study, I should 
+like to mean intellectually rewarding, but I cannot ignore that the wider research 
+presented at this website was only ever possible because kernel-mode programming 
+is, or at least has been, financially rewarding. As will be known all too well to 
+any software manufacturer that has ever needed any sort of kernel-mode driver, kernel-mode 
+programming is expensive. Why is that? </p>
+<p>There is of course some expense to expect of any highly specialised work. Make 
+no mistake: kernel-mode programming is about as specialised as programming gets. 
+It has its own interfaces and terminology, not just as a repackaging of anything 
+from user-mode programming but because it has to deal with numerous considerations 
+that have no equivalent in or even relevance to user-mode programming. Much of what 
+the kernel-mode programmer must master is not immediately helpful or even transferrable 
+to user-mode programming. Conversely, many of the crutches that many user-mode programmers 
+take for granted or even as fundamental—notably, the C Run-Time and the Standard 
+Template Library—are largely unavailable in kernel-mode programming or are at best 
+used only with difficulty and care. Indeed, it’s not that long ago that C++ itself—yes, 
+the whole language—was widely thought more trouble to use safely in kernel mode 
+than it could be worth. As with any other specialisation, nobody commits to kernel-mode 
+programming except by regarding it as a substantial investment—from which, naturally, 
+they seek a substantial return. </p>
+<p>Another reason, at least in the private thoughts of anyone who calls himself 
+a kernel-mode programmer, is that kernel-mode programming actually does require 
+more skill than does most programming. Even the most complicated or advanced issues 
+in user-mode programming are eased by large measures of control and cooperation. 
+Splitting a program’s work over multiple threads can get intricate enough to tax 
+even the most competent of programmers—and if those threads are created in DLLs 
+you’ll soon be sorting your programming wheat from the chaff—but at least the threads 
+are your creatures that exist to do your bidding. Even if you have to synchronise 
+with a thread in someone else’s process, it will at least be a process that you 
+are cooperating with more or less explicitly. In user-mode programming you have 
+the luxury of looking in or down to an operating system that is a reliable provider 
+not just of functionality but of isolation from other people’s code. Except for 
+the very particular matter of driving devices, the perspective for most kernel-mode 
+programming is more or less the opposite: looking out or up to a tower of other 
+people’s code in all its generality of purpose. All that code competes for your 
+attention and expects that you let it proceed as if it’s alone, even while you in 
+the kernel almost always have at least the potential of being called from multiple 
+threads of other people’s code to do much the same work at much the same time. Getting 
+all this right for everyone is not for the faint-hearted. </p>
+<p>But although additional expense is only to be expected for specialised work by 
+programmers who will anyway tend to be among the best and brightest, I have long 
+wondered if there is more to it. So much that programmers need is undocumented. 
+Much of what’s documented now used to be undocumented—for years, even—and is now 
+documented inaccurately, incompletely or just so sparingly that it was arguably 
+better left undocumented. There is a substantial element of “black art” to kernel-mode 
+programming. </p>
+<p>The several hundred pages that exist in this section of the website have been 
+slow in coming but do by now amount to a substantial resource. They’re a long way 
+from banishing the “black art” label but they may, I hope, expose the subject to 
+a little light. </p>
+<div class="Footer">
+  <div class="PlaceholderLinks NoScript">
+    <p>Placeholder links to ensure that all pages in the study are reachable from 
+    here: </p>
+    <ul>
+      <li><a href="toc.htm">TOC</a> </li>
+    </ul>
+  </div>
+  <!--webbot bot="Include" u-include="_include/c1017.htm" tag="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010-2017. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="50805" -->
+</div>
+
+</body>
+
+</html>

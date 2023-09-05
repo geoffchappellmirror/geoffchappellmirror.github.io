@@ -1,0 +1,122 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KPRCB</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<div class="Main">
+  <h1>KPRCB </h1>
+  <p>The name <span class="struct">KPRCB</span> stands for (Kernel) Processor Control 
+  Block. The kernel keeps one for each logical processor as the last member of the 
+  processor’s <span class="struct"><a href="kpcr.htm">KPCR</a></span>. The
+  <span class="struct">KPRCB</span> (formally <span class="struct">_KPRCB</span>) 
+  holds most of what the kernel needs ready access to while managing a processor 
+  and while managing resources that are themselves managed more simply and quickly 
+  per processor. </p>
+  <h2>Processor-Specific </h2>
+  <p>The <span class="struct">KPRCB</span> is highly specific to the processor architecture. 
+  Indeed, public symbol files confirm that Microsoft differentiates the x86 and 
+  x64 implementations not by conditional compilation but by defining them in separate 
+  headers: <a href="../../source/inc/i386_x.htm">i386_x.h</a> and
+  <a href="../../source/inc/amd64_x.htm">amd64_x.h</a>. This is a good measure of 
+  their dissimilarity. Presenting them as one, especially since each is large and 
+  has a complex history, is infeasible. This website’s attempt at documentation 
+  follows what’s known of Microsoft’s source code and presents the
+  <a href="i386_x/kprcb/index.htm">x86 <span class="struct">KPRCB</span></a> and
+  <a href="amd64_x/kprcb/index.htm">x64 <span class="struct">KPRCB</span></a> separately.
+  </p>
+  <p>That said, do not neglect the correspondences between them, at least for a 
+  second reading. The x64 <span class="struct">KPRCB</span> developed from roughly 
+  a decade of the x86, such that some of the new structure’s older elements may 
+  be better understood with reference to their origins in the old. The likelihood 
+  for many such cases is that my coverage for the x64 <span class="struct">KPRCB</span> 
+  attends only to the differences, taking as granted that you have read the corresponding 
+  material about the x86 <span class="struct">KPRCB</span>. </p>
+  <h2>Inlined Helpers </h2>
+  <p>Of course, most of the kernel’s work is far enough away from the processor 
+  architecture that the differences in the <span class="struct">KPRCB</span> for 
+  different processor architectures get hidden to some extent. Where they can’t 
+  have members in common, it should not surprise if the differences are abstracted 
+  behind an interface. </p>
+  <p>A simple example is of finding the address of the <span class="struct">KPRCB</span> 
+  for the processor that currently executes your code. The means of finding it differs 
+  between the architectures, but Microsoft defines processor-specific implementations 
+  of an inlined routine named <span class="inline routine">KeGetCurrentPrcb</span>. 
+  You call this rather than code for the differences. Or, rather, Microsoft’s programmers 
+  do. Only very rarely has Microsoft made it available to others even as an obscure 
+  definition buried deep in the headers. In the early days of Windows, Microsoft 
+  defined this routine in NTDDK.H but only for the supported non-Intel processors, 
+  never for the x86. Programmers knew of it for the x86, though, because it was 
+  not only inlined throughout the x86 kernel but was instantiated and therefore 
+  had its name and address in symbol files. This stopped for Windows XP but plainly 
+  the routine continued to exist. In recent times, formal definition again became 
+  available outside Microsoft in the NTOSP.H that was published, possibly by oversight, 
+  in the Windows Driver Kit (WDK) for Windows 10 in its original and Version 1511 
+  editions only. </p>
+  <p>Some of this abstraction into inline routines is disclosed in public symbols. 
+  In practice, the inline routines that get their names and types into public symbols 
+  are only those that are called from inline routines. For what it’s worth, the 
+  public symbol files for the kernel from the original Windows 10 have names and 
+  types for the following inline routines that access the <span class="struct">KPRCB</span> 
+  on the x86 and x64: </p>
+  <pre class="source">KPRCB *KeGetCurrentPrcb (VOID);
+VOID KiIpiStallOnPacketTargetsPrcb (ULONG, KPRCB *);
+VOID ExFreeToPPLookasideList (<a href="ex/pp_npaged_lookaside_number.htm">PP_NPAGED_LOOKASIDE_NUMBER</a>, PVOID, KPRCB *);</pre>
+  <p>For the x86 only, there is also a routine for getting the
+  <span class="struct">KPRCB</span> for a given processor number: </p>
+  <pre class="source">KPRCB *KiGetPrcb (ULONG);</pre>
+  <p>Of course, the likely code for this on the x86 has equivalent code inlined 
+  throughout the x64 kernel. It just doesn’t show in the public symbols. Revelations 
+  go only so far. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 29th December 2020 from material first 
+    published on 14th <a href="../../../../../../new/16/11.htm">November 2016</a>. 
+    It was last modified on 28th <a href="../../../../../../new/23/02.htm">February 
+    2023</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../_include/c1623.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="55127" -->
+  </div>
+</div>
+
+</body>
+
+</html>

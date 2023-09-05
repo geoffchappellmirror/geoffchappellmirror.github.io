@@ -1,0 +1,655 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ETW Security</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>ETW Security </h1>
+<p>Much that Event Tracing for Windows (ETW) works with is securable. Event providers 
+and tracing sessions that a program may hope to use can each have a persistent security 
+descriptor from which the kernel can decide what access the program is permitted, 
+depending on who runs it. Perhaps in response, but also for unrelated causes, the 
+kernel may create some object through the Object Manager and supply a handle for 
+further reference to the object, again subject to access rights. One scheme fits 
+all ETW purposes. </p>
+<h2>Access Rights </h2>
+<p>The specific access rights that are meaningful in one way or another to ETW are 
+defined in WMISTR.H. The name retains that ETW grew from the Windows Management 
+Infrastructure (WMI), which Microsoft introduced with Windows 2000. Ever since, 
+WMISTR.H has been published in both the Software Development Kit (SDK) and the Device 
+Driver Kit (DDK). Except for one recent addition, all the defined permissions have 
+been documented by Microsoft in one or both of these kits: </p>
+<table class="Constants">
+  <tr>
+    <th>Value </th>
+    <th>Name </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00000001 </td>
+    <td><span class="constant">WMIGUID_QUERY</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000002 </td>
+    <td><span class="constant">WMIGUID_SET</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td><span class="constant">WMIGUID_NOTIFICATION</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000008 </td>
+    <td><span class="constant">WMIGUID_READ_DESCRIPTION</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000010 </td>
+    <td><span class="constant">WMIGUID_EXECUTE</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000020 </td>
+    <td><span class="constant">TRACELOG_CREATE_REALTIME</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000040 </td>
+    <td><span class="constant">TRACELOG_CREATE_ONDISK</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000080 </td>
+    <td><span class="constant">TRACELOG_GUID_ENABLE</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000100 </td>
+    <td><span class="constant">TRACELOG_ACCESS_KERNEL_LOGGER</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00000200 </td>
+    <td><span class="constant">TRACELOG_CREATE_INPROC</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="constant">TRACELOG_LOG_EVENT</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000400 </td>
+    <td><span class="constant">TRACELOG_ACCESS_REALTIME</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000800 </td>
+    <td><span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00001000 </td>
+    <td><span class="constant">TRACELOG_JOIN_GROUP</span> </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td>0x000207FF (5.0); <br>
+    0x00120FFF (5.1 to 1511); <br>
+    0x00121FFF </td>
+    <td><span class="constant">WMIGUID_ALL_ACCESS</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+</table>
+<p>Tacked on at the end is the convenient symbol <span class="constant">WMIGUID_ALL_ACCESS</span> 
+for the combination of all the specific rights that are defined for the version, 
+plus <span class="constant">STANDARD_RIGHTS_READ</span> and, in version 5.1 and 
+higher, <span class="constant">SYNCHRONIZE</span>. </p>
+<h2>Registry Configuration </h2>
+<p>Any of these specific access rights can be specified in a security descriptor 
+for a persistent resource such as an event provider or tracing session, and most 
+are meaningful. The securable ETW resources—and WMI resources, while we’re at it—that 
+software may seek to access each have a GUID. Multiple programs, DLLs and drivers 
+may plan to write events as if from one event provider. Each registers as the event 
+provider, each specifying the one GUID that defines the event provider. When a program 
+starts a tracing session, it specifies the tracing session by its GUID which thus 
+distinguishes this tracing session from all others. The started tracing session 
+can enable some selection of event providers, again specifying each by its GUID. 
+Security too is found from the GUID: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WMI\Security</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue"><span class="placeholder">guid</span></span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="type">REG_BINARY</span> </td>
+  </tr>
+</table>
+<p>where <span class="placeholder">guid</span> is the securable resource’s GUID 
+in string form without braces. The binary data is required to be a self-relative 
+security descriptor. </p>
+<p>For the sort of administrator who is more used to specifying permissions as strings 
+in the Security Descriptor Definition Language (SDDL), it may help to stress that 
+the data for these registry values are not strings. The data is valid only if it 
+has the <span class="constant">REG_BINARY</span> type. The bytes are interpreted 
+as a <span class="struct">SECURITY_DESCRIPTOR_RELATIVE</span> structure, with Security 
+IDs (SIDs), Access Control Lists (ACLs) and Access Control Entries (ACEs), the last 
+of which contain the access rights. </p>
+<p>Perhaps in greater need of stress is that these registry values do not have braces 
+in their names. From Windows 8.1 to at least the 1803 release of Windows 10, Microsoft 
+itself mistakenly encloses the GUID in braces when defining security for the event 
+provider named Microsoft-Windows-Kernel-Interrupt-Steering. The apparent intention 
+is that this provider allows all access to SYSTEM and to Administrators but only
+<span class="constant">TRACELOG_GUID_ENABLE</span> to LOCAL SERVICE, and nothing 
+to anyone else. The effect instead is that no security is explicitly defined for 
+this provider, and so its security is defaulted. </p>
+<h3>Default Permissions </h3>
+<p>Every securable ETW resource can have its own security set for it explicitly, 
+but the same security is acceptable for many resources, perhaps even most. These 
+can all have their security set implicitly from a configurable default. The special 
+GUID <span class="guid">{0811C1AF-7A07-4A06-82ED-869455CDF713}</span> stands for 
+all ETW resources that do not have their own permissions. Microsoft defines this 
+GUID symbolically as <span class="guid">DefaultTraceSecurityGuid</span> in EVNTRACE.H 
+from the SDK but leaves it otherwise undocumented: even today, 25th May, 2020, more 
+than a decade after this GUID’s introduction for Windows Vista, Google reports no 
+match at microsoft.com for either the GUID or its symbolic name. </p>
+<p>The closest that Microsoft comes to documenting the default security for ETW 
+resources is when documenting the <span class="function">EventAccessControl</span> 
+function: </p>
+<blockquote>
+  By default, only the administrator of the computer, users in the Performance Log 
+  Users group, and services running as LocalSystem, LocalService, NetworkService 
+  can control trace sessions and provide and consume event data. Only users with 
+  administrative privileges and services running as LocalSystem can start and control 
+  an NT Kernel Logger session.
+</blockquote>
+<p>The first sentence is unchanged from the SDK for Windows Vista and has all along 
+conveyed what arguably is most important to know: the default permissions are set 
+up so that most of the access rights require some sort of privileged execution but 
+with latitude. Full access is allowed to SYSTEM and Administrators, of course, and 
+also to two important but not fully privileged accounts for services. Nearly full 
+access is allowed to some users without their needing the supreme power of administrators.
+</p>
+<p>Though administrators can edit the default security, they might better not and 
+instead keep to setting security explicitly for specific resources. For this, they 
+surely can be better administrators if armed with more detail on what is set already 
+for the default. The following table has the permissions that Microsoft sets for 
+the <span class="guid">DefaultTraceSecurityGuid</span> in the registry as it exists 
+in the WIM file from which Windows is installed: </p>
+<table>
+  <tr>
+    <th>User or Group </th>
+    <th>Access Rights </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="2">localhost\Everyone </td>
+    <td><span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="constant">TRACELOG_JOIN_GROUP</span> </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">NT AUTHORITY\SYSTEM <br>
+    NT AUTHORITY\LOCAL SERVICE <br>
+    NT AUTHORITY\NETWORK SERVICE <br>
+    BUILTIN\Administrators </td>
+    <td><span class="constant">WMIGUID_ALL_ACCESS</span> </td>
+    <td>6.0 to 1511 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">WMIGUID_ALL_ACCESS</span> <br>
+    without <span class="constant">TRACELOG_JOIN_GROUP</span> </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td>BUILTIN\Performance Log Users </td>
+    <td><span class="constant">WMIGUID_QUERY</span>; <br>
+    <span class="constant">WMIGUID_NOTIFICATION</span>; <br>
+    <span class="constant">TRACELOG_CREATE_REALTIME</span>; <br>
+    <span class="constant">TRACELOG_CREATE_ONDISK</span>; <br>
+    <span class="constant">TRACELOG_GUID_ENABLE</span>; <br>
+    <span class="constant">TRACELOG_LOG_EVENT</span>; <br>
+    <span class="constant">TRACELOG_ACCESS_REALTIME</span>; <br>
+    <span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>BUILTIN\Performance Monitor Users </td>
+    <td><span class="constant">WMIGUID_NOTIFICATION</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">APPLICATION PACKAGE AUTHORITY\ALL APPLICATION PACKAGES </td>
+    <td><span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="constant">TRACELOG_JOIN_GROUP</span> </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td>known only by SID, see note below </td>
+    <td><span class="constant">TRACELOG_REGISTER_GUIDS</span>; <br>
+    <span class="constant">TRACELOG_JOIN_GROUP</span> </td>
+    <td>1703 and higher </td>
+  </tr>
+</table>
+<p>The newly defined <span class="constant">TRACELOG_JOIN_GROUP</span> for the 1607 
+release of Windows 10 is additional to <span class="constant">TRACELOG_REGISTER_GUIDS</span> 
+for Everyone and for ALL APPLICATION PACKAGES, but is omitted for the several identities 
+that otherwise have all access. It is not known whether the omission is deliberate 
+or an oversight, as might happen easily if these registry settings are generated 
+by a tool from input that uses the C-language macro definition of
+<span class="constant">WMIGUID_ALL_ACCESS</span> but was not told that the target 
+Windows build is 1607 or higher. It is anyway not yet known what
+<span class="constant">TRACELOG_JOIN_GROUP</span> governs. </p>
+<p>The 1703 release grants <span class="constant">TRACELOG_REGISTER_GUIDS</span> 
+and <span class="constant">TRACELOG_JOIN_GROUP</span> to yet another user, but no 
+name is yet known. The SID is S-1-15-3-1024-3153509613-960666767-3724611135-2725662640-12138253-543910227-1950414635-4190290187.
+</p>
+<h4>The WMI Default </h4>
+<p>It plausibly never has happened in real-world practice, but if the
+<span class="guid">DefaultTraceSecurityGuid</span> has no valid security descriptor 
+in the registry when ETW initialises while Windows starts, then ETW falls back to 
+a built-in default. The security descriptor for this is built while Windows initialises 
+and it is not configurable. </p>
+<table>
+  <tr>
+    <th>User or Group </th>
+    <th>Access Rights </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>NT AUTHORITY\SYSTEM </td>
+    <td><span class="constant">SPECIFIC_RIGHTS_ALL</span>; <br>
+    <span class="constant">STANDARD_RIGHTS_ALL</span> </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>BUILTIN\Users </td>
+    <td><span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">BUILTIN\Administrators <br>
+    </td>
+    <td><span class="constant">SPECIFIC_RIGHTS_ALL</span>; <br>
+    <span class="constant">STANDARD_RIGHTS_ALL</span> </td>
+    <td>5.0 to 5.1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">SPECIFIC_RIGHTS_ALL</span>; <br>
+    <span class="constant">STANDARD_RIGHTS_ALL</span>; <br>
+    <span class="constant">ACCESS_SYSTEM_SECURITY</span> </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>localhost\Everyone </td>
+    <td><span class="constant">WMIGUID_ALL_ACCESS</span> </td>
+    <td>5.0 to 5.1 </td>
+  </tr>
+  <tr>
+    <td>NT AUTHORITY\LOCAL SERVICE <br>
+    NT AUTHORITY\NETWORK SERVICE </td>
+    <td><span class="constant">SPECIFIC_RIGHTS_ALL</span>; <br>
+    <span class="constant">STANDARD_RIGHTS_ALL</span> </td>
+    <td>5.2 and higher </td>
+  </tr>
+</table>
+<p>ETW inherits this default’s default from the original WMI security. Before version 
+6.0, this WMI default is the only default. As noted in Microsoft’s documentation 
+of <span class="function">EventAccessControl</span>, the original implementation 
+was that WMI resources that do not have security set explicitly are wide open. The 
+times were evidently different. It is perhaps as well to be clear that this default 
+of granting of all access to Everyone persisted through all of version 5.1 despite 
+the general strengthening of security for Windows XP SP2. </p>
+<h4>Local Service </h4>
+<p>Administrators who set security explicitly for an ETW or WMI resource may do 
+well to note that both the ETW and WMI defaults extend full control not just to 
+SYSTEM and to Administrators but to the otherwise less powerful LOCAL SERVICE and 
+NETWORK SERVICE accounts. Services that do not need to have all access to all things 
+are encouraged to run on these accounts, if only for humility. One such service 
+that is vital to the practical use of ETW is EventLog. In Windows Vista and higher, 
+it runs on LOCAL SERVICE (and has its own Service SID). </p>
+<p>The security descriptors installed for some providers do not permit any access 
+to anyone other than SYSTEM and Administrators. This shuts out the EventLog service. 
+Some shut out Administrators too, and not without cause, but our interest for now 
+is the EventLog service. Suppose an event provider would ordinarily write to some 
+log that shows in the Event Viewer. Suppose also that security is set for this provider 
+so that only SYSTEM and Administrators have access. Then even a user with administrative 
+privilege will encounter an error on trying to enable the log through the Event 
+Viewer or the WEVTUTIL command-line tool or any tool that uses the Windows Event 
+Log functions such as <span class="function">EvtSaveChannelConfig</span>. If this 
+is not the effect you want, then remember to provide for LOCAL SERVICE (or for the 
+EventLog service, specifically). </p>
+<p>It is perhaps as well to spell this out, since the Internet confirms that the 
+resulting error has been no small trouble to real-world users in the decade since 
+this article and an older one that it linked to were first published. The immediate 
+symptom is that the Event Viewer may seem to have enabled the log but no events 
+show in the log and there is instead an error in the System log. The event ID is 
+30, with EventLog as the Source. The supposedly friendly text for the event is:
+</p>
+<blockquote>
+  The event logging service encountered an error (5) while enabling publisher {<span class="placeholder">guid</span>} 
+  to channel <span class="placeholder">log</span>. This does not affect channel 
+  operation, but does affect the ability of the publisher to raise events to the 
+  channel. One common reason for this error is that the Provider is using ETW Provider 
+  Security and has not granted enable permissions to the Event Log service identity.</blockquote>
+<p>The text, though arguably cryptic, is correct. Though the Event Viewer runs with 
+administrative privilege, the API call that would enable the event provider for 
+the tracing session is actually made by the EventLog service, executing as WEVTSVC.DLL 
+in a SVCHOST.EXE process that runs from the LOCAL SERVICE account. To enable it 
+to log without error, you must edit the binary data for the registry value
+<span class="regvalue"><span class="placeholder">guid</span></span> in the
+<span class="regkey">WMI\Security</span> key. The least access that’s required to 
+enable a log and avoid the error in the System log is <span class="constant">TRACELOG_GUID_ENABLE</span>.
+</p>
+<h2>User-Interface Support </h2>
+<p>Of course, even the most advanced of users won’t much like that setting security 
+for an ETW resource turns into preparing a security descriptor by hand to enter 
+into the Registry Editor as binary data for a registry value. There is programmatic 
+support through the documented functions <span class="function">EventAccessControl</span>,
+<span class="function">EventAccessQuery</span> and <span class="function">EventAccessRemove</span>, 
+but writing a program must almost always look like overkill. What anyone would like 
+is that some tool for the job already exists, i.e., is included with Windows.
+</p>
+<p>The only user interface that I have ever known from Microsoft for viewing and 
+changing the security settings of providers and loggers is in a Microsoft Management 
+Console snap-in named PERFMON.MSC. This presents nowadays as the Performance Monitor. 
+Among its Data Collector Sets are two sets of trace sessions. The Event Trace Sessions 
+are all the loggers that are already started (well, all that are reported by the
+<span title="function" class="function">QueryAllTraces</span> function). The folder 
+named Startup Event Trace Sessions lists the loggers that are configured as AutoLoggers. 
+The Properties dialog for any of these loggers lists the relevant providers and 
+lets you manage security for each provider (via a Security button on the Trace Providers 
+tab) and for the logger itself (via the Security tab). </p>
+<p>As a user interface, this has two significant defects. First, it is not general. 
+It is certainly not a browser of security settings for ETW and WMI resources. It 
+does not even let you browse the installed providers for their security settings 
+before they are assigned to a logger. You can define a logger and assign providers 
+to it, and set security for this logger and for its providers. This security that 
+you set for a provider through this logger then becomes its security in all loggers 
+and persists even after you remove the provider from your logger. There is perhaps 
+an opportunity here for some third-party manufacturer of low-level Windows maintenance 
+gadgets. </p>
+<p>Second, and this really is a coding error that may even make the user interface 
+unsafe to use, it misses some of the specific access rights:
+<span class="constant">WMIGUID_QUERY</span>, <span class="constant">TRACELOG_REGISTER_GUIDS</span> 
+and the new <span class="constant">TRACELOG_JOIN_GROUP</span>. The user interface 
+does not report which of these are set, except by inference if it happens that
+<span class="constant">WMIGUID_ALL_ACCESS</span> is set. It is not possible to have 
+this user interface set just one of these access rights. The coding error is that 
+where WDC.DLL tells the <span class="function">CreateSecurityPage</span> function 
+in ACLUI.DLL about the specific rights that are available for these securable resources, 
+the table of <span class="struct">SI_ACCESS</span> structures that it provides through 
+the <span class="method">GetAccessRights</span> method of its
+<span class="interface">ISecurityInformation</span> interface is incomplete. Whether 
+this remains unfixed after more than a decade—at least to the 1803 release of Windows 
+10—because it has not been noticed or not been thought important enough to attend 
+to is not known. Plainly Microsoft doesn’t want administrators to manage ETW security 
+through the Performance Monitor. Does Microsoft want anyone to manage ETW security 
+at all? </p>
+<h2>Abstract ETW Resources </h2>
+<p>Noted above is that the GUID for default security is not documented. It is just 
+one example of a GUID that does not represent any particular event provider or tracing 
+session or anything else concrete. This <span class="guid">DefaultTraceSecurityGuid</span> 
+stands for all ETW resources that don't have their own security set for them. It 
+is not the only such abstraction. However many exist, it would be naive to expect 
+documentation. </p>
+<h3>Private Logger Security </h3>
+<p>One reason to leave abstract ETW resources undocumented is that they are meaningful 
+only very deep into the ETW mechanism. This is certainly true of
+<span class="guid">{472496CF-0DAF-4F7C-AC2E-3F8457ECC6BB}</span>. Public symbol 
+files name this as <span class="internal variable">PrivateLoggerSecurityGuid</span>. 
+A C-language definition is published without comment in the NTWMI.H from the Enterprise 
+edition of the WDK for Windows 10 Version 1511, specifically, but disclosure of 
+that whole file was surely an oversight. </p>
+<p>What the <span class="guid">PrivateLoggerSecurityGuid</span> governs is who can 
+send a particular type of notification to an event provider. When a user-mode event 
+provider is enabled for a tracing session in <span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span>, 
+the events it writes go to tracing buffers that are managed entirely in user mode 
+but notifications it receives about the session’s start, stop and other operations 
+still go through the kernel unless the session also has the
+<span class="constant">EVENT_TRACE_PRIVATE_IN_PROC</span> mode. Before the 1703 
+release of Windows 10, the kernel rejects these notifications unless the caller 
+has <span class="constant">TRACELOG_GUID_ENABLE</span> access not just to the provider 
+but also to the abstract <span class="guid">PrivateLoggerSecurityGuid</span>. The 
+security descriptor that is set for this abstraction is presumably what Microsoft 
+has in mind where documentation of <span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span> 
+says: </p>
+<blockquote>
+  Only LocalSystem, the administrator, and users in the administrator group that 
+  run in an elevated process can create a private session.</blockquote>
+<p>Permissions for the <span class="guid">PrivateLoggerSecurityGuid</span>, as set 
+into the registry in the WIM file from which Windows is installed, are very tight:
+</p>
+<table>
+  <tr>
+    <th>User or Group </th>
+    <th>Access Rights </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>BUILTIN\Administrators </td>
+    <td><span class="constant">TRACELOG_GUID_ENABLE</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>NT AUTHORITY\SYSTEM </td>
+    <td><span class="constant">WMIGUID_READ_DESCRIPTION</span>; <br>
+    <span class="constant">TRACELOG_GUID_ENABLE</span>; <br>
+    <span class="constant">STANDARD_RIGHTS_READ</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+</table>
+<p>Before Windows 7, the tighter security required for these notifications was that 
+caller also have <span class="constant">TRACELOG_GUID_ENABLE</span> access to the
+<span class="guid">SystemTraceControlGuid</span>. </p>
+<h3>NT Kernel Logger </h3>
+<p>The <span class="guid">SystemTraceControlGuid</span> has long been documented 
+and is the GUID of something very concrete, namely the NT Kernel Logger. Yet even 
+before access to the system tracing functionality of the NT Kernel Logger was opened 
+to other tracing sessions, its GUID <span class="guid">{9E814AAD-3204-11D2-9A82-006008A86939}</span> 
+had abstract use to stand for any ETW resource that nobody should have the use of 
+unless they would be permitted access to the NT Kernel Logger. Since version 6.2 
+this applies, naturally enough, to any tracing session that’s in
+<span class="constant">EVENT_TRACE_SYSTEM_LOGGER_MODE</span>. It also guards interfaces 
+that can change system-wide behaviour that is meaningful only to such sessions.
+</p>
+<p>The registry in the WIM file from which Windows is installed in version 6.0 and 
+higher has the following permissions for the <span class="guid">SystemTraceControlGuid</span>:
+</p>
+<table>
+  <tr>
+    <th>User or Group </th>
+    <th>Access Rights </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="3">NT AUTHORITY\SYSTEM <br>
+    BUILTIN\Administrators </td>
+    <td><span class="constant">WMIGUID_ALL_ACCESS</span> <br>
+    without <span class="constant">TRACELOG_REGISTER_GUIDS</span> <br>
+    or <span class="constant">SYNCHRONIZE</span> </td>
+    <td>6.0 to 6.1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">WMIGUID_ALL_ACCESS</span> </td>
+    <td>6.2 to 1511 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">WMIGUID_ALL_ACCESS</span> <br>
+    without <span class="constant">TRACELOG_JOIN_GROUP</span> </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">NT SERVICE\DPS <br>
+    NT SERVICE\WdiServiceHost </td>
+    <td><span class="constant">WMIGUID_ALL_ACCESS</span> <br>
+    without <span class="constant">WMIGUID_READ_DESCRIPTION</span> <br>
+    or <span class="constant">STANDARD_RIGHTS_READ</span> </td>
+    <td>6.2 to 1511 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">WMIGUID_ALL_ACCESS</span> <br>
+    without <span class="constant">WMIGUID_READ_DESCRIPTION</span>, <br>
+    <span class="constant">TRACELOG_JOIN_GROUP</span> <br>
+    or <span class="constant">STANDARD_RIGHTS_READ</span> </td>
+    <td>1607 and higher </td>
+  </tr>
+</table>
+<h2>Objects </h2>
+<p>As noted above, the scheme of specific access rights for ETW resources applies 
+also to handles that are opened to various types of run-time object. The kernel 
+has long restricted which few access rights matter for this, and in Windows 8.1 
+starts enforcing that only very few are valid. These objects that ETW creates through 
+the Object Manager come in three types: </p>
+<table>
+  <tr>
+    <th>Object Name </th>
+    <th>Structure </th>
+    <th>Valid Access Rights </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>WmiGuid </td>
+    <td>unknown </td>
+    <td>all </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">EtwRegistration </td>
+    <td rowspan="2"><span class="struct">
+    <a href="../register/reg_entry/index.htm">ETW_REG_ENTRY</a></span> </td>
+    <td>all </td>
+    <td>6.0 to 6.2 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">WMIGUID_NOTIFICATION</span>; <br>
+    <span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">EtwConsumer </td>
+    <td rowspan="2"><span class="struct">
+    <a href="../rtsup/realtime_consumer.htm">ETW_REALTIME_CONSUMER</a></span>
+    </td>
+    <td>all </td>
+    <td>6.1 to 6.2 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">TRACELOG_ACCESS_REALTIME</span> </td>
+    <td>6.3 and higher </td>
+  </tr>
+</table>
+<p>The WmiGuid object is inherited from before ETW was widely named ETW. This type 
+of object might better be regarded as supporting the Windows Management Infrastructure 
+(WMI), separately from ETW. </p>
+<p>The EtwRegistration object dates from the substantial elaboration of ETW functionality 
+for Windows Vista. The highest-profile reason for creating an EtwRegistration object 
+is that user-mode software registers an event provider. A handle to the object is 
+wrapped by NTDLL into a <span class="type">
+<a href="../../../../../win32/ntdll/api/etw/evntsup/reghandle.htm">REGHANDLE</a></span> 
+that is then the higher-level representation of the registration. Much less visible 
+is the creation of an EtwRegistration object as a vehicle for replying to event-provider 
+notifications. Either way, handles to an EtwRegistration object only ever have the 
+two permissions shown above, even in Windows Vista. </p>
+<p>Windows 7 reworked the mechanism by which tracing sessions can consume events 
+without needing that the tracing buffers be flushed to a log file. Handles to an 
+EtwConsumer object only ever have the one permission shown above. </p>
+<h3>Generic Mappings </h3>
+<p>Access rights for all objects allow that the programmer (or user who sets them 
+for persistence) need not know the specific rights but can instead refer to them 
+generically according to which ones correspond to whatever abstracted notion the 
+kernel supports of reading, writing or executing, or of having all access. Though 
+the WMI and ETW objects use the same scheme of specific rights, they have different 
+mappings of generic rights: </p>
+<table>
+  <tr>
+    <th>Generic Mask </th>
+    <th>WmiGuid </th>
+    <th>EtwConsumer <br>
+    EtwRegistration </th>
+  </tr>
+  <tr>
+    <td><span class="constant">GENERIC_READ</span> </td>
+    <td><span class="constant">WMIGUID_QUERY</span> </td>
+    <td><span class="constant">WMIGUID_QUERY</span>; <br>
+    <span class="constant">WMIGUID_NOTIFICATION</span>; <br>
+    <span class="constant">WMIGUID_READ_DESCRIPTION</span> </td>
+  </tr>
+  <tr>
+    <td><span class="constant">GENERIC_WRITE</span> </td>
+    <td><span class="constant">WMIGUID_SET</span> </td>
+    <td><span class="constant">WMIGUID_SET</span>; <br>
+    <span class="constant">TRACELOG_CREATE_REALTIME</span>; <br>
+    <span class="constant">TRACELOG_CREATE_ONDISK</span> </td>
+  </tr>
+  <tr>
+    <td><span class="constant">GENERIC_EXECUTE</span> </td>
+    <td><span class="constant">WMIGUID_EXECUTE</span> </td>
+    <td><span class="constant">WMIGUID_EXECUTE</span>; <br>
+    <span class="constant">TRACELOG_GUID_ENABLE</span>; <br>
+    <span class="constant">TRACELOG_CREATE_INPROC</span>; <br>
+    <span class="constant">TRACELOG_ACCESS_REALTIME</span>; <br>
+    <span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+  </tr>
+  <tr>
+    <td><span class="constant">GENERIC_ALL</span> </td>
+    <td>all </td>
+    <td>all except <span class="constant">TRACELOG_ACCESS_KERNEL_LOGGER</span>
+    </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 25th May 2020 from material first published 
+  on 9th November 2008. It was last modified on 27th May 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c0820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5085" -->
+</div>
+
+</body>
+
+</html>

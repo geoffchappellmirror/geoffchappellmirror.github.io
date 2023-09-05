@@ -1,0 +1,143 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>LdrLockLoaderLock</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="54033" endspan -->
+<h1>LdrLockLoaderLock </h1>
+<p>This function enters (or tries to enter) the special critical section known as 
+the loader lock. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS
+LdrLockLoaderLock (
+    ULONG Flags,
+    ULONG *State,
+    ULONG *Cookie);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">Flags</span> argument supplies bit flags to vary the 
+function’s behaviour. There are two supported values: </p>
+<table>
+  <tr>
+    <td>0x01 </td>
+    <td>do not return error, raise exception </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>do not wait, return if busy </td>
+  </tr>
+</table>
+<p>The <span class="argument">State</span> argument is the address of a variable 
+that is to receive an explanation of whether the function entered the loader lock 
+or returned without waiting. This argument is needed only if the 0x02 bit is set 
+in the <span class="argument">Flags</span>, and may otherwise be NULL. The value 
+produced at the given address can be one of the following: </p>
+<table>
+  <tr>
+    <td>0x00 </td>
+    <td>the function did not try to enter the loader lock </td>
+  </tr>
+  <tr>
+    <td>0x01 </td>
+    <td>the function entered the loader lock </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>the loader lock was busy, the function did not wait </td>
+  </tr>
+</table>
+<p>The <span class="argument">Cookie</span> argument is the address of a variable 
+that is to receive a cookie for use with <span class="function">
+<a href="unlockloaderlock.htm">LdrUnlockLoaderLock</a></span>. </p>
+<h3>Return Value </h3>
+<p>The function returns zero for success, else an error code. </p>
+<p>If the 0x01 bit is set in the <span class="argument">Flags</span>, then all errors 
+are reported as exceptions. If the function returns at all, it is successful. Indeed, 
+the point to the 0x01 bit is surely that the function may be treated as returning
+<span class="type">void</span>. </p>
+<h2>Behaviour </h2>
+<p>The function distinguishes several cases of invalid parameter: </p>
+<table>
+  <tr>
+    <td><span class="constant">STATUS_INVALID_PARAMETER_1</span> </td>
+    <td>the <span class="argument">Flags</span> argument has a set bit other than 
+    the two shown above </td>
+  </tr>
+  <tr>
+    <td><span class="constant">STATUS_INVALID_PARAMETER_2</span> </td>
+    <td>the 0x02 bit is set in the <span class="argument">Flags</span> but the
+    <span class="argument">State</span> argument is NULL </td>
+  </tr>
+  <tr>
+    <td><span class="constant">STATUS_INVALID_PARAMETER_3</span> </td>
+    <td>the <span class="argument">Cookie</span> argument is NULL </td>
+  </tr>
+</table>
+<p>Except for invalid parameters, the function can fail only if an exception occurs 
+while trying to enter the loader lock or return data at the addresses given by the
+<span class="argument">State</span> and <span class="argument">Cookie</span> arguments. 
+If the 0x01 bit is clear, such exceptions are caught within the function, so that 
+the exception code becomes the returned value. A message may be written to the debugger:
+</p>
+<pre class="output">LDR: LdrLockLoaderLock - caught exception <span class="placeholder">status</span></pre>
+<p>The function succeeds trivially, i.e., without trying to enter the loader lock, 
+if called while NTDLL is initialising a process. </p>
+<p>If the 0x02 bit is clear in the Flags, the function enters the loader lock, waiting 
+as long as needed. </p>
+<p>If the 0x02 bit is set in the <span class="argument">Flags</span>, the function 
+tries to enter the loader lock. If this fails, i.e., because the critical section 
+is already owned, the function succeeds. The variable at the address given by the
+<span class="argument">State</span> argument is set to 0x02 to indicate that the 
+loader lock is not entered. No cookie is produced in this case. </p>
+<p>Whether the 0x02 bit is set or not, if the function enters the loader lock, it 
+does two things. First, to indicate that it has entered the loader lock, it sets 
+the <span class="argument">State</span> variable to 0x01. This step is skipped if 
+the 0x02 bit is clear in the <span class="argument">Flags</span> and the
+<span class="argument">State</span> argument is NULL. Second, the function stores 
+a cookie at the address given by the <span class="argument">Cookie</span> argument. 
+This cookie is to be passed back to NTDLL when releasing the loader lock. The cookie 
+is surely intended not to be interpreted. If only at present, the low word is a 
+serial number and the high word is the low 12 bits of the thread ID. </p>
+<h2>Availability </h2>
+<p>The <span class="function">LdrLockLoaderLock</span> function is exported by name 
+from NTDLL.DLL in version 5.1 and higher. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 26th November 2008. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c08.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62741" endspan -->
+</div>
+
+</body>
+
+</html>

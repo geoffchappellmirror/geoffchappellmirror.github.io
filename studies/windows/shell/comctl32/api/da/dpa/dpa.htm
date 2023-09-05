@@ -1,0 +1,116 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DPA Structure</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>DPA Structure </h1>
+<p>COMCTL32 manages each <a href="index.htm">Dynamic Pointer Array</a> through a 
+14h-byte control structure (20h bytes in x64 builds), whose address serves as a 
+handle to the DPA. </p>
+<h2>Definition </h2>
+<pre class="source">typedef struct _DPA {
+    int cpItems;
+    PVOID *pArray;
+    HANDLE hHeap;
+    int cpCapacity;
+    int cpGrow;
+} DPA, *HDPA; </pre>
+<h3>Members </h3>
+<p>The <span class="member">cpItems</span> member is the current size of the pointer 
+array, measured as a number of pointers. </p>
+<p>The <span class="member">pArray</span> member is the address of the pointer array, 
+or is NULL. </p>
+<p>The <span class="member">hHeap</span> member is a handle to the heap that provides 
+memory for this DPA. </p>
+<p>The <span class="member">cpCapacity</span> member is the current capacity of 
+the pointer array, measured as a number of pointers. </p>
+<p>The <span class="member">cpGrow</span> member is the allocation unit for the 
+heap block that holds the pointer array, measured as a number of pointers. </p>
+<h2>Nomenclature </h2>
+<p>The <span class="struct">DPA</span> structure, but not its internal detail, was 
+documented as part of Microsoft’s documentation of DPA functions among the
+<a target="_top" href="http://msdn.microsoft.com/library/ms807073.aspx">Settlement 
+Program Interfaces</a> in 2002. The names <span class="struct">_DPA</span> for the 
+structure and <span class="type">HDPA</span> for the handle are Microsoft’s. The 
+names given above for the members of this structure are invented. </p>
+<p>This omission of internal detail is entirely in keeping with a principle that 
+the <span class="struct">DPA</span> is opaque, so that code outside the implementations 
+of the DPA functions, or at least outside COMCTL32, may use the structure’s address 
+as a handle but not interpret the structure. Microsoft’s own practice, however, 
+is that various modules external to COMCTL32 interpret either or both of the
+<span class="member">cpItems</span> and <span class="member">pArray</span> members. 
+Among these modules are BROWSEUI, EXPLORER, SHDOCVW, SHELL32 and SHLWAPI. </p>
+<p>The most frequent use that Microsoft has for the internal detail is a very obvious 
+one whose purpose is indeed not accommodated (directly) by the functional interface: 
+given a DPA, how many pointers are currently stored in it? The list represented 
+by a <span class="struct">DPA</span> may be enumerated easily enough by calling
+<span class="function"><a href="getptr.htm">DPA_GetPtr</a></span> repeatedly, giving 
+a successively higher index each time. If the list is known to be managed only in 
+such a way that it cannot be sparse, then the first return of a NULL pointer indicates 
+that all items have been seen, but otherwise, at what index should the enumeration 
+stop? In version 4.71 and higher, <span class="function">
+<a href="enumcallback.htm">DPA_EnumCallback</a></span> can be called and the callbacks, 
+one per item, even for NULL items, can be counted. Before then, no one exported 
+function returns anything from which to know, though a limiting index can be determined 
+in steps, e.g., by calling <span class="function"><a href="insertptr.htm">DPA_InsertPtr</a></span> 
+to append a dummy item, remembering the index that is returned, and calling
+<span class="function"><a href="deleteptr.htm">DPA_DeletePtr</a></span> to remove 
+the dummy. It can only be good that Microsoft’s programmers avoid such clumsiness 
+by going directly to the <span class="member">cpItems</span> member of the
+<span class="struct">DPA</span>, but why not document it for everybody else? </p>
+<p>Eventually, Microsoft did document this access that had long been enjoyed by 
+Internet Explorer. The COMMCTRL.H from the Windows Vista SDK, dated January 2007, 
+defines macros <span class="macro">DPA_GetPtrCount</span> and
+<span class="macro">DPA_GetPtrPtr</span> which give respectively the
+<span class="member">cpItems</span> and <span class="member">pArray</span> members, 
+albeit through such obvious constructions as </p>
+<pre class="source">#define DPA_GetPtrPtr(hdpa) (*((void * **)((BYTE *) (hdpa) + sizeof (void *))))</pre>
+<p>rather than defining members of the <span class="struct">DPA</span> structure. 
+Perhaps everyone’s supposed to feel that this documentation is better late than 
+never, however clumsy and however much the history is misrepresented: note that 
+both macros are documented with “Windows Vista” as the minimum operating system, 
+even though Microsoft had evidently been using something very like them for well 
+over a decade. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th April 2005 and was last modified 
+  on 23rd June 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c9709.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1997-2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="5933" endspan -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,2310 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KTHREAD (5.2 SP1 to 6.1)</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<h1>KTHREAD (5.2 SP1 To 6.1) </h1>
+<div class="Main">
+  <!--webbot bot="Include" U-Include="_include/intro.htm" TAG="BODY" startspan -->
+
+<p>The <span class="struct">KTHREAD</span> structure is the Kernel Core’s portion 
+of the <span class="struct"><a href="../../ps/ethread/index.htm">ETHREAD</a></span> 
+structure. The latter <span class="emphasis">is</span> the thread object as exposed 
+through the Object Manager. The <span class="struct">KTHREAD</span> is the core 
+of it. </p>
+
+<!--webbot bot="Include" endspan i-checksum="54584" -->
+  <h2>Variability </h2>
+  <p>The <span class="struct">KTHREAD</span> structure is plainly internal to the 
+  kernel and its layout varies greatly between Windows versions and even between 
+  builds. Indeed, it is the most highly variable of all significant kernel-mode 
+  structures—so much so that tracking its history looks to be imposisble on one 
+  page and is therefore spread over several: </p>
+  <ul>
+    <li><a href="310.htm">versions 3.10 to 3.50</a>; </li>
+    <li><a href="351.htm">versions 3.51 to 5.1</a>; </li>
+    <li><a href="early52.htm">version 5.2 before SP1</a>; </li>
+    <li>versions 5.2 SP1 to 6.1; </li>
+    <li><a href="62.htm">versions 6.2 and higher</a>. </li>
+  </ul>
+  <p>Though the <span class="struct">KTHREAD</span> had been relatively stable 
+  through versions 3.51 to 5.1, the original Windows Server 2003 brought a 
+  substantial rearrangement. This perhaps anticipated 64-bit Windows, but when x64 builds 
+  actually didi appear for the first service pack the structure was rearranged almost as much again.
+  </p>
+  <p>Distinctively new for the versions that have both x86 and x64 builds is the 
+  packing of small members into spare fields in other members. Some such reused 
+  fields are explicitly spare, as with several members of the
+  <span class="struct">KAPC</span> structure. WDM.H even defines macros to ease 
+  the reference to these fields by their offsets. Other reuse is available only 
+  because of alignment padding, as with the last byte of the
+  <span class="struct">KAPC_STATE</span> for 32-bit Windows. There is more opportunity 
+  for this reuse in the 64-bit builds, whose wider pointers tend to create alignment 
+  padding as a side-effect. To take advantage of this to get a smaller
+  <span class="struct">KTHREAD</span> for the late builds of version 5.2, numerous 
+  members are reordered from the early builds of version 5.2, and a few are ordered 
+  differently in the 32-bit and 64-bit builds. To track this reordering continuously 
+  with even the immediately preceding build is just not feasible. </p>
+  <p>In the following table of sizes, different builds of the same version are distinguished 
+  as early, late and very late. These descriptions are then used throughout this 
+  article as a shorthand. </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>late 5.2 (SP1) </td>
+        <td>0x01B8 </td>
+        <td>0x0320 </td>
+      </tr>
+      <tr>
+        <td>very late 5.2 (SP2) </td>
+        <td>0x01B8 </td>
+        <td>0x0308 </td>
+      </tr>
+      <tr>
+        <td>early 6.0 (before SP1); <br>
+        late 6.0 (SP1 and higher) </td>
+        <td>0x01E0 </td>
+        <td>0x0330 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0x0200 </td>
+        <td>0x0360 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>These sizes, and the offsets, types and names in the tables that follow, are 
+  from Microsoft’s symbol files for the kernel. </p>
+  <h2>Layout </h2>
+  <p>It is well known that the <span class="struct">KTHREAD</span> is a kernel object 
+  that can be waited on until it gets signalled, as happens when the thread ends 
+  its execution. In the <span class="struct">
+  <a href="../../ntosdef_x/dispatcher_header/index.htm">DISPATCHER_HEADER</a></span> 
+  at the beginning of a <span class="struct">KTHREAD</span>, the
+  <span class="member">Type</span> is <span class="constant">ThreadObject</span> 
+  (6) in the <span class="enum"><a href="../kobjects.htm">KOBJECTS</a></span> enumeration.
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">DISPATCHER_HEADER Header;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x00; <br>
+        next at 0x00 </td>
+      </tr>
+      <tr>
+        <td>0x10 (5.2) </td>
+        <td>0x18 (5.2) </td>
+        <td>
+        <pre class="source">LIST_ENTRY MutantListHead;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next at 0x01CC and 0x02E0 </td>
+        <td>previously at 0x10 </td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">ULONGLONG volatile CycleTime;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x30 and 0x48 </td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG volatile HighCycleTime;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x38 </td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">ULONGLONG QuantumTarget;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x18 and 0x20 </td>
+      </tr>
+      <tr>
+        <td>0x18 (5.2); <br>
+        0x28 </td>
+        <td>0x28 </td>
+        <td>
+        <pre class="source">PVOID InitialStack;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x18; <br>
+        next at 0x20 and 0x28 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x1C (5.2); <br>
+        0x2C </td>
+        <td rowspan="2">0x30 </td>
+        <td>
+        <pre class="source">PVOID StackLimit;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x1C </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID volatile StackLimit;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x24 and 0x30 </td>
+      </tr>
+      <tr>
+        <td>0x20 (5.2); <br>
+        0x30 </td>
+        <td>0x38 </td>
+        <td>
+        <pre class="source">PVOID KernelStack;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x20; <br>
+        next at 0x48 and 0x58 </td>
+      </tr>
+      <tr>
+        <td>0x24 (5.2); <br>
+        0x34 </td>
+        <td>0x40 </td>
+        <td>
+        <pre class="source">KSPIN_LOCK ThreadLock;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x24; <br>
+        next at 0x2C and 0x40 </td>
+      </tr>
+      <tr>
+        <td>0x38 </td>
+        <td>0x48 </td>
+        <td>
+        <pre class="source"><a href="../kwait_status_register.htm">KWAIT_STATUS_REGISTER</a> WaitRegister;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0x54 and 0x70 </td>
+      </tr>
+      <tr>
+        <td>0x39 </td>
+        <td>0x49 </td>
+        <td>
+        <pre class="source">BOOLEAN volatile Running;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0x55 and 0x71 </td>
+      </tr>
+      <tr>
+        <td>0x3A </td>
+        <td>0x4A </td>
+        <td>
+        <pre class="source">BOOLEAN Alerted [2];</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously at 0x6E and 0x96 </td>
+        <td>next at 0x56 and 0x72 </td>
+      </tr>
+      <tr>
+        <td>0x3C </td>
+        <td>0x4C </td>
+        <td>
+        <pre class="source">union {
+    struct {
+        /*  bit fields, follow link  */
+    };
+    LONG <a href="miscflags.htm">MiscFlags</a>;
+};</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously at 0x3C and 0x4C </td>
+        <td>next at 0x58 and 0x74 </td>
+      </tr>
+      <tr>
+        <td>0x28 (5.2); <br>
+        0x38 (6.0); <br>
+        0x40 </td>
+        <td>0x48 (late 5.2 to 6.0); <br>
+        0x50 </td>
+        <td>
+        <pre class="source">union {
+    KAPC_STATE ApcState;
+    /*  overlay, see below  */
+};</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously without <span class="type">union</span> at 0x34; <br>
+        next at 0x70 and 0x98 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Overlaying the <span class="member">ApcState</span> is the structure </p>
+  <pre class="source">struct {
+    UCHAR ApcStateFill [KAPC_STATE_ACTUAL_LENGTH];
+    /*  5 bytes, see below  */
+};</pre>
+  <p>With this construction, the 64-bit builds fit five bytes into the 0x30-byte
+  <span class="member">ApcState</span>. In 32-bit builds, only the first fits the 
+  0x18-byte <span class="member">ApcState</span>: the rest just follow as if they 
+  had been declared outside the union. Disregard the construction, and the members 
+  that are packed with the <span class="member">ApcState</span> are: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x3F (5.2); <br>
+        0x4F (6.0); <br>
+        0x57 </td>
+        <td rowspan="2">0x73 (5.2 to 6.0); <br>
+        0x7B </td>
+        <td>
+        <pre class="source">BOOLEAN ApcQueueable;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next as bit in <span class="member">ThreadFlags</span> </td>
+        <td>previously at 0x0109 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">CHAR Priority;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>previously at 0x5B and 0x93 </td>
+        <td>next at 0x87 and 0xC3 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x40 (5.2); <br>
+        0x50 (6.0); <br>
+        0x58 </td>
+        <td rowspan="3">0x74 (5.2 to 6.0); <br>
+        0x7C </td>
+        <td>
+        <pre class="source">UCHAR volatile NextProcessor;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+        <td>previously as <span class="type">UCHAR</span> at 0x010F </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT volatile NextProcessor;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG volatile NextProcessor;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0148 and 0x0218 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x41 (5.2); <br>
+        0x52 (6.0); <br>
+        0x5C </td>
+        <td rowspan="3">0x75 (5.2); <br>
+        0x76 (6.0); <br>
+        0x80 </td>
+        <td>
+        <pre class="source">UCHAR volatile DeferredProcessor;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01BE </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT volatile DeferredProcessor;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG volatile DeferredProcessor;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0x014C and 0x021C </td>
+      </tr>
+      <tr>
+        <td>0x42 (5.2) </td>
+        <td>0x76 (5.2) </td>
+        <td>
+        <pre class="source">UCHAR AdjustReason;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next at 0x0134 and 0x01E4 </td>
+        <td>previously at 0x01BF </td>
+      </tr>
+      <tr>
+        <td>0x43 (5.2) </td>
+        <td>0x77 (5.2) </td>
+        <td>
+        <pre class="source">CHAR AdjustIncrement;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next at 0x0135 and 0x01E5 </td>
+        <td>previously at 0x01C0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>For all the contrivance, the packing had to change as soon as version 6.0. 
+  First, one of the single-byte members was just a boolean, such that it could add 
+  even less to the <span class="struct">KTHREAD</span> if converted to a bit field. 
+  Second, the two single-byte members <span class="member">NextProcessor</span> 
+  and <span class="member">DeferredProcessor</span> were widened to 16 bits. For 
+  them to stay in the <span class="member">ApcState</span>, two that hadn’t changed 
+  had to be moved out. The widening to 32 bits for version 6.1 pushed
+  <span class="member">DeferredProcessor</span> out of the reclaimed space (and 
+  it may be that Microsoft’s C-language definition doesn’t leave
+  <span class="member">DeferrredProcessor</span> in the <span class="member">ApcState</span> 
+  union.) </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x44 (5.2); <br>
+        0x54 (6.0); <br>
+        0x60 </td>
+        <td>0x78 (5.2 to 6.0); <br>
+        0x88 </td>
+        <td>
+        <pre class="source">KSPIN_LOCK ApcQueueLock;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x4C </td>
+      </tr>
+      <tr>
+        <td>0x48 (5.2); <br>
+        0x58 (6.0); <br>
+        0x64 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG ContextSwitches;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x64, see below </td>
+        <td>previously at 0x28; <br>
+        next at 0x8C </td>
+      </tr>
+      <tr>
+        <td>0x4C (5.2); <br>
+        0x5C (6.0); <br>
+        0x68 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR volatile State;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x64, see below </td>
+        <td>previously at 0x2C; <br>
+        next at 0x90 </td>
+      </tr>
+      <tr>
+        <td>0x4D (5.2); <br>
+        0x5D (6.0); <br>
+        0x69 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR NpxState;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x64, see below </td>
+        <td>previously at 0x2D; <br>
+        next as <span class="type">CHAR</span> at 0x91 </td>
+      </tr>
+      <tr>
+        <td>0x4E (5.2); <br>
+        0x5E (6.0); <br>
+        0x6A </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KIRQL WaitIrql;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x64, see below </td>
+        <td>previously at 0x2E; <br>
+        next at 0x92 </td>
+      </tr>
+      <tr>
+        <td>0x4F (l5.2); <br>
+        0x5F (6.0); <br>
+        0x6B </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KPROCESSOR_MODE WaitMode;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x64, see below </td>
+        <td>previously at 0x2F; <br>
+        next at 0x93 </td>
+      </tr>
+      <tr>
+        <td>0x50 (5.2); <br>
+        0x60 (6.0); <br>
+        0x6C </td>
+        <td>0x80 (5.2 to 6.0); <br>
+        0x90 </td>
+        <td>
+        <pre class="source">LONG_PTR WaitStatus;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x50; <br>
+        next at 0x94 and 0xC8 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x54 (5.2); <br>
+        0x64 (6.0); <br>
+        0x70 </td>
+        <td rowspan="2">0x88 (5.2 to 6.0); <br>
+        0x98 </td>
+        <td>
+        <pre class="source">union {
+    KWAIT_BLOCK *WaitBlockList;
+    KGATE *GateObject;
+};</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+        <td>previously without <span class="type">union</span> at 0x54 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KWAIT_BLOCK *WaitBlockList;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0x98 and 0xD0 </td>
+      </tr>
+      <tr>
+        <td>0x58 (5.2) </td>
+        <td>0x90 (5.2) </td>
+        <td>
+        <pre class="source">BOOLEAN Alertable;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next as bit in <span class="member">MiscFlags</span> </td>
+        <td>previously at 0x58 </td>
+      </tr>
+      <tr>
+        <td>0x59 (5.2) </td>
+        <td>0x91 (5.2) </td>
+        <td>
+        <pre class="source">BOOLEAN WaitNext;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next as bit in <span class="member">MiscFlags</span> </td>
+        <td>previously at 0x5A </td>
+      </tr>
+      <tr>
+        <td>0x68 (6.0) </td>
+        <td>0x90 (6.0) </td>
+        <td>
+        <pre class="source">union {
+    struct {
+        /*  bit fields, see below  */
+    };
+    LONG MiscFlags;  
+};</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>next at 0x3C and 0x4C </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x5A (5.2); <br>
+        0x6C (6.0) </td>
+        <td>0x92 (5.2); <br>
+        0x94 (6.0) </td>
+        <td>
+        <pre class="source">UCHAR WaitReason;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>next at 0x0187 and 0x026B </td>
+        <td>previously at 0x5A </td>
+      </tr>
+      <tr>
+        <td>0x5B (5.2) </td>
+        <td>0x93 (5.2) </td>
+        <td>
+        <pre class="source">CHAR Priority;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next at 0x4F and 0x73 </td>
+        <td>previously at 0x5B </td>
+      </tr>
+      <tr>
+        <td>0x5C (5.2) </td>
+        <td>0x94 (5.2) </td>
+        <td>
+        <pre class="source">BOOLEAN EnableStackSwap;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next as bit in <span class="member">ThreadFlags</span> </td>
+        <td>previously at 0x5C </td>
+      </tr>
+      <tr>
+        <td>0x5D (5.2); <br>
+        0x6D (6.0) </td>
+        <td>0x95 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">UCHAR volatile SwapBusy;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x5D </td>
+      </tr>
+      <tr>
+        <td>0x5E (5.2); <br>
+        0x6E (6.0) </td>
+        <td>0x96 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">UCHAR Alerted [2];</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>next at 0x3A and 0x4A </td>
+        <td>previously at 0x5E </td>
+      </tr>
+      <tr>
+        <td>0x60 (5.2); <br>
+        0x70 (6.0); <br>
+        0x74 </td>
+        <td>0x98 (5.2 to 6.0); <br>
+        0xA0 </td>
+        <td>
+        <pre class="source">union {
+    LIST_ENTRY WaitListEntry;
+    SINGLE_LIST_ENTRY SwapListEntry;
+};</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x60; <br>
+        next at 0x9C and 0xD8 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x68 (5.2); <br>
+        0x78 (6.0); <br>
+        0x7C </td>
+        <td rowspan="2">0xA8 (5.2 to 6.0); <br>
+        0xB0 </td>
+        <td>
+        <pre class="source">KQUEUE *Queue;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x68 <br>
+        </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KQUEUE * volatile Queue;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0xA4 and 0xE8 </td>
+      </tr>
+      <tr>
+        <td>0x6C (5.2); <br>
+        0x7C (6.0); <br>
+        0x80 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG WaitTime;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x64, see below </td>
+        <td>previously at 0x6C; <br>
+        next at 0x0138 </td>
+      </tr>
+      <tr>
+        <td>0x70 (5.2); <br>
+        0x80 (6.0); <br>
+        0x84 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">union {
+    struct {
+        SHORT KernelApcDisable;
+        SHORT SpecialApcDisable;
+    };
+    ULONG CombinedApcDisable;
+};</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x64, see below </td>
+        <td>previously at 0x70; <br>
+        next at 0x013C </td>
+      </tr>
+      <tr>
+        <td>0x74 (5.2); <br>
+        0x84 (6.0); <br>
+        0x88 </td>
+        <td>0xB0 (5.2 to 6.0); <br>
+        0xB8 </td>
+        <td>
+        <pre class="source">PVOID Teb;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x30; <br>
+        next at 0xA8 and 0xF0 </td>
+      </tr>
+      <tr>
+        <td>0x78 (5.2); <br>
+        0x88 (6.0); <br>
+        0x90 </td>
+        <td>0xB8 (5.2 to 6.0); <br>
+        0xC0 </td>
+        <td>
+        <pre class="source">union {
+    <a href="../../ntosdef_x/ktimer.htm">KTIMER</a> Timer;
+    /*  overlay, see below  */
+};</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously without <span class="type">union</span> at 0x78; <br>
+        next without <span class="type">union</span> at 0xB8 and 0x0100 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Overlaying the long-standing <span class="member">Timer</span> is the structure
+  </p>
+  <pre class="source">struct {
+    UCHAR TimerFill [KTIMER_ACTUAL_LENGTH];
+    /*  4 bytes, see below  */
+};</pre>
+  <p>The 64-bit <span class="struct">KTIMER</span> originally had four bytes of 
+  unused space at its end. This was a snug fit for a newly defined set of bit flags, 
+  which seem to have been kept with the <span class="member">Timer</span> even after 
+  a reworking of the <span class="struct">KTIMER</span> for version 6.1 put the 
+  alignment space to use. Though only the one member ever was squeezed in, it changed 
+  slightly while Microsoft’s programmers seem to have been uncertain about what 
+  needs to be <span class="type">volatile</span>: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0xA0 (5.2); <br>
+        0xB0 (6.0); <br>
+        0xB8 </td>
+        <td rowspan="2">0xF4 (5.2 to 6.0); <br>
+        0x0100 </td>
+        <td>
+        <pre class="source">union {
+    struct {
+        /*  bit fields, follow link  */
+    };
+    LONG <a href="threadflags.htm">ThreadFlags</a>;
+};</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    struct {
+        /*  bit fields, follow link  */
+    };
+    LONG volatile ThreadFlags;
+};</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>next at 0x5C and 0x78 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Because the change within the <span class="struct">KTIMER</span> for version 
+  6.1 has the side-effect that the <span class="member">ThreadFlags</span> are no 
+  longer inside the <span class="member">Timer</span>, the 64-bit builds were left 
+  with four bytes of spare space for the 8-byte alignment of the
+  <span class="member">WaitBlock</span>. The 32-bit builds always had these four 
+  bytes left by alignment, but perhaps nobody cared. Once noticed, the alignment 
+  space got used for the <span class="member">ServiceTable</span>, which had anyway 
+  been discontinued for 64-bit builds. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xBC (6.1) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID ServiceTable;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously at 0x012C </td>
+        <td>next at 0x3C </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0104 (6.1) </td>
+        <td>
+        <pre class="source">ULONG Spare0;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="struct">KWAIT_BLOCK</span> structure has a spare byte in x86 
+  builds and another four in x64 builds. With the <span class="struct">KTHREAD</span> 
+  having four of these structures as its <span class="member">WaitBlock</span> array, 
+  packing members into this space was evidently irresistable, even if it’s spectacularly 
+  messy. Then, for version 6.1, it seems to have been decided that the single bytes 
+  weren’t worth picking up in either build, but the 64-bit builds reclaim yet more 
+  from realising that the particular use that’s made of the last
+  <span class="struct">KWAIT_BLOCK</span> does not involve its
+  <span class="member">Object</span> member. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0xA8 (5.2); <br>
+        0xB8 (6.0); <br>
+        0xC0 </td>
+        <td rowspan="3">0xF8 (5.2 to 6.0); <br>
+        0x0108</td>
+        <td>
+        <pre class="source">union {
+    KWAIT_BLOCK WaitBlock [4];
+    /*  overlay, see below  */
+};</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>previously without <span class="type">union</span> at 0xA0 and 0x0140
+        </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KWAIT_BLOCK WaitBlock [4];</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next as <span class="type">union</span> at 0xE0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    KWAIT_BLOCK WaitBlock [4];
+    /*  overlay, see below  */
+};</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next as changed <span class="type">union</span> at 0x0140 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Overlaying the long-standing <span class="member">WaitBlock</span> are a succession 
+  of structures that pad to the spare or resuable member: </p>
+  <pre class="source">#if NTDDI_VERSION &lt; NTDDI_WIN7      // SpareByte not used in 6.1
+struct {
+    UCHAR WaitBlockFill0 [FIELD_OFFSET (KWAIT_BLOCK, SpareByte)];
+    /*  reclaimed byte, see below  */
+};
+struct {
+    UCHAR WaitBlockFill1 [FIELD_OFFSET (KWAIT_BLOCK, SpareByte) + sizeof (KWAIT_BLOCK)];
+    /*  reclaimed byte, see below  */
+};
+struct {
+    UCHAR WaitBlockFill2 [FIELD_OFFSET (KWAIT_BLOCK, SpareByte) + 2 * sizeof (KWAIT_BLOCK)];
+    /*  reclaimed byte, see below  */
+};
+struct {
+    UCHAR WaitBlockFill3 [FIELD_OFFSET (KWAIT_BLOCK, SpareByte) + 3 * sizeof (KWAIT_BLOCK)];
+    /*  reclaimed byte, see below  */
+};
+#endif
+#ifdef _AMD64_                      // SpareLong exists only for x64
+struct {
+    UCHAR WaitBlockFill4 [FIELD_OFFSET (KWAIT_BLOCK, SpareLong)];
+    /*  reclaimed 4 bytes, see below  */
+};
+struct {
+    UCHAR WaitBlockFill5 [FIELD_OFFSET (KWAIT_BLOCK, SpareLong) + sizeof (KWAIT_BLOCK)];
+    /*  reclaimed 4 bytes, see below  */
+};
+struct {
+    UCHAR WaitBlockFill6 [FIELD_OFFSET (KWAIT_BLOCK, SpareLong) + 2 * sizeof (KWAIT_BLOCK)];
+    /*  reclaimed 4 bytes, see below  */
+};
+# if NTDDI_VERSION &lt; NTDDI_WIN7
+struct {
+    UCHAR WaitBlockFill7 [FIELD_OFFSET (KWAIT_BLOCK, SpareLong) + 3 * sizeof (KWAIT_BLOCK)];
+    /*  reclaimed 4 bytes, see below  */
+};
+# else                              // last Object reclaimed in 6.1
+struct {
+    UCHAR WaitBlockFill7 [FIELD_OFFSET (KWAIT_BLOCK, Object) + 3 * sizeof (KWAIT_BLOCK)];
+    /*  Reclaimed 16 bytes, see below  */
+};
+struct {
+    UCHAR WaitBlockFill8 [FIELD_OFFSET (KWAIT_BLOCK, SpareLong) + 3 * sizeof (KWAIT_BLOCK)];
+    /*  reclaimed 4 bytes, see below  */
+};
+# endif
+#endif</pre>
+  <p>Put aside the scaffolding and here are the members that get squeezed in with 
+  the <span class="member">WaitBlock</span>: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0xBF (5.2); <br>
+        0xCF (6.0) </td>
+        <td rowspan="2">0x0123 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">BOOLEAN SystemAffinityActive;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next as bit in <span class="member">MiscFlags</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR IdealProcessor;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>previously at 0x011D and 0x01E5; <br>
+        next as <span class="type">ULONG</span> at 0x0160 and 0x0228 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0124 (5.2 to 6.0); <br>
+        0x0134 </td>
+        <td>
+        <pre class="source">ULONG ContextSwitches;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x86, see above </td>
+        <td>next at 0x0154 </td>
+      </tr>
+      <tr>
+        <td>0xD7 (5.2); <br>
+        0xE7 (6.0) </td>
+        <td>0x0153 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">KPROCESSOR_MODE PreviousMode;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>next at 0x013A and 0x01F6 </td>
+        <td>previously at 0x0115 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0154 (5.2 to 6.0); <br>
+        0x0164 </td>
+        <td>
+        <pre class="source">UCHAR volatile State;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x86, see above </td>
+        <td>next at 0x0184 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0155 (5.2 to 6.0); <br>
+        0x0165 </td>
+        <td>
+        <pre class="source">UCHAR NpxState;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x86, see above </td>
+        <td>next as <span class="type">CHAR</span> at 0x0185 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0156 (5.2 to 6.0); <br>
+        0x0166 </td>
+        <td>
+        <pre class="source">KIRQL WaitIrql;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x86, see above </td>
+        <td>next at 0x0186 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0157 (5.2 to 6.0); <br>
+        0x0167 </td>
+        <td>
+        <pre class="source">KPROCESSOR_MODE WaitMode;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x86, see above </td>
+        <td>next at 0x0187 </td>
+      </tr>
+      <tr>
+        <td>0xEF (5.2); <br>
+        0xFF (6.0) </td>
+        <td>0x0183 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">UCHAR ResourceIndex;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>next at 0x0195 and 0x0281 </td>
+        <td>previously at 0x0116 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0184 (5.2 to 6.0); <br>
+        0x0194 </td>
+        <td>
+        <pre class="source">ULONG WaitTime;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x86, see above </td>
+        <td>next at 0x01B4 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x01B0 (6.1) </td>
+        <td>
+        <pre class="source">PVOID TebMappedLowVa;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0200 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x01B8 (6.1) </td>
+        <td>
+        <pre class="source">UMS_CONTROL_BLOCK *Ucb;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0x01F0 </td>
+      </tr>
+      <tr>
+        <td>0x0107 (5.2); <br>
+        0x0117&nbsp; (6.0) </td>
+        <td>0x01B3 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">BOOLEAN LargeStack;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>next at 0x01C3 and 0x02D3 </td>
+        <td>previously at 0x01B4 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x01B4 (5.2 to 6.0); <br>
+        0x01C4 <br>
+        </td>
+        <td>
+        <pre class="source">union {
+    struct {
+        SHORT KernelApcDisable;
+        SHORT SpecialApcDisable;
+    };
+    ULONG CombinedApcDisable;
+};</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>for x86, see above </td>
+        <td>next at 0x01E4 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="alert">Yes, there is a plan to write something here. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0108 (5.2); <br>
+        0x0118 (6.0); <br>
+        0x0120 </td>
+        <td>0x01B8 (5.2 to 6.0); <br>
+        0x01C8 </td>
+        <td>
+        <pre class="source">LIST_ENTRY QueueListEntry;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0100; <br>
+        next at 0x0140 and 0x0208 </td>
+      </tr>
+      <tr>
+        <td>0x0110 (5.2); <br>
+        0x0120 (6.0); <br>
+        0x0128 </td>
+        <td>0x01C8 (5.2 to 6.0); <br>
+        0x01D8 </td>
+        <td>
+        <pre class="source">KTRAP_FRAME *TrapFrame;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0150; <br>
+        next at 0x6C and 0x90 </td>
+      </tr>
+      <tr>
+        <td>0x0124 (6.0); <br>
+        0x012C </td>
+        <td>0x01D0 (6.0); <br>
+        0x01E0 </td>
+        <td>
+        <pre class="source">PVOID FirstArgument;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x68 and 0x88 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0114 (5.2); <br>
+        0x0128 (6.0); <br>
+        0x0130 </td>
+        <td rowspan="2">0x01D0 (5.2); <br>
+        0x01D8 (6.0); <br>
+        0x01E8 <br>
+        </td>
+        <td>
+        <pre class="source">PVOID CallbackStack;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0148 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    PVOID CallbackStack;
+    ULONG_PTR CallbackDepth;
+};</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0130 and 0x01E8 </td>
+      </tr>
+      <tr>
+        <td>0x0118 (5.2); <br>
+        0x012C (6.0) </td>
+        <td>0x01D8 (late 5.2) </td>
+        <td>
+        <pre class="source">PVOID ServiceTable;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>next at 0xBC&nbsp; </td>
+        <td>previously at 0x0124 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x01E0 (late 5.2) </td>
+        <td>
+        <pre class="source">ULONG KernelLimit;</pre>
+        </td>
+        <td>late 5.2 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x011C (5.2); <br>
+        0x0130 (6.0); <br>
+        0x0134 </td>
+        <td>0x01E4 (late 5.2); <br>
+        0x01D8 (v. late 5.2); <br>
+        0x01E0 (6.0); <br>
+        0x01F0 </td>
+        <td>
+        <pre class="source">UCHAR ApcStateIndex;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0108; <br>
+        next at 0x016A and 0x024A </td>
+      </tr>
+      <tr>
+        <td>0x011D (5.2) </td>
+        <td>0x01E5 (late 5.2); <br>
+        0x01D9 (v. late 5.2) </td>
+        <td>
+        <pre class="source">UCHAR IdealProcessor;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next at 0xCF and 0x0123 </td>
+        <td>previously at 0x010E </td>
+      </tr>
+      <tr>
+        <td>0x011E (5.2) </td>
+        <td>0x01E6 (late 5.2); <br>
+        0x01DA (v. late 5.2) </td>
+        <td>
+        <pre class="source">BOOLEAN Preempted;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next at 0x0133 and 0x01E3 </td>
+        <td>previously at 0x010A </td>
+      </tr>
+      <tr>
+        <td>0x011F (5.2) </td>
+        <td>0x01E7 (late 5.2); <br>
+        0x01DB (v. late 5.2) </td>
+        <td>
+        <pre class="source">BOOLEAN ProcessReadyQueue;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next as bit in <span class="member">MiscFlags</span> </td>
+        <td>previously at 0x010B </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x01E8 (late 5.2) </td>
+        <td>
+        <pre class="source">PVOID Win32kTable;</pre>
+        </td>
+        <td>late 5.2 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x01F0 (late 5.2) </td>
+        <td>
+        <pre class="source">ULONG Win32kLimit;</pre>
+        </td>
+        <td>late 5.2 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0120 (5.2) </td>
+        <td>0x01F4 (late 5.2); <br>
+        0x01DC (v. late 5.2) </td>
+        <td>
+        <pre class="source">BOOLEAN KernelStackResident;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next as bit in <span class="member">MiscFlags</span> </td>
+        <td>previously at 0x010C </td>
+      </tr>
+      <tr>
+        <td>0x0121 (5.2); <br>
+        0x0131 (6.0); <br>
+        0x0135 </td>
+        <td>0x01F5 (late 5.2); <br>
+        0x01DD (v. late 5.2); <br>
+        0x01E1 (6.0); <br>
+        0x01F1 </td>
+        <td>
+        <pre class="source">CHAR BasePriority;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0110; <br>
+        next at 0x015B and 0x0233 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0122 (5.2); <br>
+        0x0132 (6.0); <br>
+        0x0136 </td>
+        <td rowspan="2">0x01F6 (late 5.2); <br>
+        0x01DE (v. late 5.2); <br>
+        0x01E2 (6.0); <br>
+        0x01F2 </td>
+        <td>
+        <pre class="source">CHAR PriorityDecrement;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0112 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    CHAR PriorityDecrement;
+    struct {
+        UCHAR ForegroundBoost : 4;
+        UCHAR UnusualBoost : 4;
+    };
+};</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0x015C (x86); <br>
+        next at 0x0234 (x64) </td>
+      </tr>
+      <tr>
+        <td>0x0133 (6.0); <br>
+        0x0137 </td>
+        <td>0x01E3 (6.0); <br>
+        0x01F3 </td>
+        <td>
+        <pre class="source">BOOLEAN Preempted;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>previously at 0x011E and 0x01E6 </td>
+        <td>next at 0x015D and 0x0235 </td>
+      </tr>
+      <tr>
+        <td>0x0134 (6.0); <br>
+        0x0138 </td>
+        <td>0x01E4 (6.0); <br>
+        0x01F4 </td>
+        <td>
+        <pre class="source">UCHAR AdjustReason;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>previously at 0x42 and 0x76 </td>
+        <td>next at 0x015E and 0x0236 </td>
+      </tr>
+      <tr>
+        <td>0x0135 (6.0); <br>
+        0x0139 </td>
+        <td>0x01E5 (6.0); <br>
+        0x01F5 </td>
+        <td>
+        <pre class="source">CHAR AdjustIncrement;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>previously at 0x43 and 0x77 </td>
+        <td>next at 0x015F and 0x0237 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0136 (6.0); <br>
+        0x013A </td>
+        <td rowspan="2">0x01E6 (6.0); <br>
+        0x01F6 </td>
+        <td>
+        <pre class="source">UCHAR Spare01;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KPROCESSOR_MODE PreviousMode;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously at 0xE7 and 0x0153 </td>
+        <td>next at 0x015A and 0x0232 </td>
+      </tr>
+      <tr>
+        <td>0x0123 (5.2); <br>
+        0x0137 (6.0); <br>
+        0x013B </td>
+        <td>0x01F7 (late 5.2); <br>
+        0x01DF (v. late 5.2); <br>
+        0x01E7 (6.0); <br>
+        0x01F7 </td>
+        <td>
+        <pre class="source">CHAR Saturation;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x010D; <br>
+        next at 0x018D and 0x0285 </td>
+      </tr>
+      <tr>
+        <td>0x0138 (6.0); <br>
+        0x013C </td>
+        <td>0x01E8 (6.0); <br>
+        0x01F8 </td>
+        <td>
+        <pre class="source">ULONG SystemCallNumber;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x64 and 0x80 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x013C (6.0); <br>
+        0x0140 </td>
+        <td rowspan="2">0x01EC (6.0); <br>
+        0x01FC </td>
+        <td>
+        <pre class="source">ULONG Spare02;</pre>
+        </td>
+        <td>early 6.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG FreezeCount;</pre>
+        </td>
+        <td>late 6.0 to 6.1 </td>
+        <td>previously as <span class="type">UCHAR</span> at 0x016B and 0x0243
+        </td>
+        <td>next as bit in <span class="member">ThreadFlags</span> </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0124 (5.2); <br>
+        0x0140 (6.0); <br>
+        0x0144 </td>
+        <td rowspan="2">0x01F8 (late 5.2); <br>
+        0x01E0 (v. late 5.2); <br>
+        0x01F0 (6.0); <br>
+        0x0200 </td>
+        <td>
+        <pre class="source">KAFFINITY UserAffinity;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0118 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">GROUP_AFFINITY volatile UserAffinity;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next as <span class="type">union</span> at 0x0154 and 0x0228 </td>
+      </tr>
+      <tr>
+        <td>0x0128 (5.2); <br>
+        0x0144 (6.0); <br>
+        0x0150 </td>
+        <td>0x0200 (late 5.2); <br>
+        0x01E8 (v. late 5.2); <br>
+        0x01F8 (6.0); <br>
+        0x0210 </td>
+        <td>
+        <pre class="source"><a href="../kprocess/index.htm">KPROCESS</a> *Process;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x011C; <br>
+        next at 0x0150 and 0x0220 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x012C (5.2); <br>
+        0x0148 (6.0); <br>
+        0x0154 </td>
+        <td rowspan="3">0x0208 (late 5.2); <br>
+        0x01F0 (v. late 5.2); <br>
+        0x0200 (6.0); <br>
+        0x0218 </td>
+        <td>
+        <pre class="source">KAFFINITY Affinity;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0120 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KAFFINITY volatile Affinity;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">GROUP_AFFINITY volatile Affinity;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next as <span class="type">union</span> at 0x0160 and 0x0238 </td>
+      </tr>
+      <tr>
+        <td>0x0160 </td>
+        <td>0x0228 </td>
+        <td>
+        <pre class="source">ULONG IdealProcessor;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously as <span class="type">UCHAR</span> at 0xCF and 0x0123
+        </td>
+        <td>next at 0x0168 and 0x0244 </td>
+      </tr>
+      <tr>
+        <td>0x0164 </td>
+        <td>0x022C </td>
+        <td>
+        <pre class="source">ULONG UserIdealProcessor;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously as <span class="type">UCHAR</span> at 0x016D and 0x0245
+        </td>
+        <td>next at 0x88 and 0xC4 </td>
+      </tr>
+      <tr>
+        <td>0x0130 (5.2); <br>
+        0x014C (6.0); <br>
+        0x0168 </td>
+        <td>0x0210 (late 5.2); <br>
+        0x01F8 (v. late 5.2); <br>
+        0x0208 (6.0); <br>
+        0x0230 </td>
+        <td>
+        <pre class="source">KAPC_STATE *ApcStatePointer [2];</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0128; <br>
+        next at 0x016C and 0x0248 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="struct">KTHREAD</span> has two <span class="struct">KAPC_STATE</span> 
+  structures. The second is used when the thread attaches to another process’s address 
+  space. It too has a spare byte in 32-bit builds and a spare five in 64-bit builds:
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0138 (5.2); <br>
+        0x0154 (6.0); <br>
+        0x0170 </td>
+        <td>0x0220 (late 5.2); <br>
+        0x0208 (v. late 5.2); <br>
+        0x0218 (6.0); <br>
+        0x0240 </td>
+        <td>
+        <pre class="source">union {
+    KAPC_STATE SavedApcState;
+    /*  overlay, see below  */
+};</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>previously without <span class="type">union</span> at 0x0130; <br>
+        next at 0x0174 and 0x0258 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Overlaying the long-standing <span class="member">SavedApcState</span> is the 
+  structure </p>
+  <pre class="source">struct {
+    UCHAR SavedApcStateFill [KAPC_STATE_ACTUAL_LENGTH];
+    /*  5 bytes, see below  */
+};</pre>
+  <p>With this construction, the 64-bit builds fit five bytes into the 0x30-byte
+  <span class="member">SavedApcState</span>. In 32-bit builds, only the first fits 
+  the 0x18-byte <span class="member">SavedApcState</span>: the rest just follow 
+  as if they had been declared outside the union. Disregard the construction, and 
+  the members that are packed with the <span class="member">SavedApcState</span> 
+  are: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x014F (5.2); <br>
+        0x016B (6.0); <br>
+        0x0187 </td>
+        <td rowspan="3">0x024B (late 5.2); <br>
+        0x0233 (v. late 5.2); <br>
+        0x0243 (6.0); <br>
+        0x026B </td>
+        <td>
+        <pre class="source">CHAR FreezeCount;</pre>
+        </td>
+        <td>5.2 to early 6.0 </td>
+        <td>next as <span class="type">ULONG</span> at 0x013C and 0x01EC </td>
+        <td>previously at 0x01BA </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Spare02;</pre>
+        </td>
+        <td>late 6.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR WaitReason;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously at 0x6C and 0x94 </td>
+        <td>next at 0x018B and 0x0283 </td>
+      </tr>
+      <tr>
+        <td>0x0150 (5.2); <br>
+        0x016C (6.0); <br>
+        0x0188 </td>
+        <td>0x024C (late 5.2); <br>
+        0x0234 (v. late 5.2); <br>
+        0x0244 (6.0); <br>
+        0x026C </td>
+        <td>
+        <pre class="source">CHAR SuspendCount;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01BB; <br>
+        next at 0x018C and 0x0284 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0151 (5.2); <br>
+        0x016D (6.0); <br>
+        0x0189 </td>
+        <td rowspan="2">0x024D (late 5.2); <br>
+        0x0235 (v. late 5.2); <br>
+        0x0245 (6.0); <br>
+        0x026D </td>
+        <td>
+        <pre class="source">UCHAR UserIdealProcessor;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>next as <span class="type">ULONG</span> 0x0164 and 0x022C </td>
+        <td>previously at 0x01BD </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">CHAR Spare1;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0152 (5.2); <br>
+        0x016E (6.0) </td>
+        <td rowspan="2">0x024E (late 5.2); <br>
+        0x0236 (v. late 5.2); <br>
+        0x0246 (6.0) </td>
+        <td>
+        <pre class="source">BOOLEAN CalloutActive;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>next as bit in <span class="member">ThreadFlags</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN Spare03;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0153 (5.2); <br>
+        0x016F (6.0); <br>
+        0x018A </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR Iopl;</pre>
+        </td>
+        <td>5.2 to early 6.0 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01B9 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR OtherPlatformFill;</pre>
+        </td>
+        <td>late 6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x024F (late 5.2); <br>
+        0x0237 (v. late 5.2); <br>
+        0x0247 (6.0); <br>
+        0x026E </td>
+        <td>
+        <pre class="source">BOOLEAN CodePatchInProgress;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next as bit in <span class="member">MiscFlags</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="alert">Yes, there is a plan to write something here. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0154 (5.2); <br>
+        0x0170 (6.0); <br>
+        0x018C </td>
+        <td>0x0250 (late 5.2); <br>
+        0x0238 (v. late 5.2); <br>
+        0x0248 (6.0); <br>
+        0x0270 </td>
+        <td>
+        <pre class="source">PVOID Win32Thread;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>previously at 0x014C; <br>
+        next as <span class="type">PVOID volatile</span> at 0x0124 and 0x01C8
+        </td>
+      </tr>
+      <tr>
+        <td>0x0158 (5.2); <br>
+        0x0174 (6.0); <br>
+        0x0190 </td>
+        <td>0x0258 (late 5.2); <br>
+        0x0240 (v. late 5.2); <br>
+        0x0250 (6.0); <br>
+        0x0278 </td>
+        <td>
+        <pre class="source">PVOID StackBase;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>previously at 0x015C; <br>
+        next at 0x28 and 0x38 </td>
+      </tr>
+      <tr>
+        <td>0x015C (5.2); <br>
+        0x0178 (6.0); <br>
+        0x0194 </td>
+        <td>0x0260 (late 5.2); <br>
+        0x0248 (v. late 5.2); <br>
+        0x0258 (6.0); <br>
+        0x0280 </td>
+        <td>
+        <pre class="source">union {
+    KAPC SuspendApc;
+    /*  overlay, see below  */
+};</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>previously without <span class="type">union</span> at 0x0160 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Overlaying the long-standing <span class="member">SuspendApc</span> are structures 
+  that each pad to a spare or resuable member or to alignment space: </p>
+  <pre class="source">struct {
+    UCHAR SuspendApcFill0 [KAPC_OFFSET_TO_SPARE_BYTE0];
+    /*  reclaimed byte, see below  */
+};
+struct {
+    UCHAR SuspendApcFill1 [KAPC_OFFSET_TO_SPARE_BYTE1];
+    /*  reclaimed byte, see below  */
+};
+struct {
+    UCHAR SuspendApcFill2 [KAPC_OFFSET_TO_SPARE_LONG];
+    /*  reclaimed four bytes, see below  */
+};
+struct {
+    UCHAR SuspendApcFill3 [KAPC_OFFSET_TO_SYSTEMARGUMENT1];
+    /*  reclaimed 4 or 8 bytes, see below  */
+};
+struct {
+    UCHAR SuspendApcFill4 [KAPC_OFFSET_TO_SYSTEMARGUMENT2];
+    /*  reclaimed 4 or 8 bytes, see below  */
+};
+struct {
+    UCHAR SuspendApcFill5 [KAPC_ACTUAL_LENGTH];
+    /*  reclaimed 1 or 5 bytes, see below)  */
+;</pre>
+  <p>The <span class="struct">KAPC</span> is especially productive of space for 
+  members since there are not just the bytes here and there that are left by alignment 
+  but also the members that hold the callback routine’s arguments which the
+  <span class="struct">KTHREAD</span> knows it doesn’t use. Here are the members 
+  that are squeezed in to the <span class="member">SuspendApc</span>: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks" span="2"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x015D (5.2); <br>
+        0x0179 (6.0); <br>
+        0x0195 </td>
+        <td rowspan="3">0x0261 (late 5.2); <br>
+        0x0249 (v. late 5.2); <br>
+        0x0259 (6.0); <br>
+        0x0281 </td>
+        <td>
+        <pre class="source">CHAR Quantum;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0113 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">CHAR Spare04;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR ResourceIndex;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously at 0xFF and 0x0183 </td>
+        <td>next at 0x0191 and 0x0289 </td>
+      </tr>
+      <tr>
+        <td>0x015F (5.2); <br>
+        0x017B (6.0); <br>
+        0x0197 </td>
+        <td>0x0263 (late 5.2); <br>
+        0x024B (v. late 5.2); <br>
+        0x025B (6.0); <br>
+        0x0283 </td>
+        <td>
+        <pre class="source">UCHAR QuantumReset;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0193 and 0x028B </td>
+      </tr>
+      <tr>
+        <td>0x0160 (5.2); <br>
+        0x017C (6.0); <br>
+        0x0198 </td>
+        <td>0x0264 (late 5.2); <br>
+        0x024C (v. late 5.2); <br>
+        0x025C (6.0); <br>
+        0x0284 </td>
+        <td>
+        <pre class="source">ULONG KernelTime;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0154; <br>
+        next at 0x0194 and 0x028C </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0180 (5.2); <br>
+        0x019C (6.0); <br>
+        0x01B8 </td>
+        <td rowspan="2">0x02A0 (late 5.2); <br>
+        0x0288 (v. late 5.2); <br>
+        0x0298 (6.0); <br>
+        0x02C0 </td>
+        <td>
+        <pre class="source">PVOID TlsArray;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A4 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID WaitPrcb;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x01B4 and 0x02C8 </td>
+      </tr>
+      <tr>
+        <td>0x0184 (5.2); <br>
+        0x01A0 (6.0); <br>
+        0x01BC </td>
+        <td>0x02A8 (late 5.2); <br>
+        0x0290 (v. late 5.2); <br>
+        0x02A0 (6.0); <br>
+        0x02C8 </td>
+        <td>
+        <pre class="source">PVOID LegoData;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01A8; <br>
+        next at 0x01B8 and 0x02D0 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x018B (5.2); <br>
+        0x01A7 (6.0); <br>
+        0x01C3 </td>
+        <td rowspan="2">0x02B3 (late 5.2); <br>
+        0x029B (v. late 5.2); <br>
+        0x02AB (6.0); <br>
+        0x02D3 </td>
+        <td>
+        <pre class="source">UCHAR PowerState;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01B5 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN LargeStack;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously at 0x0117 and 0x01B3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x018C (5.2); <br>
+        0x01A8 (6.0); <br>
+        0x01C4 </td>
+        <td>0x02B4 (late 5.2); <br>
+        0x029C (v. late 5.2); <br>
+        0x02AC (6.0); <br>
+        0x02D4 </td>
+        <td>
+        <pre class="source">ULONG UserTime;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x0158; <br>
+        next at 0x01C0 and 0x2DC </td>
+      </tr>
+      <tr>
+        <td>0x0190 (5.2); <br>
+        0x01AC (6.0); <br>
+        0x01C8 </td>
+        <td>0x02B8 (late 5.2); <br>
+        0x02A0 (v. late 5.2); <br>
+        0x02B0 (6.0); <br>
+        0x02D8 </td>
+        <td>
+        <pre class="source">union {
+    KSEMAPHORE SuspendSemaphore;
+    /*  overlay, see below  */
+};</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously without <span class="type">union</span> at 0x0190 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Overlaying the long-standing <span class="member">SuspendSemaphore</span> is 
+  the structure </p>
+  <pre class="source">struct {
+    UCHAR SuspendSemaphorefill [KSEMAPHORE_ACTUAL_LENGTH];
+    /*  4 bytes, see below  */
+};</pre>
+  <p>The 64-bit <span class="struct">KSEMAPHORE</span> has four bytes of unused 
+  space left by its 8-byte alignment. Reclaimed from the <span class="member">SuspendSemaphore</span>:
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>History </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01A4 (5.2); <br>
+        0x01C0 (6.0); <br>
+        0x01DC </td>
+        <td>0x02D4 (late 5.2); <br>
+        0x02BC (v. late 5.2); <br>
+        0x02CC (6.0); <br>
+        0x02D4 </td>
+        <td>
+        <pre class="source">ULONG SListFaultCount;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>next as <span class="type">USHORT</span> at 0x018E and 0x0286 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>That’s the end of the contrivances over packing members into space that’s left 
+  unused in other members. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks" span="2">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+        <th>History </th>
+      </tr>
+      <tr>
+        <td>0x01A8 (5.2); <br>
+        0x01C4 (6.0); <br>
+        0x01E0 </td>
+        <td>0x02D8 (late 5.2); <br>
+        0x02C0 (v. late 5.2); <br>
+        0x02D0 (6.0); <br>
+        0x02F8 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ThreadListEntry;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>previously at 0x01AC; <br>
+        next at 0x01D4 and 0x02F8 </td>
+      </tr>
+      <tr>
+        <td>0x01CC (6.0); <br>
+        0x01E8 </td>
+        <td>0x02E0 (6.0); <br>
+        0x0308 </td>
+        <td>
+        <pre class="source">LIST_ENTRY MutantListHead;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>previously at 0x10 and 0x18 </td>
+        <td>next at 0x01DC and 0x0308 </td>
+      </tr>
+      <tr>
+        <td>0x01B0 (5.2); <br>
+        0x01D4 (6.0); <br>
+        0x01F0 </td>
+        <td>0x02E8 (late 5.2); <br>
+        0x02D0 (v. late 5.2); <br>
+        0x02F0 (6.0); <br>
+        0x0318 </td>
+        <td>
+        <pre class="source">PVOID SListFaultAddress;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>last member in 5.2 (x86) </td>
+        <td>next at 0x10 and 0x18 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x02F0 (late 5.2); <br>
+        0x02D8 (v. late 5.2); <br>
+        0x02F8 (6.0); <br>
+        0x0320 </td>
+        <td>
+        <pre class="source">LONGLONG ReadOperationCount;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0318 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x02F8 (late 5.2); <br>
+        0x02E0 (v. late 5.2); <br>
+        0x0300 (6.0); <br>
+        0x0328 </td>
+        <td>
+        <pre class="source">LONGLONG WriteOperationCount;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0320 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0300 (late 5.2); <br>
+        0x02E8 (v. late 5.2); <br>
+        0x0308 (6.0); <br>
+        0x0330 </td>
+        <td>
+        <pre class="source">LONGLONG OtherOperationCount;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0328 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0308 (late 5.2); <br>
+        0x02F0 (v. late 5.2); <br>
+        0x0310 (6.0); <br>
+        0x0338 </td>
+        <td>
+        <pre class="source">LONGLONG ReadTransferCount;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0330 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0310 (late 5.2); <br>
+        0x02F8 (v. late 5.2); <br>
+        0x0318 (6.0); <br>
+        0x0340 </td>
+        <td>
+        <pre class="source">LONGLONG WriteTransferCount;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+        <td>next at 0x0338 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0318 (late 5.2); <br>
+        0x0300 (v. late 5.2); <br>
+        0x0320 (6.0); <br>
+        0x0348 </td>
+        <td>
+        <pre class="source">LONGLONG OtherTransferCount;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>last member in 5.2 (x64) <br>
+        </td>
+        <td>next at 0x0340 </td>
+      </tr>
+      <tr>
+        <td>0x01D8 (6.0) </td>
+        <td>0x0328 (6.0) </td>
+        <td>
+        <pre class="source">PVOID volatile MdlForLockedTeb;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>last member in 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01F4 </td>
+        <td>0x0350 </td>
+        <td>
+        <pre class="source">KTHREAD_COUNTERS *ThreadCounters;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+        <td>next at 0xF4 and 0x0168 </td>
+      </tr>
+      <tr>
+        <td>0x01F8 </td>
+        <td>0x0358 </td>
+        <td>
+        <pre class="source">XSTATE_SAVE *XStateSave;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>last member in 6.1 </td>
+        <td>next at 0x010C and 0x0198 </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 15th
+    <a href="../../../../../../../../new/16/06.htm">June 2016</a> and was last modified 
+    on 22nd September 2018. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1618.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14338" -->
+  </div>
+</div>
+
+</body>
+
+</html>

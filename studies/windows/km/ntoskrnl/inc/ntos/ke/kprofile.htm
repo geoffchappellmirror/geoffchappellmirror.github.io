@@ -1,0 +1,533 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KPROFILE</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>KPROFILE </h1>
+  <p>The <span class="struct">KPROFILE</span> (formally <span class="struct">_KPROFILE</span>) 
+  is the structure in which the kernel keeps information about an active request 
+  to examine and act on a profile interrupt. </p>
+  <p>That <span class="struct">KPROFILE</span> is Microsoft’s name is certain—see 
+  below—but not from documentation or from any header in a programming kit or even 
+  from public symbol files. That is some measure of the structure’s being internal 
+  to the kernel. Against this is that the structure is in the formal scheme of kernel 
+  objects that start with a type from the <span class="enum">
+  <a href="../../../inc/ntos/ke/kobjects.htm">KOBJECTS</a></span> enumeration and 
+  a size. Many such objects are documented, if only as being opaque, and have full 
+  C-language definitions in headers from as far back as the Device Driver Kit (DDK) 
+  for Windows NT 3.1. The main difference is that the documented kernel objects 
+  can be caller-supplied but the only creator of a <span class="struct">KPROFILE</span> 
+  is the kernel itself. </p>
+  <h2>Profiling </h2>
+  <p>Historically, a <span class="struct">KPROFILE</span> is created only when user-mode 
+  software completes two steps: first, to call the undocumented
+  <span class="function"><a href="../../../api/ex/profile/create.htm">NtCreateProfile</a></span> 
+  or <span class="function"><a href="../../../api/ex/profile/createex.htm">NtCreateProfileEx</a></span> 
+  function to describe what execution to sample via what sort of profile interrupt, 
+  subject to what conditions, with what storage of results; second, to start this 
+  profiling by calling <span class="function">
+  <a href="../../../api/ex/profile/start.htm">NtStartProfile</a></span>. The kernel 
+  creates a <span class="struct">KPROFILE</span>, which then carries the conditions 
+  for which interrupts to act on and the parameters for what’s to be done as this 
+  action. Among the possible conditions is that profiling can be specific to a process 
+  or may apply globally. Correspondingly, the <span class="struct">KPROFILE</span> 
+  goes into either: a per-process list, whose head is the <span class="member">ProfileListHead</span> 
+  very near the start of the <span class="struct">
+  <a href="../../../inc/ntos/ke/kprocess/index.htm">KPROCESS</a></span>; else into 
+  a global list, whose head is in the kernel’s own data section. When the corresponding 
+  profiling is stopped, typically by a call to <span class="function">
+  <a href="../../../api/ex/profile/stop.htm">NtStopProfile</a></span>, the
+  <span class="struct">KPROFILE</span> is removed from its list and is destroyed.
+  </p>
+  <p>Profile interrupts are arranged with the Hardware Abstraction Layer (HAL), 
+  either to recur periodically or when some limit is reached for a processor-specific 
+  Performance Monitoring Counter (PMC). Whenever the kernel learns of a profile 
+  interrupt’s occurrence, from the HAL via <span class="function">
+  <a href="../../../api/ke/profobj/profileinterrupt.htm">KeProfileInterrupt</a></span> 
+  or <span class="function">
+  <a href="../../../api/ke/profobj/profileinterruptwithsource.htm">KeProfileInterruptWithSource</a></span>, 
+  the global list of profile objects and the list for the current process are both 
+  examined and acted on. </p>
+  <p>Originally, and even still for a profile object that is created as described 
+  in the preceding paragraphs, the examination and action are tightly constrained 
+  by the inputs to the <span class="function">NtCreateProfile</span> and
+  <span class="function">NtCreateProfileEx</span> functions. The examination matches 
+  the circumstances of the interrupt against the conditions that are recorded in 
+  the profile object. That the interrupted execution is for the process that was 
+  specified at the profile’s creation is known from the object’s presence in the 
+  list for the current process at the time of the interrupt. Other conditions are 
+  that: </p>
+  <ul>
+    <li>the interrupted execution is of an instruction that begins in a specified 
+    range of address space; </li>
+    <li>the interrupt was generated from the expected source; </li>
+    <li>the interrupt occurred on a specified processor. </li>
+  </ul>
+  <p>If all these conditions are met, the action is simply to increment an execution 
+  count in a specified buffer according to where the interrupted execution lies 
+  within the profiled address range. The set of these execution counts is then a 
+  frequency distribution of execution within the profiled region, as sampled by 
+  the recurring profile interrupts. </p>
+  <p>All this basic functionality for profiling was in place right from version 
+  3.10 with just the one exception that qualification by profile source and executing 
+  processor had to wait for version 3.51. Moreover, this basic profiling has changed 
+  remarkably little in the decades since. For present purposes, arguably the main 
+  change is simply in the numerical value of the object type at the beginning of 
+  every <span class="struct">KPROFILE</span> that is created as described above: 
+  it is 0x0F up to and including version 3.51 but 0x17 ever after. </p>
+  <h3>Profile Callback Objects </h3>
+  <p>As Windows developed, the kernel allowed more ways and reasons to ask the HAL 
+  to generate profile interrupts. It thus acquired more things to do on learning 
+  of a profile interrupt’s occurrence. Except for processing the applicable lists 
+  of profile objects, all that the kernel originally did with profile interrupts 
+  was to count them. Starting with Windows XP, however, the kernel allows that profile 
+  interrupts can be arranged not for adding to a histogram in a specified buffer, 
+  as above, but for recording each one in an event trace. Such special cases in 
+  the handling of profile interrupts had accreted enough by Windows 8 that some 
+  unification must have seemed worthwhile. This took the form of introducing a second 
+  type of profile object, apparently thought of as a <span class="definition">profile 
+  callback object</span>. </p>
+  <p>The object type at the beginning of every <span class="struct">KPROFILE</span> 
+  that is created specifically as a profile callback object is 0x11 (instead of 
+  0x17). For a profile callback object, the examination is less specific but the 
+  action is very general. The only condition to meet is whether the interrupt was 
+  generated from the expected profile source. The action to be taken is left to 
+  an essentially arbitrary callback routine. The Windows 10 kernel supplies three 
+  routines for profile callback objects. One is for internal bookkeeping (to do 
+  with cache errata support) but two are for behaviour that can be (and typically 
+  is) directed from user mode for event tracing. </p>
+  <p>A built-in profile callback object for a periodically recurring profile interrupt 
+  is “started” by enabling <span class="constant">PERF_PROFILE</span> (0x20000002) 
+  in the <a href="../../../inc/api/ntwmi/perfinfo_groupmask.htm">group mask</a> 
+  for an NT Kernel Logger session. The documented way to do this from user mode 
+  is to set <span class="constant">EVENT_TRACE_FLAG_PROFILE</span> (0x01000000) 
+  in the <span class="member">EnableFlags</span> member of an
+  <span class="struct">EVENT_TRACE_PROPERTIES</span> structure that is given to 
+  the <span class="function">StartTrace</span> and <span class="function">ControlTrace</span> 
+  functions when starting or controlling an NT Kernel Logger session. The event 
+  that results on each interrupt has the
+  <a href="../../../inc/api/ntwmi/wmi_trace_packet/hookid.htm">hook ID</a>
+  <span class="constant">PERFINFO_LOG_TYPE_SAMPLED_PROFILE</span> (0x0F2E). </p>
+  <p>An array of up to four profile callback objects can be dynamically allocated 
+  for similar event tracing on receipt of profile interrupts that are generated 
+  from processor-specific performance monitoring counters. Little or nothing is 
+  documented about the steps required for arranging this. The counters must be specified 
+  in advance. The only known way from user mode is through
+  <span class="function">
+  <a href="../../../../../win32/advapi32/api/etw/logapi/set.htm">TraceSetInformation</a></span> 
+  with the information class <span class="constant">TraceProfileSourceConfigInfo</span> 
+  (6). The profiling of these sources, however, is not supported through the
+  <span class="member">EnableFlags</span>, only the group mask. The bit to set is
+  <span class="constant">PERF_PMC_PROFILE</span> (0x20000400), again through
+  <span class="function">TraceSetInformation</span> but for the information class
+  <span class="constant">TraceSystemTraceEnableFlagsInfo</span> (4). The event that 
+  results on each interrupt has the hook ID <span class="constant">PERFINFO_LOG_TYPE_PMC_INTERRUPT</span> 
+  (0x0F2F). </p>
+  <p>Slightness of documentation by Microsoft is a recurring theme with profiling, 
+  apparently because Microsoft has preferred to keep that programmers who find a 
+  use for profiling should rely on the magic of Microsoft’s tools rather than write 
+  their own or use those of a third-party diagnostics vendor. </p>
+  <h2>Documentation Status </h2>
+  <p>To say the <span class="struct">KPROFILE</span> is undocumented is an understatement. 
+  Microsoft has never published a C-language definition in any DDK or Windows Driver 
+  Kit (WDK) or any other programming kit, nor even declared the
+  <span class="struct">KPROFILE</span> as opaque. The practical equivalent of a 
+  C-language definition might be published as type information in public symbols, 
+  as for many undocumented structures, but none are yet known to have shown even 
+  the name of the <span class="struct">KPROFILE</span> let alone of its members.
+  </p>
+  <p>That said, type information for the <span class="struct">KPROFILE</span> does 
+  turn out to have been published, surely by oversight, in most versions of a statically 
+  linked library named CLFSMGMT.LIB which Microsoft supplies with the Software Development 
+  Kit (SDK) as if for user-mode programming. It’s present in this library’s x86 
+  builds starting from Windows Vista and x64 from Windows 8. It stops for the 2004 
+  release of Windows 10. </p>
+  <h2>Variability </h2>
+  <p>Though the <span class="struct">KPROFILE</span> is internal, it is almost as 
+  stable as many a documented structure, presumably as a side-effect of its very 
+  tightly constrained use. After version 3.51 allowed for specification of the profile 
+  source and of which processors will have their execution profiled, the only formal 
+  change is for Windows 7 to support more than 32 or 64 processors by way of processor 
+  groups. That the size then increases for 64-bit Windows 8 is simply from allowing 
+  for more processor groups: </p>
+  <table>
+    <colgroup>
+      <col class="Versions"><col class="Size" span="2">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+      <tr>
+        <td>3.10 to 3.50 </td>
+        <td>0x28 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.51 to 6.0 </td>
+        <td>0x2C </td>
+        <td>0x58 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0x34 </td>
+        <td>0x78 </td>
+      </tr>
+      <tr>
+        <td>6.2 to 2004 </td>
+        <td>0x34 </td>
+        <td>0xF8 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout </h2>
+  <p>The sizes in the preceding table and the offsets and definitions in the tables 
+  that follow are from type information in CLFSMGMT.LIB for applicable versions. 
+  What’s presented for other versions comes from inspecting the kernel and assuming 
+  that continuity of behaviour likely means continuity of names and types. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">SHORT Type;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td>0x02 </td>
+        <td>
+        <pre class="source">SHORT Size;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ProfileListEntry;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x0C </td>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">KPROCESS *Process;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The 16-bit <span class="member">Type</span> takes its value from the
+  <span class="enum">KOBJECTS</span> enumeration. The 16-bit
+  <span class="member">Size</span> is of the kernel object, in bytes. </p>
+  <p>If profiling is just of execution in one process, the <span class="member">
+  ProfileListEntry</span> links the <span class="struct">KPROFILE</span> into the
+  <span class="member">ProfileListHead</span> of the specified
+  <span class="member">Process</span>. Otherwise, profiling is global, the link 
+  is then into a list head in the kernel’s own data, and <span class="member">Process</span> 
+  is <span class="constant">NULL</span>. </p>
+  <h3>Parameters for Basic Profile Object </h3>
+  <p>Before version 6.2, the structure continues directly with parameters that govern 
+  the profiling. Starting with version 6.2, these parameters are instead in an anonymous 
+  structure that’s the first branch of an anonymous union. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x10 </td>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">PVOID RangeBase;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14 </td>
+        <td>0x28 </td>
+        <td>
+        <pre class="source">PVOID RangeLimit;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td>0x30 </td>
+        <td>
+        <pre class="source">ULONG BucketShift;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1C </td>
+        <td>0x38 </td>
+        <td>
+        <pre class="source">PVOID Buffer;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x20 (3.10 to 3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN Started;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x2A </td>
+      </tr>
+      <tr>
+        <td>0x24 (3.10 to 3.50); <br>
+        0x20 </td>
+        <td>0x40 </td>
+        <td>
+        <pre class="source">ULONG Segment;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">RangeBase</span> and <span class="member">RangeLimit</span> 
+  are respectively the inclusive start and non-inclusive end addresses of the profiled 
+  region. This region is treated as an array of fixed-size buckets. The bucket size 
+  in bytes is necessarily a power of two. What the <span class="struct">KPROFILE</span> 
+  keeps is not the bucket size but a <span class="member">BucketShift</span>&nbsp; 
+  which is two less than the logarithm base 2 of the bucket size in bytes. This 
+  optimises the computation of which bucket holds the return address for any given 
+  interrupted execution and which 32-bit counter at <span class="member">Buffer</span> 
+  gets the corresponding increment. </p>
+  <p>The <span class="member">Segment</span> is a special provision for profiling 
+  virtual-8086 execution. It is evidently defined for the x64 structure even though 
+  it cannot be acted on. </p>
+  <h3>Parameters for Profile Callback Object </h3>
+  <p>The second type of profile object for version 6.2 is supported through a second 
+  anonymous structure within the anonymous union: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x10 </td>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">VOID 
+(*Callback) (
+    <a href="../ktrap_frame.htm">KTRAP_FRAME</a> *, 
+    PVOID);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x14 </td>
+        <td>0x28 </td>
+        <td>
+        <pre class="source">PVOID Context;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>To be clear, the <span class="member">Context</span> is what each invocation 
+  of the <span class="member">Callback</span> gets as its second argument. </p>
+  <h3>Processor Parameters </h3>
+  <p>Version 3.51 brought more control of which processors’ execution is profiled 
+  and to what source of interrupt. Corresponding parameters were appended to the 
+  structure and have stayed there: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x24 </td>
+        <td rowspan="2">0x48 </td>
+        <td>
+        <pre class="source">KAFFINITY Affinity;</pre>
+        </td>
+        <td>3.51 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KAFFINITY_EX Affinity;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x28 (3.51 to 6.0); <br>
+        0x30 </td>
+        <td>0x50 (5.2 to 6.0); <br>
+        0x70 (6.1); <br>
+        0xF0 </td>
+        <td>
+        <pre class="source">SHORT Source;</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2A (3.51 to 6.0); <br>
+        0x32 </td>
+        <td>0x52 (5.2 to 6.0); <br>
+        0x72 (6.1); <br>
+        0xF2 </td>
+        <td>
+        <pre class="source">BOOLEAN Started;</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>previously at 0x20 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The profile <span class="member">Source</span> takes its value from the
+  <span class="enum">KPROFILE_SOURCE</span> enumeration but narrowed to only 16 
+  bits. The one-byte boolean indicator of whether profiling has
+  <span class="member">Started</span> predates version 3.51, but was moved to the 
+  alignment space that version 3.51 left after the narrowed profile source. </p>
+  <h3>The Profiled Region </h3>
+  <p>Special mention must be made of what the profile object records of the profiled 
+  region’s end address. As input to <span class="function">NtCreateProfile</span> 
+  and <span class="function">NtCreateProfileEx</span>, the profiled region is described 
+  by its address and size. Adding the two produces a non-inclusive end address, 
+  which is what’s described in the layout above. The intention seems plain that 
+  an interrupted instruction lies in the profiled region if its address is greater 
+  than or equal to the start address and less than the non-inclusive end address.
+  </p>
+  <p>You may be wondering why an article that can exist only for advanced programmers 
+  troubles over so simple a point. And then you might infer that there must be at 
+  least an ambiguity, if not an outright defect, in the implementation. And so there 
+  is, but in the reverse direction from usual. It’s not that an early implementation 
+  was faulty and was eventually found to need fixing. It is instead that the fault 
+  came from carelessness when implementing new functionality. </p>
+  <p>For most of the history of Windows there’s not even ambiguity. Up to and including 
+  Windows 7, the end address that’s saved in the profile object as
+  <span class="member">RangeLimit</span> is the sum of the
+  <span class="argument">ProfileBase</span> and <span class="argument">ProfileSize</span> 
+  arguments that were given for the profile’s creation, and when the profile object 
+  is examined on receipt of a profile interrupt this end address is interpreted 
+  as non-inclusive. Had the code been left like that, then the layout above would 
+  say “non-inclusive end address of profiled area” and this multi-paragraph digression 
+  would not exist. I certainly don’t want to treat my readers as if basic knowledge 
+  of their craft would better be spelt out in laboured detail. </p>
+  <p>Unfortunately, when the introduction of profile callback objects for Windows 
+  8 brought a reworking of the code for <span class="function">KeProfileInterruptWithSource</span>, 
+  the reworking introduced a simple error of arithmetic. The end address that’s 
+  saved in a profile object is still the sum of address and size, but when the profile 
+  object is examined at interrupt time this non-inclusive end address is instead 
+  interpreted as inclusive. A consequence is that if a sequence of correctly formed 
+  calls to create and start a profile for which the buffer that receives the execution 
+  counts just happens to end at a page boundary, then chance execution at exactly 
+  the non-inclusive end of the profiled area can crash Windows! Of course, the chance 
+  can be engineered, with the effect that even a low-integrity user-mode program 
+  can bring down all of Windows. For details and a demonstration, see
+  <a href="../../../api/ex/profile/bugdemo.htm">Bug Check From User Mode By Profiling</a>. 
+  Microsoft were told of this by me in early 2017 and again in mid-2018, and they 
+  fixed it for the 1809 release of Windows 10. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 19th
+    <a href="../../../../../../../new/22/12.htm">December 2022</a> from material 
+    first published on 6th <a href="../../../../../../../new/17/01.htm">January 
+    2017</a>. It was last modified on 29th January 2023. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1723.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5069" -->
+  </div>
+</div>
+
+</body>
+
+</html>

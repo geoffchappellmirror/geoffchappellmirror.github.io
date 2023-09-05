@@ -1,0 +1,361 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Send Notification</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<!--webbot bot="Include" U-Include="../../../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+<h1>Send Notification </h1>
+<p>When given 0x11 as its <span class="argument">FunctionCode</span> argument, the
+<span class="function"><a href="index.htm">NtTraceControl</a></span> function sends 
+a notification to some or all of an event provider’s user-mode registrations. Microsoft’s 
+name for this function code is not known, though <span class="constant">EtwSendNotificationCode</span> 
+might be a reasonable guess (<span class="function">EtwSendNotification</span> being 
+in use already as an NTDLL export). This note deals only with
+<span class="function">NtTraceControl</span> behaviour that is specific to this 
+function code. The function’s general behaviour is here taken as assumed knowledge.
+</p>
+<h2>Access </h2>
+<p>Though the sending of notifications to event providers is vital to the machinery 
+of Event Tracing for Windows (ETW), no ordinary users of ETW involve themselves 
+directly in this. Even the lowest-level user-mode software that might send a notification 
+does not call <span class="function">NtTraceControl</span> but instead calls the 
+undocumented NTDLL function <span class="function">
+<a href="../../../../../../win32/ntdll/api/etw/notify/send.htm">EtwSendNotification</a></span>, 
+which both sends the notification and receives the replies. No ordinary users of 
+ETW involve themselves in this, either. By far the greatest use of notification 
+is to support the enabling and disabling of trace providers, which applications 
+arrange by calling the documented <span class="function">EventTraceEx2</span> function 
+or its earlier forms. </p>
+<h2>Behaviour </h2>
+<p>The function’s input is a data block to send as the notification. The data block 
+begins with a fixed-size <span class="struct">
+<a href="../notification_header.htm">ETW_NOTIFICATION_HEADER</a></span> which describes 
+where to send and how, but the data block’s continuation beyond this header is essentially 
+arbitrary. The output is the same header but edited. Notably, it may tell the sender 
+how many replies to expect and it will then provide a handle to an object through 
+which the sender may obtain these replies by calling <span class="function">NtTraceControl</span> 
+with <a href="receivereplydatablock.htm">0x13</a> as the <span class="argument">
+FunctionCode</span>, once for each reply. </p>
+<p>The notification is sent asynchronously. The function’s successful return says 
+only that notification is under way. Delivery depends on each recipient of the notification 
+calling <span class="function">NtTraceControl</span> with
+<a href="receivenotification.htm">0x10</a> as the <span class="argument">FunctionCode</span> 
+to receive the data block. To send a reply, they call with
+<a href="sendreplydatablock.htm">0x12</a> as the <span class="argument">FunctionCode</span>. 
+The four function codes thus make a set in which each is a vital part of an elaborate 
+inter-process exchange. </p>
+<h3>Parameter Validation </h3>
+<p>The input buffer must provide a fixed-size <span class="struct">ETW_NOTIFICATION_HEADER</span> 
+followed by arbitrary other data. The output buffer is to receive exactly an
+<span class="struct">ETW_NOTIFICATION_HEADER</span>, but the caller who prepares 
+the notification as requesting a reply will more usefully intepret this output header 
+as an <span class="struct"><a href="../../notify/notification_header.htm">ETWP_NOTIFICATION_HEADER</a></span>, 
+i.e., in the private form which has <span class="member">Reserved2</span> explained 
+as a <span class="member">ReplyHandle</span>. </p>
+<p>This general notion of input and output is enforced through a first tier of parameter 
+validation. The function returns <span class="constant">STATUS_INVALID_PARAMETER</span> 
+if any of the following are true: </p>
+<ul>
+  <li>the input buffer is too small for an <span class="struct">ETW_NOTIFICATION_HEADER</span>;
+  </li>
+  <li>either the output buffer is not an exact fit for an <span class="struct">ETWP_NOTIFICATION_HEADER</span> 
+  or, in version 6.0 only, there is no output buffer; </li>
+  <li>the <span class="member">NotificationSize</span> in the input buffer is not 
+  also the size of the input buffer; </li>
+  <li>in version 6.2 and higher, the <span class="member">NotificationType</span> 
+  in the input buffer is <span class="constant">EtwNotificationTypeEnable</span> 
+  (3) but the input buffer is not at least 0x78 bytes. </li>
+</ul>
+<p>In the particular case with <span class="constant">EtwNotificationTypeEnable</span> 
+as the <span class="member">NotificationType</span>, the kernel itself interprets 
+the data block’s continuation beyond the header, and not just for the minimal 0x78 
+bytes. This note distinguishes the general case under the heading Notify GUID and 
+the particular under Enable GUID. </p>
+<h3>Notify GUID </h3>
+<p>Transmission is limited to 64KB. If the <span class="member">NotificationSize</span> 
+on input exceeds 0x00010000, the function returns <span class="constant">STATUS_INVALID_BUFFER_SIZE</span>.
+</p>
+<h4>The Provider To Notify </h4>
+<p>The event provider whose registrations receive the notifications is specified 
+in the input as the <span class="member">DestinationGuid</span>. No GUID completely 
+specifies an event provider. There are different types, represented by the
+<span class="enum"><a href="../../register/guid_type.htm">ETW_GUID_TYPE</a></span> 
+enumeration. From the user-mode perspective, event providers that are registered 
+through the documented API functions <span class="function">EventRegister</span> 
+and <span class="function">RegisterTraceGuids</span> are
+<span class="definition">trace providers</span>: they have
+<span class="constant">EtwTraceGuidType</span> as their <span class="enum">ETW_GUID_TYPE</span>. 
+For both these API functions, the substantial user-mode implementation in NTDLL 
+is <span class="function">EtwNotificationRegister</span>. This undocumented function 
+can be called separately to register what might as well be called
+<span class="definition">notification providers</span>. These have
+<span class="constant">EtwNotificationGuidType</span> as their
+<span class="enum">ETW_GUID_TYPE</span>. </p>
+<p>With one exception, this function interprets the <span class="member">DestinationGuid</span> 
+as selecting a notification provider. If the <span class="member">DestinationGuid</span> 
+is not among the notification providers, the function returns
+<span class="constant">STATUS_WMI_GUID_NOT_FOUND</span>. The function also fails 
+if the caller does not have <span class="constant">WMIGUID_NOTIFICATION</span> access 
+to the <span class="member">DestinationGuid</span>. </p>
+<p>The exception is that when the <span class="member">NotificationType</span> is
+<span class="constant">EtwNotificationTypePrivateLogger</span> (4), the
+<span class="member">DestinationGuid</span> is sought among the trace providers. 
+Moreover, there is first a security check for whether the caller is permitted to 
+send this notification to any trace provider. The function fails unless the caller 
+has <span class="constant">TRACELOG_GUID_ENABLE</span> access to a different GUID:
+</p>
+<table>
+  <tr>
+    <th>GUID </th>
+    <th>Symbolic Name </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>{9E814AAD-3204-11D2-9A82-006008A86939} </td>
+    <td><span class="guid">SystemTraceControlGuid</span> </td>
+    <td>6.0 only </td>
+  </tr>
+  <tr>
+    <td>{472496CF-0DAF-4F7C-AC2E-3F8457ECC6BB} </td>
+    <td><span class="guid">PrivateLoggerSecurityGuid</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+</table>
+<p>If the <span class="member">DestinationGuid</span> is not among the trace providers, 
+the function returns <span class="constant">STATUS_WMI_GUID_NOT_FOUND</span>. If 
+it is, then the function also fails if the caller does not have
+<span class="constant">TRACELOG_GUID_ENABLE</span> access to the
+<span class="member">DestinationGuid</span>. </p>
+<p>What the notification is sent to is not the event provider but its user-mode 
+regstrations. An event provider can be formed from any number of executable modules, 
+in both kernel and user modes, and in any number of processes. Each registers with 
+the kernel as contributing to this provider, but a provider can be known to the 
+kernel (and thus avoid the preceding <span class="constant">STATUS_WMI_GUID_NOT_FOUND</span> 
+error) without yet having any registrations. A notable example is that a trace provider 
+can be (and even typically is) enabled by some tracing session in advance of the 
+provider’s execution so that all the execution can be logged. This function needs 
+at least one registration, else it returns <span class="constant">STATUS_WMI_INSTANCE_NOT_FOUND</span>.
+</p>
+<h4>Supporting Replies </h4>
+<p>If <span class="member">ReplyRequested</span> on input is
+<span class="constant">TRUE</span>, then the function cannot usefully proceed without 
+the means both for the target registrations to reply and for the caller to receive 
+those replies. The means as implemented is that the function creates an
+<span class="struct"><a href="../../register/reply_queue.htm">ETW_REPLY_QUEUE</a></span> 
+and an <span class="struct"><a href="../../register/reg_entry/index.htm">ETW_REG_ENTRY</a></span>.
+</p>
+<p>The <span class="struct">ETW_REPLY_QUEUE</span> is mostly a
+<span class="struct">KQUEUE</span>. The function returns <span class="constant">
+STATUS_NO_MEMORY</span> if it fails to create this <span class="struct">ETW_REPLY_QUEUE</span>.
+</p>
+<p>The <span class="struct">ETW_REG_ENTRY</span> is a specialised form of the same 
+structure with which the kernel represents each of a provider’s registrations. For 
+registrations by user-mode callers, the structure is an Object Manager object, specifically 
+an EtwRegistration object. So it is too for this purpose of supporting replies to 
+notifications. The point to being a formal object is of course that it can have 
+a handle. Failure to create this <span class="definition">reply object</span> and 
+a handle for user-mode access with the <span class="constant">WMIGUID_NOTIFICATION</span> 
+and <span class="constant">TRACELOG_REGISTER_GUIDS</span> permissions is failure 
+for the function. </p>
+<h4>Transmission </h4>
+<p>The event provider can have multiple registrations. As noted above, each has 
+to execute user-mode code to receive the notification. Some or all may do so in 
+a process other than the caller’s. The function does not wait. The data block must 
+be capable of outliving the function. It is copied to paged pool, else the function 
+returns <span class="constant">STATUS_NO_MEMORY</span>. </p>
+<p>In general, the notification goes to all the target event provider’s user-mode 
+registrations that are not yet closed. If <span class="member">TargetPID</span> 
+on input is non-zero, transmission is further restricted to registrations by the 
+one process that has <span class="member">TargetPID</span> as its process ID. Thus 
+does the function determine its notifyees. There may turn out to be none, which 
+counts as success. From here, the function can fail only if transmission fails for 
+all notifyees. The number for which transmission at least gets under way is reported 
+to the caller as the <span class="member">NotifyeeCount</span> in the output buffer. 
+The <span class="member">ReplyHandle</span> on output is the handle to the reply 
+object or is <span class="constant">NULL</span>. </p>
+<p>If the caller requested a reply, then the <span class="member">NotifyeeCount</span> 
+on output is not only the number of registrations to which the notification is sent 
+but is more practically the number of calls the caller should expect to make to
+<span class="function">NtTraceControl</span> with 0x13 as the
+<span class="argument">FunctionCode</span> to receive one reply from each notifyee. 
+The <span class="member">ReplyHandle</span> will be needed as input to these calls. 
+Perhaps as a small oversight, the <span class="member">ReplyHandle</span> may be 
+non-<span class="constant">NULL</span> even if the <span class="member">NotifyeeCount</span> 
+is zero, but the reply object will by then be gone and the handle will be stale.
+</p>
+<h4>Notification Mechanism </h4>
+<p>For a registration to receive a notification, its process must have an
+<span class="struct">ETW_DATA_SOURCE</span>. This is created (in non-paged pool) 
+once per process and retained. Ordinarily it is created the first time that the 
+process is the target of a notification. It is pointed to from the
+<span class="member">EtwDataSource</span> member of the <span class="struct">
+<a href="../../../../inc/ntos/ps/eprocess/index.htm">EPROCESS</a></span>. If the process 
+does not yet have one, then the registration is a failed notifyee. </p>
+<p>A process can be sent many notifications concurrently to its many user-mode registrations 
+of many event providers. The process’s <span class="struct">ETW_DATA_SOURCE</span> 
+is the queue. An <span class="struct"><a href="../../notify/queue_entry.htm">ETW_QUEUE_ENTRY</a></span> 
+is created (also in non-paged pool) for each registration that a notification is 
+sent to. Without one, the registration is a failed notifyee. Each
+<span class="struct">ETW_QUEUE_ENTRY</span> goes into the queue for the target process 
+and stays there until its retrieval by the target process’s call to
+<span class="function">NtTraceControl</span> with 0x10 for the
+<span class="argument">FunctionCode</span>. </p>
+<p>If <span class="member">ReplyRequested</span> is <span class="constant">TRUE</span> 
+in the data block, then the notifyee registration requires preparation since it 
+may have to hold a reply until <span class="function">NtTraceControl</span> with 
+0x13 for the <span class="argument">FunctionCode</span> is called by the notification’s 
+sender. Although in principle the one registration might be sent any number of notifications 
+concurrently which all request replies, the possibility is evidently thought remote 
+in practice. Capacity is hard-coded at four. Before a notification that requests 
+a reply can be sent, one of the four slots in the registration’s
+<span class="member">ReplySlot</span> array must be reserved. If none are available, 
+the registration is a failed notifyee. </p>
+<p><span class="alert">WRITING IN PROGRESS</span> </p>
+<h4>Summary </h4>
+<p>It is perhaps as well to summarise the general case’s interpretation of the header 
+for input and output. The Input column shows each member that is meaningful on input. 
+An empty cell means the corresponding member is not interpreted. The Output column 
+shows each member that is set in the output buffer if the function succeeds. An 
+empty cell means the corresponding member is unchanged. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Input </th>
+    <th>Output </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ETW_NOTIFICATION_TYPE NotificationType;</pre>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">ULONG NotificationSize;</pre>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>
+    <pre class="source">BOOLEAN ReplyRequested;</pre>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG NotifyeeCount;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG64 ReplyHandle;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">ULONG TargetPID;</pre>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG SourcePID;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>
+    <pre class="source">GUID DestinationGuid;</pre>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x38 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>The <span class="member">SourcePID</span> on output is the caller’s process ID. 
+It is no news to the caller. That it is set for output is here thought to be a side-effect 
+of preparing the data block that will be seen by notifyees. </p>
+<p><span class="alert">TO BE DONE</span> </p>
+<h3>Enable GUID </h3>
+<p>When the <span class="member">NotificationType</span> is
+<span class="constant">EtwNotificationTypeEnable</span>, the notification has the 
+specific purpose that the event provider represented by the <span class="member">
+DestinationGuid</span> is to be enabled or disabled for some tracing session. This 
+very important but complex special case is left for another time. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 22nd April 2020 from material first 
+  published on 31st <a href="../../../../../../../../new/18/12.htm">December 2018</a>. 
+  It was last modified on 28th <a href="../../../../../../../../new/20/05.htm">May 
+  2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14474" -->
+</div>
+
+</body>
+
+</html>

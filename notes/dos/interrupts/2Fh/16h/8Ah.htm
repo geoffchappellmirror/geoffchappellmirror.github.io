@@ -1,0 +1,269 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Interrupt 2Fh Function 168Ah</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/notes.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="20600" -->
+<div class="Main">
+  <h1>Interrupt 2Fh Function 168Ah </h1>
+  <p>This function is defined in the abstract as belonging to the DOS Protected 
+  Mode Interface (DPMI), if only in some versions of the specification. It is there 
+  described as Get Vendor-Specific API Entry Point. </p>
+  <p>This note is concerned with the function only in the concrete sense of its 
+  implementation by Microsoft to expose its DPMI servers’ MS-DOS Extensions. Implementations 
+  are known in both the DOS extenders that Microsoft distributed with Windows:
+  </p>
+  <ul>
+    <li>DOSX from Windows 3.1; </li>
+    <li>the Virtual Machine Manager (VMM) from Windows 3.1 and higher. </li>
+  </ul>
+  <p>If only for now, this note is mostly specific to the VMM’s implementation.
+  </p>
+  <h2>Parameters </h2>
+  <p>The function uses registers for both input and output. In the intended circumstances,
+  <span class="instruction">int 2Fh</span> function 168Ah is called by a DOS program 
+  that is already executing in protected mode. Far pointers are 16:16 or 16:32, 
+  depending on whether the caller has got to protected mode as a 16-bit or 32-bit 
+  DPMI client, respectively. </p>
+  <h3>Input </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>168Ah </td>
+      </tr>
+      <tr>
+        <td><span class="register">ds:(e)si</span> </td>
+        <td>address of null-terminated string “MS-DOS” </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The subfunction number, 8Ah, is defined symbolically as
+  <span class="constant">W386_DPMI_Extension</span> in a header named INT2FAPI.INC 
+  which Microsoft distributed with the Device Driver Kit at least as early as for 
+  Windows 3.1. </p>
+  <h3>Success </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">al</span> </td>
+        <td>00h </td>
+      </tr>
+      <tr>
+        <td><span class="register">ah</span> </td>
+        <td>00h, DOSX only </td>
+      </tr>
+      <tr>
+        <td><span class="register">es:(e)di</span> </td>
+        <td>address of API Entry Point for MS-DOS Extensions </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>In the intended use, the API entry point is to be called in protected mode 
+  by a far <span class="instruction">call</span>. This entry point also uses registers 
+  for both input and output. One register on input acts as a function number. See 
+  this page’s next section for the two implemented functions. </p>
+  <p>The returned address is allocated during the VMM’s initialisation before even 
+  any VxD executes in protected mode. This one address is returned for all DPMI 
+  clients for all remaining VMM execution. This behaviour is presumably an implementation 
+  detail. The interface itself would seem to allow different addresses for different 
+  DPMI clients (but the one address for all calls by any one DPMI client). </p>
+  <h3>Failure </h3>
+  <p>If the VMM does not implement the function (as with Windows 3.0) or if the 
+  input string is not exactly as expected, the function is returned with no registers 
+  changed. </p>
+  <h3>Quirks </h3>
+  <p>Possibly just by not explicitly excluding the case, the VMM has function 168Ah 
+  succeed even when called by virtual-8086 code. The returned address, being an 
+  offset from a protected-mode selector, is not immediately useful. DOSX, by contrast, 
+  implements the function only in protected mode. </p>
+  <p>DOSX, however, has what may be a coding error for what it returns on success: 
+  where the VMM clears only <span class="register">al</span>, DOSX clears the whole 
+  of <span class="register">ax</span>. </p>
+  <h3>Known Use </h3>
+  <p>The important use of <span class="instruction">int 2Fh</span> function 168Ah 
+  is by KRNL386.EXE in Windows 3.1 and higher. This starts as an MS-DOS application 
+  with real-mode addressing but it soon switches to protected mode as a 16-bit DPMI 
+  client. It then requires that the MS-DOS Extensions be present, which is tested 
+  by seeing that <span class="instruction">int 2Fh</span> function 168Ah changes
+  <span class="register">al</span> from 8Ah (not by requiring a change to 00h specifically). 
+  Failure causes an immediate exit with the error message </p>
+  <pre class="output">KERNEL: Inadequate DPMI Server </pre>
+  <p>The only use that KRNL386 makes of the returned API entry point is to call 
+  function 0100h. See below. &nbsp;</p>
+  <h2>API Entry Point Function 0000h </h2>
+  <p>Function 0000h is described by Microsoft’s DPMI Specification as Get MS-DOS 
+  Extension Version. </p>
+  <h3>Input </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>0000h </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Output </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">flags</span> </td>
+        <td>carry flag clear; <br>
+        other flags corrupt, DOSX only&nbsp; </td>
+      </tr>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>0100h, apparently meaning MS-DOS Extensions version 1.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Presumably, this version enquiry can fail, with a set carry flag, but this 
+  is here dismissed as merely theoretical. </p>
+  <h2>API Entry Point Function 0100h </h2>
+  <p>Microsoft’s DPMI Specification presents function 0100h as Get Selector to Base 
+  of LDT. </p>
+  <h3>Input </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>0100h </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Success </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">flags</span> </td>
+        <td>carry flag clear; <br>
+        other flags corrupt, DOSX only </td>
+      </tr>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>selector for caller’s LDT </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Though the interface itself allows that different DPMI clients can be given 
+  different selectors, the implementation allocates one selector during the VMM’s 
+  initialisation and returns this to all DPMI clients in all virtual machines for 
+  the remainder of the VMM’s execution. </p>
+  <p>What the selector’s numerical value is fixed to can vary for different executions 
+  of the VMM, presumably to discourage programmers from thinking to hard-code any 
+  one observed value. The particular implementation constrains the selector to the 
+  range 0087h to 00FFh inclusive. The variability is obtained from the timer tick 
+  that the BIOS maintains at the real-mode address 0040:006C. </p>
+  <p>The interface’s usefulness surely lies in what the returned selector is expected 
+  to address, but the interface looks like it does not itself specify the Table 
+  Indicator (TI) or Requested Privilege Level (RPL) bits in the selector’s numerical 
+  value or perhaps even the Descriptor Privilege Level (DPL) or Type bits in the 
+  selected descriptor. It perhaps just happens that the implementation returns an 
+  LDT selector that requests ring 3 access and that the selected descriptor grants 
+  ring 3 access to the corresponding segment as read/write data. The segment is 
+  whatever the VMM uses as the DPMI client’s LDT. The implementation allows that 
+  this LDT can move. The VMM before Windows 95 allows that the LDT can grow. The 
+  VMM in Windows 95 avoids this by reserving the maximum 16 pages that an LDT can 
+  ever require. </p>
+  <h4>Other Exposure </h4>
+  <p>The VMM for Windows 3.0 exposes this LDT self-selector through
+  <a href="88h.htm"><span class="instruction">int 2Fh</span> function 1688h</a>.
+  </p>
+  <p>The same selector that these functions return to protected-mode DPMI clients 
+  is also given to VxD callers of the VMM service <span class="function">_Allocate_LDT_Selector</span>. 
+  The allocated selector, which is the service’s immediate reason for existence, 
+  is returned in <span class="register">ax</span> (if the service is successful) 
+  but the selector to the LDT is returned in the low word of
+  <span class="register">edx</span> and the high word has the LDT’s current capacity 
+  as a count of selectors. Documentation notes that “Although this service returns 
+  a selector to the LDT, virtual devices should <span class="emphasis">not</span> 
+  attempt to edit the LDT directly.” </p>
+  <h3>Failure </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">flags</span> </td>
+        <td>carry flag set </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The VMM in Windows versions before Windows 95 fails this function unless the 
+  call is made in the System VM specifically. </p>
+  <p>This constraint’s removal for Windows 95 apparently dates from very early pre-release 
+  builds. Removal will have been needed for what the README.TXT file, dated 29th 
+  July 1993, in the 58s build of Chicago refers to as a “Win 3.1 MS-DOS VM” with 
+  “instructions in the release notes”. This is the same feature that Raymond Chen, 
+  from Microsoft, described in 2018 as
+  <a href="https://devblogs.microsoft.com/oldnewthing/20180514-00/?p=98745">For 
+  a brief period, Windows 95 could run Windows 3.1 in a virtual machine</a>. The 
+  constraint was not restored at the end of Raymond’s “brief period” and therefore 
+  does not get in the way of having
+  <a href="../../../../windows/archive/extrawin.htm">Windows 3.1 in a Windows 95 
+  virtual machine</a> even for Windows 95 as formally released. </p>
+  <h3>Known Use </h3>
+  <p>The known user of this function, KRNL386.EXE in Windows 3.1 and higher, tests 
+  both that the function formally succeeds and that what’s returned in
+  <span class="register">ax</span> is valid as a selector that allows write access, 
+  i.e., that the <span class="instruction">verw</span> instruction sets the zero 
+  flag. Curiously, failure on either count is not immediately fatal. At some time 
+  in the development of the Windows GUI for protected-mode execution, there must 
+  have been some intention that having this selector was merely an optimisation. 
+  Without it, KRNL386 can call one or another <span class="instruction">int 31h</span> 
+  function to operate on the LDT. The reality, however, is that at least by the 
+  time of Windows 3.1, much of the code in KRNL386, including such seemingly simple 
+  exported functions as <span class="function">SetSelectorBase</span>, merely assumes 
+  the LDT’s self-selector was obtained. A KRNL386.EXE from any Windows 3.1<span class="placeholder">x</span> 
+  will not run for long under the VMM from any Windows 3.1<span class="placeholder">x</span> 
+  except in the System VM or if the VMM’s implementation is adjusted not to fail 
+  for other VMs. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 27th
+    <a href="../../../../../new/21/12.htm">December 2021</a> and was last modified 
+    on 29th December 2021. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c21.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="46623" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,2582 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>BitLocker Policy Settings</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/win32.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="63592" -->
+<!--webbot bot="Include" U-Include="../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+<div class="Main">
+  <h1>BitLocker Policy Settings </h1>
+  <p>The main DLL for user-mode access to kernel-mode BitLocker support, i.e., FVEAPI.DLL, 
+  checks its operations against very many registry values that serve as Group Policy 
+  settings. Almost all have user-interface support through the Local Group Policy 
+  Editor, specifically in the BitLocker Drive Encryption administrative template 
+  displayed under Windows Components. Something like the explanatory text from this 
+  user interface is also published online as Microsoft’s documentation of BitLocker’s 
+  configurability. </p>
+  <p>When BitLocker was new, roughly half a dozen DLLs for user-mode BitLocker support 
+  each read for themselves by their own methods their own selection of BitLocker 
+  policy settings. For Windows 8, Microsoft unified this into library code that 
+  is linked into each of these DLLs. Most of the policy settings are organised into 
+  tables which are reproduced in each DLL. Each table gives for each setting the 
+  applicable registry key, the registry value and (optionally) the default for the 
+  data. For some settings, this tablular definition is at best a basis for interpretation. 
+  For a few, it is not even relevant, notably because the setting continues to be 
+  interpreted by old code. </p>
+  <p>If only for now, this page lists only the settings that are defined in the 
+  library’s tables. It may therefore not be comprehensive as a list of BitLocker 
+  policy settings even for modern versions. It certainly misses settings that are 
+  specific to early versions. If you need a comprehensive listing of all registry 
+  values that are any sort of BitLocker policy setting, then please do ponder how 
+  it is that you are left to look for one (both by Microsoft and by the wider industry 
+  that writes about BitLocker as if to be not just helpful but authoritative).
+  </p>
+  <h2>Registry Keys </h2>
+  <p>Almost all of the Group Policy settings for BitLocker are in
+  <span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>. 
+  A large set of them—25 that are specialised to selecting which Platform Configuration 
+  Registers count for BitLocker’s platform validation profile—are instead in one 
+  of three possible subkeys. Two settings can alternatively be in
+  <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Policies\Microsoft\FVE</span>. 
+  For two more, duplicated entries in the table suggest that although a choice of 
+  key is not offered, it may have been intended or anticipated. </p>
+  <h3>Volume Policy </h3>
+  <p>To the library code for loading the registry keys from which to read the settings, 
+  this pair of keys in the <span class="regkey">Software</span> and
+  <span class="regkey">System</span> branches of <span class="regkey">HKEY_LOCAL_MACHINE</span> 
+  are just the <span class="definition">root policy keys</span>. There is also a 
+  notion of <span class="definition">volume policy</span>. (These names are taken 
+  from the names of internal routines, as known from public symbol files.) The volume 
+  policy is, or would be, read from the SOFTWARE and SYSTEM hives in the Windows\System32\Config 
+  directory of a particular volume, specifically such that the two usual keys would 
+  instead be </p>
+  <ul>
+    <li><span class="regkey">BitLockerSoftwareRoot\Policies\Microsoft\FVE</span> 
+    in the SOFTWARE hive </li>
+    <li><span class="regkey">BitLockerSystemRoot\CurrentControlSet\Policies\Microsoft\FVE</span> 
+    in the SYSTEM hive. </li>
+  </ul>
+  <p>&nbsp;The plain intention is that a BitLocker-protected volume that Windows 
+  might be booted from, with the usual keys then supplying the root policy, can 
+  have alternatiive policy settings that apply just to this volume when accessed 
+  for some special purpose. What this purpose might be, whether just for testing 
+  or for some type of recovery, is not known since no software that uses the library 
+  code is yet known to have code for calling it with the arguments that would load 
+  the volume policy. Further study is required. </p>
+  <h2>Registry Values </h2>
+  <p>It is, of course, just an implementation detail, but the library code organises 
+  its definitions of policy settings into separate tables for different types of 
+  registry value: dword, string and multi-string. Public symbol files for Windows 
+  8 and higher show that each table has an enumeration for indexing a setting within 
+  the table: <span class="enum">eFveGpDwSetting</span>, <span class="enum">eFveGpStrSetting</span> 
+  and <span class="enum">eFveGpMultiStrSetting</span>. Public symbol files for Windows 
+  8.1 and higher show that each table is an array of a templated structure named
+  <span class="struct">POLICY_REGISTRY_INFO</span>, with a different template argument 
+  for each type of registry value. For a reverse-engineered list of the defined 
+  settings, it is only natural to follow the implementation, including to separate 
+  the types. </p>
+  <h3>DWORD Settings </h3>
+  <p>The vast majority of BitLocker policy settings are integers. Unless otherwise 
+  noted, FVEAPI requires that the registry value has <span class="constant">REG_DWORD</span> 
+  as the type of its data (in contrast, for instance, to accepting four bytes of
+  <span class="constant">REG_BINARY</span> data). Most of these settings require 
+  the <span class="constant">REG_DWORD</span> type not because they range widely 
+  as integers but because they are boolean or take values from an enumeration. Classification 
+  of these cases is a work in progress. </p>
+  <p>Unless otherwise noted, “boolean” in parentheses signifies a conventional intepretation 
+  of 0 as false, 1 as true, and anything else as invalid. </p>
+  <p>The most extensively used enumeration is named by public symbol files as
+  <span class="enum">eFveGpConfigurationState</span>. It is indicated by “configuration 
+  state” in parentheses. Microsoft’s names for the members are not known. One interpretation 
+  is that 0 and 1 are disabled and enabled, respectively, and that 2 means the setting 
+  is explicitly not configured. The last is typically the default, but cases exist 
+  for which the data’s presence as 2 produces different behaviour from when the 
+  data is simply not present or is defaulted for not being 0, 1, or 2. </p>
+  <p>Another enumeration named by public symbol files is <span class="enum">eFveGpPermission</span>. 
+  It is indicated below by “permission” in parentheses. Its defined values are 0, 1, 2 
+  and 3, meaning respectively to disallow, require or allow the behaviour, with 
+  3 meaning the behavour is explicitly not configured. </p>
+  <p>Do not rely on the descriptions below to capture the consequences of data that 
+  is invalid for being out of its defined range. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">EncryptionMethod</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">EncryptionMethod</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Choose drive encryption method and cipher strength (Windows Vista, Windows Server 
+    2008, Windows 7, Windows Server 2008 R2)
+  </blockquote>
+  <p>in the BitLocker Drive Encryption administrative template. The user interface’s 
+  drop-down box offers the following interpretations of the data: </p>
+  <ul>
+    <li>1 is “AES 128-bit with Diffuser” </li>
+    <li>2 is “AES 256-bit with Diffuser” </li>
+    <li>3 is “AES 128-bit (default)” </li>
+    <li>4 is “AES 256-bit” </li>
+  </ul>
+  <p>As made plain by the user-interface description, this value has long been superseded. 
+  Its first replacement was <span class="regvalue">EncryptionMethodNoDiffuser</span> 
+  (see next) in version 6.2. This and later versions retain
+  <span class="regvalue">EncryptionMethod</span> as a fallback for when newer values 
+  are not present, but the Diffuser is not supported for new encryption, and so 
+  1 and 2 are treated as 3 and 4. </p>
+  <p>Starting with the 1511 release of Windows 10, FVEAPI looks first for
+  <span class="regvalue">EncryptionMethodWithXtsOs</span> and similar values (see 
+  far below), which have the advantage of allowing different encryption methods 
+  for different types of drive. These new registry values also provide for new encryption 
+  methods, represented by 6 and 7, which happen also to be meaningful for this superseded 
+  value if it is fallen back to. </p>
+  <p>What gets chosen for the encryption method when not specified (or if 0 is specified) 
+  is more complicated than is suggested by the parentheses in the user-interface 
+  descriptions. Definitive enumeration awaits further study. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">EncryptionMethodNoDiffuser</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">EncryptionMethodNoDiffuser</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Choose drive encryption method and cipher strength (Windows 8, Windows Server 
+    2012, Windows 8.1, Windows Server 2012 R2, Windows 10 [Version 1507])
+  </blockquote>
+  <p>in the BitLocker Drive Encryption administrative template. The user interface’s 
+  drop-down box offers the following interpretations of the data: </p>
+  <ul>
+    <li>3 is “AES 128-bit (default)” </li>
+    <li>4 is “AES 256-bit” </li>
+  </ul>
+  <p>This value superseded <span class="regvalue">EncryptionMethod</span> (see preceding). 
+  It is in turn superseded by <span class="regvalue">EncryptionMethodWithXtsOs</span> 
+  and similar values (see far below). It is still read as a fallback when the applicable 
+  new value is not present. The new values have the advantage of allowing different 
+  encryption methods for different types of drive. They also provide for new encryption 
+  methods, represented by 6 and 7, which happen also to be meaningful for
+  <span class="regvalue">EncryptionMethodNoDiffuser</span>. </p>
+  <p>What gets chosen for the encryption method when not specified (or if 0 is specified) 
+  is more complicated than is suggested by the parentheses in the user-interface 
+  descriptions. Definitive enumeration awaits further study. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE\PlatformValidation</span>
+        <br>
+        <span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE\OSPlatformValidation_BIOS</span>
+        <br>
+        <span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE\OSPlatformValidation_UEFI</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">Enabled</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.0 to 6.1 in <span class="regkey">PlatformValidation</span>; <br>
+        6.2 and higher in <span class="regkey">PlatformValidation_BIOS</span> and
+        <span class="regkey">PlatformValidation_UEFI</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Before version 6.2, the <span class="regvalue">Enabled</span> value is meaningful 
+  only in the <span class="regkey">PlatformValidation</span> key. Later versions 
+  select the key according to the <span class="enum">FIRMWARE_TYPE</span> as learnt 
+  from a <span class="struct">
+  <a href="../../../km/ntoskrnl/api/ex/sysinfo/boot_environment.htm">SYSTEM_BOOT_ENVIRONMENT_INFORMATION</a></span> 
+  structure that gets filled by the <span class="function">
+  <a href="../../../km/ntoskrnl/api/ex/sysinfo/query.htm">NtQuerySystemInformation</a></span> 
+  function when given the (undocumented) information class
+  <span class="constant">SystemBootEnvironmentInformation</span>. Anything other 
+  than <span class="constant">FirmwareTypeBios</span> and <span class="constant">
+  FirmwareTypeUefi</span> (for the second and third keys, respectively) is treated 
+  as invalid. There is no fallback to the first key, which these versions have in 
+  their table but can never use. </p>
+  <p>In each of the three possible keys, the <span class="regvalue">Enabled</span> 
+  value has user-interface support through the Local Group Policy Editor as the 
+  following items in the Operating System Drives category of the BitLocker Drive 
+  Encryption administrative template: </p>
+  <ul>
+    <li>Configure TPM platform validation profile (Windows Vista, Windows Server 
+    2008, Windows 7, Windows Server 2008 R2) </li>
+    <li>Configure TPM platform validation profile for BIOS-based firmware configurations
+    </li>
+    <li>Configure TPM platform validation profile for native UEFI firmware configurations
+    </li>
+  </ul>
+  <p>The user interface for each <span class="regvalue">Enabled</span> value has 
+  24 check-boxes, one for each Platform Configuration Register (PCR). These configure 
+  the <span class="regvalue">0</span> to <span class="regvalue">23</span> values 
+  (see next) in the same registry key. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE\PlatformValidation</span>
+        <br>
+        <span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE\OSPlatformValidation_BIOS</span>
+        <br>
+        <span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE\OSPlatformValidation_UEFI</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">0</span> to <span class="regvalue">23</span> 
+        inclusive </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (boolean) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.0 to 6.1 in <span class="regkey">PlatformValidation</span>; <br>
+        6.2 and higher in <span class="regkey">PlatformValidation_BIOS</span> and
+        <span class="regkey">PlatformValidation_UEFI</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The values <span class="regvalue">0</span> to <span class="regvalue">23</span> 
+  have user-interface support through the Local Group Policy Editor as check-boxes 
+  in the user-interface support for the <span class="regvalue">Enabled</span> value 
+  (see preceding) in the same key. Each check box corresponds to one numbered Platform 
+  Configuration Register (PCR). In the <span class="regkey">PlatformValidation</span> 
+  and <span class="regkey">OSPlatformValidation_BIOS</span> keys, these are labelled:
+  </p>
+  <ul>
+    <li>PCR 0: Core Root of Trust of Measurement (CRTM), BIOS, and Platform Extensions
+    </li>
+    <li>PCR 1: Platform and Motherboard Configuration and Data </li>
+    <li>PCR 2: Option ROM Code </li>
+    <li>PCR 3: Option ROM Configuration and Data </li>
+    <li>PCR 4: Master Boot Record (MBR) Code </li>
+    <li>PCR 5: Master Boot Record (MBR) Partition Table </li>
+    <li>PCR 6: State Transition and Wake Events </li>
+    <li>PCR 7: Computer Manufacturer-Specific </li>
+    <li>PCR 8: NTFS Boot Sector </li>
+    <li>PCR 9: NTFS Boot Block </li>
+    <li>PCR 10: Boot Manager </li>
+    <li>PCR 11: BitLocker Access Control </li>
+    <li>PCR 12: Reserved for Future Use </li>
+    <li>… </li>
+    <li>PCR 23: Reserved for Future Use </li>
+  </ul>
+  <p>with “Reserved for Future Use” continuing from PCR 12 to PCR 23. The labelling 
+  for the <span class="regkey">OSPlatformValidation_UEFI</span> key differs, often 
+  just by some understandable re-interpretation but in some cases significantly, 
+  as where Boot Manager moves from PCR 10 to PCR 4: </p>
+  <ul>
+    <li>PCR 0: Core System Firmware executable code </li>
+    <li>PCR 1: Core System Firmware data </li>
+    <li>PCR 2: Extended or pluggable executable code </li>
+    <li>PCR 3: Extended or pluggable firmware data </li>
+    <li>PCR 4: Boot Manager </li>
+    <li>PCR 5: GPT / Partition Table </li>
+    <li>PCR 6: Resume from S4 and S5 Power State Events </li>
+    <li>PCR 7: Secure Boot State </li>
+    <li>PCR 8: Initialized to 0 with no Extends (reserved for future use) </li>
+    <li>PCR 9: Initialized to 0 with no Extends (reserved for future use) </li>
+    <li>PCR 10: Initialized to 0 with no Extends (reserved for future use) </li>
+    <li>PCR 11: BitLocker Access Control </li>
+    <li>PCR 12: Data events and highly volatile events </li>
+    <li>PCR 13: Boot Module Details </li>
+    <li>PCR 14: Boot Authorities </li>
+    <li>PCR 15: Reserved for Future Use </li>
+    <li>… </li>
+    <li>PCR 23: Reserved for Future Use </li>
+  </ul>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">UseAdvancedStartup</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">UseAdvancedStartup</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Require additional authentication at startup
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. This user interface has a check-box and four drop-down boxes which configure 
+  the next five registry values: <span class="regvalue">EnableBDEWithNoTPM</span>,
+  <span class="regvalue">UseTPM</span>, <span class="regvalue">UseTPMPIN</span>,
+  <span class="regvalue">UseTPMKey</span> and <span class="regvalue">UseTPMKeyPin</span>.
+  </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">EnableBDEWithNoTPM</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">EnableBDEWithNoTPM</span> value has user-interface 
+  support through the Local Group Policy Editor as a check-box labelled </p>
+  <blockquote>
+    Allow BitLocker without a compatible TPM (requires a password or a startup key 
+    on a USB flash drive)
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">UseAdvancedStartup</span> 
+  value (see preceding). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">UseTPM</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">UseTPM</span> value has user-interface support through 
+  the Local Group Policy Editor as a drop-down box labelled </p>
+  <blockquote>
+    Configure TPM startup:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">UseAdvancedStartup</span> 
+  value (see above). This drop-down box offers the following interpretations of 
+  the data: </p>
+  <ul>
+    <li>0 is “Do not allow TPM” </li>
+    <li>1 is “Require TPM” </li>
+    <li>2 is “Allow TPM” </li>
+  </ul>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">UseTPMPIN</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">UseTPMPIN</span> value has user-interface support 
+  through the Local Group Policy Editor as a drop-down box labelled </p>
+  <blockquote>
+    Configure TPM startup PIN:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">UseAdvancedStartup</span> 
+  value (see above). This drop-down box offers the following interpretations of 
+  the data: </p>
+  <ul>
+    <li>0 is “Do not allow startup PIN with TPM” </li>
+    <li>1 is “Require startup PIN with TPM” </li>
+    <li>2 is “Allow startup PIN with TPM” </li>
+  </ul>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">UseTPMKey</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">UseTPMKey</span> value has user-interface support 
+  through the Local Group Policy Editor as a drop-down box labelled </p>
+  <blockquote>
+    Configure TPM startup key:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">UseAdvancedStartup</span> 
+  value (see above). This drop-down box offers the following interpretations of 
+  the data: </p>
+  <ul>
+    <li>0 is “Do not allow startup key with TPM” </li>
+    <li>1 is “Require startup key with TPM” </li>
+    <li>2 is “Allow startup key with TPM” </li>
+  </ul>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">UseTPMKeyPin</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">UseTPMKeyPin</span> value has user-interface support 
+  through the Local Group Policy Editor as a drop-down box labelled </p>
+  <blockquote>
+    Configure TPM startup key and PIN:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">UseAdvancedStartup</span> 
+  value (see above). This drop-down box offers the following interpretations of 
+  the data: </p>
+  <ul>
+    <li>0 is “Do not allow startup key and PIN with TPM” </li>
+    <li>1 is “Require startup key and PIN with TPM” </li>
+    <li>2 is “Allow startup key and PIN with TPM” </li>
+  </ul>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">MinimumPIN</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>4 in 6.1 to 1607; <br>
+        6 in 1703 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">MinimumPIN</span> value has user-interface support 
+  through the Local Group Policy Editor as </p>
+  <blockquote>
+    Configure minimum PIN length for startup
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">UseEnhancedPin</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">UseEnhancedPin</span> value has user-interface support 
+  through the Local Group Policy Editor as </p>
+  <blockquote>
+    Allow enhanced PINs for startup
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">RDVDenyCrossOrg</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">RDVDenyCrossOrg</span> value has user-interface 
+  support through the Local Group Policy Editor as a check-box labelled </p>
+  <blockquote>
+    Do not allow write access to devices configured in another organization
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">RDVDenyWriteAccess</span> 
+  value (see below). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">IdentificationField</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> or <span class="constant">REG_BINARY</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">IdentificationField</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Provide the unique identifiers for your organization
+  </blockquote>
+  <p>in the BitLocker Drive Encryption administrative template. The user interface 
+  has text boxes for the <span class="regvalue">IdentificationFieldString</span> 
+  and <span class="regvalue">SecondaryIdentificationField</span> values (see far 
+  below). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSRecovery</span> <br>
+        <span class="regvalue">FDVRecovery</span> <br>
+        <span class="regvalue">RDVRecovery</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSRecovery</span>, <span class="regvalue">FDVRecovery</span> 
+  and <span class="regvalue">RDVRecovery</span> values have user-interface support 
+  through the Local Group Policy Editor as the following items in their respective 
+  categories of the BitLocker Drive Encryption administrative template: </p>
+  <ul>
+    <li>Choose how BitLocker-protected operating system drives can be recovered
+    </li>
+    <li>Choose how BitLocker-protected fixed drives can be recovered </li>
+    <li>Choose how BitLocker-protected removable drives can be recovered </li>
+  </ul>
+  <p>This user interface has four check-boxes and three drop-down boxes for the 
+  next seven sets of values: <span class="regvalue">OSManageDRA</span>,
+  <span class="regvalue">OSRecoveryPassword</span>, <span class="regvalue">OSRecoveryKey</span>,
+  <span class="regvalue">OSHideRecoveryPage</span>, <span class="regvalue">OSActiveDirectoryBackup</span>,
+  <span class="regvalue">OSActiveDirectoryInfoToStore</span> and
+  <span class="regvalue">OSRequireActiveDirectoryBackup</span> and similarly for 
+  fixed drives and removable drives. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSRecoveryPassword</span> <br>
+        <span class="regvalue">FDVRecoveryPassword</span> <br>
+        <span class="regvalue">RDVRecoveryPassword</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (permission) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">OSRecoveryPassword</span>,
+  <span class="regvalue">FDVRecoveryPassword</span> and <span class="regvalue">RDVRecoveryPassword</span> 
+  values has user-interface support through the Local Group Policy Editor as the 
+  first drop-down box beneath the label </p>
+  <blockquote>
+    Configure user storage of BitLocker recovery information:
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSRecovery</span>, <span class="regvalue">FDVRecovery</span> or
+  <span class="regvalue">RDVRecovery</span> value (see preceding). This drop-down 
+  box offers the following interpretations of the data: </p>
+  <ul>
+    <li>0 is “Do not allow 48-digit recovery password” </li>
+    <li>1 is “Require 48-digit recovery password” </li>
+    <li>2 is “Allow 48-digit recovery password” </li>
+  </ul>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSRecoveryKey</span> <br>
+        <span class="regvalue">FDVRecoveryKey</span> <br>
+        <span class="regvalue">RDVRecoveryKey</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (permission) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">OSRecoveryKey</span>,
+  <span class="regvalue">FDVRecoveryKey</span> and <span class="regvalue">RDVRecoveryKey</span> 
+  values has user-interface support through the Local Group Policy Editor as the 
+  second drop-down box beneath the label </p>
+  <blockquote>
+    Configure user storage of BitLocker recovery information:
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSRecovery</span>, <span class="regvalue">FDVRecovery</span> or
+  <span class="regvalue">RDVRecovery</span> value (see above). This drop-down box 
+  offers the following interpretations of the data: </p>
+  <ul>
+    <li>0 is “Do not allow 256-bit recovery key” </li>
+    <li>1 is “Require 256-bit recovery key” </li>
+    <li>2 is “Allow 256-bit recovery key” </li>
+  </ul>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSManageDRA</span> <br>
+        <span class="regvalue">FDVManageDRA</span> <br>
+        <span class="regvalue">RDVManageDRA</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">OSManageDRA</span>,
+  <span class="regvalue">FDVManageDRA</span> and <span class="regvalue">RDVManageDRA</span> 
+  values has user-interface support through the Local Group Policy Editor as a check-box 
+  labelled </p>
+  <blockquote>
+    Allow data recovery agent
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSRecovery</span>, <span class="regvalue">FDVRecovery</span> or
+  <span class="regvalue">RDVRecovery</span> value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSActiveDirectoryBackup</span> <br>
+        <span class="regvalue">FDVActiveDirectoryBackup</span> <br>
+        <span class="regvalue">RDVActiveDirectoryBackup</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">OSActiveDirectoryBackup</span>,
+  <span class="regvalue">FDVActiveDirectoryBackup</span> and
+  <span class="regvalue">RDVActiveDirectoryBackup</span> values has user-interface 
+  support through the Local Group Policy Editor as a check-box labelled </p>
+  <blockquote>
+    Save BitLocker recovery information to AD DS for operating system drives
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSRecovery</span>, <span class="regvalue">FDVRecovery</span> or
+  <span class="regvalue">RDVRecovery</span> value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSRequireActiveDirectoryBackup</span> <br>
+        <span class="regvalue">FDVRequireActiveDirectoryBackup</span> <br>
+        <span class="regvalue">RDVRequireActiveDirectoryBackup</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">OSRequireActiveDirectoryBackup</span>,
+  <span class="regvalue">FDVRequireActiveDirectoryBackup</span> and
+  <span class="regvalue">RDVRequireActiveDirectoryBackup</span> values has user-interface 
+  support through the Local Group Policy Editor as a check-box labelled </p>
+  <blockquote>
+    Do not enable BitLocker until recovery information is stored to AD DS for operating 
+    system drives
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSRecovery</span>, <span class="regvalue">FDVRecovery</span> or
+  <span class="regvalue">RDVRecovery</span> value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSActiveDirectoryInfoToStore</span> <br>
+        <span class="regvalue">FDVActiveDirectoryInfoToStore</span> <br>
+        <span class="regvalue">RDVActiveDirectoryInfoToStore</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">OSActiveDirectoryInfoToStore</span>,
+  <span class="regvalue">FDVActiveDirectoryInfoToStore</span> and
+  <span class="regvalue">RDVActiveDirectoryInfoToStore</span> values has user-interface 
+  support through the Local Group Policy Editor as the first drop-down box beneath 
+  the label </p>
+  <blockquote>
+    Configure storage of BitLocker recovery information to AD DS:
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSRecovery</span>, <span class="regvalue">FDVRecovery</span> or
+  <span class="regvalue">RDVRecovery</span> value (see preceding). This drop-down 
+  box offers the following interpretations of the data: </p>
+  <ul>
+    <li>1 is “Store recovery passwords and key packages” </li>
+    <li>2 is “Store recovery passwords only” </li>
+  </ul>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSHideRecoveryPage</span> <br>
+        <span class="regvalue">FDVHideRecoveryPage</span> <br>
+        <span class="regvalue">RDVHideRecoveryPage</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">OSHideRecoveryPage</span>,
+  <span class="regvalue">FDVHideRecoveryPage</span> and <span class="regvalue">RDVHideRecoveryPage</span> 
+  values has user-interface support through the Local Group Policy Editor as a check-box 
+  labelled </p>
+  <blockquote>
+    Omit recovery options from the BitLocker setup wizard
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSRecovery</span>, <span class="regvalue">FDVRecovery</span> or
+  <span class="regvalue">RDVRecovery</span> value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">PreferCspUsage</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">PreferCspUsage</span> value has no known user-interface 
+  support. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">SelfSignedCertificates</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">SelfSignedCertificates</span> value has no known 
+  user-interface support. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">CertChainErrorStatusMask</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0x10 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">CertChainErrorStatusMask</span> value has no known 
+  user-interface support. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSAllowUserCert</span> <br>
+        <span class="regvalue">FDVAllowUserCert</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSAllowUserCert</span> value has no known user-interface 
+  support, but the <span class="regvalue">FDVAllowUserCert</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Configure use of smart cards on fixed data drives
+  </blockquote>
+  <p>in the Fixed Data Drives category of the BitLocker Drive Encrytion administrative 
+  template. This user interface has a check-box for the <span class="regvalue">FDVEnforceUserCert</span> 
+  value (see next). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">FDVEnforceUserCert</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">FDVEnforceUserCert</span> value has user-interface 
+  support through the Local Group Policy Editor as a check-box labelled </p>
+  <blockquote>
+    Require use of smart cards on fixed data drives
+  </blockquote>
+  <p>in the user-interface support for <span class="regvalue">FDVAllowUserCert</span> 
+  (see preceding). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSEnforceUserCert</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSEnforceUserCert</span> value has no known user-interface 
+  support. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">RDVAllowUserCert</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">RDVAllowUserCert</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Configure use of smart cards on removable data drives
+  </blockquote>
+  <p>in the Removable Data Drives category of the BitLocker Drive Encrytion administrative 
+  template. This user interface has a check-box for the <span class="regvalue">RDVEnforceUserCert</span> 
+  value (see next). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">RDVEnforceUserCert</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">RDVEnforceUserCert</span> value has user-interface 
+  support through the Local Group Policy Editor as a check-box labelled </p>
+  <blockquote>
+    Require use of smart cards on removable data drives
+  </blockquote>
+  <p>in the user-interface support for <span class="regvalue">RDVAllowUserCert</span> 
+  (see preceding). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">FDVPassphrase</span> <br>
+        <span class="regvalue">RDVPassphrase</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">FDVPassphrase</span> and <span class="regvalue">
+  RDVPassphrase</span> values have user-interface support through the Local Group 
+  Policy Editor as the following in their respective categories of the BitLocker 
+  Drive Encryption administrative template: </p>
+  <ul>
+    <li>Configure use of passwords for fixed data drives </li>
+    <li>Configure use of passwords for removable data drives </li>
+  </ul>
+  <p>The user interface has a check-box, a drop-down box and an up-down box for 
+  the <span class="regvalue">FDVEnforcePassphrase</span>, <span class="regvalue">
+  FDVPassphraseComplexity</span> and <span class="regvalue">FDVPassphraseLength</span> 
+  values (see below), and similarly for removable drives. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSPassphrase</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSPassphrase</span> value has user-interface support 
+  through the Local Group Policy Editor as </p>
+  <blockquote>
+    Configure use of passwords for operating system drives
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. </p>
+  <p>The user interface has a drop-down box, an up-down box and a chec-box for the
+  <span class="regvalue">OSPassphraseComplexity</span>, <span class="regvalue">OSPassphraseLength</span> 
+  and <span class="regvalue">OSPassphraseASCIIOnly</span> values (see below).
+  </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">FDVEnforcePassphrase</span> <br>
+        <span class="regvalue">RDVEnforcePassphrase</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">FDVEnforcePassphrase</span> and
+  <span class="regvalue">RDVEnforcePassphrase</span> values has user-interface support 
+  through the Local Group Policy Editor as a check-box labelled </p>
+  <ul>
+    <li>Require password for fixed data drive </li>
+    <li>Require password for removable data drive </li>
+  </ul>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  FDVPassphrase</span> or <span class="regvalue">RDVPassphrase</span> value (see 
+  above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">FDVPassphraseComplexity</span> <br>
+        <span class="regvalue">RDVPassphraseComplexity</span> <br>
+        <span class="regvalue">OSPassphraseComplexity</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher; <br>
+        but 6.2 and higher for <span class="regvalue">OSPassphraseComplexity</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">FDVPassphraseComplexity</span>,
+  <span class="regvalue">RDVPassphraseComplexity</span> and
+  <span class="regvalue">OSPassphraseComplexity</span> has user-interface support 
+  through the Local Group Policy Editor as a drop-box labelled: </p>
+  <ul>
+    <li>Configure password complexity for fixed data drives: </li>
+    <li>Configure password complexity for removable data drives: </li>
+    <li>Configure password complexity for operating system drives: </li>
+  </ul>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  FDVPassphrase</span>, <span class="regvalue">RDVPassphrase</span> or
+  <span class="regvalue">OSPassphrase</span> value (see above). The drop-box offers 
+  the following interpretations of the data: </p>
+  <ul>
+    <li>0 is “Do not allow password complexity” </li>
+    <li>1 is “Require password complexity” </li>
+    <li>2 is “Allow password complexity” </li>
+  </ul>
+  <p>These possibilities are defined formally as an enumeration which public symbol 
+  files name <span class="enum">eFveGpPassphraseComplexity</span>. What counts as 
+  sufficient complexity for a BitLocker password is not subject to BitLocker policy 
+  but is instead decided by the NETAPI32 function <span class="function">NetValidatePasswordPolicy</span> 
+  (nowadays implemented in SAMCLI) for consistency with wider-ranging policies on 
+  password complexity. Specially notable for the local computer is what the Local 
+  Group Policy Editor shows as “Password must meet complexity requirements” in Password 
+  Policy under Account Policies in the Security Settings under Windows Settings.
+  </p>
+  <p>There are two essential points of difference between requiring password complexity 
+  and merely allowing it. The first is with where the complexity is assessed: require 
+  means a domain controller; allow means the local computer. The second is with 
+  disposition to the answer: require means the password is rejected without a positive 
+  answer from a domain controller; allow means the password is accepted unless the 
+  local computer answers specifically that the password is too simple. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">FDVPassphraseLength</span> <br>
+        <span class="regvalue">RDVPassphraseLength</span> <br>
+        <span class="regvalue">OSPassphraseLength</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>8 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher for <span class="regvalue">FDVPassphraseLength</span> 
+        and <span class="regvalue">RDVPassphraseLength</span>; <br>
+        6.2 and higher for <span class="regvalue">OSPassphraseLength</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">FDVPassphraseLength</span>,
+  <span class="regvalue">RDVPassphraseLength</span> and <span class="regvalue">OSPassphraseLength</span> 
+  values has user-interface support through the Local Group Policy Editor as an 
+  up-down control labelled: </p>
+  <ul>
+    <li>Minimum password length for fixed data drive: </li>
+    <li>Minimum password length for removable data drive: </li>
+    <li>Minimum password length for operating system drive: </li>
+  </ul>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  FDVPassphrase</span>, <span class="regvalue">RDVPassphrase</span> or
+  <span class="regvalue">OSPassphrase</span> value (see above). </p>
+  <p>The user interface provides for setting a minimum password length between 8 
+  and 255 inclusive. FVEAPI tolerates 1 to 256 inclusive. Anything outside this 
+  range is corrected to the default, as if the setting had been left unspecified. 
+  There is no registry value for a maximum password length: this is hard-coded as 
+  256. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSPassphraseASCIIOnly</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (boolean) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSPassphraseASCIIOnly</span> value has user-interface 
+  support through the Local Group Policy Editor as a check-box labelled </p>
+  <blockquote>
+    Require ASCII-only passwords for removable OS drives&nbsp;
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">OSPassphrase</span> 
+  value (see above). It is not known what the user interface’s description means 
+  by “removable OS drives”. For data drives, both fixed and removable, there is 
+  no setting to restrict passwords to ASCII characters. </p>
+  <p>If the dword of data for <span class="regvalue">OSPassphraseASCIIOnly</span> 
+  is 1, then characters in passwords must lie between 0x20 and 0x7E inclusive.
+  </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        <br>
+        <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">FDVDenyWriteAccess</span> <br>
+        <span class="regvalue">RDVDenyWriteAccess</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">FDVDenyWriteAccess</span> and
+  <span class="regvalue">RDVDenyWriteAccess</span> values in the
+  <span class="regkey">System</span> branch have user-interface support in the Local 
+  Group Policy Editor as the following items </p>
+  <ul>
+    <li>Deny write access to fixed drives not protected by BitLocker </li>
+    <li>Deny write access to removable drives not protected by BitLocker </li>
+  </ul>
+  <p>in the Fixed Data Drives and Removable Data Drives categories of the BitLocker 
+  Drive Encryption administrative template. This user interface for
+  <span class="regvalue">RDVDenyWriteAccess</span> has a check-box for setting the
+  <span class="regvalue">RDVDenyCrossOrg</span> value (see above). </p>
+  <p>FVEAPI’s table of DWORD policy settings allows both values in both keys, but 
+  FVEAPI does not use the table when evaluating these policies. Indeed, no code 
+  is yet known that queries for <span class="regvalue">FDVDenyWriteAccess</span>, 
+  and <span class="regvalue">RDVDenyWriteAccess</span> is sought only in the
+  <span class="regkey">System</span> branch. Further study is required. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">RDVConfigureBDE</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">RDVConfigureBDE</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Control use of BitLocker on removable drives
+  </blockquote>
+  <p>in the Removable Data Drives category of the BitLocker Drive Encryption administrative 
+  template. This user interface has check-boxes for the next two values:
+  <span class="regvalue">RDVAllowBDE</span> and <span class="regvalue">RDVDisableBDE</span>.
+  </p>
+  <p>The <span class="regvalue">RDVConfigureBDE</span> value is listed twice in 
+  FVEAPI’s tables, as if it’s intended for two keys (like <span class="regvalue">
+  RDVDenyWriteAccess</span>, see preceding) except that both entries in the table 
+  are for the one key. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">RDVAllowBDE</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">RDVAllowBDE</span> value has user-interface support 
+  through the Local Group Policy Editor as a check-box labelled </p>
+  <blockquote>
+    Allow users to apply BitLocker protection on removable data drives
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">RDVConfigureBDE</span> 
+  value (see preceding). </p>
+  <p>The <span class="regvalue">RDVAllowBDE</span> value is listed twice in FVEAPI’s 
+  tables, as if it’s intended for two keys (like <span class="regvalue">RDVDenyWriteAccess</span>, 
+  see above) except that both entries in the table are for the one key. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">RDVDisableBDE</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">RDVDisableBDE</span> value has user-interface support 
+  through the Local Group Policy Editor as a check-box labelled </p>
+  <blockquote>
+    Allow users to suspend and decrypt BitLocker protection on removable data drives
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">RDVConfigureBDE</span> 
+  value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">FDVNoBitLockerToGoReader</span> <br>
+        <span class="regvalue">RDVNoBitLockerToGoReader</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each of the <span class="regvalue">FDVNoBitLockerToGoReader</span> and
+  <span class="regvalue">RDVNoBitLockerToGoReader</span> values have user-interface 
+  support through the Local Group Policy Editor as a check-box labelled </p>
+  <ul>
+    <li>Do not install BitLocker To Go Reader on FAT formatted fixed drives </li>
+    <li>Do not install BitLocker To Go Reader on FAT formatted removable drives
+    </li>
+  </ul>
+  <p>in the user-interface support for the <span class="regvalue">FDVDiscoveryVolumeType</span> 
+  and <span class="regvalue">RDVDiscoveryVolumeType</span> values (see below).
+  </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSEncryptionType</span> <br>
+        <span class="regvalue">FDVEncryptionType</span> <br>
+        <span class="regvalue">RDVEncryptionType</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSEncryptionType</span>, <span class="regvalue">
+  FDVEncryptionType</span> and <span class="regvalue">RDVEncryptionType</span> values 
+  have user-interface support through the Local Group Policy Editor as </p>
+  <ul>
+    <li>Enforce drive encryption type on operating system drives </li>
+    <li>Enforce drive encryption type on fixed data drives </li>
+    <li>Enforce drive encryption type on removable data drives </li>
+  </ul>
+  <p>in their respective categories of the BitLocker Drive Encryption administrative 
+  template. For each, the user interface’s drop-down box offers the following interpretations 
+  of the data: </p>
+  <ul>
+    <li>0 is “Allow user to choose (default)” </li>
+    <li>1 is “Full encryption” </li>
+    <li>2 is “Used Space Only encryption” </li>
+  </ul>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">DisallowStandardPINReset</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (boolean) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">DisallowStandardPINReset</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Disallow standard users from changing the PIN or password
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">TpmAutoReseal</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">TpmAutoReseal</span> value has user-interface support 
+  through the Local Group Policy Editor as </p>
+  <blockquote>
+    Reset platform validation data after BitLocker recovery
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSHardwareEncryption</span> <br>
+        <span class="regvalue">FDVHardwareEncryption</span> <br>
+        <span class="regvalue">RDVHardwareEncryption</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (configuration state) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSHardwareEncryption</span>,
+  <span class="regvalue">FDVHardwareEncryption</span> and <span class="regvalue">
+  RDVHardwareEncryption</span> values have user-interface support through the Local 
+  Group Policy Editor as </p>
+  <ul>
+    <li>Configure use of hardware-based encryption for operating system drives
+    </li>
+    <li>Configure use of hardware-based encryption for fixed data drives </li>
+    <li>Configure use of hardware-based encryption for removable data drives
+    </li>
+  </ul>
+  <p>in their respective categories of the BitLocker Drive Encryption administrative 
+  template. The user interface has two check-boxes and one text-box for the
+  <span class="regvalue">OSAllowSoftwareEncryptionFailover</span>,
+  <span class="regvalue">OSRestrictHardwareEncryptionAlgorithms</span> and
+  <span class="regvalue">OSAllowedHardwareEncryptionAlgorithms</span> values, and 
+  similarly for fixed drives and removable drives. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSAllowSoftwareEncryptionFailover</span> <br>
+        <span class="regvalue">FDVAllowSoftwareEncryptionFailover</span> <br>
+        <span class="regvalue">RDVAllowSoftwareEncryptionFailover</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (boolean) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSAllowSoftwareEncryptionFailover</span>,
+  <span class="regvalue">FDVAllowSoftwareEncryptionFailover</span> and
+  <span class="regvalue">RDVAllowSoftwareEncryptionFailover</span> values each have 
+  user-interface support through the Local Group Policy Editor as a checkbox labelled
+  </p>
+  <blockquote>
+    Use BitLocker software-based encryption when hardware encryption is not available
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSHardwareEncryption</span>, <span class="regvalue">FDVHardwareEncryption</span> 
+  and <span class="regvalue">RDVHardwareEncryption</span> value (see preceding).
+  </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSRestrictHardwareEncryptionAlgorithms</span>
+        <br>
+        <span class="regvalue">FDVRestrictHardwareEncryptionAlgorithms</span>
+        <br>
+        <span class="regvalue">RDVRestrictHardwareEncryptionAlgorithms</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (boolean) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSRestrictHardwareEncryptionAlgorithms</span>,
+  <span class="regvalue">FDVRestrictHardwareEncryptionAlgorithms</span> and
+  <span class="regvalue">RDVRestrictHardwareEncryptionAlgorithms</span> values each 
+  have user-interface support through the Local Group Policy Editor as a checkbox 
+  labelled </p>
+  <blockquote>
+    Restrict encryption algorithms and cipher suites allowed for hardware-based 
+    encryption
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSHardwareEncryption</span>, <span class="regvalue">FDVHardwareEncryption</span> 
+  and <span class="regvalue">RDVHardwareEncryption</span> value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSAllowSecureBootForIntegrity</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (boolean) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>1 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSAllowSecureBootForIntegrity</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Allow Secure Boot for integrity validation
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSEnablePrebootInputProtectorsOnSlates</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (boolean) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSEnablePrebootInputProtectorsOnSlates</span> value 
+  has user-interface support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Enable use of BitLocker authentication requiring preboot keyboard input on slates
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSUseEnhancedBcdProfile</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>2 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSUseEnhancedBcdProfile</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Use enhanced Boot Configuration Data validation profile
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. The user interface has two multi-line text boxes for the
+  <span class="regvalue">OSBcdAdditionalSecurityCriticalSettings</span> and
+  <span class="regvalue">OSBcdAdditionalExcludedSettings</span> values (see below).
+  </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">RecoveryKeyMessageSource</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">RecoveryKeyMessageSource</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Configure pre-boot recovery message and URL
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. The user interface’s drop-down box offers the following interpretations 
+  of the data: </p>
+  <ul>
+    <li>0 is empty </li>
+    <li>1 is “Use default recovery message and URL” </li>
+    <li>2 is “Use custom recovery message” </li>
+    <li>3 is “Use custom recovery URL” </li>
+  </ul>
+  <p>The user interface also has two text-boxes for configuring the
+  <span class="regvalue">RecoveryKeyMessage</span> and <span class="regvalue">RecoveryKeyUrl</span> 
+  values (see below). </p>
+  <p>The <span class="regvalue">RecoveryKeyMessageSource</span> value is interpreted 
+  by BDESVC.DLL to affect the Boot Configuration Data (BCD) options
+  <span class="bcdopt">fverecoverymessage</span> and <span class="bcdopt">fverecoveryurl</span>. 
+  If the data for <span class="regvalue">RecoveryKeyMessageSource</span> is 2 or 
+  3, then <span class="bcdopt">fverecoverymessage</span> or <span class="bcdopt">
+  fverecoveryurl</span> is set from the string data for the
+  <span class="regvalue">RecoveryKeyMessage</span> or <span class="regvalue">RecoveryKeyUrl</span> 
+  value (see below), and the other BCD option is deleted. For any other non-zero 
+  data, both BCD options are deleted. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">EncryptionMethodWithXtsOs</span> <br>
+        <span class="regvalue">EncryptionMethodWithXtsFdv</span> <br>
+        <span class="regvalue">EncryptionMethodWithXtsRdv</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>1511 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">EncryptionMethodWithXtsOs</span>,
+  <span class="regvalue">EncryptionMethodWithXtsFdv</span> and
+  <span class="regvalue">EncryptionMethodWithXtsRdv</span> values have user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Choose drive encryption method and cipher strength (Windows 10 [Version 1511] 
+    and later)
+  </blockquote>
+  <p>in the BitLocker Drive Encryption administrative template. The user interface 
+  has three drop-down boxes, one for each registry value: </p>
+  <ul>
+    <li>Select the encryption method for operating system drives: </li>
+    <li>Select the encryption method for fixed data drives: </li>
+    <li>Select the encryption method for removable data drives: </li>
+  </ul>
+  <p>Each drop-down box offers the following interpretations of the data: </p>
+  <ul>
+    <li>3 is “AES-CBC 128-bit” </li>
+    <li>4 is “AES-CBC 256-bit” </li>
+    <li>6 is “XTS-AES 128-bit (default)” </li>
+    <li>7 is “XTS-AES 256-bit” </li>
+  </ul>
+  <p>but with “(default)” shifting from 6 to 3 for <span class="regvalue">EncryptionMethodWithXtsRdv</span>.
+  </p>
+  <p>In the absence of the applicable value for the volume type, FVEAPI falls back 
+  to the superseded values <span class="regvalue">EncryptionMethodNoDiffuser</span> 
+  and <span class="regvalue">EncryptionMethod</span> (in decreasing priority). All 
+  values have the same interpretation for their data: 1 and 2 are treated as 3 and 
+  4; 0 leaves the method unspecified; anything else is invalid. </p>
+  <p>What gets chosen for the encryption method when not specified by these registry 
+  values is more complicated than is suggested by the parentheses in the user-interface 
+  descriptions. Definitive enumeration awaits further study. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSEnablePreBootPinExceptionOnDECapableDevice</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>1703 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSEnablePreBootPinExceptionOnDECapableDevice</span> 
+  value has user-interface support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Allow devices compliant with InstantGo or HSTI to opt out of pre-boot PIN.
+  </blockquote>
+  <p>in the Operating System Drives category of the BitLocker Drive Encryption administrative 
+  template. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">DisableExternalDMAUnderLock</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_DWORD</span> (boolean) </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>0 </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>1703 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">DisableExternalDMAUnderLock</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Disable new DMA devices when this computer is locked
+  </blockquote>
+  <p>in the BitLocker Drive Encryption administrative template. </p>
+  <p>The <span class="regvalue">DisableExternalDMAUnderLock</span> value is another 
+  that is in the tables that user-mode BitLocker components pick up from a statically 
+  linked library but which is not interpreted by FVEAPI. It is intended instead 
+  for BDESVC.DLL, which takes it as one of two inputs for setting the same-named 
+  value in the key <span class="regkey">SYSTEM\CurrentControlSet\Control\pnp\pci</span> 
+  for interpretation in kernel-mode by the PCI.SYS driver. </p>
+  <h3>String Settings &nbsp;</h3>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">IdentificationFieldString</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_SZ</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">IdentificationFieldString</span> value has user-interface 
+  support through the Local Group Policy Editor as a text box labelled </p>
+  <blockquote>
+    BitLocker identification field:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">IdentificationField</span> 
+  value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">SecondaryIdentificationField</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_SZ</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">SecondaryIdentificationField</span> value has user-interface 
+  support through the Local Group Policy Editor as a text box labelled </p>
+  <blockquote>
+    Allowed BitLocker identification field:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">IdentificationField</span> 
+  value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">DefaultRecoveryFolderPath</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_SZ</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">DefaultRecoveryFolderPath</span> value has user-interface 
+  support through the Local Group Policy Editor as </p>
+  <blockquote>
+    Choose default folder for recovery password
+  </blockquote>
+  <p>in the BitLocker Drive Encryption administrative template. </p>
+  <p>The <span class="regvalue">DefaultRecoveryFolderPath</span> value is not known 
+  to be read by FVEAPI. It is instead interpreted by FVEUI.DLL in version 6.0 and 
+  in later versions by FVEWIZ.DLL. </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">FDVDiscoveryVolumeType</span> <br>
+        <span class="regvalue">RDVDiscoveryVolumeType</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_SZ</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">FDVDiscoveryVolumeType</span> and
+  <span class="regvalue">RDVDiscoveryVolumeType</span> values have user-interface 
+  support through the Local Group Policy Editor as </p>
+  <ul>
+    <li>Allow access to BitLocker-protected fixed data drives from earlier versions 
+    of Windows </li>
+    <li>Allow access to BitLocker-protected removable data drives from earlier versions 
+    of Windows </li>
+  </ul>
+  <p>in their respective categories of the BitLocker Drive Encryption administrative 
+  template. Enabling the policy sets the string data to FAT32. The user interface 
+  has a check-box for the corresponding <span class="regvalue">FDVNoBitLockerToGoReader</span> 
+  or <span class="regvalue">RDVNoBitLockerToGoReader</span> value (see above).
+  </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSAllowedHardwareEncryptionAlgorithms</span>
+        <br>
+        <span class="regvalue">FDVAllowedHardwareEncryptionAlgorithms</span> <br>
+        <span class="regvalue">RDVAllowedHardwareEncryptionAlgorithms</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_SZ</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSAllowedHardwareEncryptionAlgorithms</span>,
+  <span class="regvalue">FDVAllowedHardwareEncryptionAlgorithms</span> and
+  <span class="regvalue">RDVAllowedHardwareEncryptionAlgorithms</span> values each 
+  have user-interface support through the Local Group Policy Editor as a text box 
+  labelled </p>
+  <blockquote>
+    Restrict crypto algorithms or cipher suites to the following:
+  </blockquote>
+  <p>in the user-interface support for the corresponding <span class="regvalue">
+  OSHardwareEncryption</span>, <span class="regvalue">FDVHardwareEncryption</span> 
+  or <span class="regvalue">RDVHardwareEncryption</span> value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">RecoveryKeyMessage</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_SZ</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">RecoveryKeyMessage</span> value has user-interface 
+  support through the Local Group Policy Editor as a text box labelled </p>
+  <blockquote>
+    Custom recovery message option:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">RecoveryKeyMessageSource</span> 
+  value (see above). </p>
+  <p>If the dword of data for <span class="regvalue">RecoveryKeyMessageSource</span> 
+  is 2, then the string data for <span class="regvalue">RecoveryKeyMessage</span> 
+  becomes the value of the BCD option <span class="bcdopt">fverecoverymessage</span>.
+  </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">RecoveryKeyURL</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_SZ</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">RecoveryKeyURL</span> value has user-interface support 
+  through the Local Group Policy Editor as a text box labelled </p>
+  <blockquote>
+    Custom recovery URL option:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">RecoveryKeyMessageSource</span> 
+  value (see above). </p>
+  <p>If the dword of data for <span class="regvalue">RecoveryKeyMessageSource</span> 
+  is 3, then the string data for <span class="regvalue">RecoveryKeyURL</span> becomes 
+  the value of the BCD option <span class="bcdopt">fverecoveryurl</span>. </p>
+  <h3>Multi-String Settings &nbsp;</h3>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSBcdAdditionalExcludedSettings</span> </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_MULTI_SZ</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSBcdAdditionalExcludedSettings</span> value has 
+  user-interface support through the Local Group Policy Editor as a multi-line text 
+  box labelled </p>
+  <blockquote>
+    Exclude the following additional BCD settings:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">OSUseEnhancedBcdProfile</span> 
+  value (see above). </p>
+  <table class="Registry">
+    <tbody>
+      <tr>
+        <td>Key: </td>
+        <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\FVE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Value: </td>
+        <td><span class="regvalue">OSBcdAdditionalSecurityCriticalSettings</span>
+        </td>
+      </tr>
+      <tr>
+        <td>Type: </td>
+        <td><span class="constant">REG_MULTI_SZ</span> </td>
+      </tr>
+      <tr>
+        <td>Default: </td>
+        <td>none </td>
+      </tr>
+      <tr>
+        <td>Versions: </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="regvalue">OSBcdAdditionalSecurityCriticalSettings</span> value 
+  has user-interface support through the Local Group Policy Editor as a multi-line 
+  text box labelled </p>
+  <blockquote>
+    Verify the following additional BCD settings:
+  </blockquote>
+  <p>in the user-interface support for the <span class="regvalue">OSUseEnhancedBcdProfile</span> 
+  value (see above). </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 22nd June 2021 but was not published 
+    until 29th <a href="../../../../../new/21/06.htm">July 2021</a>. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c21.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="46623" -->
+  </div>
+</div>
+
+</body>
+
+</html>

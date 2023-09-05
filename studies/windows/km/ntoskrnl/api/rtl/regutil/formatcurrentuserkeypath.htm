@@ -1,0 +1,126 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RtlFormatCurrentUserKeyPath</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>RtlFormatCurrentUserKeyPath </h1>
+<p>The <span class="function">RtlFormatCurrentUserKeyPath</span> function creates 
+a path to the registry key that represents the current user. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS RtlFormatCurrentUserKeyPath (<a href="../../../inc/shared/ntdef/unicode_string.htm">UNICODE_STRING</a> *CurrentUserKeyPath);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">CurrentUserKeyPath</span> argument is the address 
+of a structure that is to describe the newly allocated registry path. The contents 
+of this structure on input are immaterial. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+<h2>Availability </h2>
+<p>The <span class="function">RtlFormatCurrentUserKeyPath</span> function is exported 
+by name from both the kernel and NTDLL in version 3.51 and higher. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">RtlFormatCurrentUserKeyPath</span> function is not 
+documented. Neither is any C-language declaration known to have been published in 
+any Windows Driver Kit (WDK) or Software Development Kit (SDK). </p>
+<p>Or so say my notes from 2016. Yet today, 1st June 2020, I see online a page of
+<span class="citation">Previous Versions Documentation</span> titled
+<a href="https://docs.microsoft.com/previous-versions/ff899322(v=vs.85)">RtlFormatCurrentUserKeyPath 
+function</a>. It is dated to 2018 but is surely older. Downloadable packages of 
+Windows documentation for Visual Studio 2015 (but not as long ago as Visual Studio 
+2013) have a page titled <span class="citation">Nano Server APIs</span> whose long 
+list of functions include this one but with a broken link. That it’s on Microsoft’s 
+website now may be an oversight. Notably, it directs readers to a header named “ntrtl.h” 
+which Microsoft has not published with any known in any WDK or SDK. It also has 
+not been prepared with Microsoft’s usual care: it mis-describes the function as 
+“Initializes the supplied buffer with a string representation of the SID for the 
+current user”, and presents the one argument as a <span class="struct">UNICODE_STRING</span>, 
+not as a pointer to one. Still, published it is, and this note now uses Microsoft’s 
+known name for the function’s one argument. </p>
+<h2>Behaviour </h2>
+<p>The registry path that this function prepares is <span class="regkey">\REGISTRY\USER\<span class="placeholder">sid</span></span>, 
+where <span class="placeholder">sid</span> is the current user’s SID in the conventional 
+string form. </p>
+<p>As far as concerns this function, the current user is that of the current thread’s 
+effective token, i.e., of the thread token, if the thread has one, else of the process 
+token. Failure to query this token for its user is failure for the function. </p>
+<p>The function composes the desired path in memory that is newly allocated from 
+the paged pool (with tag 'GrtS') or the process heap in kernel and user modes, respectively. 
+Given that the successful <span class="function">ZwQueryTokenInformation</span> 
+does not produce an invalid SID, the function can fail only for lack of memory, 
+returning <span class="constant">STATUS_NO_MEMORY</span>. </p>
+<p>The successful function sets the <span class="member">Length</span>,
+<span class="member">MaximumLength</span> and <span class="member">Buffer</span> 
+members at <span class="argument">CurrentUserKeyPath</span> to describe the composed 
+path in its newly allocated memory. The caller should feed
+<span class="argument">CurrentUserKeyPath</span> to <span class="function">RtlFreeUnicodeString</span> 
+when done. </p>
+<h3>Detail and Variations </h3>
+<p>Historically, the function explicitly opens and closes the token for the query. 
+It tries first to open the thread token and proceeds to the token only if the error 
+is <span class="constant">STATUS_NO_TOKEN</span>. Any other failure to open the 
+thread token is failure for the function. Starting with version 6.2, the function 
+avoids the opening and closing of either token and instead queries the pseudo-handle 
+-6. </p>
+<p>Even for the earlier versions, querying the thread token is an avoidable expense 
+unless the thread is impersonating. The kernel has this status readily available 
+as <span class="member">ActivImpersonationInfo</span> in the
+<span class="struct"><a href="../../../inc/ntos/ps/ethread/index.htm">ETHREAD</a></span>, 
+first as a <span class="type">BOOLEAN</span> and then as a bit in the
+<span class="member"><a href="../../../inc/ntos/ps/ethread/crossthreadflags.htm">CrossThreadFlags</a></span>, 
+since version 4.0, and NTDLL has it as <span class="member">IsImpersonating</span> 
+in the <span class="struct">
+<a href="../../../inc/api/pebteb/teb/index.htm">TEB</a></span> since 
+version 5.0. This function, however, does not take advantage of either until version 
+5.2 in the kernel and 6.0 in NTDLL. </p>
+<p>For completeness, it may as well be noted that even this relatively simple function 
+suffers before version 5.0 from a resource leakage that is all too easy even for 
+careful programmers. If the function opens the token but fails at the query, which 
+is unlikely, then it does not close the token. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 30th
+  <a href="../../../../../../../new/20/05.htm">May 2020</a> and was last modified 
+  on 6th June 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

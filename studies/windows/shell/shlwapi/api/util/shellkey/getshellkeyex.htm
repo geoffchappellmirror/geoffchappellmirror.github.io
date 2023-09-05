@@ -1,0 +1,153 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SHGetShellKeyEx</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>SHGetShellKeyEx </h1>
+<p>This function opens or creates a subkey of a <a href="index.htm">shell key</a> 
+and specifies the desired access rights. </p>
+<h2>Declaration </h2>
+<pre class="source">HKEY
+SHGetShellKeyEx (
+    SHELLKEY nShellKey,
+    LPCWSTR pszSubKey,
+    BOOL bCreate
+    REGSAM samDesired);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">nShellKey</span> argument specifies the shell key 
+as a constant from the <span class="enum"><a href="shellkey.htm">SHELLKEY</a></span> 
+enumeration. </p>
+<p>The <span class="argument">pszSubKey</span> argument provides the address of 
+a null-terminated string that names the subkey, or is NULL to open the shell key 
+itself. </p>
+<p>The <span class="argument">bCreate</span> argument is non-zero to permit the 
+function to create the subkey, or is FALSE if the function may only open the subkey.
+</p>
+<p>The <span class="argument">samDesired</span> argument specifies access rights 
+that are desired to the subkey. </p>
+<h3>Return Value </h3>
+<p>The function returns a handle to the opened subkey, if successful. It returns 
+NULL for failure, in which case an error code is meant to be retrievable through
+<span class="function">GetLastError</span>. </p>
+<h2>Behaviour </h2>
+<p>If the <span class="argument">nShellKey</span> argument is not valid as selecting 
+a shell key, the function fails. No last error is set. </p>
+<p>If the shell key has <span class="regkey">HKEY_CURRENT_USER_LOCAL_SETTINGS</span> 
+as its root, the function checks whether this pre-defined handle (0x80000007) is 
+valid. If the handle can be opened for read access, it is valid and the function 
+remembers so that the handle need not be reopened on later executions. If it cannot 
+be opened for read access and the error is <span class="regkey">ERROR_INVALID_HANDLE</span>, 
+the function remembers this too, and falls back to using <span class="regkey">HKEY_CURRENT_USER</span> 
+as the root. </p>
+<p>If the shell key has <span class="regkey">HKEY_CURRENT_USER</span> as its root 
+(including because of the fall-back just noted) and the calling thread has an impersonation 
+token, then the root key is instead to be the target user’s branch of
+<span class="regkey">HKEY_USERS</span>. If the function cannot open this root key 
+for read access, plus <span class="constant">KEY_CREATE_SUB_KEY</span> if
+<span class="argument">bCreate</span> is non-zero, it fails (setting
+<span class="constant">ERROR_ACCESS_DENIED</span> as the last error). </p>
+<p>The function caches handles to shell keys. If the selected shell key is not redirected 
+to another user’s registry branch because of impersonation, then the function accepts 
+whatever handle it retains from an earlier execution. Otherwise, the function opens 
+or creates the shell key, according to whether <span class="argument">bCreate</span> 
+is zero, asking for the access rights given by <span class="argument">samDesired</span>. 
+Failure at this is failure for the function. If <span class="argument">nShellKey</span> 
+is 0x5021, some initialisation is performed (discussed below). For all shell keys, 
+except if redirected because of impersonation, the function caches the new handle. 
+If a handle for the same shell key has got cached meanwhile, the cache is not disturbed 
+and the function continues with the new handle. </p>
+<p>Having got a handle to the shell key, the function opens or creates the subkey 
+named by <span class="argument">pszSubKey</span>, again asking for the access rights 
+given by <span class="argument">samDesired</span>. In the special case where
+<span class="argument">pszSubKey</span> is NULL, the function opens a new handle 
+to the shell key itself, relative to the handle it already has, and ignores
+<span class="argument">bCreate</span>. </p>
+<h3>Coding Error </h3>
+<p>The caching of handles to shell keys does not accommodate the possibility that 
+different calls to the function for the same shell key may ask for different access 
+rights. For example, suppose your first call to the function is to open a subkey 
+of some shell key, and you ask just for read access, intending just to inspect values 
+that are already there. Provided that the shell key’s root is not redirected by 
+impersonation, the newly opened handle to this shell key gets cached and you are 
+returned a handle to the subkey. Suppose that you later call the function to open 
+the same or another subkey of the same shell key, but now you ask for read and write 
+access. This call will fail because the subkey is opened relative to the cached 
+handle for the shell key, and this cached handle has only read access. For reliable 
+use of the function, if only until this problem is fixed, the first call for each 
+shell key must obtain all the access rights that may be sought on any later calls 
+to the same shell key. </p>
+<h3>MUI Cache Initialisation </h3>
+<p>As noted above, the shell key that is represented by 0x5021 in the
+<span class="enum">SHELLKEY</span> enumeration must be initialised before its first 
+use. The particular concern is for the <span class="regvalue">LangID</span> value 
+in the key, i.e., </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER_LOCAL_SETTINGS\Software\Microsoft\Windows\Shell\MuiCache</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">LangID</span> </td>
+  </tr>
+</table>
+<p>If the newly opened handle can be duplicated for read-write access but the
+<span class="regvalue">LangID</span> value is not present with two bytes of data 
+equal to the user default UI language, then the key is cleared of all subkeys and 
+values, and a fresh <span class="regvalue">LangID</span> value is set to have the 
+user default UI language as its two bytes of <span class="constant">REG_BINARY</span> 
+data. </p>
+<h2>Availability </h2>
+<p>The <span class="function">SHGetShellKeyEx</span> function is exported as ordinal 
+635 by the SHLWAPI.DLL version 6.00 from Windows Vista, and higher. </p>
+<!--webbot bot="Include" U-Include="../../_include/undoc600-vista.htm" TAG="BODY" startspan -->
+
+<p>Though new for Windows Vista, this function is not documented by Microsoft in 
+the January 2007 edition of the Software Development Kit (SDK) for Windows Vista.
+</p>
+
+<!--webbot bot="Include" i-checksum="65227" endspan -->
+<div class="Footer">
+  <p class="Dates">This page was created on 9th July 2009 and was last modified 
+  on 1st August 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c0409.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2004-2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="1410" endspan -->
+</div>
+
+</body>
+
+</html>

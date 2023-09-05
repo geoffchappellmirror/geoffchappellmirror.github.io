@@ -1,0 +1,202 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>x86BiosCall</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="43332" endspan -->
+<!--webbot bot="Include" U-Include="../../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" i-checksum="34080" endspan -->
+<h1>x86BiosCall </h1>
+<p>This function executes a software interrupt in the shadow memory of the
+<a href="index.htm">x86 BIOS emulator</a>. </p>
+<h2>Declaration </h2>
+<pre class="source">BOOLEAN
+x86BiosCall (
+    ULONG InterruptNumber,
+    X86_BIOS_REGISTERS *Registers);</pre>
+<p>Since the <span class="struct">X86BIOS_REGISTERS</span> structure appears to 
+be used only for this function, its definition may as well be given here: </p>
+<pre class="struct">typedef struct _X86BIOS_REGISTERS {
+    ULONG Eax;
+    ULONG Ecx;
+    ULONG Edx;
+    ULONG Ebx;
+    ULONG Ebp;
+    ULONG Esi;
+    ULONG Edi;
+    USHORT SegDs;
+    USHORT SegEs;
+} X86BIOS_REGISTERS, *PX86BIOS_REGISTERS;</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">InterruptNumber</span> argument is the number of the 
+software interrupt to emulate for calling the BIOS. </p>
+<p>The <span class="argument">Registers</span> argument is the address of a structure 
+that provides values to load into registers for calling the BIOS and in which the 
+function returns the values that these registers have when the BIOS is done. </p>
+<h3>Return Value </h3>
+<p>The function returns TRUE for success, else FALSE. </p>
+<h2>Behaviour </h2>
+<p>If the x86 BIOS emulator is not yet initialised, the function fails. Otherwise, 
+the interrupt is at least started in the sense that if it does not complete, the 
+function fails and the following message is written to the debugger: </p>
+<pre class="output">HAL: Interrupt emulation failed, status %lx</pre>
+<p>The following are known values for the status: </p>
+<table>
+  <tr>
+    <td>2 </td>
+    <td>divide by zero </td>
+  </tr>
+  <tr>
+    <td>4 </td>
+    <td>emulator not initialised </td>
+  </tr>
+  <tr>
+    <td>5 </td>
+    <td>execution of <span class="instruction">hlt</span> instruction </td>
+  </tr>
+  <tr>
+    <td>7 </td>
+    <td>invalid s-i-b byte detected when decoding an instruction </td>
+  </tr>
+  <tr>
+    <td>8 </td>
+    <td>bad <span class="instruction">enter</span> instruction </td>
+  </tr>
+  <tr>
+    <td>9 </td>
+    <td>invalid port number </td>
+  </tr>
+  <tr>
+    <td>a </td>
+    <td>instruction invalid because operand is not a register </td>
+  </tr>
+  <tr>
+    <td>b </td>
+    <td>instruction invalid because operand is a register </td>
+  </tr>
+  <tr>
+    <td>c </td>
+    <td>illegal opcode </td>
+  </tr>
+  <tr>
+    <td>d </td>
+    <td>overflow detected by <span class="instruction">bound</span> instruction
+    </td>
+  </tr>
+  <tr>
+    <td>e </td>
+    <td>code read beyond segment limit </td>
+  </tr>
+  <tr>
+    <td>f </td>
+    <td>stack pushed beyond segment limit </td>
+  </tr>
+  <tr>
+    <td>10 </td>
+    <td>stack popped beyond segment limit </td>
+  </tr>
+</table>
+<p>Given that the emulator is initialised, the interrupt is started by: </p>
+<ul>
+  <li>pointing <span class="register">ss</span>:<span class="register">sp</span> 
+  to the top of the stack, i.e., to 0000:0800; </li>
+  <li>pushing a fake interrupt return frame, as if to return to the address FFFF:FFFF;
+  </li>
+  <li>loading <span class="register">cs</span>:<span class="register">ip</span> 
+  from the given interrupt’s entry in the interrupt vector table at 0000:0000;
+  </li>
+  <li>loading registers from the <span class="struct">X86BIOS_REGISTERS</span> structure.
+  </li>
+</ul>
+<p>The bytes at <span class="register">cs</span>:<span class="register">ip</span> 
+are then interpreted as real-mode x86 instructions, which alter the shadow registers, 
+memory and ports more or less as actual real-mode execution would affect the real 
+registers, memory and ports. </p>
+<p>The interrupt completes successfully if execution of any
+<span class="instruction">iret</span> or <span class="instruction">retf</span> (or
+<span class="instruction">ret</span>) would return to FFFF:FFFF (regardless of the 
+stack pointer). </p>
+<h2>Availability </h2>
+<p>The <span class="function">x86BiosCall</span> function is exported by name from 
+the HAL in version 6.0 and higher. It is undocumented. Names given above for the
+<span class="struct">X86BIOS_REGISTERS</span> structure and its members are all 
+invented for this article, in the absence of knowing what names Microsoft uses.
+</p>
+<h2>Use by Microsoft </h2>
+<p>Two uses are known by Microsoft. Both are concerned specifically with int 10h, 
+which is the BIOS’s interface for video functionality. </p>
+<p>The more specific is for the boot video driver (BOOTVID.DLL) to reset the display 
+adapter. The kernel calls either <span class="function">VidInitialize</span> or
+<span class="function">VidResetDisplay</span>. The actual resetting is arranged 
+by BOOTVID calling indirectly through <span class="variable">HalPrivateDispatchTable</span>. 
+This ordinarily gets through to the HAL, which resets the display by executing int 
+10h function 00h to set the display mode to 12h. </p>
+<p>The general use by Microsoft is to support the <span class="function">VideoPortInt10</span> 
+function and the <span class="member">Int10CallBios</span> member of the
+<span class="struct">VIDEO_PORT_INT10_INTERFACE</span> structure obtained through 
+the <span class="function">VideoPortQueryServices</span> function. These functions 
+are exported from VIDEOPRT.SYS (and are documented). VIDEOPRT uses the x86 BIOS 
+emulator unless the following registry key exists: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\GraphicsDrivers\DisableEmulator</span>
+    </td>
+  </tr>
+</table>
+<p>If the key can be opened for read and write access, then accessing int 10h through 
+VIDEOPRT actually does execute virtual-8086 code using <span class="function">Ke386CallBios</span>.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 27th April 2009 and was last modified 
+  on 5th May 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62869" endspan -->
+</div>
+
+</body>
+
+</html>

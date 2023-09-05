@@ -1,0 +1,187 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Interrupt 2Fh Function 1684h</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/notes.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="65283" -->
+<div class="Main">
+  <h1>Interrupt 2Fh Function 1684h </h1>
+  <p>This function obtains the calling address for the virtual-8086 (V86) or protected-mode 
+  (PM) API of an arbitrary Virtual Device Driver (VxD). It, along with VxDs and 
+  their APIs, dates from Windows 3.0. The subfunction number, 84h, is defined symbolically 
+  as <span class="constant">W386_Get_Device_API</span> in a header named INT2FAPI.INC 
+  which Microsoft distributed with the Device Driver Kit (DDK) at least as early 
+  as for Windows 3.1. </p>
+  <p>A VxD may provide either or both a V86 or PM API. The function discloses only 
+  the one that is immediately appropriate for the caller. A DOS program’s virtual-8086 
+  execution calls the function to learn where to call the given VxD’s V86 API. A 
+  DOS program that is executing in protected mode as a client of the DOS Protected 
+  Mode Interface (DPMI) calls the function to learn of the given VxD’s PM API.
+  </p>
+  <h2>Parameters </h2>
+  <p>The function uses registers for both input and ouput. Far pointers for V86 
+  callers have real-mode addressing, of course. For PM callers, far pointers for 
+  input are 16:16 or 16:32 for 16-bit and 32-bit DPMI clients, respectively, but 
+  far pointers for output are 16:16, either way. </p>
+  <h3>Input (Version 3.0 and higher) </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>1684h </td>
+      </tr>
+      <tr>
+        <td><span class="register">bx</span> </td>
+        <td>non-zero VxD ID </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each loaded VxD specifies its ID as the <span class="member">DDB_Req_Device_Number</span> 
+  member of the Device Descriptor Block (DDB, but formally a
+  <span class="struct">VxD_Desc_Block</span> structure) whose address is the VxD’s 
+  one export. If two or more loaded VxDs happen somehow to have the same ID, this 
+  function finds only the first. </p>
+  <h3>Alternative Input (Version 4.0 and higher) </h3>
+  <p>Starting with version 4.0, <span class="register">bx</span> can validly be 
+  zero on input to denote that the VxD is instead specified by name. </p>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>1684h </td>
+      </tr>
+      <tr>
+        <td><span class="register">bx</span> </td>
+        <td>0000h </td>
+      </tr>
+      <tr>
+        <td><span class="register">es:(e)di</span> </td>
+        <td>address of eight-byte VxD name </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Each loaded VxD specifies its name as the <span class="member">DDB_Name</span> 
+  member of its DDB. All eight bytes must match exactly. If two or more loaded VxDs 
+  happen somehow to have the same name, this function finds only the first. </p>
+  <p>The eight-byte <span class="member">DDB_Name</span> in the loaded VxD that 
+  is sought by name is typically, but not necessarily, padded with spaces. This 
+  happens because most VxDs are written in assembly language and the
+  <span class="struct">VxD_Desc_Block</span> definition in Microsoft’s VMM.INC specifies 
+  eight spaces for the default initialisation of the <span class="member">DDB_Name</span>. 
+  If a name shorter than eight bytes is specified when instantiating the structure, 
+  then the trailing spaces carry over from the default initialisation. The function’s 
+  comparison of the name from <span class="register">es</span>:<span class="register">(e)di</span> 
+  with the <span class="member">DDB_Name</span> for a loaded VxD knows nothing of 
+  this padding, only that a match is of all eight bytes from each name. </p>
+  <p>This alternative input was not documented in the <span class="citation">Windows 
+  Interrupt 2Fh Interface</span> in VXD.DOC from the original DDK for Windows 95. 
+  A later edition has it in a new VXDS.DOC that’s an “Updated and combined VXD.DOC 
+  and WIN95OVR.DOC.” The insertions are helpfully distinguished by using Word’s 
+  Review feature, which dates them to January 1998. </p>
+  <h3>Success </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">es:di</span> </td>
+        <td>address of entry point </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The API is reached from ring 3 by a far <span class="instruction">call</span> 
+  through this returned 16:16 pointer. Interpretation, e.g., of registers for input 
+  and output, varies with the VxD. </p>
+  <h3>Failure </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">es:di</span> </td>
+        <td>0000:0000 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Returning <span class="constant">NULL</span> is the documented failure, but 
+  see below for the return of FFFF:FFFF, which is here treated as a coding error.
+  </p>
+  <h2>Behaviour </h2>
+  <p>Before version 4.0, the function fails if the given VxD ID is zero. In all 
+  applicable versions, the function fails if no loaded VxD has the given ID or, 
+  in version 4.0 and higher, the given name. </p>
+  <p>A usable API has a ring 0 handler that the VxD defines through its DDB and 
+  a ring 3 calling address that is allocated when the API is first sought through 
+  this function. The flat address of the ring 0 handler is defined by the
+  <span class="member">DDB_V86_API_Proc</span> or <span class="member">DDB_PM_API_Proc</span> 
+  member of the VxD’s DDB. If this is <span class="constant">NULL</span>, the VxD 
+  does not implement the API and the function fails. If a ring 3 calling address 
+  is not yet allocated for the API, then failure to allocate one is failure for 
+  the function. The ring 3 calling address is kept as the <span class="member">DDB_V86_API_CSIP</span> 
+  or <span class="member">DDB_PM_API_CSIP</span> member. </p>
+  <p>Given that a ring 3 calling address is allocated, calling it diverts to whatever 
+  the corresponding DDB member currently defines for the ring 0 handling. The implementation 
+  thus allows that a VxD can change the address of its ring 0 handler. How much 
+  this is intended is not known. </p>
+  <h3>Coding Error </h3>
+  <p>The ring 3 calling address is that of a V86 or PM callback. There are only 
+  so many of these (mere hundreds by default) in total with V86 breakpoints, and 
+  allocation has no reversal. Documentation is clear that they “should be treated 
+  as scarce resources.” The documented indication of failure by the
+  <span class="function">Allocate_V86_Call_Back</span> and
+  <span class="function">Allocate_PM_Call_Back</span> services is that they set 
+  the carry flag. Not documented is that they also return FFFFFFFFh in
+  <span class="register">eax</span>. VMM versions before 4.0 do not check for the 
+  set carry flag, but just assume that whatever these services return in
+  <span class="register">eax</span> is a ring 3 calling address. They can thus return 
+  FFFF:FFFF to the <span class="instruction">int 2Fh</span> caller and to all subsequent 
+  callers. The VMM for Windows 95 doesn’t check for the set carry flag, either, 
+  but does recognise FFFFFFFFh in <span class="register">eax</span> as failure which 
+  the <span class="instruction">int 2Fh</span> function returns as
+  <span class="constant">NULL</span>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 24th
+    <a href="../../../../../../new/22/01.htm">January 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62101" -->
+  </div>
+</div>
+
+</body>
+
+</html>

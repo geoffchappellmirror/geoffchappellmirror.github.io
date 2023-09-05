@@ -1,0 +1,766 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>OBJECT_HEADER</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>OBJECT_HEADER </h1>
+  <p>Every object that the Object Manager ever creates has an
+  <span class="struct">OBJECT_HEADER</span> (formally an <span class="struct">_OBJECT_HEADER</span>) 
+  immediately before it. The Object Manager sees the object itself as an opaque 
+  region of memory that the Object Manager has been asked to provide, to manage 
+  and even to guard, but is not to interpret. Everything that the Object Manager 
+  knows of the object for the Object Manager’s purposes is reached through the header.
+  </p>
+  <h2>Documentation Status </h2>
+  <p>Just as the Object Manager does not interpret the object, so the object’s owner 
+  and users are not to interpret the header. </p>
+  <p>Unsurprisingly, then, the <span class="struct">OBJECT_HEADER</span> is not 
+  documented. The usual headers for kernel-mode programming don’t even declare it 
+  as an opaque type such as might be pointed to but not interpreted. Microsoft’s 
+  only known publication of a C-language definition is in NTOSP.H from the original 
+  and Version 1511 editions of the Windows Driver Kit (WDK) for Windows 10. Since 
+  this header is in a subdirectory (“minwin”) of a subdirectory named “um” which 
+  is in turn full of headers for user-mode programming though the
+  <span class="struct">OBJECT_HEADER</span> cannot be visible to user-mode programs, 
+  the disclosure is here thought to have been unintended. </p>
+  <p>Just as unsurprising is that although the <span class="struct">OBJECT_HEADER</span> 
+  is not disclosed explicitly, it must be revealed implicitly because kernel-mode 
+  programmers will need sometimes to examine an object from the Object Manager’s 
+  perspective. From the very start, Microsoft’s kernel-mode debuggers have a
+  <span class="command">!object</span> command which interprets an arbitrary object’s
+  <span class="struct">OBJECT_HEADER</span>, and other commands such as
+  <span class="command">!handle</span> and <span class="command">!process</span> 
+  which interpret the headers of objects that are found in particular ways. Indeed, 
+  it is through debugging support that Microsoft comes closest to documenting the
+  <span class="struct">OBJECT_HEADER</span>. </p>
+  <h2>Access </h2>
+  <p>To say that every object has an <span class="struct">OBJECT_HEADER</span> immediately 
+  before it is to take a small liberty. As will be seen below in the Layout section, 
+  Microsoft defines the structure as ending with an eight-byte member named
+  <span class="member">Body</span> that stands for the variable-sized object. Every 
+  object is immediately preceded by an object header, but on the understanding that 
+  the header is not the formally defined <span class="struct">OBJECT_HEADER</span> 
+  but only that part of the <span class="struct">OBJECT_HEADER</span> that precedes 
+  the <span class="member">Body</span>. </p>
+  <p>To anyone who isn’t a programmer at Microsoft writing the Object Manager’s 
+  implementation (and even to them while debugging), the obvious practice is to 
+  ignore that the formal definition includes the <span class="member">Body</span>. 
+  Given an arbitrary object to inspect with the debugger, the
+  <span class="struct">OBJECT_HEADER</span> starts 0x18 or 0x30 bytes before the 
+  object—in all versions of 32-bit and 64-bit Windows, respectively, back as far 
+  as version 3.50. </p>
+  <p>Knowing this small detail for inspecting the <span class="struct">OBJECT_HEADER</span> 
+  by sight can be very useful in kernel-mode debugging. For just the simplest example, 
+  if the <span class="command">!object</span> command can show an object’s security 
+  descriptor, then I suspect I won’t be the only one who keeps forgetting the incantation. 
+  It’s anyway so much easier to remember that a pointer to the security descriptor 
+  (albeit with slight alteration) is the last member of the object header, i.e., 
+  of the <span class="struct">OBJECT_HEADER</span> before the
+  <span class="member">Body</span>, and is therefore the pointer immediately before 
+  the object. </p>
+  <p>That every object is preceded by an object header is as old as Windows. Though 
+  I know of no clear evidence that the structure was named <span class="struct">
+  OBJECT_HEADER</span> in version 3.10, there certainly are 0x10 bytes of header 
+  immediately before every object and there is strong evidence that the formulation 
+  with the eight-byte <span class="member">Body</span> dates from then too. </p>
+  <h3>Header’s Headers </h3>
+  <p>The <span class="struct">OBJECT_HEADER</span> is only the start to what may 
+  be accessed about an object as seen from the Object Manager. In all versions, 
+  the <span class="struct">OBJECT_HEADER</span> has pointers to at least two other 
+  structures and can itself be preceded by other sorts of header. These too can 
+  be useful for the advanced Windows programmer to recognise by sight when debugging. 
+  Version 3.50 had four of these header’s headers. More were defined years later. 
+  By now there can be any or all of the following (listed here in historical order):
+  </p>
+  <ul>
+    <li><span class="struct"><a href="../object_header_name_info.htm">OBJECT_HEADER_NAME_INFO</a></span>;
+    </li>
+    <li><span class="struct"><a href="../object_header_handle_info.htm">OBJECT_HEADER_HANDLE_INFO</a></span>;
+    </li>
+    <li><span class="struct"><a href="../object_header_quota_info.htm">OBJECT_HEADER_QUOTA_INFO</a></span>;
+    </li>
+    <li><span class="struct"><a href="../object_header_creator_info.htm">OBJECT_HEADER_CREATOR_INFO</a></span>;
+    </li>
+    <li><span class="struct"><a href="../object_header_process_info.htm">OBJECT_HEADER_PROCESS_INFO</a></span> 
+    (6.1 and higher); </li>
+    <li><span class="struct"><a href="../object_header_audit_info.htm">OBJECT_HEADER_AUDIT_INFO</a></span> 
+    (6.2 and higher); </li>
+    <li><span class="struct">
+    <a href="../object_header_handle_revocation_info.htm">OBJECT_HEADER_HANDLE_REVOCATION_INFO</a></span> 
+    (10.0 and higher). </li>
+  </ul>
+  <p>Perhaps only historians will be interested but these header’s headers arise 
+  from an early and presumably pressing optimisation of the memory overhead for 
+  managing objects. The header’s headers, the header itself and then the object 
+  are one memory block that is retained for the whole life of the object. The header 
+  has information that is general for all objects of all types. The header’s headers 
+  are designed so that each can be skipped if the corresponding information is not 
+  needed (or is not even meaningful) for the particular object. For instance, if 
+  an object has no name, then it would be wasteful to keep an
+  <span class="struct">OBJECT_HEADER_NAME_INFO</span>. </p>
+  <p>Windows was not born with this (or any) selectivity of header’s headers. In 
+  version 3.10, the object header has two pointers to other structures. The first 
+  of these other structures is only ever built immediately before the header. It 
+  is the original header’s header, if you like. The second is designed to be in 
+  non-paged memory. It precedes the first if the object is non-paged, but must otherwise 
+  be in separate memory. At 0x68 bytes the first was relatively large. Retaining 
+  this much for the whole of every object’s life was no small overhead. Indeed, 
+  for some types of object, this overhead far exceeded the size of the object. Reducing 
+  this structure evidently had a high priority: it is one of the most significant 
+  reworkings between the first and second Windows versions, i.e., 3.10 and 3.50. 
+  In the reworking, the larger of the structures got mostly split into the four 
+  original header’s headers for permanent but selective retention. What was left 
+  became an <span class="struct">OBJECT_CREATE_INFORMATION</span> to discard once 
+  the object is fully created. Thus did version 3.50 tidy the header’s headers into 
+  recognisably their modern form. It did not, however, attend to the non-paged header 
+  that may have to be in separate memory. Once version 3.51 folded this into the 
+  header itself, the <span class="struct">OBJECT_HEADER</span> got its modern form.
+  </p>
+  <h2>Variability </h2>
+  <p>For a structure that might be an implementation detail for the Object Manager, 
+  with no need to be known even elsewhere in the kernel, let alone externally, the
+  <span class="struct">OBJECT_HEADER</span> is surprisingly stable. The earliest 
+  versions differ—indeed, the <span class="struct">OBJECT_HEADER</span> is barely 
+  recognisable in version 3.10—but the modern form was well-settled as early as 
+  version 3.51. There has been internal reorganisation since then, especially for 
+  Windows 7, but it has been done by finding ways to squeeze more in, as if the 
+  structure’s size is for all practical effect treated as architectural: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3.10 </td>
+        <td>0x18 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.50 to 2004 </td>
+        <td>0x20 </td>
+        <td>0x38 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>This size is of the <span class="struct">OBJECT_HEADER</span> as a structure, 
+  not as a header. If the header is understood as just what the Object Manager places 
+  immediately before the object, then the header is 0x18 or 0x30 bytes in 32-bit 
+  and 64-bit Windows, respectively, except for being just 0x10 bytes in version 
+  3.10. </p>
+  <p>Note that the size of the effective header (disregarding the eight-byte
+  <span class="member">Body</span>) is a multiple of the natural alignment for memory 
+  allocation, i.e., eight or sixteen bytes for 32-bit and 64-bit Windows, respectively, 
+  in all versions. This surely is architectural. Callers who ask the Object Manager 
+  to create an object of whatever type expect the object to have this alignment. 
+  Because the memory allocation can instead begin with the <span class="struct">
+  OBJECT_HEADER</span> or with any of the header’s headers, these too must all have 
+  this alignment. </p>
+  <h2>Layout </h2>
+  <p>The sizes above and the offsets, names and types in the tables below are from 
+  type information in public symbol files for the kernel, starting with Windows 
+  2000 SP3. Names are known with slightly less certainty for version 4.0 from the 
+  output of the <span class="command">
+  <a href="../../../../../debug/userexts/dso.htm">!dso</a></span> command as implemented 
+  by the debugger extension USEREXTS.DLL from the Windows NT 4.0 Device Driver Kit 
+  (DDK). What’s known for even earlier versions is something of a guess from inspecting 
+  how the kernel works with the structure. </p>
+  <p>Except in ancient times, the <span class="struct">OBJECT_HEADER</span> starts 
+  with two pointer-sized counts: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x00 </td>
+        <td rowspan="2">0x00 </td>
+        <td>
+        <pre class="source">union {
+    struct {
+        LONG_PTR PointerCount;
+        LONG_PTR HandleCount;
+    };
+    LIST_ENTRY Entry;
+};</pre>
+        </td>
+        <td>3.51 to 4.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LONG_PTR PointerCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x04 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">union {
+    LONG_PTR HandleCount;
+    SINGLE_LIST_ENTRY *SEntry;
+};</pre>
+        </td>
+        <td>5.0 only </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">union {
+    LONG_PTR HandleCount;
+    PVOID NextToFree;
+};</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x08 </td>
+        <td rowspan="2">0x10 </td>
+        <td>
+        <pre class="source">OBJECT_TYPE *Type;</pre>
+        </td>
+        <td>3.51 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">EX_PUSH_LOCK Lock;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Before version 3.51, the <span class="member">PointerCount</span>,
+  <span class="member">HandleCount</span> and <span class="member">Type</span> are 
+  in a separate structure (see below, as Archaeology), apparently so they are all 
+  in non-paged memory even when the object and its header are not. </p>
+  <h3>Counts </h3>
+  <p>The <span class="member">PointerCount</span> is of how many times the object 
+  has been referenced but not dereferenced. After creation, an object is referenced 
+  through such functions as <span class="function">ObReferenceObjectByHandle</span>,
+  <span class="function">ObReferenceObjectByName</span> and
+  <span class="function">ObReferenceObjectByPointer</span>. A reference is required 
+  for a kernel-mode user of an object to be sure that the object persists through 
+  the intended use. </p>
+  <p>The <span class="member">HandleCount</span> is of how many times the object 
+  has been opened but not closed. After a handle is created for an object, more 
+  can be opened through such functions as <span class="struct">ObOpenObjectByName</span> 
+  and <span class="struct">ObOpenObjectByPointer</span>. A handle is required for 
+  access from user mode, again to ensure that the object persists through the intended 
+  use. </p>
+  <p>That versions 3.51 to 4.0 have the <span class="member">HandleCount</span> 
+  at offset 0x04, as for all later x86 versions, is a little disguised by the two 
+  pointers being in an unnamed structure within an unnamed union with the eight-byte
+  <span class="struct">LIST_ENTRY</span>. </p>
+  <h3>List Entries </h3>
+  <p>That the various list entries <span class="member">Entry</span>,
+  <span class="member">SEntry</span> and <span class="member">NextToFree</span>, 
+  depending on the version, can overlay one or both counts is because the list entries 
+  matter only when the counts no longer can. </p>
+  <p>When all of an object’s references are balanced by dereferences, the object 
+  has nobody who cares for its continued existence and so the object can be deleted. 
+  Though dereferencing is immediate, deleting may have to be deferred. The original 
+  reason was that although <span class="function">ObDereferenceObject</span> was 
+  in the early years—up to and including the DDK for Windows NT 4.0—documented as 
+  being callable only at <span class="constant">PASSIVE_LEVEL</span>, its implementation 
+  even in version 3.10 anticipates being called at higher IRQL. In version 5.1 and 
+  higher, deferred deletion can even be forced from within the kernel and in version 
+  6.0 from outside (because <span class="function">ObDereferenceObjectDeferDelete</span> 
+  is exported). </p>
+  <p>When deferring an object’s deletion, the Object Manager puts the
+  <span class="struct">OBJECT_HEADER</span> into a list. Both counts should be zero 
+  and because the object should now be unknown outside the Object Manager, neither 
+  count can now change. The space they occupied is available to reuse for linking 
+  into the list. </p>
+  <p>The early versions have a double-linked list, inserting at the tail and removing 
+  from the head, so that deferred deletions are picked up in the order of their 
+  final dereferences. Such ordering is unnecessary: just as nobody should now care 
+  about the object’s continued existence, nobody should care how soon it gets destroyed. 
+  Version 5.0 changes to a single-linked list, which version 5.1 simplifies. Ordinarily,
+  <span class="member">NextToFree</span> points directly to the
+  <span class="struct">OBJECT_HEADER</span> for the next object to delete. It can, 
+  of course, be <span class="constant">NULL</span> at the end. Less obviously, it 
+  can be 1 as an implementation detail in how the list of objects to delete is processed 
+  without the earlier versions’ repeated acquisition and release of a lock. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG ObjectBodySize : 24;
+ULONG Flags : 8;</pre>
+        </td>
+        <td>3.50 only </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x04 (3.50); <br>
+        0x0C </td>
+        <td rowspan="2">0x18 </td>
+        <td>
+        <pre class="source">UCHAR NameInfoOffset;</pre>
+        </td>
+        <td>3.50 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR TypeIndex;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x05 (3.50); <br>
+        0x0D </td>
+        <td rowspan="3">0x19 </td>
+        <td>
+        <pre class="source">UCHAR HandleInfoOffset;</pre>
+        </td>
+        <td>3.50 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR TraceFlags;</pre>
+        </td>
+        <td>6.1 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="traceflags.htm">TraceFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x06 (3.50); <br>
+        0x0E </td>
+        <td rowspan="2">0x1A </td>
+        <td>
+        <pre class="source">UCHAR QuotaInfoOffset;</pre>
+        </td>
+        <td>3.50 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR <a href="infomask.htm">InfoMask</a>;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x07 (3.50); <br>
+        0x0F </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR CreatorInfoOffset;</pre>
+        </td>
+        <td>3.50 only </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x1B </td>
+        <td>
+        <pre class="source">UCHAR Flags;</pre>
+        </td>
+        <td>3.51 to 6.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="flags.htm">Flags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">&nbsp;</td>
+        <td rowspan="2">0x1C </td>
+        <td>
+        <pre class="source">ULONG Spare;</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Reserved;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The name <span class="member">ObjectBodySize</span> is proposed for what version 
+  3.50 has in the first three bytes. It is taken directly from the
+  <span class="function">ObCreateObject</span> argument that is later known to be 
+  named <span class="argument">ObjectBodySize</span>. That the
+  <span class="member">ObjectBodySize</span> is formally a bit field is almost certain 
+  from the binary code. That the <span class="member">Flags</span> are too is suggested 
+  by some access that tests the whole dword against flags as immediate 32-bit data. 
+  How exactly these two are defined within this first dword, e.g., wrapped in a 
+  structure or in union with an integral type, may never be known. The
+  <span class="member">Flags</span> persist as a <span class="type">UCHAR</span> 
+  in all later versions, including after Windows 8.1 formalises the individual flags 
+  as bit fields. </p>
+  <p>The <span class="member">NameInfoOffset</span>, <span class="member">HandleInfoOffset</span>,
+  <span class="member">QuotaInfoOffset</span> and <span class="member">CreatorInfoOffset</span> 
+  correspond to the original header’s headers. Each is ordinarily the offset from 
+  the start of the <span class="struct">OBJECT_HEADER</span>
+  <span class="emphasis">back</span> to the corresponding structure, else is zero 
+  if the corresponding structure is not present. As noted above, these offsets must 
+  be multiples of eight, even for 32-bit Windows, and so at least three bits in 
+  each byte are wasted. Version 6.0 uses this to squeeze a little more meaning into 
+  the <span class="member">QuotaInfoOffset</span>: its low two bits are an early 
+  implementation of the <span class="member">TraceFlags</span>. </p>
+  <p>The plain purpose to retaining these structures selectively is to reduce how 
+  much memory the Object Manager adds for each object. More savings come from knowing 
+  that the header’s headers, whichever are present, are always in a particular order:
+  </p>
+  <ul>
+    <li><span class="struct">OBJECT_HEADER_HANDLE_REVOCATION_INFO</span> (10.0 and 
+    higher); </li>
+    <li><span class="struct">OBJECT_HEADER_AUDIT_INFO</span> (6.2 and higher);
+    </li>
+    <li><span class="struct">OBJECT_HEADER_PROCESS_INFO</span> (6.1 and higher);
+    </li>
+    <li><span class="struct">OBJECT_HEADER_QUOTA_INFO</span>; </li>
+    <li><span class="struct">OBJECT_HEADER_HANDLE_INFO</span>; </li>
+    <li><span class="struct">OBJECT_HEADER_NAME_INFO</span>; </li>
+    <li><span class="struct">OBJECT_HEADER_CREATOR_INFO</span>. </li>
+  </ul>
+  <p>Since the <span class="struct">OBJECT_HEADER_CREATOR_INFO</span>, if present 
+  at all, can only end where the <span class="struct">OBJECT_HEADER</span> begins, 
+  the <span class="member">CreatorInfoOffset</span> can only be either zero or the 
+  structure’s (known) size, and so version 3.51 did away with the waste of keeping 
+  a whole byte for it. Indeed, the offsets to each structure can be calculated just 
+  from knowing which other structures are present. This needs only one bit for each 
+  of the possible structures. Version 6.1 built this into the
+  <span class="member">InfoMask</span> and thus recovered two bytes. </p>
+  <p>The more notable new use that was opened by this recovery is the
+  <span class="member">TypeIndex</span> since it brought the saving of not keeping 
+  a whole pointer for the <span class="member">Type</span>. That each type of object 
+  has a 0-based <span class="member">TypeIndex</span> is ancient, just not for the 
+  Object Manager’s own purposes. It is instead a sequence number that is convenient 
+  to report in the <span class="struct">
+  <a href="../../../api/ntexapi/system_objecttype_information.htm">SYSTEM_OBJECTTYPE_INFORMATION</a></span> 
+  structure when objects are enumerated through <span class="function">
+  <a href="../../../../api/ex/sysinfo/query.htm">ZwQuerySystemInformation</a></span>. 
+  and later as the <span class="member">ObjectTypeIndex</span> in the
+  <span class="struct">
+  <a href="../../../../api/ex/sysinfo/handle_table_entry_ex.htm">SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX</a></span> 
+  when enumerating handles. </p>
+  <p>Starting with version 6.1, pointers to the created <span class="struct">OBJECT_TYPE</span> 
+  structures are kept in an array and the <span class="member">TypeIndex</span> 
+  truly is an index. Instead of keeping a pointer in every <span class="struct">
+  OBJECT_HEADER</span> just to find the the <span class="struct">OBJECT_TYPE</span>, 
+  the Object Manager keeps just the 1-byte index. The space that had been taken 
+  by the pointer is reclaimed so that for the first time, objects can be locked 
+  independenty of one another. </p>
+  <p>For reasons that are not yet understood well enough to write about with confidence, 
+  version 10.0 obfuscates the <span class="member">TypeIndex</span> as kept in the
+  <span class="struct">OBJECT_HEADER</span>. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>unknown dword 0x0B0B0B0B </td>
+        <td>3.10 only </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x04 (3.10); <br>
+        0x08 (3.50); <br>
+        0x10 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">&lt;unknown-type&gt; *PagedObjectHeader;</pre>
+        </td>
+        <td>3.10 only </td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">union {
+    OBJECT_CREATE_INFORMATION *ObjectCreateInfo;
+    PVOID QuotaBlockCharged;
+};</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 (3.10); <br>
+        0x0C (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">&lt;unknown-type&gt; *NonPagedObjectHeader;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+      </tr>
+      <tr>
+        <td>0x10 (3.50); <br>
+        0x14 </td>
+        <td>0x28 </td>
+        <td>
+        <pre class="source">PVOID SecurityDescriptor;</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>0x14 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>unaccounted dword </td>
+        <td>3.50 only </td>
+      </tr>
+      <tr>
+        <td>0x0C (3.10) </td>
+        <td>&nbsp;</td>
+        <td>unknown dword 0x1B1B1B1B </td>
+        <td>3.10 only </td>
+      </tr>
+      <tr>
+        <td>0x10 (3.10); <br>
+        0x18 </td>
+        <td>0x30 </td>
+        <td>
+        <pre class="source">QUAD Body;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>In version 3.10, the <span class="struct">OBJECT_CREATE_INFORMATION</span> 
+  is retained for the object’s life. In later versions, everything that needs such 
+  long retention is extracted to the applicable header’s headers. The
+  <span class="struct">OBJECT_CREATE_INFORMATION</span> is freed when the object 
+  is charged to the creating process’s quota. The <span class="constant">OBJ_FLAG_NEW_OBJECT</span> 
+  bit in the <span class="member">Flags</span> is then cleared and the
+  <span class="member">ObjectCreateInfo</span> member is reused as
+  <span class="member">QuotaBlockCharged</span>. Though not shown in Microsoft’s 
+  type information, what <span class="member">QuotaBlockCharged</span> points to 
+  is specifically an <span class="stuct"><span class="struct">EPROCESS_QUOTA_BLOCK</span></span>.
+  </p>
+  <p>As noted above, the structure is a fixed-size header and then a placeholder 
+  for the variable-size object. Formally, the object begins at the structure’s eight-byte
+  <span class="member">Body</span>. Given a C-language definition of the
+  <span class="struct">OBJECT_HEADER</span>, locating a given object’s header could 
+  be conveniently wrapped into an inline routine: </p>
+  <pre class="source">FORCELINE 
+OBJECT_HEADER *OBJECT_TO_OBJECT_HEADER (PVOID Object)
+{
+    return CONTAINING_RECORD (Object, OBJECT_HEADER, Body);
+}</pre>
+  <p>which is essentially the macro that the NTOSP.H disclosure confirms is what 
+  Microsoft’s programmers have been using. </p>
+  <p>Evidence is strong that ending the <span class="struct">OBJECT_HEADER</span> 
+  with the <span class="member">Body</span> is original. Whenever the kernel-mode 
+  debugger I386KD.EXE from the Windows NT 3.1 DDK is to learn of an object from 
+  what precedes the object, it reads 0x18 bytes from 0x10 bytes before the object.
+  </p>
+  <h2>Archaeology: the Non-Paged Object Header </h2>
+  <p>Both versions 3.10 and 3.50 split the <span class="struct">OBJECT_HEADER</span> 
+  in two. One part immediately precedes the object and is here taken as the original
+  <span class="struct">OBJECT_HEADER</span>, but what later become the
+  <span class="member">PointerCount</span>, <span class="member">HandleCount</span> 
+  and <span class="member">Type</span> are in a separate structure. Microsoft’s 
+  name for this separate structure is not known (and perhaps never will be). That 
+  it is separate is because the object, and thus also its header, may be in paged 
+  pool but these versions require that the two counts be non-paged. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 (3.10 to 3.50) </td>
+        <td>
+        <pre class="source">PVOID Object;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x04 (3.10 to 3.50) </td>
+        <td>
+        <pre class="source">LONG PointerCount;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    struct {
+        LONG PointerCount;
+        LONG HandleCount;
+    };
+    LIST_ENTRY Entry;
+};</pre>
+        </td>
+        <td>3.50 only </td>
+        <td>next at 0x00 in <span class="struct">OBJECT_HEADER</span> </td>
+      </tr>
+      <tr>
+        <td>0x08 (3.10) </td>
+        <td>
+        <pre class="source">LONG HandleCount;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0C (3.10 to 3.50) </td>
+        <td>
+        <pre class="source">OBJECT_TYPE *Type;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x08 in <span class="struct">OBJECT_HEADER</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The name <span class="member">Object</span> is proposed as obvious for a pointer 
+  back to the object. The other members have direct counterparts in the
+  <span class="struct">OBJECT_HEADER</span> as known for later versions. For both 
+  these early versions, the <span class="member">PointerCount</span> and
+  <span class="member">HandleCount</span> are at offsets 0x04 and 0x08, but continuity 
+  of the latter’s position is a little disguised for having been moved into an unnamed 
+  structure in an unnamed union. </p>
+  <p>This is not without merit. For instance, in combination with having the handle 
+  table record the address of the corresponding object’s non-paged header it allows 
+  that <span class="function">ObReferenceObjectByHandle</span> can at high IRQL 
+  quickly obtain a pointer to an object without having to touch paged memory if 
+  the handle turns out to be for a type of object that is paged. </p>
+  <p>Why are the counts in non-paged pool even when the object is not? One reason, 
+  here thought to be the main reason, is that these versions look to have been coded 
+  to increment and decrement the counts by using the <span class="function">ExInterlockedIncrementLong</span> 
+  and <span class="function">ExInterlockedDecrementLong</span> functions. These 
+  require a spin lock which they may acquire to protect the operation from concurrent 
+  access by another process. The lock and the count must therefore be resident. 
+  Both functions were already documented as obsolete as long ago as the Device Driver 
+  Kit (DDK) for Windows NT 3.51. Contemporaneous documentation of what were then 
+  the new <span class="function">InterlockedIncrement</span> and
+  <span class="function">InterlockedDecrement</span> functions is explicit that 
+  these can “be safely used on pageable data” (but leaves as implicit that the old 
+  functions cannot). Even for version 3.10, the NTDDK.H from the corresponding DDK 
+  redefines the old functions by macro to lose the spin lock and to operate on the 
+  count by using the undocumented <span class="function">Exi386InterlockedIncrementLong</span> 
+  and <span class="function">Exi386InterlockedDecrementLong</span>—but this is only 
+  for the x86 architecture. The separate existence of a non-paged part to the header 
+  therefore looks to be a side-effect of using the documented
+  <span class="function">ExInterlockedIncrementLong</span> and
+  <span class="function">ExInterlockedDecrementLong</span> for portability in the 
+  code and sticking to its documented constraints. </p>
+  <p>Another reason for a separate structure that is necessarily in non-paged pool 
+  may be incidental. As already noted, if the dereference that brings the
+  <span class="member">PointerCount</span> to zero occurs at high IRQL, then the 
+  object’s deletion is deferred. In version 3.10, it is queued as a work item. The
+  <span class="struct">WORK_QUEUE_ITEM</span> must be in non-paged pool. Version 
+  3.10 simply repurposes the non-paged header (which is conveniently the right size). 
+  Whether this repurposing is modelled in the structure’s definition is, of course, 
+  not known. It anyway doesn’t survive even to version 3.50. Instead of wastefully 
+  queueing a separate work item for each object that is to be deleted, version 3.50 
+  puts all such objects into a double-linked list (linked through the
+  <span class="member">Entry</span> member) and has one statically allocated work 
+  item drain the list. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 21st June 2020 but was not published 
+    until 30th <a href="../../../../../../../../new/20/06.htm">June 2020</a>. It 
+    was last modified on 22nd August 2022 (except for removing a broken link on 
+    23rd March 2023). </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c2022.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="13546" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,183 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KeProfileInterruptWithSource</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KeProfileInterruptWithSource </h1>
+<p>The Hardware Abstraction Layer (HAL) calls this function when a profile interrupt 
+occurs. It is the kernel’s opportunity to do such things as update execution counts 
+for profiling. </p>
+<h2>Declaration </h2>
+<pre class="source">VOID 
+KeProfileInterruptWithSource (
+    <a href="../../../inc/ntos/ktrap_frame.htm">KTRAP_FRAME</a> *TrapFrame, 
+    KPROFILE_SOURCE ProfileSource);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">TrapFrame</span> argument describes the interrupted 
+execution. </p>
+<p>The <span class="argument">ProfileSource</span> argument tells what caused the 
+interrupt. </p>
+<h2>Availability </h2>
+<p>The <span class="function">KeProfileInterruptWithSource</span> function is exported 
+from the kernel in version 3.51 and higher. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">KeProfileInterruptWithSource</span> function is not 
+documented, but has a C-language declaration in the NTOSP.H file from an Enterprise 
+edition of the Windows Driver Kit (WDK) for Windows 10. </p>
+<h2>Behaviour </h2>
+<!--webbot bot="Include" U-Include="../../_include/win10.htm" TAG="BODY" startspan -->
+
+<p>The following implementation notes come mainly from inspection of the kernel 
+from the original release of Windows 10. They may some day get revised to account 
+for other versions. Where anything is written about earlier versions, take it not 
+as an attempt at presenting a comprehensive history but as a bonus from my being 
+unable to resist a quick trip down memory lane. I have no programme of revisiting 
+this analysis for later releases. Updates mean just that I happen to have noticed 
+something and to have found time to add it. </p>
+
+<!--webbot bot="Include" endspan i-checksum="60685" -->
+<h3>Interrupt Count </h3>
+<p>The 32-bit implementation increments the <span class="member">InterruptCount</span> 
+in the current processor’s <span class="struct">
+<a href="../../../inc/ntos/kprcb.htm">KPRCB</a></span>. This count is also 
+incremented for other interrupts, of course. That the 32-bit kernel increments it 
+specially for the profile interrupt has to do with the very different ways that 
+the kernel and HAL cooperate over interrupt handling in 32-bit and 64-bit Windows 
+(which is its own, huge, topic far beyond the scope of this note). </p>
+<p>However the count gets incremented for any interrupt, it is the same
+<span class="member">InterruptCount</span> that can be retrieved for each processor 
+via the <span class="function"><a href="../../ex/sysinfo/query.htm">ZwQuerySystemInformation</a></span> 
+and <span class="function"><a href="../../ex/sysinfo/queryex.htm">ZwQuerySystemInformationEx</a></span> 
+functions when given the information class <span class="constant">SystemProcessorPerformanceInformation</span> 
+(0x08) or <span class="constant">SystemProcessorPerformanceInformationEx</span> 
+(0x8D). </p>
+<h3>Profile Objects </h3>
+<p>The function’s main work is to process two lists of profile objects. Each profile 
+object carries the conditions that trigger non-trivial processing, plus parameters 
+for what’s to be done when triggered. Among the possible conditions is that profiling 
+can be specific to a process or may apply globally. The kernel keeps separate lists 
+for each process (the head being the <span class="member">ProcessListHead</span> 
+very near the start of the <span class="struct">
+<a href="../../../inc/ntos/ke/kprocess/index.htm">KPROCESS</a></span>) and one more 
+list for global profiling. Each time the function gets called, it processes only 
+the current process’s list and the global list. </p>
+<p>Profile objects come in two types. Both types can appear in any list. In practice, 
+however, one type is only ever inserted into the global list. Both types of profile 
+object have the same structure. Microsoft’s name for that structure is not known, 
+but <span class="struct"><a href="kprofile.htm">KPROFILE</a></span> is here thought 
+to be an almost certain guess. As with other kernel objects, the structure for profile 
+objects begins with a type from the <span class="enum">
+<a href="../../../inc/ntos/ke/kobjects.htm">KOBJECTS</a></span> enumeration and a size.
+</p>
+<h4>Execution Counts </h4>
+<p>In the basic age-old profile object, the type is simply
+<span class="constant">ProfileObject</span> (0x17 nowadays, but 0x0F before version 
+4.0). This type of profile object is created by the <span class="function">
+<a href="../../ex/profile/start.htm">NtStartProfile</a></span> function using parameters 
+that are first presented to <span class="function">
+<a href="../../ex/profile/create.htm">NtCreateProfile</a></span> or
+<span class="function"><a href="../../ex/profile/createex.htm">NtCreateProfileEx</a></span>. 
+If a process is specified among those parameters, then the profile object goes into 
+the list for that process, and thus gets examined by this function only when interrupts 
+occur while executing that process. Otherwise, the profile object goes into the 
+global list and gets examined by this function on every interrupt. Whichever list 
+it’s in, a profile object of this type triggers if all the following are true:
+</p>
+<ul>
+  <li>the <span class="argument">ProfileSource</span> argument is the same as specified 
+  for the profile object; </li>
+  <li>the current processor is among the processors that are specified for the profile 
+  object; </li>
+  <li>the instruction pointer from the <span class="argument">TrapFrame</span> lies 
+  within the profiled region that is specified for the profile object. </li>
+</ul>
+<p>The profiled region’s address and size will have been among the
+<span class="function">NtCreateProfile</span> or <span class="function">NtCreateProfileEx</span> 
+parameters. The profiled region is treated as an array of fixed-size buckets, this 
+size being also among the parameters. One more of these parameters is the address 
+of a buffer that has space for one 32-bit counter per bucket. The function computes 
+which bucket holds the instruction pointer from the <span class="argument">TrapFrame</span> 
+and increments the corresponding counter. The intention is that after numerous calls 
+to this function, the buffer is left with a useful profile of execution that fits 
+the specified conditions. </p>
+<p>The function’s notion of the profiled region is problematic in version 6.2 and 
+higher. In all versions, the profile object describes the profiled region not by 
+its address and size but by its start and end addresses. The end is simply and naturally
+<span class="argument">ProfileSize</span> bytes added to the
+<span class="argument">ProfileBase</span> address (in terms of arguments to
+<span class="function">NtCreateProfile</span> and <span class="function">NtCreateProfileEx</span>). 
+Put another way, the end is a non-inclusive end. The instruction pointer from the
+<span class="argument">TrapFrame</span> lies within the profiled region if it is 
+greater than or equal to the start address and less than the end address. A recoding 
+for version 6.2 incorrectly treats the end as inclusive. It increments the corresponding 
+execution count unless the instruction pointer is less than the profiled region’s 
+start address or greater than its end address. If the instruction pointer is exactly 
+at the non-inclusive end address, then the function attempts to increment an execution 
+count immediately after the buffer that was provided for execution counts. With 
+contrivance, but also as a rare accident in valid use, this buffer overflow allows 
+that an unprivileged user-mode program can crash Windows. </p>
+<h4>Arbitrary Callbacks </h4>
+<p>The second type of profile object dates from version 6.2, i.e., from Windows 
+8. It seems to have been introduced to tidy what had been a growing assortment of 
+odd jobs. Each now is represented by a profile callback object. This has a different 
+type at the start, specifically <span class="constant">ProfileCallbackObject</span> 
+(0x11). Where the basic profile object has start and end addresses for a profiled 
+range of address space, the profile callback object has the address of a kernel-supplied 
+callback function and arbitrary context. The action to be taken for this type of 
+profile object is, of course, to call the callback function. It gets the
+<span class="argument">TrapFrame</span> and the context. The only trigger is that 
+the <span class="argument">ProfileSource</span> argument must be the same as specified 
+for the profile object. </p>
+<p>Especially notable among these profile callback objects is one for which the 
+callback function traces each profile interrupt to whichever NT Kernel Logger sessions 
+have enabled it. The trace shows as an event whose
+<a href="../../etw/callouts/hookid.htm">hook ID</a> is
+<span class="constant" title="constant">PERFINFO_LOG_TYPE_SAMPLED_PROFILE</span> 
+(0x0F2E). The event data, as a <span class="struct" title="struct">PERFINFO_SAMPLED_PROFILE_INFORMATION</span> 
+structure, includes not only the address where execution was interrupted but also 
+a summary of whether the interrupted execution was itself an interruption (for an 
+interrupt service routine or deferred procedure call). </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 30th
+  <a href="../../../../../../../new/16/12.htm">December 2016</a> and was last modified 
+  on 13th June 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1618.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5013" -->
+</div>
+
+</body>
+
+</html>

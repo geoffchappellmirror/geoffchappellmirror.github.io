@@ -1,0 +1,164 @@
+﻿<html>
+
+<head>
+<meta name="GENERATOR" content="Microsoft FrontPage 12.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>GetShellSecurityDescriptor</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js">
+</script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>GetShellSecurityDescriptor </h1>
+<p>This function prepares a security descriptor. </p>
+<h2>Declaration </h2>
+<pre class="source">PSECURITY_DESCRIPTOR
+GetShellSecurityDescriptor (
+    PSHELL_USER_PERMISSION apUserPerm,
+    int cUserPerm);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">apUserPerm</span> argument provides the address of 
+an array of <span class="struct">SHELL_USER_PERMISSION</span> structures, each 
+of which describes permissions to apply to some user or group. </p>
+<p>The <span class="argument">cUserPerm</span> argument provides a count of
+<span class="struct">SHELL_USER_PERMISSION</span> structures in the array. </p>
+<h3>Structures </h3>
+<p>Since the <span class="struct">SHELL_USER_PERMISSION</span> structure appears 
+to be used only as input to this function, its format is as well given here with 
+the parameters. </p>
+<pre class="source">typedef struct _SHELL_USER_PERMISSION {
+    SHELL_USER_SID susID;
+    DWORD dwAccessType;
+    BOOL fInherit;
+    ACCESS_MASK dwAccessMask;
+    DWORD dwInheritMask;
+    ACCESS_MASK dwInheritAccessMask;
+} SHELL_USER_PERMISSION, *PSHELL_USER_PERMISSION;</pre>
+<p>The user or group is described by the <span class="member">susID</span> 
+member. It has the format of a <span class="struct">SHELL_USER_SID</span> 
+structure and provides sufficient information from which to build a <span class="struct">
+SID</span>. The successive members provide the identifier authority and two 
+subauthorities, or only one if the second is zero. If the authority is <span class="constant">
+SECURITY_NULL_SID_AUTHORITY</span> 
+and the two subauthorities are each zero (<span class="constant">SECURITY_NULL_RID</span>), 
+then the <span class="member">susID</span> member is understood to describe the 
+current user. </p>
+<pre class="source">typedef struct _SHELL_USER_SID {
+    SID_IDENTIFIER_AUTHORITY sidAuthority;
+    DWORD dwUserGroupID;
+    DWORD dwUserID;
+} SHELL_USER_SID, *PSHELL_USER_SID;</pre>
+<p>The <span class="member">dwAccessType</span> member is zero (<span class="constant">ACCESS_ALLOWED_ACE_TYPE</span>) 
+to allow access, else non-zero to deny access. The <span class="member">
+dwAccessMask</span> 
+member provides the access rights that are to be allowed or denied. </p>
+<p>The <span class="member">fInherit</span> member is non-zero if access is to 
+be inheritable. In this case, the <span class="member">dwInheritMask</span> 
+member provides flags that govern the inheritance (as in the <span class="member">
+AceFlags</span> 
+member of an <span class="struct">ACE</span>) and the <span class="member">
+dwInheritAccessMask</span> 
+member provides the access rights that are to be transferred when inheriting.
+</p>
+<h3>Return Value </h3>
+<p>The function returns the address of a security descriptor, if successful, 
+else NULL. </p>
+<h2>Behaviour </h2>
+<p>The function fails immediately if <span class="argument">pUserPerm</span> is 
+NULL or if <span class="argument">cUserPerm</span> is not positive. </p>
+<p>For each <span class="struct">SHELL_USER_PERMISSION</span> structure, the 
+function prepares either one <span class="struct">ACE</span> or two for the 
+security descriptor, depending on whether the permissions are inheritable. The 
+first
+<span class="struct">ACE</span> </p>
+<ul>
+  <li>applies to the user or group described by <span class="member">susID</span>;
+  </li>
+  <li>is access-allowed or access-denied depending on <span class="member">
+  dwAccessType</span>;
+  </li>
+  <li>has no inheritance (or other <span class="member">AceFlags</span>); </li>
+  <li>takes its access rights from <span class="member">dwAccessMask</span>;
+  </li>
+</ul>
+<p>A second <span class="struct">ACE</span> for this same <span class="struct">
+SHELL_USER_PERMISSION</span> 
+is prepared if and only if <span class="member">fInherit</span> is non-zero. 
+This second <span class="struct">ACE</span> </p>
+<ul>
+  <li>applies, like the first, to the user or group described by
+  <span class="member">susID</span>; </li>
+  <li>is, like the first, access-allowed or access-denied depending on
+  <span class="member">dwAccessType</span>; </li>
+  <li>has inheritance flags (and other <span class="member">AceFlags</span>) set 
+  from <span class="member">dwInheritMask</span>; </li>
+  <li>takes its access rights from <span class="member">dwInheritAccessMask</span>.
+  </li>
+</ul>
+<p>The <span class="struct">SID</span> for each <span class="struct">ACE</span> 
+is built from the authority and subauthorities provided by <span class="member">
+susID</span>, except that if <span class="member">susID</span> describes the 
+current user, the function obtains a <span class="struct">SID</span> from the 
+access token for the current process. </p>
+<p>The security descriptor is constructed in one memory block such that the
+<span class="struct">SECURITY_DESCRIPTOR</span> structure (in absolute format) 
+is followed immediately by an <span class="struct">ACL</span>, including the
+<span class="struct">ACE</span>s. This <span class="struct">ACL</span> is set as 
+the security descriptor’s DACL. The order of the <span class="struct">ACE</span>s 
+is the same as the <span class="struct">SHELL_USER_PERMISSION</span> structures 
+that they were built from. The memory block is obtained from
+<span class="function">LocalAlloc</span> and may be returned through
+<span class="function">LocalFree</span> when the caller is done with it. </p>
+<h2>Availability </h2>
+<p>The <span class="function">GetShellSecurityDescriptor</span> function is 
+exported from SHLWAPI as ordinal 475 in version 5.50 and higher. </p>
+<!--webbot bot="Include" U-Include="../_include/undoc550.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 2000, it was still not 
+documented by Microsoft in the MSDN Library at least as late as the CD edition 
+dated January 2004. </p>
+
+<!--webbot bot="Include" i-checksum="41429" endspan -->
+<p>This function has, however, got documented since then (in 2006, or perhaps 
+some time during 2005), albeit as requiring “version 6.0 or later”. This article 
+now uses Microsoft’s nomenclature. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 14th September 2004 and was last 
+  modified on 15th March 2007. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0407.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2004-2007. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="54855" endspan -->
+</div>
+
+</body>
+
+</html>

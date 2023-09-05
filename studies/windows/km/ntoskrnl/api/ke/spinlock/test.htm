@@ -1,0 +1,122 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KeTestSpinLock</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KeTestSpinLock </h1>
+<p>This function tests whether a <a href="index.htm">spin lock</a> is available 
+for acquisition. </p>
+<h2>Declaration </h2>
+<pre class="source">BOOLEAN FASTCALL KeTestSpinLock (KSPIN_LOCK *SpinLock);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SpinLock</span> argument is the address of the lock 
+that is to be tested. Starting with the version 5.2 from Windows Server 2003 SP1, 
+this spin lock can be either a classic spin lock or a
+<a href="../queuelock/index.htm">queued spin lock</a>. </p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">TRUE</span> if the spin lock is available 
+for acquisition, else <span class="constant">FALSE</span>. </p>
+<h3>Constraints </h3>
+<p>Given that the supposed spin lock is in non-paged memory, the
+<span class="function">KeTestSpinLock</span> function can safely be called at any 
+IRQL. </p>
+<h2>Availability </h2>
+<p>The <span class="function">KeTestSpinLock</span> function is exported by name 
+from the kernel in version 5.2 and higher. It is present in the kernel in versions 
+5.0 and 5.1, but only as an internal routine. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">KeTestSpinLock</span> function is documented but was 
+not immediately so. </p>
+<p>The first known documentation is for the Windows Driver Kit (WDK) for Windows 
+Vista. It is there said, correctly, to be “available on Windows Server 2003 and 
+later operating systems”, but with no sign that this availability for Windows Server 
+2003 is retrospective. No Device Driver Kit (DDK) for Windows Server 2003 documents 
+the function, though all have a C-language declaration in WDM.H. </p>
+<h2>Behaviour </h2>
+<p>If the given spin lock is currently unowned, the function returns
+<span class="constant">TRUE</span>. Otherwise, it executes a
+<span class="instruction">pause</span> instruction and returns
+<span class="constant">FALSE</span>. </p>
+<p>Thus has it been for all the function’s existence, except on the one point of 
+how it determines whether the spin lock is owned. Originally, the test is only of 
+the lowest bit: the lock is unowned if this one bit is clear. Starting with the 
+version 5.2 from Windows Server 2003 SP1, the test is of the whole lock: it is owned 
+if all 32 or 64 bits of the lock are clear. </p>
+<p>The return value is, of course, just what was determined of ownership at the 
+time of the test. Ownership can have changed by the time the function returns.
+</p>
+<h2>Usage </h2>
+<p>Simple functions are easily overlooked as insignificant. The great worth of the
+<span class="function">KeTestSpinLock</span> function is that it lets programmers 
+implement their own spin loops, notably because they have non-trivial work that 
+can usefully be done while waiting for the lock’s availability. </p>
+<p>For this purpose, <span class="function">KeTestSpinLock</span> supplements
+<span class="function">KeTryToAcquireSpinLockAtDpcLevel</span>. The latter is the 
+means of acquiring the lock while leaving the caller to decide what to do if the 
+lock is unavailable. If the caller proceeds to a custom spin loop, the reasonable 
+presumption is that the lock may remain owned for a few spins yet. The better test 
+for exit is not to reattempt the lock’s acquisition (which necessarily involves 
+the multi-processor disruption of a <span class="instruction">lock</span> instruction) 
+but just to test its availability. While <span class="function">KeTestSpinLock</span> 
+fails, <span class="function">KeTryToAcquireSpinLockAtDpcLevel</span> likely would 
+have too but at greater cost. </p>
+<p>For a simple example, imagine programming to acquire the spin lock at the address
+<span class="argument">SpinLock</span> while already executing at
+<span class="constant">DISPATCH_LEVEL</span>. You might just pass
+<span class="argument">SpinLock</span> to <span class="function">KeAcquireSpinLockAtDpcLevel</span>, 
+but you would then give up all control of what gets done if the spin lock is not 
+yet available. If you have other work to do at <span class="constant">DISPATCH_LEVEL</span>, 
+you can instead write: </p>
+<pre class="source">while (!KeTryToAcquireSpinLockAtDpcLevel (SpinLock)) {
+    do {
+        /*  do custom work at DPC level  */
+    } while (!KeTestSpinLock (SpinLock));
+}</pre>
+<p>Do no custom work at all, and the preceding is practically indistinguishable 
+from how <span class="function">KeAcquireSpinLockAtDpcLevel</span> stood before
+<span class="function">KeTestSpinLock</span> and <span class="function">KeTryToAcquireSpinLockAtDpcLevel</span> 
+became available for finer control. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 4th
+  <a href="../../../../../../../new/19/12.htm">December 2019</a> and was last modified 
+  on 13th December 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

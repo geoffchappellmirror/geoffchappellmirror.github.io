@@ -1,0 +1,454 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Missing Icons in Notification Area</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/controls.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/box.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/controls.js" defer></script>
+<script type="text/javascript" src="../../../_scripts/box.js" defer></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Missing Icons in Notification Area </h1>
+  <p>The taskbar, ordinarily at the bottom of the desktop, has an area to its right 
+  which is nowadays called the notification area but is sometimes still referred 
+  to as the system tray. The notification area serves as a standard location for 
+  any sort of item that the user might like to be aware of, especially without having 
+  to take special action, but might not think deserves as much prominence as a taskbar 
+  button. The visual presentation of such an item is a small icon, which can change 
+  appearance to convey a small amount of information, but otherwise sits unobtrusively 
+  unless the user indicates some interest in it by moving the mouse over it or clicking 
+  on it. The clock is the original and perhaps still the best example, though it 
+  is in fact an internal implementation of the Windows Explorer. An example that 
+  is added by other software is the power meter, which gives users of portable computers 
+  an immediately visible estimate of the remaining battery power. </p>
+  <p>Inevitably, the notification area gets abused. Some software manufacturers 
+  think that what their product has to tell the user is so important that it should 
+  claim space in the notification area whether the user wants it there or not. Perhaps 
+  in reaction to this, the notification area has become highly configurable. Since 
+  Windows XP, users can specify that icons should be hidden if the user hasn’t for 
+  some time done anything to indicate that the icon is wanted. Users can even express 
+  a preference that particular icons should never be shown or should always be shown 
+  even if inactive. Administrators are empowered to defeat all this, of course, 
+  and can even specify that the notification area doesn’t show at all or that it 
+  may contain only the clock. </p>
+  <h2>Problem </h2>
+  <p>Icons that are expected in the notification area sometimes do not appear. This 
+  is not because of any configurability such as described above. The missing icon 
+  is not among the hidden icons. It hasn’t been disabled, even inadvertently. It 
+  was present in the notification area during the previous Windows session and may 
+  be there in the next. It just didn’t appear in this session. </p>
+  <p>Neither is the problem confined just to when the Windows Shell starts, for 
+  although this is typically when most items are added to the notification area, 
+  it is not the only time. A good example, though admittedly one that is fading 
+  quickly from relevance and which anyway does not apply to Windows Vista, is the 
+  addition of a network icon when a user activates a dial-up connection to the Internet. 
+  This case is especially annoying because without the icon in the notification 
+  area, the user has no very easy way to disconnect when finished. </p>
+  <p>A distinctive feature of this problem is that when you check the relevant program 
+  for its option of whether the icon is supposed to show in the notification area, 
+  you find that the program believes the icon is enabled. Disabling the option and 
+  then re-enabling it may or may not make the icon appear. </p>
+  <p>Another distinctive feature is a perception that the problem is timing-related 
+  and in particular that Windows has seemed unusually busy at the time the icon 
+  was expected to appear. The Internet has numerous accounts of the problem, along 
+  with many supposed solutions that I expect do work for their proposer but only 
+  by avoiding the timing-related stimulus in ignorance of the problem’s cause.
+  </p>
+  <h2>Cause </h2>
+  <p>The notification area, being part of the taskbar, is implemented in the Windows 
+  Explorer, running as EXPLORER.EXE. A program that adds an item to the notification 
+  area loads SHELL32.DLL into its own process space and calls a SHELL32 function 
+  named <span class="function">
+  <a href="../../../studies/windows/shell/shell32/api/shlnot/notifyicon.htm">Shell_NotifyIcon</a></span>. 
+  To tell EXPLORER about the proposed new icon for the notification area, this function 
+  sends a window message to the taskbar window and waits for a reply. Sending a 
+  message to another process’s window can take some time and can even go wrong. 
+  Since Windows 2000, SHELL32 has put conditions on the delivery. First is a timeout 
+  of 4 seconds, raised to 7 in Windows Vista. Second is that delivery is aborted 
+  if the target process seems hung. According to Microsoft’s documentation, this 
+  means that the target hasn’t been seen to pick up any messages for at least 5 
+  seconds. If either of these delivery conditions is frustrated,
+  <span class="function">Shell_NotifyIcon</span> fails and the proposed notification-area 
+  item, of course, does not appear. </p>
+  <h2>Solution </h2>
+  <p>As noted above, you may get a satisfactory outcome, if only for yourself, by 
+  identifying whatever it is that has kept EXPLORER too busy to receive the message 
+  in the allowed time. If it can then be disabled, or made to act either before 
+  or after the addition of notification-area icons, then you will escape the problem.
+  </p>
+  <p>However, the only true solution is to patch the problem away. Who’s to know 
+  what the SHELL32 programmers were thinking but the timeout they chose is much 
+  too short in practice. Experiments with Windows XP confirm that the taskbar window 
+  can be busy for more than a minute during startup, most notably because of network 
+  discovery. On some such occasions, the signs would be obvious even to novice users, 
+  e.g., because the cursor changes to an hourglass when moved over the taskbar and 
+  stays as an hourglass for an inconveniently long time. </p>
+  <p>In an ideal world, or even one in which problems like this receive perfunctory 
+  treatment from those who cause them, Microsoft would by now have introduced configurable 
+  options, both for the timeout and for whether to abort sending the message if 
+  EXPLORER seems hung. Even if users were left to set these by hand in the registry 
+  if they’re sufficiently troubled by the problem, many would be satisfied. However, 
+  Microsoft is peculiarly uninterested. At least until January 2007, Microsoft’s 
+  documentation of <span class="function">Shell_NotifyIcon</span> didn’t even mention 
+  that the function is capable of failing for a non-trivial reason such as expiry 
+  of a timeout. </p>
+  <p>This matters because of the design of the function. If the function returned 
+  a handle that the caller would need for later access to the icon, then programmers 
+  would naturally enough check for success or failure, as part of ensuring that 
+  they have received a handle. However, the function is not designed like this. 
+  Instead, the caller supplies its own identifiers for the proposed icon and EXPLORER 
+  has the job of remembering. It is just inevitable that unless programmers are 
+  warned clearly and directly that failure is a real possibility, then since they 
+  don’t have anything to get from the function, they have no expectations of it 
+  and they will not check that it actually has succeeded. They will treat the function 
+  as another of those for which failure is merely academic. </p>
+  <p>There will exist by now a large body of code which just does not check whether
+  <span class="function">Shell_NotifyIcon</span> succeeds or fails. Good evidence 
+  of this is provided by Microsoft itself. The notification-area items
+  <img class="icon" alt="Power" src="_images/power.gif" width="16" height="16">,
+  <img class="icon" alt="Safely Remove Hardware" src="_images/hotplug.gif" width="16" height="16">,
+  <img class="icon" alt="Volume" src="_images/volume.gif" width="16" height="16">,
+  <img class="icon" alt="StickyKeys" src="_images/stickykeys.gif" width="16" height="16">,
+  <img class="icon" alt="MouseKeys" src="_images/mousekeys.gif" width="16" height="16"> 
+  and
+  <img class="icon" alt="FilterKeys" src="_images/filterkeys.gif" width="16" height="16"> 
+  are all Microsoft’s work as standard features of Windows. Yet not for adding any 
+  one of them does the responsible DLL, named STOBJECT.DLL, check
+  <span class="function">Shell_NotifyIcon</span> for success or failure. This is 
+  even true of code that has been added to STOBJECT for Windows Vista. </p>
+  <p>All opportunity to leave SHELL32 alone but fix the problem in the callers is 
+  long gone. There is no general way to induce a caller to redo its attempted addition 
+  of a notification-area icon. Even if there were, then since the problem typically 
+  involves the caller having not noticed that its first attempt failed, it would 
+  be unrealistic to trust that the caller will even think it has anything to redo.
+  </p>
+  <div class="Digression">
+    <div class="Box">
+      <p>For an example with no programmatic solution, consider the power icon (or 
+      battery meter) in Windows XP. There are several ways to get STOBJECT to reassess 
+      whether the icon should be enabled in the notification area, but all lead 
+      to the one algorithm. </p>
+      <p>If the option to “Always show icon on the taskbar“ is active, e.g., is 
+      checked on the Advanced tab of the Power Options Properties, or if the machine 
+      is running on batteries, then the power icon is supposed to be enabled. If 
+      STOBJECT believes the icon is not yet enabled, it adds the icon, i.e., calls 
+      the <span class="constant">NIM_ADD</span> subfunction of
+      <span class="function">Shell_NotifyIcon</span>. Otherwise, it modifies what 
+      it believes is already there, i.e., calls the <span class="constant">NIM_MODIFY</span> 
+      subfunction. Whether the add or modify succeeds or fails, STOBJECT then believes 
+      the icon is enabled. With the “Always show icon on the taskbar” option off 
+      and the machine on AC power, there is to be no power icon in the notification 
+      area. STOBJECT deletes whatever icon might be enabled, i.e., calls the
+      <span class="constant">NIM_DELETE</span> subfunction, and thereafter believes 
+      the icon is not enabled. </p>
+      <p>Thus, if the icon did not appear because EXPLORER never got the message 
+      about adding it, you can get the icon back only by first persuading STOBJECT 
+      to delete the icon and then persuading it to add the icon again. This means 
+      putting the machine on AC power and clearing the “Always show icon on the 
+      taskbar” option (and applying this change), and then either restoring the 
+      option or pulling the plug. </p>
+      <p>Aside from being bizarre, and perhaps even impossible at the time (there 
+      being presumably some reason that you are working on batteries), putting the 
+      machine back on AC power is not something you can program. </p>
+    </div>
+  </div>
+  <h3>Patch Details </h3>
+  <p>The good news about patching SHELL32 for this problem is that the patch sites 
+  are easy to locate. The timeout and the direction to abort if hung are both constants 
+  that are pushed onto the stack as arguments to a function (<span class="function">SendMessageTimeout</span>). 
+  A push of a constant has an efficient coding that compilers can’t improve upon 
+  unless the same constant happens to be used elsewhere in the function. It is therefore 
+  very plausible that if you have a SHELL32 version that is not listed below, the 
+  instructions that must be patched will be coded the same way and you will be able 
+  to find the patch sites by following general directions. Indeed, someone with 
+  sufficient will and public spirit might even devise a program that automates the 
+  patch. </p>
+  <p>The aim is to find the bytes of the following two instructions: </p>
+  <table>
+    <tr>
+      <th>Opcode Bytes </th>
+      <th>Instruction </th>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">68 A0 0F 00 00 </pre>
+      </td>
+      <td>
+      <pre class="source">push    4000 </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">6A 03 </pre>
+      </td>
+      <td>
+      <pre class="source">push    3 </pre>
+      </td>
+    </tr>
+  </table>
+  <p>in that order, with at most a few bytes separating them. If there are multiple 
+  instances, you will need to determine which one belongs to
+  <span class="function">Shell_NotifyIcon</span>. However, all known builds of SHELL32 
+  from Windows 2000, Windows XP and Windows Server 2003 have only three instances 
+  of the first instruction and only one of these is soon followed by the second. 
+  In all known builds from Windows 2000, there is a separation of three bytes. In 
+  all known builds of Windows XP and Windows Server 2003, the instructions are contiguous.
+  </p>
+  <p>The 0x68 in the first instruction is the opcode for pushing a 32-bit immediate 
+  value that actually is stored in the instruction as 32 bits. The four bytes that 
+  follow, encoded with the least significant first, give the timeout in milliseconds. 
+  To extend the timeout to 1 minute, you would change 0xA0 0x0F to 0x60 0xEA. In 
+  my experience with this patch in everyday use of Windows XP SP1 on a desktop and 
+  occasional use of the same version on a notebook, I found after about 10 months 
+  that a timeout of 1 minute had not sufficed. I raised the timeout further and 
+  never saw the problem again. (I applied the patch in January 2007, having been 
+  irritated by the problem for many years, but only then having got round to my 
+  list of things to look into some day. I replaced the desktop in July 2008.)
+  </p>
+  <p>For the second instruction, the 0x6A is the opcode for pushing a 32-bit immediate 
+  value that is sign-extended from 8 bits. The byte that follows is interpreted 
+  as bit flags, in which 0x02 is what Microsoft documents as
+  <span class="constant">SMTO_ABORTIFHUNG</span>. To clear this bit, change 0x03 
+  to 0x01. </p>
+  <h4>Windows Vista </h4>
+  <p>In my everyday experience of Windows Vista for roughly six months and occasional 
+  experience for longer, I find much that frustrates but I have not observed notification-area 
+  icons to go missing. (They occasionally show the wrong icon, but that is another 
+  story.) I do sometimes observe EXPLORER to be busy for minutes, with a wait cursor 
+  and completely unresponsive Start button and taskbar. It’s just that this has 
+  not yet happened at a time when anyone has been adding icons to the notification 
+  area. The timeout conditions are still in the code and though they are not triggered 
+  in my practice, they may be in someone else’s. Should you need to find the relevant 
+  instructions, they are slightly different in Windows Vista because the timeout 
+  is increased to 7 seconds: </p>
+  <table>
+    <tr>
+      <th>Opcode Bytes </th>
+      <th>Instruction </th>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">68 58 1B 00 00 </pre>
+      </td>
+      <td>
+      <pre class="source">push    7000 </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">6A 03 </pre>
+      </td>
+      <td>
+      <pre class="source">push    3 </pre>
+      </td>
+    </tr>
+  </table>
+  <p>These instructions are contiguous, but especially with an eye to future versions 
+  or to builds that are downloaded for you by Windows Update, you should beware 
+  that there are two instances, one for <span class="function">Shell_NotifyIcon</span> 
+  and another for the new function <span class="function">SHQueryUserNotificationStatus</span>. 
+  Whether the latter ought also to be patched is beyond the scope of these notes.
+  </p>
+  <h4>Windows Me </h4>
+  <p>The code for version 5.50, i.e., for Windows Me, differs significantly. The 
+  two instructions are instead: </p>
+  <table>
+    <tr>
+      <th>Opcode Bytes </th>
+      <th>Instruction </th>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">6A FF </pre>
+      </td>
+      <td>
+      <pre class="source">push    0xFFFFFFFF </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">6A 02 </pre>
+      </td>
+      <td>
+      <pre class="source">push    2 </pre>
+      </td>
+    </tr>
+  </table>
+  <p>The first instruction pushes what Microsoft represents symbolically as
+  <span class="constant">INFINITE</span>, so that there is no timeout and no need 
+  to patch this first instruction. Note the change of opcode since the constant 
+  is generated by sign-extending from one byte. To clear <span class="constant">
+  SMTO_ABORTIFHUNG</span> in the second instruction, change the 0x02 to 0x00.
+  </p>
+  <h4>File Offsets </h4>
+  <p>The following table lists the SHELL32 versions from various Windows releases, 
+  as obtained from MSDN discs, and gives the file offsets for the two instructions, 
+  i.e., to the 0x68 and the 0x6A. The separate study of the Windows Shell has more 
+  details on the
+  <a href="../../../studies/windows/shell/shell32/history/index.htm">SHELL32 Versions</a>.
+  </p>
+  <table>
+    <tr>
+      <th>Version </th>
+      <th>Package </th>
+      <th>File Offsets </th>
+    </tr>
+    <tr>
+      <td>5.0.2920.0 </td>
+      <td>Windows 2000 </td>
+      <td>0x0001D3D0, 0x0001D3D8 </td>
+    </tr>
+    <tr>
+      <td>5.0.3103.1000 </td>
+      <td>Windows 2000 SP1 </td>
+      <td>0x00009D43, 0x00009D4B </td>
+    </tr>
+    <tr>
+      <td>5.0.3502.5436 </td>
+      <td>Windows 2000 SP3 </td>
+      <td>0x0001D592, 0x0001D59A </td>
+    </tr>
+    <tr>
+      <td>5.0.3700.6705 </td>
+      <td>Windows 2000 SP4 </td>
+      <td>0x00016FD0, 0x00016FD8 </td>
+    </tr>
+    <tr>
+      <td>5.50.4134.100 </td>
+      <td>Windows Me </td>
+      <td>0x0003F264, 0x0003F269 </td>
+    </tr>
+    <tr>
+      <td>6.0.2600.0 </td>
+      <td>Windows XP </td>
+      <td>0x00042FFE, 0x00043003 </td>
+    </tr>
+    <tr>
+      <td>6.0.2800.1106 </td>
+      <td>Windows XP SP1 </td>
+      <td>0x000543D9, 0x000543DE </td>
+    </tr>
+    <tr>
+      <td>6.0.2900.2180 </td>
+      <td>Windows XP SP2 </td>
+      <td>0x000771C5, 0x000771CA </td>
+    </tr>
+    <tr>
+      <td>6.0.3790.0 </td>
+      <td>Windows Server 2003 </td>
+      <td>0x0005B04A, 0x0005B04F </td>
+    </tr>
+    <tr>
+      <td>6.0.3790.1830 </td>
+      <td>Windows Server 2003 SP1 </td>
+      <td>0x0007CED2, 0x0007CED7 </td>
+    </tr>
+    <tr>
+      <td>6.0.3790.3959 </td>
+      <td>Windows Server 2003 SP2 </td>
+      <td>0x00060A1D, 0x00060A22 </td>
+    </tr>
+    <tr>
+      <td>6.0.6000.16386 </td>
+      <td>Windows Vista </td>
+      <td>0x00041A3A, 0x00041A3F </td>
+    </tr>
+    <tr>
+      <td>6.0.6001.18000 </td>
+      <td>Windows Vista SP1 </td>
+      <td>0x0005BD36, 0x0005BD3B </td>
+    </tr>
+  </table>
+  <p>If you are not completely certain how to interpret file offsets, to check the 
+  bytes and to edit them, then do not try to patch the file. Even if you think you 
+  know what you are doing, please take care to work on a copy. Use some such command 
+  as <span class="command">fc /b</span> to compare your patched copy with the original, 
+  and verify that you have changed only the expected bytes. </p>
+  <h4>Windows File Protection </h4>
+  <p>The bad news about patching SHELL32.DLL as a solution to this problem is that, 
+  apart from what many may see as a highly technical exercise of patching any file, 
+  there is a practical difficulty with getting Windows to use the patched copy. 
+  Recent versions of Windows ordinarily protect sensitve executables from corruption, 
+  so that they are automatically restored from a cache (or from your installation 
+  media, which you may be asked to insert). You can disable this feature and copy 
+  your patched SHELL32.DLL to both the Windows system directory and the cache, but 
+  I recommend strongly that you do not. For one thing, you may live to regret not 
+  having the original in the cache. </p>
+  <p>The best way to install a patched executable that is otherwise subject to Windows 
+  File Protection is to copy it into place using another operating system. If you 
+  do not already have another Windows installation in a multi-boot configuration, 
+  then boot the Recovery Console. This is available on your Windows installation 
+  media, but you might do well to install the Recovery Console onto your hard disk, 
+  as a multi-boot option. If you do not know how to work the Recovery Console and 
+  cannot make sense of Microsoft’s directions, e.g., in Windows Help and Support, 
+  then do not try using it. </p>
+  <h2>Microsoft </h2>
+  <p>As far as I can tell from searches at Microsoft’s website and at Google, Microsoft 
+  does not acknowledge this problem directly, e.g., in the Microsoft Knowledge Base. 
+  It is simply not believable that nobody at Microsoft knows of the problem. After 
+  all, many users will have noticed the problem from the day that they first switched 
+  on their new machine and very many more will have noticed not long after. For 
+  ordinary users, reporting bugs to Microsoft is at best an exercise in losing time, 
+  but can it really be that none of Microsoft’s own users or its army of pre-release 
+  testers ever reported this problem through channels that ordinarily get results? 
+  Of course not, so where is Microsoft’s acknowledgement of the problem and its 
+  advice at least on mitigating the effect? </p>
+  <p>What is known is that some time since January 2007 and before January 2009, 
+  Microsoft has updated its <span class="function">Shell_NotifyIcon</span> documentation 
+  to observe that the function can fail because of timing out. As noted above, this 
+  is needed as much for Microsoft’s own programmers as for anyone. To tell programmers 
+  that a properly prepared call to <span class="function">Shell_NotifyIcon</span> 
+  can fail is certainly necessary. To do it first in 2007 or 2008, the best part 
+  of a decade too late, is not nearly good enough: this horse has long since bolted.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 6th January 2009 and was last modified 
+    on 29th June 2009. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="41384" -->
+  </div>
+</div>
+
+</body>
+
+</html>

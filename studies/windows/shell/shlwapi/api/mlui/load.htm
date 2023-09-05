@@ -1,0 +1,343 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MLLoadLibrary</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>MLLoadLibrary </h1>
+<p>This function loads an MUI satellite library for a given executable (or library).
+</p>
+<h2>Declaration </h2>
+<pre class="source">HINSTANCE 
+MLLoadLibrary (
+    LPCTSTR lpszLibFileName, 
+    HMODULE hModule, 
+    DWORD dwCrossCodePage);</pre>
+<!--webbot bot="Include" U-Include="../_include/aw.htm" TAG="BODY" startspan -->
+
+<p>The function exists in ANSI and Unicode forms. </p>
+
+<!--webbot bot="Include" i-checksum="40026" endspan -->
+<h3>Parameters </h3>
+<p>The <span class="argument">lpszLibFileName</span> argument names the satellite, 
+either as a filename or relative pathname. If the latter, the path component may 
+be ignored. </p>
+<p>The <span class="argument">hModule</span> argument is a handle to a loaded executable 
+(or library), or may be NULL as if to represent IEXPLORE.EXE in the Internet Explorer 
+directory. </p>
+<p>The low 3 bits (as masked by <span class="constant">ML_CROSSCODEPAGE_MASK</span>) 
+of the <span class="argument">dwCrossCodePage</span> argument direct the function 
+in its choice of language. Meaningful values are: </p>
+<table>
+  <tr>
+    <td>0 </td>
+    <td><span class="constant">ML_NO_CROSSCODEPAGE</span> </td>
+    <td>use the MUI language only if safe </td>
+  </tr>
+  <tr>
+    <td>1 </td>
+    <td><span class="constant">ML_CROSSCODEPAGE_NT</span> </td>
+    <td>use the MUI language if running on NT; <br>
+    else use the MLUI language only if safe </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td><span class="constant">ML_CROSSCODEPAGE</span> </td>
+    <td>use the MUI language </td>
+  </tr>
+  <tr>
+    <td>4 </td>
+    <td><span class="constant">ML_SHELL_LANGUAGE</span> </td>
+    <td>use the shell language </td>
+  </tr>
+</table>
+<h3>Return Value </h3>
+<p>The function returns a handle to the loaded library, else NULL for failure.
+</p>
+<h2>Behaviour </h2>
+<p>The <span class="function">MLLoadLibrary</span> function supports an early scheme 
+of <a href="index.htm">Multilingual User Interface</a>. An executable has its localised 
+resources separated into satellite libraries, one for each supported language, so 
+that the executable itself is language-neutral. All satellites have the same filename. 
+A default satellite may be in the same directory as the executable. Others are in 
+language-specific subdirectories of the MUI subdirectory of the Internet Explorer 
+installation. This function loads what it considers to be the appropriate satellite.
+</p>
+<p>The function first queries the registry for a parameter that it may use: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td class="argument"><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\International</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">CheckVersion</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> or four bytes of
+    <span class="constant">REG_BINARY</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>1 </td>
+  </tr>
+</table>
+<p>Any non-zero data of either expected type is interpreted as TRUE. If the data 
+is not successfully queried, the function uses the data from the last successful 
+query, or defaults to TRUE. </p>
+<p>If <span class="argument">pszLibFileName</span> is NULL, then the function has 
+no library to look for, and fails. </p>
+<h3>Normalised Language </h3>
+<p>Crucial to the choice of satellite is a determination of the appropriate language. 
+The function decides on what Microsoft’s symbol files show to be called (by Microsoft’s 
+programmers) the normalised language. In any of the following cases, the normalised 
+language is simply the user default UI language: </p>
+<ul>
+  <li>the meaningful bits of <span class="argument">dwCrossCodePage</span> are not
+  <span class="constant">ML_NO_CROSSCODEPAGE</span>; </li>
+  <li>the user default UI language is 0x0409, i.e., en-US; </li>
+  <li>the user default UI language is the system default UI language; </li>
+  <li>the default code page for the user default UI language is the current ANSI 
+  code page for the system. </li>
+</ul>
+<p>Otherwise, or if the user default UI language is not defined, the function falls 
+back to the system default UI language as the normalised language. </p>
+<h3>Possible Satellite Locations </h3>
+<p>For the function even to consider locating the library relative to the given 
+module, it is necessary that <span class="argument">hModule</span> be not NULL and 
+that a pathname of no more than <span class="constant">MAX_PATH</span> characters 
+can be determined for it. The module-based pathname for the library is then obtained 
+just by substituting whatever is at <span class="argument">pszLibFileName</span> 
+for the module’s filename, provided that the result keeps to
+<span class="constant">MAX_PATH</span> characters. (The function does not require 
+that the string at <span class="argument">pszLibFileName</span> be just a filename, 
+in this case.) </p>
+<p>The Internet Explorer directory is knowable from the registry: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\App 
+    Paths\iexplore.exe</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td>default </td>
+  </tr>
+</table>
+<p>The MUI pathname for the library is <span class="placeholder">iepath</span>\mui\<span class="placeholder">langid</span>\<span class="placeholder">libfilename</span>, 
+in which <span class="argument">iepath</span> is the data for the default value 
+of that key, less its filename component, <span class="placeholder">langid</span> 
+is a 4-digit hexadecimal code for the normalised language, and
+<span class="placeholder">libfilename</span> is the filename component from the
+<span class="argument">pszLibFileName</span> argument. (The function ignores a path 
+in the string at <span class="argument">pszLibFileName</span>, in this case.)
+</p>
+<p>If the MUI pathname does not fit <span class="constant">MAX_PATH</span> characters, 
+the function uses as much as does fit. If the location of IEXPLORE.EXE cannot be 
+read from the registry, the function attempts to deal with it by taking the single 
+character 0 as the <span class="placeholder">iepath</span>, but it does not actually 
+terminate this default <span class="placeholder">iepath</span> as a string and this 
+article prefers to regard this case as having undefined consequences. </p>
+<p>The function has the following algorithm for choosing between the module-based 
+and MUI locations: </p>
+<ol>
+  <li>The function computes the module-based pathname. </li>
+  <li>If the module-based pathname can be formed and the normalised language is 
+  the same as the system default UI language, then the module-based pathname is 
+  accepted. </li>
+  <li>The function computes the MUI pathname. </li>
+  <li>If <span class="regvalue">CheckVersion</span> evaluated as false or if the 
+  module-based pathname did not compute, then the MUI pathname is accepted. </li>
+  <li>If version resources for the files at the module-based and MUI pathnames match 
+  (see below), the function accepts the MUI pathname. </li>
+  <li>The function defaults to the module-based pathname (which may be empty).
+  </li>
+</ol>
+<h3>Version Checking </h3>
+<p>Separation of localised resources into satellite libraries to let the executable 
+be language-neutral requires that all the satellites and the executable agree on 
+all the resource IDs. The function does not accept the MUI pathname unless it satisfies 
+itself about this by checking the version resources in the two possible libraries, 
+i.e., at the module-based and MUI pathnames. This cannot even be attempted unless 
+both pathnames have been computed, and it is disabled if <span class="regvalue">
+CheckVersion</span> evaluated as false. </p>
+<p>If version-checking is performed, then either of the following is required of 
+the library at the MUI path: </p>
+<ul>
+  <li>its version must equal that of the library at the module-based path; </li>
+  <li>its version must fit a range that is defined in the registry. </li>
+</ul>
+<p>The version comparison applies to all eight bytes of version number as learnt 
+from the <span class="member">dwFileVersionMS</span> and <span class="member">dwFileVersionLS</span> 
+members of the <span class="struct">VS_FIXEDFILEINFO</span> structure in the root 
+block of the version-information resource. The range of satisfactory versions is 
+read from the registry value </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet Explorer\International</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue"><span class="placeholder">exefilename</span></span>
+    </td>
+  </tr>
+</table>
+<p>where <span class="placeholder">exefilename</span> is the filename of the current 
+process’s executable. The function accepts up to <span class="constant">MAX_PATH</span> 
+characters of string data or <span class="constant">MAX_PATH</span> bytes of any 
+data type provided it has a null byte. The interpretation is of a minimum version 
+number, a hyphen and a maximum version number. Characters between the minimum version 
+number and the hyphen are ignored, as are characters after the maximum version number. 
+Each version number is up to four numerical fields separated by periods. Each field 
+consists of as many decimal digits as follow without interruption. Characters between 
+the decimal digits and any period that follows are ignored. Evaluation is modulo 
+64K. Missing fields evaluate as zero. Fields are ordered from most significant to 
+least. The four fields together make an eight-byte version number. If the corresponding 
+eight-byte version number from the version-information resource of the library at 
+the MUI path is not between the minimum and maximum, inclusively, the version checking 
+fails and the MUI path is not accepted. </p>
+<p>For an example of the registry range in Microsoft’s real-world practice, see 
+the Knowledge Base article
+<a target="_top" href="http://support.microsoft.com/kb/834943">MUI functionality 
+in Outlook Express 6.0 SP1 is affected by the MS03-014 cumulative update for Outlook 
+Express</a>. </p>
+<h3>Loading </h3>
+<p>The function then tries to load the satellite library at the selected pathname. 
+If this fails and the selected pathname is the MUI pathname, the function tries 
+to load the library using the module-based pathname. (If none is known, the function 
+uses an empty string at the pathname.) If even this fails, the function tries one 
+last time to load the library, with the pathname this time being whatever was given 
+as <span class="argument">pszLibFileName</span>. </p>
+<h3>Registration </h3>
+<p>Except if the function fails due to <span class="argument">pszLibFileName</span> 
+being NULL, it records its returned <span class="type">HINSTANCE</span> (from the 
+last call to <span class="function">LoadLibrary</span>) and the chosen language 
+ID. This is ordinarily the normalised language, but is the system default UI language 
+if the function has tried to load the library from the module-based pathname. The 
+recording is done through the <span class="function"><a href="set.htm">MLSetMLHInstance</a></span> 
+function and must be undone by calling <span class="function">
+<a href="clear.htm">MLClearMLHInstance</a></span>, as when calling
+<span class="function"><a href="free.htm">MLFreeLibrary</a></span>. The record can 
+be consulted by <span class="function"><a href="is.htm">MLIsMLHInstance</a></span>, 
+though only to test if the given library is loaded as a multilingual library, not 
+to find the language that was chosen. </p>
+<h3>Earlier Versions </h3>
+<p>The preceding description is for the SHLWAPI version 6.00 from Windows Vista. 
+Many variations are known for earlier builds and versions. </p>
+<p>In all earlier builds and versions, the <span class="regvalue">CheckVersion</span> 
+value is a boolean for which the usual string data is also accepted. Moreover, the 
+function looks for the <span class="regvalue">CheckVersion</span> value only on 
+the first execution. That the build for Windows Vista reads this value on every 
+execution is a coding oversight introduced by some programmer’s change to using 
+the (relatively) new function <span class="function">SHRegGetValue</span> where 
+the old code uses <span class="function">SHRegGetBoolUSValue</span>. The latter 
+returns the boolean data and the code stores it to a <span class="keyword">static</span> 
+variable as that variable’s initialisation, such that the compiler generates a so-called 
+static guard against multiple initialisation. The new function returns an error 
+code. On a successful return, the code stores the dword of data to the same variable 
+as before, but not in a way that counts as initialising the variable. The compiler 
+correctly does not generate a guard and the value is therefore read on every execution.
+</p>
+<h4>Normalised Language </h4>
+<p>Builds of version 6.00 from Windows XP and Internet Explorer 6.0, and all earlier 
+versions, have a more elaborate determination of the normalised language (which 
+makes greater use of the <span class="argument">dwCrossCodePage</span> argument).
+</p>
+<p>If the meaningful bits of <span class="argument">dwCrossCodePage</span> are
+<span class="constant">ML_SHELL_LANGUAGE</span>, then the normalised language is 
+the <a href="shell.htm">shell language</a>, if a non-zero language ID can be determined 
+for it. Otherwise, the function falls back to the <a href="install.htm">install 
+language</a>. </p>
+<p>Most other values for the meaningful bits of <span class="argument">dwCrossCodePage</span> 
+select the <a href="mui.htm">MUI language</a> as the normalised language. Again, 
+if no non-zero language ID is found this way, the function falls back to the install 
+language. This fallback to the install language is forced if any of the following 
+is true: </p>
+<ul>
+  <li>the function is not executing on Windows 2000 or higher and the system’s ANSI 
+  code page (from <span class="function">GetACP</span>) is one of 874 (Thai), 1255 
+  (Hebrew) or 1256 (Arabic); </li>
+  <li>the meaningful bits of <span class="argument">dwCrossCodePage</span> are
+  <span class="constant">ML_NO_CROSSCODEPAGE</span>; </li>
+  <li>the function is not executing on an NT system and the meaningful bits of
+  <span class="argument">dwCrossCodePage</span> are <span class="constant">ML_CROSSCODEPAGE_NT</span>;
+  </li>
+</ul>
+<p>unless at least one of several other conditions is met: </p>
+<ul>
+  <li>the MUI language ID is 0x0409, i.e., en-US; </li>
+  <li>the MUI language is the install language; </li>
+  <li>the default ANSI code page for the MUI language is the same as the system’s 
+  ANSI code page. </li>
+</ul>
+<h4>Possible Satellite Locations </h4>
+<p>Builds of version 6.00 for Windows XP and Internet Explorer 6.0, and all earlier 
+versions, do not check that the module-based pathname fits the allowance of
+<span class="constant">MAX_PATH</span> characters without truncation. The builds 
+of version 6.00 for Windows Server 2003 check, but a coding oversight means that 
+a truncated pathname does not get completely rejected. The function will still try 
+to use the truncated pathname for version-checking and as the fallback if the library 
+cannot be loaded from the MUI pathname. This is fixed in the version 6.00 from Windows 
+Vista. </p>
+<h4>Version Checking </h4>
+<p>Support for a registry value to provide a range of MUI-compatible versions begins 
+with the version 6.00 from Windows XP SP1 (and the roughly contemporaneous version 
+6.00 from Internet Explorer 6.0 SP1). </p>
+<h2>Availability </h2>
+<p>The <span class="function">MLLoadLibrary</span> function is exported from SHLWAPI.DLL 
+as ordinals 377 and 378 (for ANSI and Unicode forms, respectively) in version 5.00 
+and higher. It is also exported by name in the version 6.00 from Windows Vista, 
+and higher. </p>
+<p>Documentation of this function by Microsoft has a curious history. Editions of 
+the MSDN Library on CD from both January 2001 and January 2004 give the function 
+two more arguments than it is known ever to have as an exported function. Until 
+such errors were corrected, the function may just as well not have been documented 
+at all. The obvious companion function <span class="function">MLFreeLibrary</span> 
+didn’t get documented until some time duing 2004. Perhaps Microsoft regarded both 
+functions as internal to Internet Explorer. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 12th July 2009 and was last modified 
+  on 17th July 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="50766" endspan -->
+</div>
+
+</body>
+
+</html>

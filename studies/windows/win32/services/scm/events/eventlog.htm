@@ -1,0 +1,489 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Service Control Manager EventLog Provider</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="54033" endspan -->
+<h1>The Service Control Manager Eventlog Provider </h1>
+<p>Events that SERVICES.EXE writes to the System log are most easily identified 
+in the Event Viewer as the ones whose source is listed as Service Control Manager 
+Eventlog Provider. However, that is just a localised friendly name, as picked up 
+from a manifest. The formal name of the event provider itself is just Service Control 
+Manager. This is what’s stored in the registry. It is what you will see on the Details 
+tab for an event in the Event Viewer, and it is the name you need if controlling 
+this provider through such tools as WEVTUTIL or the Reliability and Performance 
+Monitor. </p>
+<table>
+  <tr>
+    <td>Provider Name: </td>
+    <td>Service Control Manager </td>
+  </tr>
+  <tr>
+    <td>Provider GUID: </td>
+    <td>{555908D1-A6D7-4695-8E1E-26931D2012F4} </td>
+  </tr>
+  <tr>
+    <td>Symbolic Name for GUID: </td>
+    <td><span class="symbol">S_Service_Control_Manager</span> </td>
+  </tr>
+</table>
+<p>Events from this provider get to the System log in the Event Viewer because Windows 
+is set up so that the registry has this provider already configured as a publisher 
+to the Eventlog-System session. </p>
+<p>It may be as well to explain here that when SERVICES fires these events to the 
+System log, it is not a manifest-based provider despite coming with an instrumentation 
+manifest, nor is it exactly what the documentation refers to as a classic provider. 
+The way it fires events is a little exotic. Early versions are straightforward users 
+of the functions that Microsoft documents for Event Logging, such as
+<span class="function">RegisterEventSource</span> and <span class="function">ReportEvent</span>, 
+but there was a significant recoding for Windows XP. SERVICES is nowadays a Windows 
+Management Instrumentation (WMI) event provider, and specifically a decoupled non-COM 
+provider. The non-COM aspect is undocumented. Indeed, the page
+<a target="_top" href="http://msdn.microsoft.com/library/aa392783.aspx">Provider 
+Hosting and Security</a> from the Windows SDK states explicitly that the Decoupled:Noncom 
+hosting model is “for internal use only” and is “not supported”. SERVICES is one 
+of its very few users. It relies on undocumented functions such as
+<span class="function">WmiEventSourceConnect</span>, <span class="function">WmiCreateObjectWithFormat</span> 
+and <span class="function">WmiSetAndCommitObject</span> that are implemented in 
+NCOBJAPI.DLL. </p>
+<p>The WMI provider in SERVICES calls itself the SCM Event Provider, in the root\cimv2 
+namespace. Aside from using the non-COM API, delivery into the event log is as straightforward 
+as for any WMI event provider. Each possible event is a managed object and is represented 
+by a WMI class. Parameters that can be passed with the event are represented as 
+members of the class. The name of the class and the names of the parameters are 
+hard-coded in SERVICES, which registers them at run-time with WMI. The mapping of 
+these managed objects to Windows events depends on matching their names with definitions 
+that have been compiled into the WMI repository from a source file named SCM.MOF 
+(supplied in the WBEM subdirectory of the Windows system directory). </p>
+<p>By contrast, consumption of these events in Windows Vista is bang up-to-date. 
+Presentation in the Event Viewer depends on definitions in an instrumentation manifest, 
+which Microsoft supplies as an <span class="tag">&lt;instrumentation&gt;</span> block 
+within the manifest that represents SERVICES as an assembly. Refer to the separate 
+note about <a href="../versions.htm">SERVICES Versions</a> for the name and location. 
+The instrumentation manifest is also compiled into the SERVICES resources, as WEVT_TEMPLATE.
+</p>
+<p>That these events are provided through MOF files but consumed through manifests 
+turns out to have practical consequence, albeit very slight: as shown below, an 
+error in the MOF file means that two events become one. Presumably, this has not 
+confused anyone, else Microsoft might have corrected it by now. </p>
+<p>Another consequence, but one which is noted only for completeness, is that the 
+symbolic name for the provider GUID, as given in the manifest, is not actually used 
+in the SERVICES code. </p>
+<h2>Possible Events </h2>
+<p>The large table that follows lists all the events that SERVICES registers with 
+WMI for firing to the System log (not that this necessarily means that all these 
+events actually can occur). Descriptions are reproduced from the relevant manifest 
+and message-table resource in the SERVICES executable. Since the instrumentation 
+manifest names the parameters only as <span class="placeholder">param1</span>,
+<span class="placeholder">param2</span>, etc, placeholders in the descriptions are 
+instead resolved below from definitions in the SERVICES code and in SCM.MOF. </p>
+<table>
+  <tr>
+    <th>Event ID </th>
+    <th>Level </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>7000 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service failed to start due 
+    to the following error: <br>
+    <span class="placeholder">Error</span></td>
+  </tr>
+  <tr>
+    <td>7001 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service depends on the
+    <span class="placeholder">DependedOnService</span> service which failed to start 
+    because of the following error: <br>
+    <span class="placeholder">Error</span></td>
+  </tr>
+  <tr>
+    <td>7002 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service depends on the
+    <span class="placeholder">Group</span> group and no member of this group started.</td>
+  </tr>
+  <tr>
+    <td>7003 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service depends the following 
+    service: <span class="placeholder">NonexistingService</span>. This service might 
+    not be installed.</td>
+  </tr>
+  <tr>
+    <td>7005 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">FunctionName</span> call failed with the following 
+    error: <br>
+    <span class="placeholder">Error</span></td>
+  </tr>
+  <tr>
+    <td>7006 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">FunctionName</span> call failed for
+    <span class="placeholder">Argument</span> with the following error: <br>
+    <span class="placeholder">Error</span></td>
+  </tr>
+  <tr>
+    <td>7007 </td>
+    <td>Error </td>
+    <td>The system reverted to its last known good configuration.&nbsp; The system 
+    is restarting....</td>
+  </tr>
+  <tr>
+    <td>7008 </td>
+    <td>Error </td>
+    <td>No backslash is in the account name. The account name must be in the form 
+    domain\user.</td>
+  </tr>
+  <tr>
+    <td>7009 </td>
+    <td>Error </td>
+    <td>A timeout was reached (<span class="placeholder">Milliseconds</span> milliseconds) 
+    while waiting for the <span class="placeholder">Service</span> service to connect.</td>
+  </tr>
+  <tr>
+    <td>7010 </td>
+    <td>Error </td>
+    <td>A timeout was reached (<span class="placeholder">Milliseconds</span> milliseconds) 
+    while waiting for ReadFile.</td>
+  </tr>
+  <tr>
+    <td>7011 </td>
+    <td>Error </td>
+    <td>A timeout was reached (<span class="placeholder">Milliseconds</span> milliseconds) 
+    while waiting for a transaction response from the <span class="placeholder">
+    Service</span> service.</td>
+  </tr>
+  <tr>
+    <td>7012 </td>
+    <td>Error </td>
+    <td>The message returned in the transaction has incorrect size.</td>
+  </tr>
+  <tr>
+    <td>7013 </td>
+    <td>Error </td>
+    <td>Logon attempt with current password failed with the following error: <br>
+    <span class="placeholder">Error</span></td>
+  </tr>
+  <tr>
+    <td>7015 </td>
+    <td>Error </td>
+    <td>Boot-start or system-start driver (<span class="placeholder">Driver</span>) 
+    must not depend on a service.</td>
+  </tr>
+  <tr>
+    <td>7016 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service has reported an invalid 
+    current state <span class="placeholder">State</span>.</td>
+  </tr>
+  <tr>
+    <td>7017 </td>
+    <td>Error </td>
+    <td>Detected circular dependencies demand starting <span class="placeholder">
+    Service</span>. Check the service dependency tree.</td>
+  </tr>
+  <tr>
+    <td>7018 </td>
+    <td>Error </td>
+    <td>Detected circular dependencies auto-starting services. Check the service 
+    dependency tree.</td>
+  </tr>
+  <tr>
+    <td>7019 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service depends on a service 
+    in a group which starts later. Change the order in the service dependency tree 
+    to ensure that all services required to start this service are starting before 
+    this service is started.</td>
+  </tr>
+  <tr>
+    <td>7021 </td>
+    <td>Error </td>
+    <td>About to revert to the last known good configuration because the
+    <span class="placeholder">Service</span> service failed to start.</td>
+  </tr>
+  <tr>
+    <td>7022 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service hung on starting.</td>
+  </tr>
+  <tr>
+    <td>7023 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service terminated with the 
+    following error: <br>
+    <span class="placeholder">Error</span></td>
+  </tr>
+  <tr>
+    <td>7024 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service terminated with service-specific 
+    error <span class="placeholder">Error</span></td>
+  </tr>
+  <tr>
+    <td>7026 </td>
+    <td>Error </td>
+    <td>The following boot-start or system-start driver(s) failed to load:
+    <span class="placeholder">DriverList</span></td>
+  </tr>
+  <tr>
+    <td>7028 </td>
+    <td>Error </td>
+    <td>The Registry key <span class="placeholder">RegistryKey</span> denied access 
+    to SYSTEM account programs so the Service Control Manager took ownership of 
+    the Registry key.</td>
+  </tr>
+  <tr>
+    <td>7030 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service is marked as an interactive 
+    service.&nbsp; However, the system is configured to not allow interactive services.&nbsp; 
+    This service may not function properly.</td>
+  </tr>
+  <tr>
+    <td>7031 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service has terminated unexpectedly.&nbsp; 
+    It has done this <span class="placeholder">TimesFailed</span> time(s).&nbsp; 
+    The following corrective action will be taken in <span class="placeholder">ActionDelay</span> 
+    milliseconds: <span class="placeholder">Action</span>.</td>
+  </tr>
+  <tr>
+    <td>7032 </td>
+    <td>Error </td>
+    <td>The Service Control Manager tried to take a corrective action (<span class="placeholder">Action</span>) 
+    after the unexpected termination of the <span class="placeholder">Service</span> 
+    service but this action failed with the following error: <br>
+    <span class="placeholder">Error</span></td>
+  </tr>
+  <tr>
+    <td>7034 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service terminated unexpectedly.&nbsp; 
+    It has done this <span class="placeholder">TimesFailed</span> time(s).</td>
+  </tr>
+  <tr>
+    <td>7035 </td>
+    <td>Information </td>
+    <td>The <span class="placeholder">Service</span> service was successfully sent 
+    a <span class="placeholder">Control</span> control. </td>
+  </tr>
+  <tr>
+    <td>7036 </td>
+    <td>Information </td>
+    <td>The <span class="placeholder">Service</span> service entered the
+    <span class="placeholder">Control</span> state. </td>
+  </tr>
+  <tr>
+    <td>7037 </td>
+    <td>Error </td>
+    <td>The Service Control Manager encountered an error undoing a configuration 
+    change to the <span class="placeholder">Service</span> service.&nbsp; The service&#39;s
+    <span class="placeholder">ConfigField</span> is currently in an unpredictable 
+    state.&nbsp; If you do not correct this configuration, you may not be able to 
+    restart the <span class="placeholder">Service</span> service or may encounter 
+    other errors.&nbsp; To ensure that the service is configured properly, use the 
+    Services snap-in in Microsoft Management Console (MMC).</td>
+  </tr>
+  <tr>
+    <td>7038 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service was unable to log on 
+    as <span class="placeholder">Account</span> with the currently configured password 
+    due to the following error: <br>
+    <span class="placeholder">Error</span><br>
+    <br>
+    To ensure that the service is configured properly, use the Services snap-in 
+    in Microsoft Management Console (MMC).</td>
+  </tr>
+  <tr>
+    <td>7039 </td>
+    <td>Warning </td>
+    <td>A service process other than the one launched by the Service Control Manager 
+    connected when starting the <span class="placeholder">Service</span> service.&nbsp; 
+    The Service Control Manager launched process <span class="placeholder">ExpectedPID</span> 
+    and process <span class="placeholder">ActualPID</span> connected instead.<br>
+    <br>
+&nbsp; Note that if this service is configured to start under a debugger, this behavior 
+    is expected.</td>
+  </tr>
+  <tr>
+    <td>7040 </td>
+    <td>Information </td>
+    <td>The start type of the <span class="placeholder">Service</span> service was 
+    changed from <span class="placeholder">OldStartType</span> to
+    <span class="placeholder">NewStartType</span>.</td>
+  </tr>
+  <tr>
+    <td>7041 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service was unable to log on 
+    as <span class="placeholder">Account</span> with the currently configured password 
+    due to the following error: <br>
+    Logon failure: the user has not been granted the requested logon type at this 
+    computer.<br>
+&nbsp;<br>
+    Service: <span class="placeholder">Service</span><br>
+    Domain and account: <span class="placeholder">Account</span><br>
+&nbsp;<br>
+    This service account does not have the required user right &quot;Log on as a service.&quot;<br>
+&nbsp;<br>
+    User Action<br>
+&nbsp;<br>
+    Assign &quot;Log on as a service&quot; to the service account on this computer. You can 
+    use Local Security Settings (Secpol.msc) to do this. If this computer is a node 
+    in a cluster, check that this user right is assigned to the Cluster service 
+    account on all nodes in the cluster. <br>
+&nbsp;<br>
+    If you have already assigned this user right to the service account and the 
+    user right appears to be removed, check with your domain administrator to find 
+    out if a Group Policy object associated with this node might be removing the 
+    right.</td>
+  </tr>
+  <tr>
+    <td>7042 </td>
+    <td>Information </td>
+    <td>The <span class="placeholder">Service</span> service was successfully sent 
+    a <span class="placeholder">Control</span> control.<br>
+    <br>
+&nbsp;The reason specified was <span class="placeholder">Reason</span> [<span class="placeholder">ReasonText</span>]<br>
+    <br>
+&nbsp;Comment: <span class="placeholder">Comment</span></td>
+  </tr>
+  <tr>
+    <td>7043 </td>
+    <td>Error </td>
+    <td>The <span class="placeholder">Service</span> service did not shut down properly 
+    after receiving a preshutdown control.</td>
+  </tr>
+  <tr>
+    <td>7044 </td>
+    <td>Warning </td>
+    <td>The following service is taking more than <span class="placeholder">StartupTime</span> 
+    minutes to start and may have stopped responding: <span class="placeholder">
+    Service</span><br>
+    <br>
+    Contact your system administrator or service vendor for approximate startup 
+    times for this service.<br>
+    <br>
+    If you think this service might be slowing system response or logon time, talk 
+    to your system administrator about whether the service should be disabled until 
+    the problem is identified.<br>
+    <br>
+    You may have to restart the computer in safe mode before you can disable the 
+    service.</td>
+  </tr>
+</table>
+<p>Event 7019 is unusual in that it originates in SERVICES.EXE as two distinct events. 
+(The WMI class names are <span class="class">MSFT_NetDependOnLaterService</span> 
+and <span class="class">MSFT_NetDependOnLaterGroup</span>.) That SCM.MOF translates 
+them both to 7019 looks to be an editing error. The latter would better translate 
+to 7020, which is indeed what the manifest gives as the value for the event that 
+it represents as <span class="symbol">EVENT_DEPEND_ON_LATER_GROUP</span>. The obvious 
+experiment of setting a service’s <span class="regvalue">DependOnGroup</span> to 
+name a later-loading group does indeed produce event 7019 instead of 7020, confirming 
+that these events are delivered into the event log classically, i.e., using MOF 
+files rather than a manifest. </p>
+<p>In the description given above for event 7036, the second placeholder is reproduced 
+correctly as <span class="placeholder">Control</span>, though clearly it does not 
+stand for a control but a status. See the SCM.MOF entry for <span class="class">
+MSFT_NetServiceStatusSuccess</span>. The grammatical error in the description of 
+event 7003 is also reproduced from Microsoft. </p>
+<p>A few events have parameters that are not used for the descriptions. Events 7031 
+and 7032 have an <span class="placeholder">ActionType</span>, as the fourth and 
+first parameter respectively. Events 7035, 7040 and 7042 each have a
+<span class="placeholder">sid</span> as the last parameter. Event 7041 has an
+<span class="placeholder">Error</span> as the last parameter, but it can only be 
+0x0569 (<span class="constant">ERROR_LOGON_TYPE_NOT_GRANTED</span>), else the event 
+would have been 7038. </p>
+<p>For several events, comments in SCM.MOF suggest descriptive text that is slightly 
+different (and sometimes very different) from what is shown above. They are just 
+comments. What counts for display in the Event Viewer is what’s found in the manifest. 
+That said, the manifest and the message-table resource in SERVICES.EXE both provide 
+the following messages for IDs which SERVICES.EXE cannot ever fire as events and 
+which SCM.MOF does not translate. Except for 7020, as discussed above, they are 
+perhaps obsolete. </p>
+<table>
+  <tr>
+    <th>ID </th>
+    <th>Text </th>
+  </tr>
+  <tr>
+    <td>7014 </td>
+    <td>Second logon attempt with old password also failed with the following error:
+    <br>
+    <span class="placeholder">Error</span></td>
+  </tr>
+  <tr>
+    <td>7020 </td>
+    <td>The <span class="placeholder">Service</span> service depends on a group 
+    which starts later. Change the order in the service dependency tree to ensure 
+    that all services required to start this service are starting before this service 
+    is started.</td>
+  </tr>
+  <tr>
+    <td>7025 </td>
+    <td>At least one service or driver failed during system startup.&nbsp; Use Event 
+    Viewer to examine the event log for details.</td>
+  </tr>
+  <tr>
+    <td>7027 </td>
+    <td>Windows could not be started as configured. Starting Windows using a previous 
+    working configuration.</td>
+  </tr>
+  <tr>
+    <td>7029 </td>
+    <td>Service Control Manager %0 </td>
+  </tr>
+  <tr>
+    <td>7033 </td>
+    <td>The Service Control Manager did not initialize successfully. The security 
+    configuration server (scesrv.dll) failed to initialize with the following error
+    <span class="placeholder">Error</span>.&nbsp; The system is restarting...</td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 12th October 2008 and was last modified 
+  on 3rd January 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0809.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="55399" endspan -->
+</div>
+
+</body>
+
+</html>

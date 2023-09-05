@@ -1,0 +1,192 @@
+﻿<html>
+
+<head>
+<meta name="GENERATOR" content="Microsoft FrontPage 12.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>WM_COPYDATA for Taskbar Interface</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js">
+</script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>WM_COPYDATA for Taskbar Interface </h1>
+<p>Each of the <span class="function">SHAppBarMessage</span>,
+<span class="function">Shell_NotifyIcon</span>, <span class="function">
+SHEnableServiceObject</span> 
+and <span class="function">SHLoadInProc</span> functions is little more than a 
+gateway for sending data to the taskbar window (and in some few cases, getting 
+data back). The packaging of this data and the methods of its transmission are 
+implementation details, but have much in common across the functions. </p>
+<p>The calling process is typically not the process that implements the taskbar 
+window. The standard method of passing data to a window function in another 
+process is with the <span class="message">WM_COPYDATA</span> message. This 
+provides for passing a DWORD in the <span class="member">dwData</span> member of 
+the
+<span class="struct">COPYDATASTRUCT</span> and/or an arbitrary amount in a 
+buffer described by the <span class="member">lpData</span> and <span class="member">
+cbData</span> 
+members. SHELL32 passes both. The DWORD serves to identify which function the 
+data in the buffer is being passed for: </p>
+<table>
+  <tr>
+    <td>0 </td>
+    <td><span class="function">SHAppBarMessage</span> </td>
+  </tr>
+  <tr>
+    <td>1 </td>
+    <td><span class="function">Shell_NotifyIcon</span> </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td><span class="function">SHEnableServiceObject</span> or
+    <span class="function">SHLoadInProc</span> </td>
+  </tr>
+</table>
+<p>The buffer layout for <span class="function">SHAppBarMessage</span> is: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th class="Offset">Offset </th>
+    <th class="Size">Size </th>
+    <th class="Remarks">Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x28 bytes </td>
+    <td>enhanced <span class="struct">APPBARDATA</span> structure, with
+    <span class="member">cbSize</span> set to 0x28 and <span class="member">
+    lParam</span> 
+    sign-extended to QWORD </td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>dword </td>
+    <td><span class="argument">dwMessage</span> argument </td>
+  </tr>
+  <tr>
+    <td>0x2C </td>
+    <td>dword </td>
+    <td>handle to a copy of the enhanced <span class="struct">APPBARDATA</span> 
+    in shared memory, else NULL </td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td>dword </td>
+    <td>process ID of caller </td>
+  </tr>
+  <tr>
+    <td>0x34 </td>
+    <td>0x04 bytes </td>
+    <td>unused, presumed to be padding from QWORD alignment </td>
+  </tr>
+</table>
+<p>The point to the shared memory and process ID is that for some values of
+<span class="argument">dwMessage</span>, the <span class="function">
+SHAppBarMessage</span> 
+function is expected to return information in members of the
+<span class="struct">APPBARDATA</span> structure. However, the
+<span class="message">WM_COPYDATA</span> mechanism copies data only from the 
+source to the taskbar window, without providing a means to write back. The 
+solution found by SHELL32 is that in the cases where it is needed, the enhanced
+<span class="struct">APPBARDATA</span> that is anyway passed in the buffer is 
+also copied to shared memory and the means for accessing this shared memory is 
+also passed in the buffer. </p>
+<p>For <span class="function">Shell_NotifyIcon</span>, the data for the buffer 
+is laid out as follows. In the symbol file for EXPLORER.EXE, Microsoft publishes 
+a name for this otherwise undocumented structure: <span class="struct">
+TRAYNOTIFYDATAW</span>. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th class="Offset">Offset </th>
+    <th class="Size">Size </th>
+    <th class="Remarks">Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>signature: 0x34753423 </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td><span class="argument">dwMessage</span> argument </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x03B8 bytes </td>
+    <td><span class="struct">NOTIFYICONDATAW</span> structure in current layout, 
+    constructed on stack from input at <span class="argument">lpdata</span> </td>
+  </tr>
+</table>
+<p>The <span class="function">SHEnableServiceObject</span> and
+<span class="function">SHLoadInProc</span> functions reduce to one operation 
+differentiated by flags. The buffer layout is: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th class="Offset">Offset </th>
+    <th class="Size">Size </th>
+    <th class="Remarks">Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x10 bytes </td>
+    <td>CLSID from <span class="argument">rclsid</span> argument </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>dword </td>
+    <td>0x01 for <span class="function">SHLoadInProc</span> <br>
+    0x02 for <span class="function">SHEnableServiceObject</span> if
+    <span class="argument">fEnable</span> argument is FALSE <br>
+    0x03 for <span class="function">SHEnableServiceObject</span> if
+    <span class="argument">fEnable</span> argument is non-zero </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 8th April 2007 and was last modified 
+  on 19th December 2008. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0708.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2007-2008. Geoff Chappell. All rights reserved.
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="4303" endspan -->
+</div>
+
+</body>
+
+</html>

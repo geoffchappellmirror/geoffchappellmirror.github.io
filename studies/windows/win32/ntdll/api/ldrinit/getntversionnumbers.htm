@@ -1,0 +1,136 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RtlGetNtVersionNumbers</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="54033" -->
+<h1>RtlGetNtVersionNumbers </h1>
+<p>The <span class="function">RtlGetNtVersionNumbers</span> function gets Windows 
+version numbers directly from NTDLL. </p>
+<h2>Declaration </h2>
+<pre class="source">VOID 
+RtlGetNtVersionNumbers (
+    DWORD *MajorVersion, 
+    DWORD *MinorVersion, 
+    DWORD *BuildNumber);</pre>
+<h3>Parameters </h3>
+<p>The optional <span class="argument">MajorVersion</span> and
+<span class="argument">MinorVersion</span>  
+arguments each give the address of a variable that is to receive the corresponding 
+part of the Windows version number. Each can be <span class="constant">NULL</span> if the corresponding 
+part is not wanted. </p>
+<p>The optional <span class="argument">BuildNumber</span> 
+argument gives the address of a variable that is to receive a number that 
+describes the build. This too can be <span class="constant">NULL</span> if the number 
+is not wanted. The low 16 bits are the build number as commonly understood. The 
+high four bits of the number distinguish free and checked builds. </p>
+<h2>Availability </h2>
+<p>The <span class="function">RtlGetNtVersionNumbers</span> function is exported 
+by name from NTDLL in version 5.1 and higher. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">RtlGetNtVersionNumbers</span> function is not documented.
+While Microsoft’s names for the function’s arguments are not known, this article 
+uses inventions.</p>
+<h2>Behaviour </h2>
+<p>This very simple function simply sets each of the given variables with the corresponding 
+number directly from NTDLL’s own data or code. In this sense, the version numbers 
+produced by <span class="function">RtlGetNtVersionNumbers</span> are
+the
+<span class="emphasis">true</span> Windows version numbers. </p>
+<p>The immediate contrast is 
+with the version numbers that are held in the <span class="struct">
+<a href="../../structs/peb/index.htm">PEB</a></span> as the <span class="member">
+OSMajorVersion</span>, <span class="member">OSMinorVersion</span> and
+<span class="member">OSBuildNumber</span> members in 
+version 4.0 and higher. Historically, these are the version numbers that are 
+reported by the NTDLL export <span class="function">RtlGetVersion</span> and the 
+older KERNEL32 (and nowadays KERNELBASE) exports <span class="function">
+GetVersion</span> and <span class="function">GetVersionEx</span>. They still are 
+the starting point for what these functions report. But even though they are set 
+into the <span class="struct">PEB</span> by the kernel when creating the 
+process, they never have been reliably the kernel’s version numbers and—like 
+everything else in the <span class="struct">PEB</span>—they are anyway 
+susceptible to being changed by arbitrary user-mode software, whether by design 
+or for mischief. </p>
+<h2>Use By Microsoft </h2>
+<p>Microsoft’s only known use of the <span class="function">RtlGetNtVersionNumbers</span> 
+function is for the MSVCRT.DLL that is distributed with Windows. Possibly every 
+C and C++ programmer for Windows has at some time thought to use the Visual Studio 
+compiler’s <span class="switch">/MD</span> switch so that routines from the C Run-Time 
+Library (CRT) will be imported dynamically from a DLL instead of being statically 
+linked (and adding bloat to the binary). All but a handful will at least once have 
+been surprised that their (significantly smaller) binary doesn’t run on some other 
+Windows computers. The cause, of the program’s failure, not of the programmer’s 
+surprise, is that Visual Studio will ordinarily have built the binary to import 
+not from an MSVCRT.DLL that you can count on to be present but from a numbered variant 
+that is specific to the Visual Studio version and whose run-time presence you can’t 
+count on unless you install it with your binary as some sort of prerequisite extra.
+</p>
+<p>How this does not prompt howls of protest from programmers, I don’t know. Microsoft’s 
+own low-level user-mode code imports from an MSVCRT.DLL that is distributed with 
+Windows. Microsoft’s kits for low-level programming, e.g., the Windows Driver Kit 
+(WDK), often have included an import library MSVCRT.LIB to link with for importing 
+from whatever system-supplied MSVCRT.DLL is present wherever the linked binary runs. 
+But how programmers get their binaries to use the system-supplied MSVCRT is 
+not this note’s interest. </p>
+<p>The problem for a system-supplied MSVCRT is that it may be specific to the 
+system version that it’s supplied with yet its determination of this version depends 
+on what process it happens to be loaded into. That processes can be lied to about 
+the Windows version they’re running on, usually but not always to help them over 
+some incompatibility, has a very long history. While it may be a useful facility 
+for dealing with applications, it must be more than an occasional problem for 
+all programmers who write DLLs for general use in arbitrary processes. Quite why 
+the problem applies to MSVCRT so much more than to others that MSVCRT needs the 
+special help of an undocumented NTDLL function is not known, but pretty much the first thing that 
+the system-supplied MSVCRT does is to call <span class="function">RtlGetNtVersionNumbers</span> 
+so that it can decline its initialisation if it is not running on the expected 
+system version. </p>
+<p>Only the naive would be surprised that the CRT source code, which Microsoft publishes 
+with Visual Studio, does not show the <span class="routine">_CRTDLL_INIT</span> 
+routine’s use of the <span class="function">RtlGetNtVersionNumbers</span> function. 
+The closest that this use of the function brought Microsoft to disclosing it is 
+that for many years, up to and including Visual Studio 2010, the source code did 
+have a <span class="keyword">typedef</span> for the otherwise unreferenced name
+<span class="type">NTVERSION_INFO_FNC</span> as a pointer to the function. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 30th
+  <a href="../../../../../../new/19/03.htm">March 2019</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62933" -->
+</div>
+
+</body>
+
+</html>

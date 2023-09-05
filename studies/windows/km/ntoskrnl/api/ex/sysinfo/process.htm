@@ -1,0 +1,562 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SYSTEM_PROCESS_INFORMATION</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>SYSTEM_PROCESS_INFORMATION </h1>
+<p>The <span class="struct">SYSTEM_PROCESS_INFORMATION</span> structure is what 
+a successful call to <span class="function"><a href="query.htm">ZwQuerySystemInformation</a></span> 
+or <span class="function">NtQuerySystemInformation</span> produces at the start 
+of its output buffer and irregularly throughout the buffer when given the information 
+class <span class="constant">SystemProcessInformation</span> (0x05),
+<span class="constant">SystemExtendedProcessInformation</span> (0x39) or
+<span class="constant">SystemFullProcessInformation</span> (0x94). </p>
+<p>These information classes produce descriptions not just of the running processes 
+but also of those processes’ threads. A quick summary is that the information for 
+each process is: </p>
+<ul>
+  <li>a <span class="struct">SYSTEM_PROCESS_INFORMATION</span>: </li>
+  <li>an array of <span class="struct"><a href="thread.htm">SYSTEM_THREAD_INFORMATION</a></span> 
+  or <span class="struct"><a href="extended_thread.htm">SYSTEM_EXTENDED_THREAD_INFORMATION</a></span> 
+  structures, one per thread; </li>
+  <li>a <span class="struct"><a href="process_extension.htm">SYSTEM_PROCESS_INFORMATION_EXTENSION</a></span>;
+  </li>
+  <li>and variable-size data, notably the process’s name, indicated by members of 
+  the preceding structures. </li>
+</ul>
+<p>The totality of the output for all processes is a sequence of these variable-size 
+sets, one per process. In each set, the <span class="member">NextEntryOffset</span> 
+member at the beginning of the <span class="struct">SYSTEM_PROCESS_INFORMATION</span> 
+tells how many bytes to advance from that <span class="struct">SYSTEM_PROCESS_INFORMATION</span> 
+to the next, or is zero in the last. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="struct">SYSTEM_PROCESS_INFORMATION</span> structure is defined 
+in WINTERNL.H from the Software Development Kit (SDK). The definition there is greatly 
+reduced, defining just the <span class="member">NextEntryOffset</span>,
+<span class="member">UniqueProcessId</span>, <span class="member">HandleCount</span>,
+<span class="member">PeakPagefileUsage</span> and <span class="member">PrivatePageCount</span> 
+members. Documentation of <span class="function">NtQuerySystemInformation</span> 
+describes the <span class="constant">SystemProcessInformation</span> case as returning 
+“an array of <span class="struct">SYSTEM_PROCESS_INFORMATION</span> structures, 
+one for each process running in the system”, with no mention of what information 
+lies in between. Separate documentation of <span class="function">ZwQuerySystemInformation</span> 
+presents a <span class="struct">SYSTEM_PROCESS_INFORMATION</span> that differs slightly 
+from the WINTERNL.H definition in showing the <span class="member">NumberOfThreads</span> 
+member too, again without noting the connection with information between the “documented” 
+structures. </p>
+<!--webbot bot="Include" U-Include="_include/type_info_urlmon.htm" TAG="BODY" startspan -->
+
+<p>Microsoft does publish the practical equivalent of a C-language definition as 
+type information in public symbol files, though not for the kernel, where the structure 
+is prepared, nor even for low-level user-mode DLLs that interpret the structure, 
+but for various higher-level user-mode DLLs such as URLMON.DLL and only then starting 
+with version 6.2. </p>
+
+<!--webbot bot="Include" endspan i-checksum="38013" -->
+<!--webbot bot="Include" U-Include="_include/type_info_ddklibs.htm" TAG="BODY" startspan -->
+
+<p>Two earlier disclosures of type information are known, though not in symbol files 
+but in statically linked libraries: GDISRVL.LIB from the Device Driver Kit (DDK) 
+for Windows NT 3.51; and SHELL32.LIB from the DDK for Windows NT 4.0. </p>
+
+<!--webbot bot="Include" endspan i-checksum="55883" -->
+<h2>Layout </h2>
+<p>Since version 5.0, the <span class="struct">SYSTEM_PROCESS_INFORMATION</span> 
+is 0xB8 or 0x0100 bytes in 32-bit and 64-bit Windows, respectively. The original 
+structure is 0x88 bytes. The change can ultimately be traced to a problem that early 
+versions had with the I/O counters. Though version 3.10 provided for 64-bit counts 
+of bytes transferred, it allowed only 32 bits for counting operations. The need 
+to widen the latter to 64 bits each seems to have caused them all to be dropped 
+for several versions. It is not just that they are not retrievable in this structure 
+(or through the <span class="constant">ProcessIoCounters</span> case of
+<span class="function">NtQueryInformationProcess</span>), but that the kernel stops 
+maintaining them. When they were brought back for version 5.0, all now 64-bit, they 
+were appended. Not until version 6.1 is the space that had been occupied by the 
+32-bit counts fully reassigned. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ULONG NextEntryOffset;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">ULONG NumberOfThreads;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x08 </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">LARGE_INTEGER ReadTransferCount;</pre>
+    </td>
+    <td>3.10 only </td>
+    <td>later at 0xA0 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x08 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER SpareLi1;</pre>
+    </td>
+    <td>3.50 to 5.2 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">LARGE_INTEGER WorkingSetPrivateSize;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x10 </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">LARGE_INTEGER WriteTransferCount;</pre>
+    </td>
+    <td>3.10 only </td>
+    <td>later at 0xA8 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x10 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER SpareLi2;</pre>
+    </td>
+    <td>3.50 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG HardFaultCount;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>0x14 </td>
+    <td>
+    <pre class="source">ULONG NumberOfThreadsHighWatermark;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x18 </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">LARGE_INTEGER OtherTransferCount;</pre>
+    </td>
+    <td>3.10 only </td>
+    <td>later at 0xB0 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x18 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER SpareLi3;</pre>
+    </td>
+    <td>3.50 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONGLONG CycleTime;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER CreateTime;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>0x28 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER UserTime;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td>0x30 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER KernelTime;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x38 </td>
+    <td>0x38 </td>
+    <td>
+    <pre class="source">UNICODE_STRING ImageName;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x40 </td>
+    <td>0x48 </td>
+    <td>
+    <pre class="source">LONG BasePriority;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x44 </td>
+    <td>0x50 </td>
+    <td>
+    <pre class="source">PVOID UniqueProcessId;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x48 </td>
+    <td>0x58 </td>
+    <td>
+    <pre class="source">PVOID InheritedFromUniqueProcessId;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x4C </td>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">ULONG ReadOperationCount;</pre>
+    </td>
+    <td>3.10 only </td>
+    <td>later as <span class="union">LARGE_INTEGER</span> at 0x88 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG SpareUl1;</pre>
+    </td>
+    <td>3.50 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x60 </td>
+    <td>
+    <pre class="source">ULONG HandleCount;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x50 </td>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">ULONG WriteOperationCount;</pre>
+    </td>
+    <td>3.10 only </td>
+    <td>later as <span class="union">LARGE_INTEGER</span> at 0x90 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG SpareUl2;</pre>
+    </td>
+    <td>3.50 to 4.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x64 </td>
+    <td>
+    <pre class="source">ULONG SessionId;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x54 </td>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">ULONG OtherOperationCount;</pre>
+    </td>
+    <td>3.10 only </td>
+    <td>later as <span class="union">LARGE_INTEGER</span> at 0x98 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG SpareUl3;</pre>
+    </td>
+    <td>3.50 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x68 </td>
+    <td>
+    <pre class="source">ULONG_PTR UniqueProcessKey;</pre>
+    </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x58 </td>
+    <td>0x70 </td>
+    <td>
+    <pre class="source">ULONG_PTR PeakVirtualSize;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C </td>
+    <td>0x78 </td>
+    <td>
+    <pre class="source">ULONG_PTR VirtualSize;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x60 </td>
+    <td>0x80 </td>
+    <td>
+    <pre class="source">ULONG PageFaultCount;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x64 </td>
+    <td>0x88 </td>
+    <td>
+    <pre class="source">ULONG_PTR PeakWorkingSetSize;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x68 </td>
+    <td>0x90 </td>
+    <td>
+    <pre class="source">ULONG_PTR WorkingSetSize;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6C </td>
+    <td>0x98 </td>
+    <td>
+    <pre class="source">ULONG_PTR QuotaPeakPagedPoolUsage;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x70 </td>
+    <td>0xA0 </td>
+    <td>
+    <pre class="source">ULONG_PTR QuotaPagedPoolUsage;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x74 </td>
+    <td>0xA8 </td>
+    <td>
+    <pre class="source">ULONG_PTR QuotaPeakNonPagedPoolUsage;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x78 </td>
+    <td>0xB0 </td>
+    <td>
+    <pre class="source">ULONG_PTR QuotaNonPagedPoolUsage;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x7C </td>
+    <td>0xB8 </td>
+    <td>
+    <pre class="source">ULONG_PTR PagefileUsage;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x80 </td>
+    <td>0xC0 </td>
+    <td>
+    <pre class="source">ULONG_PTR PeakPagefileUsage;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x84 </td>
+    <td>0xC8 </td>
+    <td>
+    <pre class="source">ULONG_PTR PrivatePageCount;</pre>
+    </td>
+    <td>all </td>
+    <td>last member in 3.10 to 4.0 </td>
+  </tr>
+  <tr>
+    <td>0x88 </td>
+    <td>0xD0 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER ReadOperationCount;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>earlier as <span class="type">ULONG</span> at 0x4C </td>
+  </tr>
+  <tr>
+    <td>0x90 </td>
+    <td>0xD8 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER WriteOperationCount;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>earlier as <span class="type">ULONG</span> at 0x50 </td>
+  </tr>
+  <tr>
+    <td>0x98 </td>
+    <td>0xE0 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER OtherOperationCount;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>earlier as <span class="type">ULONG</span> at 0x54 </td>
+  </tr>
+  <tr>
+    <td>0xA0 </td>
+    <td>0xE8 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER ReadTransferCount;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>earlier at 0x08 </td>
+  </tr>
+  <tr>
+    <td>0xA8 </td>
+    <td>0xF0 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER WriteTransferCount;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>earlier at 0x10 </td>
+  </tr>
+  <tr>
+    <td>0xB0 </td>
+    <td>0xF8 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER OtherTransferCount;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>earlier at 0x18 </td>
+  </tr>
+</table>
+<p>The name <span class="member">SpareUl1</span> is an invention. Microsoft’s names
+<span class="member">SpareUl2</span> and <span class="member">SpareUl3</span> for 
+the other 32-bit counts that were discontinued for version 3.50 survive in the GDISRVL.LIB 
+for version 3.51 but the first in the sequence had already been ressigned as the
+<span class="member">HandleCount</span>. </p>
+<p>Whatever may be suggested to the contrary by its name, the
+<span class="member">PrivatePageCount</span> is of bytes, just like the other counters 
+whose names talk of size or usage. </p>
+<h3>Variable-Size Data </h3>
+<p>Some of the <span class="struct">SYSTEM_PROCESS_INFORMATION</span> members are 
+specially important for describing the variable-size data that continues the process’s 
+description. </p>
+<p>Immediately following the <span class="struct">SYSTEM_PROCESS_INFORMATION</span> 
+is an array of zero or more <span class="struct">SYSTEM_THREAD_INFORMATION</span> 
+structures if the information class is <span class="constant">SystemProcessInformation</span>, 
+else <span class="struct">SYSTEM_EXTENDED_THREAD_INFORMATION</span> structures. 
+Either way, the <span class="member">NumberOfThreads</span> member tells how many.
+</p>
+<p>The process’s name may be present as a null-terminated Unicode string. Its address 
+and size are in the <span class="member">ImageName</span> member. This is the full 
+name if the information class is <span class="constant">SystemFullProcessInformation</span>. 
+For the older information classes, this name is an extract, beginning after the 
+last backslash. </p>
+<h3>Information Class Variations </h3>
+<p>The <span class="member">UniqueProcessKey</span> is undefined for
+<span class="constant">SystemProcessInformation</span>. For the newer information 
+classes it originally revealed the page number of the process’s page directory base. 
+Version 6.0 instead reveals the address of the <span class="struct">
+<a href="../../../inc/ntos/ps/eprocess/index.htm">EPROCESS</a></span> structure that 
+represents the process as a kernel object. Whether the member was named
+<span class="member">UniqueProcessKey</span> in these versions is not known. Whatever 
+it was named, what it contained may have been thought to disclose too much: since 
+version 6.1 the <span class="member">UniqueProcessKey</span> is set identically 
+to the <span class="member">UniqueProcessId</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th July 2016 but was not published 
+  until 26th <a href="../../../../../../../new/16/10.htm">October 2016</a>. It was 
+  last modified on 3rd <a href="../../../../../../../new/19/11.htm">November 2019</a>.
+  </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1619.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5029" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,301 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MMPFN Union 3</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>MMPFN Union 3 </h1>
+  <p>The <span class="struct"><a href="index.htm">MMPFN</a></span> (Memory Manager 
+  Page Frame Number) structure is the key to pretty much everything that the Memory 
+  Manager knows about a page of physical memory that is in general use. Since an 
+  array of these structures for all physical memory needs to be kept in physical 
+  memory, the <span class="struct">MMPFN</span> is its own substantial overhead. 
+  Presumably to keep this down, ever more gets packed in to the
+  <span class="struct">MMPFN</span> ever more intricately. </p>
+  <p>However untidy the construction of the <span class="struct">MMPFN</span>, it 
+  has several fields that are recognisably the same through all versions despite 
+  moving around and being repackaged. All versions have an integral reference count. 
+  Early versions have it as variously 16-bit or 32-bit, but as a direct member of 
+  the <span class="struct">MMPFN</span>. Public symbol files starting with Windows 
+  2000 SP3 show a <span class="member">u3</span> member that combines the 16-bit
+  <span class="member">ReferenceCount</span> with 16 bits of flags, and it is here 
+  thought that this or something very like it had already been defined for version 
+  4.0. As a type, <span class="member">u3</span> is an unnamed union. It shifts 
+  once within the <span class="struct">MMPFN</span>: </p>
+  <table class="Union">
+    <colgroup>
+      <col class="Offset" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th><span class="struct">MMPFN</span> Offset (x86) </th>
+        <th><span class="struct">MMPFN</span> Offset (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0C (4.0 to 6.3); <br>
+        0x14 </td>
+        <td>0x18 (late 5.2 to 6.3); <br>
+        0x20 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">u3</span> union is almost certainly not original. 
+  The only known use that the earliest versions make of this space is for two 16-bit 
+  counts. Both versions 3.10 and 3.50 have at offset 0x0C something very like the 
+  16-bit <span class="member">ReferenceCount</span> as known from public symbol 
+  files but they have at offset 0x0E a second 16-bit count whose name may be lost 
+  to history. Version 3.51 dropped this second count in favour of widening
+  <span class="member">ReferenceCount</span> to 32 bits. </p>
+  <p>In none of these early versions is the kernel known to treat this space as 
+  having any bit flags. What they have instead are 12 bits of flags at offset 0x14 
+  in combination with a Page Frame Number (PFN) in something like the style of a 
+  Page Table Entry (PTE). This whole dword is here thought to be the original
+  <span class="struct"><a href="../mmpfnentry.htm">MMPFNENTRY</a></span>. Version 
+  4.0 moved the 12 bit flags to offset 0x0C and redefined the 20-bit
+  <span class="member">PteFrame</span> as the whole integer. Concurrently, the 32-bit
+  <span class="member">ReferenceCount</span> was narrowed to 16 bits, but now at 
+  offset 0x0E. Though this might have been done as done as separate words for offsets 
+  0x0C and 0x0E with no union in sight, keeping the bit flags in a 32-bit
+  <span class="struct">MMPFNENTRY</span> is consistent with the
+  <span class="member">u3</span> definition from the earliest public symbol files 
+  and the simpler explanation is that this definition dates from version 4.0.
+  </p>
+  <table class="Union">
+    <colgroup>
+      <col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+        <pre class="source"><a href="../mmpfnentry.htm">MMPFNENTRY</a> e1;</pre>
+        </td>
+        <td>4.0 to early 5.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">struct {
+    /*  see below: Structure with Entry 1  */
+};</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">struct {
+    /*  see below: Entry 2 Structure  */
+} e2;</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">struct {
+    USHORT ReferenceCount;
+    UCHAR ByteFlags;
+    UCHAR InterlockedByteFlags;
+} e3;</pre>
+        </td>
+        <td>6.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">struct {
+    ULONG EntireField;
+} e4;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Originally, the <span class="member">e1</span> and <span class="member">e2</span> 
+  branches each lay out the whole four bytes: <span class="member">e1</span> as 
+  bit fields, leaving the reference count as a 16-bit <span class="member">DontUse</span> 
+  field; <span class="member">e2</span> as 16-bit integers, collecting the flags 
+  as <span class="member">ShortFlags</span> to be followed by the
+  <span class="member">ReferenceCount</span>. Version 5.2 from Windows Server 2003 
+  SP1 switched the flags and reference count, and changed many details of the construction.
+  </p>
+  <h4>Structure with Entry 1 </h4>
+  <p>When the version 5.2 from Windows Server 2003 SP1 brought the 16-bit
+  <span class="member">ReferenceCount</span> to the front of
+  <span class="member">u3</span>, the <span class="struct">MMPFNENTRY</span> of
+  <span class="type">ULONG</span> bit fields lost its high 16 bits that were labelled 
+  as <span class="member">DontUse</span>, and was narrowed to <span class="type">
+  USHORT</span> bit fields. Version 6.0 rearranged further into two sets of
+  <span class="type">UCHAR</span> bit fields, which the 1607 release of Windows 
+  10 formalises as separate structures <span class="struct">MMPFNENTRY1</span> and
+  <span class="struct">MMPFNENTRY3</span>. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">USHORT ReferenceCount;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02 </td>
+        <td>
+        <pre class="source">MMPFNENTRY e1;</pre>
+        </td>
+        <td>late 5.2 to 1511 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">MMPFNENTRY1 e1;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td>
+        <pre class="source">MMPFNENTRY3 e3;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Entry 2 Structure </h4>
+  <p>The <span class="member">e2</span> member is in essence a pair of 16-bit integers: 
+  the 16 bits of flags that <span class="member">e1</span> defines as bit fields; 
+  and a 16-bit reference count. The order changes and different versions put either 
+  or both of the 16-bit integers in union with another that is
+  <span class="keyword">volatile</span>. Starting with the 1607 release of Windows 
+  10, the flags are all lost, leaving the <span class="member">e2</span> member 
+  holding just the 16-bit <span class="member">ReferenceCount</span>. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="4">0x00 </td>
+        <td>
+        <pre class="source">USHORT ShortFlags;</pre>
+        </td>
+        <td>4.0 to early 5.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT ReferenceCount;</pre>
+        </td>
+        <td>late 5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    USHORT ReferenceCount;
+    SHORT volatile VolatileReferenceCount;
+};</pre>
+        </td>
+        <td>6.0 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT ReferenceCount;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x02 </td>
+        <td>
+        <pre class="source">USHORT ReferenceCount;</pre>
+        </td>
+        <td>4.0 to early 5.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT ShortFlags;</pre>
+        </td>
+        <td>late 5.2 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    USHORT ShortFlags;
+    USHORT volatile VolatileShortFlags;
+};</pre>
+        </td>
+        <td>6.2 to 1511 </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 29th September 2019 from material 
+    first published on 26th <a href="../../../../../../../../new/19/05.htm">May 
+    2019</a>. It was last modified on 9th
+    <a href="../../../../../../../../new/22/07.htm">August 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1922.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14634" -->
+  </div>
+</div>
+
+</body>
+
+</html>

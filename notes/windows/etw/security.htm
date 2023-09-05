@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Event Trace Security</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+  <div class="Notice">
+    <p>This old page from 2008 is now retired. Back then, this website had no place 
+    for it except among these miscellaneous Notes. I anyway meant it only as a quick 
+    write-up to stake an interest in a topic even if I never found cause to return 
+    to it. As it happens, I have returned to this topic many times since but left 
+    this page here, neglected. Now it is redone as
+    <a href="../../../studies/windows/km/ntoskrnl/api/etw/secure/index.htm">ETW 
+    Security</a> in the site’s extensive notes on
+    <a href="../../../studies/windows/km/index.htm">kernel-mode Windows programming</a>.
+    </p>
+  </div>
+  <h1>Event Trace Security </h1>
+  <p>Event providers and loggers are securable <span class="object">WmiGuid</span> 
+  objects. Access rights specific to WMI security are defined symbolically in WMISTR.H 
+  from the Windows SDK. Microsoft even describes some of them in documentation of 
+  the <span class="function">EventAccessControl</span> function. </p>
+  <table class="Constants">
+    <tr>
+      <th>Constant </th>
+      <th>Symbolic Name </th>
+      <th>Generic Mapping (ETW) </th>
+      <th>Generic Mapping (WMI) </th>
+    </tr>
+    <tr>
+      <td>0x0001 </td>
+      <td><span class="constant">WMIGUID_QUERY</span> </td>
+      <td>read </td>
+      <td>read </td>
+    </tr>
+    <tr>
+      <td>0x0002 </td>
+      <td><span class="constant">WMIGUID_SET</span> </td>
+      <td>write </td>
+      <td>write </td>
+    </tr>
+    <tr>
+      <td>0x0004 </td>
+      <td><span class="constant">WMIGUID_NOTIFICATION </span>&nbsp;</td>
+      <td>read </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0008 </td>
+      <td><span class="constant">WMIGUID_READ_DESCRIPTION</span> </td>
+      <td>read </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0010 </td>
+      <td><span class="constant">WMIGUID_EXECUTE</span> </td>
+      <td>execute </td>
+      <td>execute </td>
+    </tr>
+    <tr>
+      <td>0x0020 </td>
+      <td><span class="constant">TRACELOG_CREATE_REALTIME</span> </td>
+      <td>write </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0040 </td>
+      <td><span class="constant">TRACELOG_CREATE_ONDISK</span> </td>
+      <td>write </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0080 </td>
+      <td><span class="constant">TRACELOG_GUID_ENABLE</span> </td>
+      <td>execute </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0100 </td>
+      <td><span class="constant">TRACELOG_ACCESS_KERNEL_LOGGER</span> </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0200 </td>
+      <td><span class="constant">TRACELOG_LOG_EVENT</span> </td>
+      <td>execute </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0400 </td>
+      <td><span class="constant">TRACELOG_ACCESS_REALTIME</span> </td>
+      <td>execute </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0800 </td>
+      <td><span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+      <td>execute </td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <p>With one exception, each permission is also implied by one of
+  <span class="constant">GENERIC_READ</span>, <span class="constant">GENERIC_WRITE</span> 
+  and <span class="constant">GENERIC_EXECUTE</span>. Even <span class="constant">
+  GENERIC_ALL</span> just combines the generic read, write and execute permissions, 
+  and does not grant access to the NT Kernel Logger. </p>
+  <h2>Registry Configuration </h2>
+  <p>Permissions for particular loggers and providers are stored in the registry:
+  </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WMI\Security</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue"><span class="placeholder">guid</span></span>
+      </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_BINARY</span> </td>
+    </tr>
+  </table>
+  <p>where <span class="placeholder">guid</span> is the string form (without braces) 
+  of a GUID that represents the provider or logger. The binary data is expected 
+  to be a self-relative security descriptor. Let it be stressed that this means 
+  a <span class="struct">SECURITY_DESCRIPTOR_RELATIVE</span> structure followed 
+  by all the SIDs and ACLs that it refers to, not a string in the Security Descriptor 
+  Definition Language (SDDL) such as used below. </p>
+  <h3>Default Permissions </h3>
+  <p>The special value <span class="regvalue">0811c1af-7a07-4a06-82ed-869455cdf713</span> 
+  represents all objects that do not have their own permissions. It is defined symbolically 
+  as <span class="symbol">DefaultTraceSecurityGuid</span> in EVNTRACE.H from the 
+  Windows SDK, but seems to be otherwise undocumented. Windows Vista is installed 
+  with the following security descriptor as this default: </p>
+  <p>O:BAG:BA:(A;;0x0800;;;WD)(A;;0x00120FFF;;;SY)(A;;0x00120FFF;;;LS)(A;;0x00120FFF;;;NS)(A;;0x00120FFF;;;BA)(A;;0x0EE5;;;S-1-5-559)
+  </p>
+  <p>It may help to have the corresponding access rights described in terms of symbolic 
+  constants from the Windows SDK: </p>
+  <table>
+    <tr>
+      <th>User or Group </th>
+      <th>Rights </th>
+    </tr>
+    <tr>
+      <td>SYSTEM <br>
+      LOCAL SERVICE <br>
+      NETWORK SERVICE <br>
+      Administrators </td>
+      <td><span class="constant">WMIGUID_ALL_ACCESS</span> </td>
+    </tr>
+    <tr>
+      <td>Performance Log Users </td>
+      <td><span class="constant">WMIGUID_QUERY</span> <br>
+      <span class="constant">WMIGUID_NOTIFICATION</span> <br>
+      <span class="constant">TRACELOG_CREATE_REALTIME</span> <br>
+      <span class="constant">TRACELOG_CREATE_ONDISK</span> <br>
+      <span class="constant">TRACELOG_GUID_ENABLE</span> <br>
+      <span class="constant">TRACELOG_LOG_EVENT</span> <br>
+      <span class="constant">TRACELOG_ACCESS_REALTIME</span> <br>
+      <span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+    </tr>
+    <tr>
+      <td>Everyone </td>
+      <td><span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+    </tr>
+  </table>
+  <p>These default permissions are presumably what Microsoft’s documentation has 
+  in mind when talking of Performance Log Users being able to control sessions. 
+  Note that although members of the Performance Log Users group have most of the 
+  defined permissions, they lack <span class="constant">WMIGUID_SET</span>,
+  <span class="constant">WMIGUID_READ_DESCRIPTION</span>, <span class="constant">
+  WMIGUID_EXECUTE</span> and <span class="constant">TRACELOG_ACCESS_KERNEL_LOGGER</span>.
+  </p>
+  <h4>WMI Default </h4>
+  <p>If a valid security descriptor is not set for the <span class="regvalue">0811c1af-7a07-4a06-82ed-869455cdf713</span> 
+  value, the kernel falls back to the built-in WMI default: </p>
+  <p>O:BAG:BAD:(A;;0x001FFFFF;;;SY)(A;;0x0800;;;BU)(A;;0x011FFFFF;;;BA)(A;;0x001FFFFF;;;LS)(A;;0x001FFFFF;;;NS)
+  </p>
+  <p>Note that this provides no middle ground between having all access and nearly 
+  none: </p>
+  <table>
+    <tr>
+      <th>User or Group </th>
+      <th>Rights </th>
+    </tr>
+    <tr>
+      <td>Administrators </td>
+      <td><span class="constant">SPECIFIC_RIGHTS_ALL</span> <br>
+      <span class="constant">STANDARD_RIGHTS_ALL</span> <br>
+      <span class="constant">ACCESS_SYSTEM_SECURITY</span> </td>
+    </tr>
+    <tr>
+      <td>SYSTEM <br>
+      LOCAL SERVICE <br>
+      NETWORK SERVICE </td>
+      <td><span class="constant">SPECIFIC_RIGHTS_ALL</span> <br>
+      <span class="constant">STANDARD_RIGHTS_ALL</span> </td>
+    </tr>
+    <tr>
+      <td>Users </td>
+      <td><span class="constant">TRACELOG_REGISTER_GUIDS</span> </td>
+    </tr>
+  </table>
+  <p>Both the installed default and the built-in default extend full control not 
+  just to the SYSTEM account and to Administrators but also to the LOCAL SERVICE 
+  and NETWORK SERVICE accounts. The security descriptors installed for some providers 
+  do not permit any access to anyone other than Administrators and the SYSTEM account. 
+  This shuts out the Eventlog service, which runs as LOCAL SERVICE in Windows Vista. 
+  A consequence in practice is that even a user with administrative privilege will 
+  encounter an error if trying to enable these providers through either the Event 
+  Viewer or the WEVTUTIL command-line tool, or through any tool that uses the Windows 
+  Event Log functions (such as <span class="function">EvtSaveChannelConfig</span>). 
+  Whether this is intended is not known. A ready example is the
+  <a href="../../../studies/windows/win32/services/scm/events/diagnostic.htm">Microsoft 
+  Windows Services Performance Diagnostic Provider</a>. </p>
+  <h2>Programmatic Support </h2>
+  <p>WMI security can be managed programmatically through ADVAPI32 functions
+  <span class="function">EventAccessControl</span>, <span class="function">EventAccessQuery</span> 
+  and <span class="function">EventAccessRemove</span>, which are all documented. 
+  The last two operate directly on the relevant registry value, but the first works 
+  through the lower-level functions <span class="function">GetNamedSecurityInfo</span> 
+  and <span class="function">SetNamedSecurityInfo</span>. </p>
+  <p>A quirk should be noted. For a GUID that is registered,
+  <span class="function">EventAccessQuery</span> and <span class="function">GetNamedSecurityInfo</span> 
+  produce the same security descriptor. If a GUID happens not to be registered, 
+  then <span class="function">EventAccessQuery</span> fails (returning
+  <span class="constant">ERROR_FILE_NOT_FOUND</span>) but <span class="function">
+  GetNamedSecurityInfo</span> produces the WMI default. This will typically not 
+  be the security descriptor that the kernel will apply if the GUID is used for 
+  Event Tracing. For that, ask <span class="function">EventAccessQuery</span> about 
+  the <span class="symbol">DefaultTraceSecurityGuid</span>. </p>
+  <h2>User-Interface Support </h2>
+  <p>The Reliability and Performance Monitor has a user interface for viewing and 
+  changing the security settings for providers and loggers. This tool is typically 
+  run as a Microsoft Management Console snap-in from the Administrative Tools menu. 
+  Among its Data Collector Sets are two sets of trace sessions. The Event Trace 
+  Sessions are all the loggers that are already started (well, all that are reported 
+  by the <span class="function">QueryAllTraces</span> function). The folder named 
+  Startup Event Trace Sessions lists the loggers that are configured as AutoLoggers. 
+  The Properties dialog for any of these loggers lists the relevant providers and 
+  lets you manage security for each provider (via a Security button on the Trace 
+  Providers tab) and for the logger itself (via the Security tab). </p>
+  <p>This user interface is all I have found in the standard Windows package but 
+  surely cannot be all that Microsoft has coded. It has two significant defects.
+  </p>
+  <p>First, it is not general. It does not let you browse the installed providers 
+  for their security settings before they are assigned to a logger. Neither does 
+  it let you browse the known loggers, such as shown in the Event Viewer. Though 
+  you can define a logger and assign providers to it, and set security for this 
+  logger and its providers, only by careful contrivance will your logger match one 
+  whose output you expect to see through the Event Viewer. There is perhaps an opportunity 
+  here for some third-party manufacturer of low-level maintenance gadgets. </p>
+  <p>Second, and this really is a coding error that may even make the interface 
+  unsafe to use, it misses two of the applicable permissions, namely
+  <span class="constant">WMIGUID_QUERY</span> and <span class="constant">TRACELOG_REGISTER_GUIDS</span>. 
+  Where WDC.DLL tells ACLUI.DLL about the specific access rights that are available 
+  for these securable objects, its tables simply omit these two. This oversight 
+  persists at least to Windows Vista SP1. Where Windows Vista is reported to have 
+  problems of mass-market acceptance because of its focus on security, it ought 
+  at least be observed that some of what Microsoft has done about security is only 
+  half-baked. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 9th November 2008 and was last modified 
+    on 31st December 2008 before being retired on 27th May 2020. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c08.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="41256" -->
+  </div>
+</div>
+
+</body>
+
+</html>

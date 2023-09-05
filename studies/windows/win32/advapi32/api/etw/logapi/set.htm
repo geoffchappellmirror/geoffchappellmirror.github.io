@@ -1,0 +1,342 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>TraceSetInformation</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>TraceSetInformation </h1>
+<p>This function sets properties for Event Tracing for Windows (ETW) in general 
+or for a trace session. </p>
+<h2>Declaration </h2>
+<pre class="source">ULONG 
+TraceQueryInformation (
+    TRACEHANDLE SessionHandle, 
+    TRACE_INFO_CLASS InformationClass, 
+    PVOID TraceInformation, 
+    ULONG InformationLength);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SessionHandle</span> argument selects a trace session, 
+also known as an event logger, to configure. </p>
+<p>The <span class="argument">InformationClass</span> argument tells what sort of 
+information is being set. </p>
+<p>The <span class="argument">TraceInformation</span> and <span class="argument">
+InformationLength</span> arguments are respectively the address and size (in bytes) 
+of a buffer that provides the information. What the function expects of this buffer 
+depends on the information class. For some information classes,
+<span class="argument">InformationLength</span> can be zero and then
+<span class="argument">TraceInformation</span> may need to be
+<span class="constant">NULL</span>. </p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">ERROR_SUCCESS</span> if successful, 
+else a non-zero error code. </p>
+<h2>Availability </h2>
+<p>The <span class="function">TraceSetInformation</span> function is exported from 
+ADVAPI32 in version 6.1 and higher. Starting with version 6.2, however, the implementation 
+in ADVAPI32 is just a stub for calling the true implementation via the API Set api-ms-win-eventing-controller-l1-1-0.dll.
+</p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">TraceSetInformation</span> function is documented. 
+However, for most of the information classes the documentation is essentially useless 
+since although it sketches (not always accurately) the purpose of the expected information 
+it does not present the format. </p>
+<h2>Behaviour </h2>
+<p>The following implementation notes are from inspection of SECHOST from the original 
+release of Windows 10 only. They may some day get revised to account for earlier 
+versions. Meanwhile, where anything is added about earlier versions, take it not 
+as an attempt at comprehensiveness but as a bonus from my being unable to resist 
+a trip down memory lane or at least a quick look into the history. </p>
+<p>The function supports the following information classes: </p>
+<table>
+  <tr>
+    <th>Value </th>
+    <th>Name </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x03 </td>
+    <td><span class="constant">TraceStackTracingInfo</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td><span class="constant">TraceSystemTraceEnableFlagsInfo</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x05 </td>
+    <td><span class="constant">TraceSampledProfileIntervalInfo</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x06 </td>
+    <td><span class="constant">TraceProfileSourceConfigInfo</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td><span class="constant">TracePmcEventListInfo</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x09 </td>
+    <td><span class="constant">TracePmcCounterListInfo</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0A </td>
+    <td><span class="constant">TraceSetDisallowList</span> </td>
+    <td>10.0 and higher </td>
+  </tr>
+</table>
+<p>Given any other, the function returns <span class="constant">ERROR_NOT_SUPPORTED</span>.
+</p>
+<p>All remaining behaviour varies with the information class. The essential handling 
+for most is to call the kernel through the <span class="function">
+<a href="../../../../../km/ntoskrnl/api/ex/sysinfo/set.htm">NtSetSystemInformation</a></span> 
+function, specifically through that function’s information class
+<span class="constant">SystemPerformanceTraceInformation</span> (0x1F). The kernel 
+has its own expectation for its information buffer. The first dword of input is 
+yet another information class, specifically the <span class="enum">
+<a href="../../../../../km/ntoskrnl/api/etw/tracesup/class.htm">EVENT_TRACE_INFORMATION_CLASS</a></span>, 
+which is described below as the <span class="definition">kernel’s information class</span>. 
+Typically, this input to the kernel continues with the <span class="argument">SessionHandle</span>, 
+unchanged, and with data that is copied from or adapted from the function’s information 
+buffer. Failure of this call to the kernel is failure for the function. The many 
+reasons that the kernel may reject the call are not discussed here. </p>
+<h3>TraceStackTracingInfo (0x03) </h3>
+<p>The information class <span class="constant">TraceStackTracingInfo</span> specifies 
+which NT Kernel Logger events are to have call-stack tracing information added whenever 
+the event is sent to the given trace session. </p>
+<p>The information buffer must provide an array of <span class="struct">CLASSIC_EVENT_ID</span> 
+structures. This documented structure has a C-language definition in EVNTRACE.H:
+</p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">GUID EventGuid;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">UCHAR Type;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x11 </td>
+    <td>
+    <pre class="source">UCHAR Reserved [7];</pre>
+    </td>
+  </tr>
+</table>
+<p>If the information buffer is not an exact fit for a whole number of such structures 
+or if the number exceeds 256, the function returns <span class="constant">ERROR_INCORRECT_SIZE</span>. 
+The information buffer can be empty but then its address must be
+<span class="constant">NULL</span>, else the function returns
+<span class="constant">ERROR_INVALID_PARAMETER</span>. </p>
+<p>Each structure in the array describes one event. The <span class="member">EventGuid</span> 
+and the <span class="member">Type</span> together select a
+<a href="../../../../../km/ntoskrnl/api/etw/callouts/hookid.htm">hook ID</a>, which 
+is a 16-bit identifier for each type of event that can be sent to an NT Kernel Logger 
+session. The <span class="member">EventGuid</span> selects the high byte, the
+<span class="member">Type</span> becomes the low. If the <span class="member">EventGuid</span> 
+is not valid for this purpose, then the corresponding <span class="struct">CLASSIC_EVENT_ID</span> 
+is simply ignored. </p>
+<p>The valid hook IDs are sent to the kernel’s information class
+<span class="constant">EventTraceStackTracingInformation</span> (0x06). The kernel’s 
+information buffer is an <span class="struct">EVENT_TRACE_SYSTEM_EVENT_INFORMATION</span> 
+structure that contains the <span class="argument">SessionHandle</span> as the
+<span class="member">TraceHandle</span> and to which the valid hook IDs, as interpreted 
+from the function’s information buffer but extended from 16 to 32 bits, are appended 
+as the <span class="member">HookId</span> array. If the function cannot get memory 
+for the kernel’s information buffer, it returns <span class="constant">ERROR_OUTOFMEMORY</span>.
+</p>
+<h3>TraceSystemTraceEnableFlagsInfo (0x04) </h3>
+<p>The information class <span class="constant">TraceSystemTraceEnableFlagsInfo</span> 
+specifies which groups of NT Kernel Logger events to enable for the given trace 
+session. </p>
+<p>The information buffer must provide an array of 32-bit group masks. The first 
+is compatible with the <span class="member">EnableFlags</span> that are documented 
+for the <span class="struct">EVENT_TRACE_PROPERTIES</span> structure that is the 
+input to such functions as <span class="function">StartTrace</span> and
+<span class="function">ControlTrace</span>. There can be at most eight group masks, 
+which altogether make a <span class="struct">
+<a href="../../../../../km/ntoskrnl/api/etw/tracesup/perfinfo_groupmask.htm">PERFINFO_GROUPMASK</a></span> 
+structure. If the information buffer would provide more or is not an exact fit for 
+a whole number of group masks, the function returns <span class="constant">ERROR_INVALID_PARAMETER</span>.
+</p>
+<p>The given group masks are sent to the kernel’s information class
+<span class="constant">EventTraceGroupMaskInformation</span> (0x01). The kernel 
+receives an <span class="struct">
+<a href="../../../../../km/ntoskrnl/api/etw/tracesup/groupmask.htm">EVENT_TRACE_GROUPMASK_INFORMATION</a></span> 
+structure into which the function places the <span class="argument">SessionHandle</span> 
+as the <span class="member">TraceHandle</span> and the given group masks as the
+<span class="member">EventTraceGroupMasks</span>. Each group mask that isn’t specified 
+to the function gets specified to the kernel as zero. </p>
+<h3>TraceSampledProfileIntervalInfo (0x05) </h3>
+<p>The information class <span class="constant">TraceSampledProfileIntervalInfo</span> 
+sets the interval for profiling a specified source. </p>
+<p>The <span class="argument">SessionHandle</span> is irrelevant for this information 
+class and must be zero, else the function returns <span class="constant">ERROR_INVALID_PARAMETER</span>.
+</p>
+<p>The information buffer must provide exactly a <span class="struct">TRACE_PROFILE_INTERVAL</span> 
+structure, else the function returns <span class="constant">ERROR_BAD_LENGTH</span>. 
+This structure has a C-language definition in EVNTRACE.H: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ULONG Source;</pre>
+    </td>
+    <td>input </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">ULONG Interval;</pre>
+    </td>
+    <td>output </td>
+  </tr>
+</table>
+<p>The <span class="member">Source</span> takes its values from the
+<span class="enum">
+<a href="../../../../../km/ntoskrnl/api/ke/profobj/kprofile_source.htm">KPROFILE_SOURCE</a></span> 
+enumeration. This has a C-language definition in WDM.H from the Windows Driver Kit 
+(WDK). It lists the types of profiling data that the HAL may keep about processor 
+performance. It is presumably also defined in headers that Microsoft does not publish 
+but does make available to its own user-mode programmers: how else does type information 
+for it appear in symbol files for such high-level modules as the URLMON.DLL from 
+Internet Explorer? </p>
+<p>If the <span class="member">Source</span> is <span class="constant">ProfileTime</span> 
+(0), the function sets the <span class="member">Interval</span> through the kernel’s 
+information class <span class="constant">EventTraceTimeProfileInformation</span> 
+(0x03). The kernel receives an <span class="struct">EVENT_TRACE_TIME_PROFILE_INFORMATION</span> 
+structure in which the <span class="member">ProfileInterval</span> is the
+<span class="member">Interval</span> from the function’s input. </p>
+<p>For other values of the <span class="member">Source</span>, the function sets 
+the corresponding interval through the <span class="function">
+<a href="../../../../../km/ntoskrnl/api/ex/profile/setinterval.htm">NtSetIntervalProfile</a></span> 
+function. </p>
+<h3>TraceProfileSourceConfigInfo (0x06) </h3>
+<p>The information buffer must provide an array of 32-bit profile sources from the
+<span class="enum">KPROFILE_SOURCE</span> enumeration. If the information buffer 
+is not an exact fit for a whole number of such values or if the number exceeds 4, 
+the function returns <span class="constant">ERROR_INCORRECT_SIZE</span>. If the 
+number is 0, however, or if the buffer’s address is <span class="constant">NULL</span>, 
+the function returns <span class="constant">ERROR_INVALID_PARAMETER</span>. </p>
+<p>The given profile sources are sent to the kernel’s information class
+<span class="constant">EventTraceProfileConfigInformation</span> (0x0C). The kernel’s 
+information buffer is an <span class="struct">EVENT_TRACE_PROFILE_COUNTER_INFORMATION</span> 
+structure that contains the <span class="argument">SessionHandle</span> as the
+<span class="member">TraceHandle</span> and to which the profile sources are appended 
+as the <span class="member">ProfileSource</span> array. If the function cannot get 
+memory for the kernel’s information buffer, it returns <span class="constant">ERROR_OUTOFMEMORY</span>.
+</p>
+<h3>TracePmcEventListInfo (0x08) </h3>
+<p>The information class <span class="constant">TracePmcEventListInfo</span> specifies 
+which kernel events are to have Performance Monitoring Counter (PMC) information 
+added as an extended data item whenever the event is sent to the given trace session. 
+Note that the trace session will need to be an NT Kernel Logger session. The choice 
+of counters to collect is specified separately, through the information class
+<span class="constant">TracePmcCounterListInfo</span>. </p>
+<p>The information buffer must provide an array of <span class="struct">CLASSIC_EVENT_ID</span> 
+structures. If the information buffer is not an exact fit for a whole number of 
+such structures or if the number exceeds 4, the function returns
+<span class="constant">ERROR_INCORRECT_SIZE</span>. The information buffer can be 
+empty but then its address must be <span class="constant">NULL</span>, else the 
+function returns <span class="constant">ERROR_INVALID_PARAMETER</span>. </p>
+<p>Each structure in the array describes one kernel event. The
+<span class="member">EventGuid</span> and the <span class="member">Type</span> together 
+select a hook ID, which is a 16-bit identifier for each type of event that can be 
+sent to an NT Kernel Logger session. The <span class="member">EventGuid</span> selects 
+the high byte, the <span class="member">Type</span> becomes the low. If the
+<span class="member">EventGuid</span> is not valid for this purpose, then the corresponding
+<span class="struct">CLASSIC_EVENT_ID</span> is simply ignored. </p>
+<p>The valid hook IDs are sent to the kernel’s information class
+<span class="constant">EventTraceProfileEventListInformation</span> (0x0E). The 
+kernel receives an <span class="struct">EVENT_TRACE_SYSTEM_EVENT_INFORMATION</span> 
+structure that contains the <span class="argument">SessionHandle</span> as the
+<span class="member">TraceHandle</span> and to which the valid hook IDs, as interpreted 
+from the function’s information buffer but extended from 16 to 32 bits, are appended 
+as the <span class="member">HookId</span> array. If the function cannot get memory 
+for the kernel’s information buffer, it returns <span class="constant">ERROR_OUTOFMEMORY</span>.
+</p>
+<h3>TracePmcCounterListInfo (0x09) </h3>
+<p>The information class <span class="constant">TracePmcCounterListInfo</span> specifies 
+which Performance Monitoring Counters the kernel is to collect as an extended data 
+item whenever an applicable event is sent to the given trace session. Note that 
+the trace session will need to be an NT Kernel Logger session. The applicable events 
+are configured separately, through the information class <span class="constant">
+TracePmcEventListInfo</span>. </p>
+<p>The information buffer must provide an array of 32-bit profile sources from the
+<span class="enum">KPROFILE_SOURCE</span> enumeration. If the information buffer 
+is not an exact fit for a whole number of such values or if the number exceeds 4, 
+the function returns <span class="constant">ERROR_INCORRECT_SIZE</span>. If the 
+number is 0, however, or if the buffer’s address is <span class="constant">NULL</span>, 
+the function returns <span class="constant">ERROR_INVALID_PARAMETER</span>. </p>
+<p>The given profile sources are sent to the kernel’s information class
+<span class="constant">EventTraceProfileCounterListInformation</span> (0x0F). The 
+kernel’s information buffer is an <span class="struct">EVENT_TRACE_PROFILE_COUNTER_INFORMATION</span> 
+structure that contains the <span class="argument">SessionHandle</span> as the
+<span class="member">TraceHandle</span> and to which the profile sources are appended 
+as the <span class="member">ProfileSource</span> array. If the function cannot get 
+memory for the kernel’s information buffer, it returns <span class="constant">ERROR_OUTOFMEMORY</span>.
+</p>
+<h3>TraceSetDisallowList (0x0A) </h3>
+<p>This information class is unusual in that it is implemented in terms of
+<span class="function">NtTraceControl</span>, specifically for its function code 
+0x1C. Microsoft’s name for this is not known. Notes on <span class="function">NtTraceControl</span> 
+are in preparation. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 19th
+  <a href="../../../../../../../new/16/12.htm">December 2016</a> and was last modified 
+  on 23rd November 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1618.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5013" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,143 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ITrayNotify :: RegisterCallback</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55064" -->
+<h1>ITrayNotify :: RegisterCallback </h1>
+<p>This method of the <span class="interface"><a href="index.htm">ITrayNotify</a></span> 
+interface asks to be called back with information about (and changes to) items in 
+a tray’s notification area. </p>
+<h2>Declaration </h2>
+<pre class="source">HRESULT ITrayNotify :: RegisterCallback (INotificationCB *pcb);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">pcb</span> argument provides the address of an
+<span class="interface"><a href="../inotificationcb/index.htm">INotificationCB</a></span> 
+interface whose methods are to be called (back) by the <span class="interface">ITrayNotify</span> 
+implementation to tell about items in the tray’s notification area. This argument 
+can be NULL to turn callbacks off. </p>
+<h3>Return Value </h3>
+<p>The method returns zero for success, else an error code. </p>
+<h2>Behaviour </h2>
+<p>If the <span class="constant">REST_NOTRAYITEMSDISPLAY</span>
+<a href="../../../shell32/api/util/restrictions.htm">restriction</a> was in force 
+when the tray was created, then the tray does not accommodate notification-area 
+icons except for the clock. The method succeeds trivially. This is not very satisfactory, 
+since the caller may reasonably take success as approval to wait for callbacks, 
+which will never come. </p>
+<p>Except in the previous configuration, calling this method releases any callback 
+interface that is already registered. The method then adopts the given callback 
+interface. If <span class="argument">pcb</span> is NULL, callbacks are now cancelled 
+and the function succeeds. </p>
+<p>Otherwise, the method adds a reference to the newly registered callback interface 
+and sets about telling the caller about icons that are already known. These are 
+taken in two sets. First are the icons that are on the notification area but not 
+counting the System Control Area (SCA). Second are icons that are known in the registry 
+because of past use. Each icon, of whatever type, is reported by calling the
+<span class="method"><a href="../inotificationcb/notify.htm">Notify</a></span> method 
+of the registered callback interface. The first argument is zero. The second is 
+the address of a structure that describes the icon. Icons that are known from the 
+registry are distinguishable by having no window handle. </p>
+<p>The function then succeeds. The <span class="method">Notify</span> method of 
+the registered callback interface may thereafter get called any number of times 
+to report that an icon has been added, modified or deleted. Such notifications continue 
+until <span class="method">RegisterCallback</span> is next called (including by 
+someone else). </p>
+<h3>Warning </h3>
+<p>The notification area provides for knowing no more than one callback interface 
+at any one time. Though EXPLORER registers its <span class="class">
+<a href="../../classes/traynotify.htm">TrayNotify</a></span> class as being available 
+for multiple use (specifically, it passes <span class="constant">REGCLS_MULTIPLEUSE</span> 
+along with <span class="constant">CLSCTX_INPROC_SERVER</span> and
+<span class="constant">CLSCTX_LOCAL_SERVER</span> to <span class="function">CoRegisterClassObject</span>), 
+it implements the class as if its callback feature has only one possible user.
+</p>
+<p>This intended user is the Customize Notification Icons dialog, as reached from 
+the Taskbar and Start Menu Properties. If this dialog is open and some other
+<span class="interface">ITrayNotify</span> client registers a callback, then the 
+intended dialog stops receiving callbacks. It will not be rendered completely useless 
+but the information it displays about the notification-area icons will become out-of-date.
+</p>
+<p>The <span class="method">RegisterCallback</span> method can therefore be considered 
+usable by well-behaved software only if some way can be found to detect whether 
+the standard dialog is already open and to stop it from being opened and to detect 
+whether yet another party has stopped the standard dialog from being opened (because 
+you wouldn’t want to interfere with them any more than with the standard dialog). 
+The exercise looks academic however. It seems unlikely to me that a third-party 
+taskbar manager exists, and surely not commercially. Even if someone should think 
+to write one, it couldn’t do anything very useful with the
+<span class="interface">ITrayNotify</span> and <span class="interface">INotificationCB</span> 
+interfaces that isn’t already done by the Customize Notification Icons dialog.
+</p>
+<h3>Demonstration </h3>
+<p>That said, I must express surprise that any means exists at all to enumerate, 
+let alone configure, other software’s notification icons from outside EXPLORER. 
+The more sceptical may want proof, and I myself was sceptical enough to run up a 
+demonstration program. It confirms that the work of the Customize Notification Icons 
+dialog can be done in third-party software and it allows you to confirm the limitation 
+that I raise above as a warning. </p>
+<p>The TRAYNOT program presents a top-level window that consists solely of a List-View 
+control for reporting the notification-area operations that are signalled through 
+the <span class="interface">ITrayNotify</span> and <span class="interface">INotificationCB</span> 
+interfaces. The program obtains an <span class="interface">ITrayNotify</span> interface 
+from EXPLORER and calls the <span class="method">RegisterCallback</span> method 
+to arrange for callbacks through the <span class="method">Notify</span> method of 
+the program’s own <span class="interface">INotificationCB</span> interface. </p>
+<p>For distribution, the built program (x86) is supplied with source code, compressed 
+into one zip file: <a href="../_download/traynot.zip">download the Tray Notification 
+Reporter program</a>. There are no command-line switches. Just run it (though of 
+course I advise that you check for yourself that the program is what it says, and 
+rebuild it if you want). </p>
+&nbsp;<p>As an aside, note that the program fails if User Account Control (UAC) is enabled 
+and the program is run with elevated privilege. EXPLORER is the COM server and TRAYNOT 
+is a COM client. Yet EXPLORER has only medium integrity. Though Microsoft’s notes 
+on UAC—they’re really not substantial enough to count as programming documentation—deal 
+with the situation of a lower-integrity COM client trying to communicate with a 
+higher-integrity COM server, curiously little is said about the reverse. A higher-integrity 
+COM client is protected from a lower-integrity COM server, much as a higher-integrity 
+program is protected from receiving window messages from a lower-integrity program. 
+For the latter, Microsoft provides the higher-integrity program with explicit means 
+to open itself to expected messages from a lower-integrity source. Finding the analogous 
+provision for COM may be a worthwhile exercise for another time. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 21st December 2008 and was last modified 
+  on 25th June 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0809.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="55399" -->
+</div>
+
+</body>
+
+</html>

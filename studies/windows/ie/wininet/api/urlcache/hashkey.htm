@@ -1,0 +1,190 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Hash Algorithm For URL Caching</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>The Hash Algorithm for URL Caching </h1>
+<p>Although hashing is essential to how WININET looks up a URL in an INDEX.DAT file, 
+it arguably does not matter at all for inspection of an INDEX.DAT file from outside 
+WININET, e.g., for forensic analysis. If anything, the forensic problem is the reverse 
+of what WININET faces: an interesting URL is observed in the file and the question 
+(if raised at all) is whether this URL is present because it belongs to a properly 
+allocated URL entry or because it persists from a deleted URL entry. Though the 
+answer depends on the hash item for the supposed URL entry, most practical purposes 
+do not require computation of the hash for the URL. Instead of looking through all 
+the hash items for one with the right hash, it is instead enough to look for one 
+that points to the supposed URL entry. Especially if only one suitable hash item 
+is found (which, by the way, cannot be depended on), it may just be assumed that 
+the hash must have been computed correctly. Alternative documentation of
+<a href="indexdat.htm">the INDEX.DAT file format</a>, especially for forensics, 
+might reasonably leave the hashing algorithm alone. </p>
+<p>Still, some analysts will want to be thorough. Others may want at least the means 
+to compute the hash, even if they never actually do the computation. In choosing 
+how, or even whether, to show the algorithm, the decider for me is that the coding 
+in WININET has an error. It has long lain there uncorrected, and very likely undetected. 
+After all, it has no consequence in ordinary use. Yet it seems instructive. Mostly, 
+that means that I myself, when programming, have been caught by the same error when 
+it <span class="emphasis">has</span> mattered in practice. But there’s also that 
+this is the simplest example I have ever found of the sort of error that stands 
+out immediately in binary code yet could easily be missed in any number of readings 
+and re-readings of the source code: </p>
+<pre class="source">static DWORD HashKey (PCSTR Url)
+{
+    static const BYTE pad [0x0100] = {
+        0x01, 0x0E, 0x6E, 0x19, 0x61, 0xAE, 0x84, 0x77, 0x8A, 0xAA, 0x7D, 0x76, 0x1B, 0xE9, 0x8C, 0x33,
+        0x57, 0xC5, 0xB1, 0x6B, 0xEA, 0xA9, 0x38, 0x44, 0x1E, 0x07, 0xAD, 0x49, 0xBC, 0x28, 0x24, 0x41,
+        0x31, 0xD5, 0x68, 0xBE, 0x39, 0xD3, 0x94, 0xDF, 0x30, 0x73, 0x0F, 0x02, 0x43, 0xBA, 0xD2, 0x1C,
+        0x0C, 0xB5, 0x67, 0x46, 0x16, 0x3A, 0x4B, 0x4E, 0xB7, 0xA7, 0xEE, 0x9D, 0x7C, 0x93, 0xAC, 0x90,
+        0xB0, 0xA1, 0x8D, 0x56, 0x3C, 0x42, 0x80, 0x53, 0x9C, 0xF1, 0x4F, 0x2E, 0xA8, 0xC6, 0x29, 0xFE,
+        0xB2, 0x55, 0xFD, 0xED, 0xFA, 0x9A, 0x85, 0x58, 0x23, 0xCE, 0x5F, 0x74, 0xFC, 0xC0, 0x36, 0xDD,
+        0x66, 0xDA, 0xFF, 0xF0, 0x52, 0x6A, 0x9E, 0xC9, 0x3D, 0x03, 0x59, 0x09, 0x2A, 0x9B, 0x9F, 0x5D,
+        0xA6, 0x50, 0x32, 0x22, 0xAF, 0xC3, 0x64, 0x63, 0x1A, 0x96, 0x10, 0x91, 0x04, 0x21, 0x08, 0xBD,
+        0x79, 0x40, 0x4D, 0x48, 0xD0, 0xF5, 0x82, 0x7A, 0x8F, 0x37, 0x69, 0x86, 0x1D, 0xA4, 0xB9, 0xC2,
+        0xC1, 0xEF, 0x65, 0xF2, 0x05, 0xAB, 0x7E, 0x0B, 0x4A, 0x3B, 0x89, 0xE4, 0x6C, 0xBF, 0xE8, 0x8B,
+        0x06, 0x18, 0x51, 0x14, 0x7F, 0x11, 0x5B, 0x5C, 0xFB, 0x97, 0xE1, 0xCF, 0x15, 0x62, 0x71, 0x70,
+        0x54, 0xE2, 0x12, 0xD6, 0xC7, 0xBB, 0x0D, 0x20, 0x5E, 0xDC, 0xE0, 0xD4, 0xF7, 0xCC, 0xC4, 0x2B,
+        0xF9, 0xEC, 0x2D, 0xF4, 0x6F, 0xB6, 0x99, 0x88, 0x81, 0x5A, 0xD9, 0xCA, 0x13, 0xA5, 0xE7, 0x47,
+        0xE6, 0x8E, 0x60, 0xE3, 0x3E, 0xB3, 0xF6, 0x72, 0xA2, 0x35, 0xA0, 0xD7, 0xCD, 0xB4, 0x2F, 0x6D,
+        0x2C, 0x26, 0x1F, 0x95, 0x87, 0x00, 0xD8, 0x34, 0x3F, 0x17, 0x25, 0x45, 0x27, 0x75, 0x92, 0xB8,
+        0xA3, 0xC8, 0xDE, 0xEB, 0xF8, 0xF3, 0xDB, 0x0A, 0x98, 0x83, 0x7B, 0xE5, 0xCB, 0x4C, 0x78, 0xD1
+    };
+
+    union DWORD_BYTES {
+        DWORD Dword;
+        BYTE Bytes [sizeof (DWORD)];
+    } x;
+
+    x.Bytes [0] = pad [*Url];
+    x.Bytes [1] = pad [(*Url + 1) &amp; 0xFF];
+    x.Bytes [2] = pad [(*Url + 2) &amp; 0xFF];
+    x.Bytes [3] = pad [(*Url + 3) &amp; 0xFF];
+
+    if (*Url != &#39;\0&#39;) {
+        for (Url ++; Url [0] != &#39;\0&#39;; Url ++) {
+            if (Url [0] == &#39;/&#39; &amp;&amp; Url [1] == &#39;\0&#39;) break;
+
+            DWORD_BYTES y;
+            y.Bytes [0] = x.Bytes [0] ^ *Url;
+            y.Bytes [1] = x.Bytes [1] ^ *Url;
+            y.Bytes [2] = x.Bytes [2] ^ *Url;
+            y.Bytes [3] = x.Bytes [3] ^ *Url;
+
+            x.Bytes [0] = pad [y.Bytes [0]];
+            x.Bytes [1] = pad [y.Bytes [1]];
+            x.Bytes [2] = pad [y.Bytes [2]];
+            x.Bytes [3] = pad [y.Bytes [3]];
+        }
+    }
+    return x.Dword;
+}
+</pre>
+<p>However contrived this source-code representation may look, something very like 
+it, particularly for the byte-wise XOR into an unnecessary variable in the loop, 
+plainly is what Microsoft has written (and to which Microsoft has the copyright). 
+Compiling with <span class="switch">/Oxs</span> optimisation using the C++ compiler 
+from Microsoft Visual Studio 2005 reproduces exactly the binary code of the WININET 
+from Windows Vista, subject to optimisation of branch instructions. </p>
+<p>If you do not yet see the error, and want a hint, consider the following variations 
+(which do not affect the compiler’s code generation): </p>
+<pre class="source">x.Bytes [0] = pad [*Url];
+x.Bytes [1] = pad [(*Url + 1) % RTL_NUMBER_OF (pad)];
+x.Bytes [2] = pad [(*Url + 2) % RTL_NUMBER_OF (pad)];
+x.Bytes [3] = pad [(*Url + 3) % RTL_NUMBER_OF (pad)];</pre>
+<p>and </p>
+<pre class="source">
+x.Bytes [0] = pad [y.Bytes [0] % RTL_NUMBER_OF (pad)];
+x.Bytes [1] = pad [y.Bytes [1] % RTL_NUMBER_OF (pad)];
+x.Bytes [2] = pad [y.Bytes [2] % RTL_NUMBER_OF (pad)];
+x.Bytes [3] = pad [y.Bytes [3] % RTL_NUMBER_OF (pad)];</pre>
+<p>Except for the first line, this is how a careful programmer might write so that 
+the code does not depend on the size of the data that it works with. Of course, 
+this is not real-world coding, but that’s not because there aren’t real-world programmers who 
+write so defensively. It is instead that any who do would surely do so on all lines, 
+if only because they are obsessively compelled to keep to their pattern. </p>
+<p>The error is specifically that the first indexing into the array is sign-extended 
+(unless compiled with the <span class="switch">/J</span> switch). This is a problem 
+only for a URL whose first character (thinking of it now as an unsigned byte) is 
+0x80 or higher, which is of course not expected in real-world practice. Even then, 
+the problem would be greatly mitigated because what mostly matters about a hash 
+is not that the computation be correct with respect to an intended algorithm but 
+that it be repeatable. Still, when given an applicable URL, WININET is induced to 
+read from outside the array. What it sees there, and uses for the computation, is 
+whatever happens to precede the array. That will change from one WININET version 
+to another, and so will the (low byte of the) hash that’s computed for any applicable 
+URL. This does have a practical consequence for forensics analysts: reproducing 
+the computation from outside WININET is made impractical, since it would require 
+knowledge of the different 0x80 bytes before the array in each supported WININET 
+version. </p>
+<h2>Eyes On Source Code </h2>
+<p>That this error has persisted so long in WININET is not because nobody has looked 
+at the code. There has been at least one review, specifically to add the defence 
+against being given an empty URL. That is new for version 7.0. </p>
+<p>For all the talk of open-source software having fewer bugs because more programmers 
+can read the source code and see what’s wrong, the defenders of closed-source software 
+are surely right that source code is read much more often to get at least a hint 
+about how to do something or even so that one programmer can extract another’s work 
+into his own, i.e., steal. Source code is of course read when a programmer who’s 
+involved in writing the source code means to find the cause of a reported bug, and 
+fix it, but I just don’t believe that source code is more than rarely read independently 
+of its writers. For one thing, is the software-writing industry really so concerned 
+to read source code as a way of finding bugs that it sets people up in full-time 
+jobs to do such work, with training, and with sufficient opportunity to practise 
+so that they become any good at it? Pull the other one! </p>
+<p>If you’re good enough at C++ that you spotted the error above on your first reading 
+of the source code, then consider that as sign-extension errors go, this one is 
+made relatively easy to spot because the very next lines alert to the problem of 
+ensuring that the index at least does not go beyond bounds. Even so, would you have 
+spotted the error had you not been told an error is in there somewhere or if the 
+code had comments that describe the algorithm but risk lulling you into a sense 
+that everything is coded as wanted? Sign-extending a <span class="type">char</span> 
+into an index for an array (quite rightly) doesn’t attract a complaint from Microsoft’s 
+compiler even at the highest warning level. It’s just not something that gets a 
+high profile at source level. Yet to someone reading the binary code, especially 
+with little or no prior knowledge to deflect from having to understand what’s actually 
+coded, the <span class="instruction">movsx</span> instruction ahead of looking up 
+an array stands out like a really bad spelling mistake. If there actually is much 
+bug finding to be done by reading other people’s programming, then source code is 
+not necessarily the best thing to read. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 20th September 2010 and was last modified 
+  on 3rd October 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c10.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="61781" endspan -->
+</div>
+
+</body>
+
+</html>

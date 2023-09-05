@@ -1,0 +1,385 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EAX From CPUID Leaf 0</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<div class="Main">
+  <h1>EAX From CPUID Leaf 0 </h1>
+  <p>The <span class="register">eax</span> register is implied input to the
+  <span class="instruction"><a href="../index.htm">cpuid</a></span> instruction 
+  to select what Intel variously names a function or leaf. Possibly in combination 
+  with more input in <span class="register">ecx</span>, different leaves produce 
+  different output in <span class="register">eax</span>, <span class="register">
+  ebx</span>, <span class="register">ecx</span> and <span class="register">edx</span> 
+  to tell of different things about the processor. The question naturally arises 
+  of which inputs are valid. Given that the instruction is supported at all, the 
+  answer is that leaf 0 is always valid and its output in <span class="register">
+  eax</span> is the maximum valid leaf for the instruction’s further use. </p>
+  <p>Executing the <span class="instruction">cpuid</span> instruction with
+  <span class="register">eax</span> beyond the maximum that’s reported by leaf 0 
+  doesn’t cause it to fault—Intel and other manufacturers even document how their 
+  processors interpret such input—but programmers surely do better to execute
+  <a href="index.htm"><span class="instruction">cpuid</span> leaf 0</a> once to 
+  obtain the maximum and then never execute <span class="instruction">cpuid</span> 
+  without checking that the leaf they want is within range. An exception might be 
+  made for leaf 1, without which the instruction is barely useful: modern versions 
+  of the Windows kernel do indeed take as granted that leaf 1 is within range.
+  </p>
+  <p>Put aside the elaboration of extended leaves for which the input in
+  <span class="register">eax</span> starts at 0x80000000, and more generally of 
+  disjoint ranges of leaves starting at other high values, and you might think there 
+  can’t be more to say about <span class="register">eax</span> from
+  <span class="instruction">cpuid</span> leaf 0. Perhaps the only point to note 
+  would be that the kernel doesn’t get each processor’s maximum just the once and 
+  keep it in the processor’s <span class="struct">
+  <a href="../../../ntoskrnl/inc/ntos/kprcb.htm">KPRCB</a></span> to avoid ever 
+  re-executing <span class="instruction">cpuid</span> just for leaf 0. </p>
+  <p>So why make a separate—let alone lengthy—page of what
+  <span class="instruction">cpuid</span> leaf 0 returns in
+  <span class="register">eax</span>? The answer is that some behaviour from the 
+  earliest days of both the instruction and of Windows are just the sort of curiosity 
+  that a writer with an interest in the archaeology of software can’t resist recording, 
+  not least because they had lasting effects. Even 64-bit Windows 10 must do things 
+  now because of decisions that were made a quarter-century ago about interpreting
+  <span class="register">eax</span> from <span class="instruction">cpuid</span> 
+  leaf 0. </p>
+  <h2>Origins </h2>
+  <p>The <span class="instruction">cpuid</span> instruction did not start as a generalised 
+  means of obtaining multiple sorts of information about the processor. Its origin 
+  was much more closely tied to its name as producing not CPU information but specifically 
+  a CPU identifier. The premise here is that at least on the drawing board the
+  <span class="instruction">cpuid</span> instruction was a simple thing that had 
+  no operand, implicit or not, but just loaded the <span class="register">eax</span> 
+  register with the same processor identification signature that is the processor’s 
+  initial state for the <span class="register">edx</span> register. This surely 
+  is <span class="emphasis">the</span> CPU ID that names the instruction. It is 
+  nowadays returned in <a href="../00000001h/eax.htm"><span class="register">eax</span> 
+  from <span class="instruction">cpuid</span> leaf 1</a>, but because it was known 
+  to Microsoft’s programmers as having once been returned independently of
+  <span class="register">eax</span> on input, it presented a problem for how to 
+  interpret <span class="register">eax</span> from <span class="instruction">cpuid</span> 
+  leaf 0. The interpretation that Microsoft devised had consequences for at least 
+  the next two decades, not just within Windows but for BIOS manufacturers and for 
+  Intel’s processors (if not those of other manufacturers too). </p>
+  <h3>Intel </h3>
+  <p>That <span class="instruction">cpuid</span> had been designed as loading the 
+  processor identification signature into <span class="register">eax</span> with 
+  no use of <span class="register">eax</span> for input was in plain sight for many 
+  years. Where the <span class="citation">Pentium™ Processor User’s Manual</span> 
+  from 1993 presents <span class="instruction">cpuid</span> in its Instruction Set 
+  reference in <span class="citation">Volume 3: Architecture and Programming Manual</span> 
+  (order number 241430-001), its simplified description in a box at the top of the 
+  page is </p>
+  <blockquote>
+    EAX ← CPU identification information
+  </blockquote>
+  <p>This is Intel’s notation for only the simplest of instructions. As luck would 
+  have it, what was then the very next instruction in alphabetical order gives an 
+  example. The <span class="instruction">cwd</span> instruction does nothing but 
+  sign-extend <span class="register">ax</span> into <span class="register">dx</span>, 
+  and gets the correspondingly simple description </p>
+  <blockquote>
+    DX ← sign-extend of AX
+  </blockquote>
+  <p>The ready explanation is that the simple description in the box for
+  <span class="instruction">cpuid</span> actually was correct at the time the documentation 
+  was prepared, perhaps long before its formal release, and then by oversight outlived 
+  the instruction’s development into very much more. The wonder is how long this 
+  oversight persisted. It survived to 1999 for the <span class="citation">Intel 
+  Architecture Software Developer’s Manual</span>, which by then had a separate
+  <span class="citation">Volume 2: Instruction Set Reference</span> (order number 
+  243191-002). It is gone, however, by 2000 for the <span class="citation">Volume 
+  2: Instruction Set Reference</span> (order number 245471-001) in the slightly 
+  renamed <span class="citation">IA-32 Intel Architecture Software Developer’s Manual</span>. 
+  Its replacement is much more appropriate for an instruction whose reference documentation 
+  by then spread over 14 pages: </p>
+  <blockquote>
+    Returns processor identification and feature information to the EAX, EBX, ECX, 
+    and EDX registers, according to the input value entered initially in the EAX 
+    register.
+  </blockquote>
+  <p>Meanwhile, the separate Application Note AP-485 originally titled
+  <span class="citation">Intel Processor Identification With the CPUID Instruction</span> 
+  (order number 241618) stated very clearly that the processor identification signature 
+  that “has been available at reset” and what’s returned in
+  <span class="register">eax</span> from <span class="instruction">cpuid</span> 
+  leaf 1 are one and the same: </p>
+  <blockquote>
+    With processors that implement the CPUID instruction, the processor signature 
+    is available both upon reset and upon execution of the CPUID instruction.
+  </blockquote>
+  <p>but see that the phrasing doesn’t yet mention the need for 1 in
+  <span class="register">eax</span> as input. Indeed, in Revision 003 from October 
+  1994 (which is the oldest I have yet found) the whole section (3.2) on the processor 
+  signature does not hint at dependence on any input. Perhaps this dependence is 
+  intended as understood from nearby diagrams, yet the sections immediately before 
+  and after (3.1 and 3.3) both open with what’s required in
+  <span class="register">eax</span> as input. Again, the ready explanation is that 
+  the section on the processor signature is original text from a time when the
+  <span class="instruction">cpuid</span> instruction truly didn’t take input.
+  </p>
+  <p>The only known direct evidence that is credibly from Intel is source code in 
+  a file of assembly-language macros that Intel apparently published freely once 
+  upon a time and then rethought. The file, named p5masm.mac and dated October 1992, 
+  has comments that distinguish “Pre B0 steppings” whose
+  <span class="instruction">cpuid</span> takes no input and “B0 and later steppings” 
+  whose <span class="instruction">cpuid</span> fits the formally released specification. 
+  Presumably, one or more A steppings were manufactured at least for Intel’s own 
+  testing. Whatever existed, it looks like Intel soon preferred not to talk of it. 
+  For the Pentium, in contast to the 80386 and 80486, Intel became commendably open 
+  about listing steppings and errata, yet even an early <span class="citation">Pentium® 
+  Processor Specification Update</span> (order number 242480-002, dated March 1995) 
+  reads as if the first Pentium stepping is B1. </p>
+  <h3>Windows </h3>
+  <p>However thin and indirect may be the surviving public record from Intel, there 
+  certainly did exist a time when Microsoft’s knowledge of
+  <span class="instruction">cpuid</span> was that it loads the processor identification 
+  signature into <span class="register">eax</span> without needing that anything 
+  particular have been loaded into <span class="register">eax</span> first. This 
+  is knowable from pre-release builds of Windows NT 3.1 such as can nowadays be 
+  found readily on the Internet (at least in part because hobbyists rightly or wrongly 
+  treat them as abandonware). To the historian, such binaries are relatively public 
+  records of the software’s development. Unlike source code, which a company might 
+  reasonably contend is its private thinking that was never meant to be seen outside, 
+  these binaries plainly were intended to be used by outsiders, even if only by 
+  outsiders who were thought sufficiently friendly or self-interested for Microsoft 
+  to risk treating as insiders. Some of these binaries evidently got a limited release 
+  to help Microsoft generate public attention. No doubt there’d have been an expectation 
+  that the public attention would be favourable or that critical feedback would 
+  be discreet, but I treat them here as previews of coming attractions and thus 
+  as fair game for analysis. </p>
+  <p>Version 3.10.297.1 built on 28th June 1992 has no knowledge of
+  <span class="instruction">cpuid</span>, either in the kernel or in the loader 
+  (which is where this version does all the work of processor identification). Not 
+  four months later, for 12th October 1992, and still most of a year before the 
+  formal release of Windows NT 3.1, the kernel for build 3.10.328.1 tests that the 
+  processor has changeable <span class="bit">AC</span> and <span class="bit">ID</span> 
+  bits in the <span class="register">eflags</span>. It then executes its one and 
+  only <span class="instruction">cpuid</span> without preparing
+  <span class="instruction">eax</span>. The output in <span class="register">eax</span> 
+  is interpreted as the processor identification signature (though only to learn 
+  the family and stepping). By 6th March 1993, build 3.10.397.1 has what has ever 
+  since been the familiar doubled execution of <span class="instruction">cpuid</span> 
+  for leaves 0 and 1. </p>
+  <h2>Defences </h2>
+  <p>It seems a fair proposition that anyone in the early 90s who was contemplating 
+  what to do with <span class="instruction">cpuid</span> would reasonably have looked 
+  at the accumulation of such things as the toggling of <span class="register">eflags</span> 
+  bits, the changing specification of inputs and outputs, and later the anticipation 
+  of a processor exception, as inviting even more caution than Intel recommended. 
+  Early Windows versions have two defences that are Microsoft’s own: </p>
+  <ul>
+    <li>treat a maximum leaf higher than 3 as implausible (versions 3.10 to 4.0 
+    before Windows NT 4.0 SP6); </li>
+    <li>require that the maximum leaf is at least 1 (versions 3.50 to 6.2). </li>
+  </ul>
+  <p>The first presents the lasting trouble. </p>
+  <h3>Maximum Maximum </h3>
+  <p>Starting all the way back at version 3.10—at least from the pre-release version 
+  3.10.397.1 built on 6th March 1993—a <span class="instruction">cpuid</span> instruction 
+  that reports a maximum leaf greater than 3 is disregarded entirely. The processor 
+  gets treated as a Pentium that does not have <span class="instruction">cpuid</span>. 
+  It perhaps never will be known for sure, even inside Microsoft after all this 
+  time, whether this maximum-of-3 defence was written because any Pentium—perhaps 
+  one of those “Pre B0 steppings”—actually was known to return seemingly spurious 
+  values in <span class="register">eax</span> or just because imposing some limit 
+  seemed like a reasonable precaution after the pre-history described above. Either 
+  way, the defence created a hostage for the future if new processors added leaves 
+  faster than Microsoft’s customers threw away their old Windows versions. </p>
+  <p>Unless Intel was somehow to be stopped from adding leaves for new processors, 
+  some future Windows version would have to give up the defence. Even then, customers 
+  who installed an old Windows on a new processor would find at best that the old 
+  Windows was hobbled by its seeing no features that the processor would report 
+  through <span class="instruction">cpuid</span> leaves up to 3. Importantly, it 
+  wouldn’t know of instructions and registers whose existence is indicated by set 
+  bits in <a href="../00000001h/edx.htm"><span class="register">edx</span> from
+  <span class="instruction">cpuid</span> leaf 1</a>. Windows NT 4.0 already varied 
+  its behavour according to eight such feature flags. Windows 2000 knew of yet more, 
+  including such desirable new functionality as SSE instructions and the 128-bit 
+  XMM registers, and also could use <span class="instruction">cpuid</span> leaf 
+  2 to prepare better for the processor’s several levels of caching. Were the maximum 
+  of 3 retained this far, these Windows versions would in some ways perform less 
+  well on new processors than on old ones. </p>
+  <p>As it happens, things never did get as far as affecting Windows 2000. Push 
+  came to shove late in 1999 and the maximum of 3 was removed for Windows NT 4.0 
+  SP6. Even then, it looks like years were yet to pass before any real-world users 
+  were capable of being affected. When, after all, did a processor that reports 
+  a higher maximum first become available? Until a few years ago, the listing for
+  <span class="instruction">cpuid</span> in the
+  <a href="https://www.intel.com/sites/default/files/managed/ad/01/253666-sdm-vol-2a.pdf">
+  Intel® 64 and IA-32 Architectures Software Developer’s Manual Volume 2A: Instruction 
+  Set Reference, A-L</a> included a table of the Highest CPUID Source Operand for 
+  successive models of processors. According to this, Intel’s first processor that 
+  has a basic <span class="instruction">cpuid</span> leaf greater than 3 is the 
+  “Pentium 4 Processor supporting Hyper-Threading Technology”. Yet this processor 
+  wasn’t added to the table until some time in 2003 or 2004.<a class="FootnoteReference" name="FtnRef_1" href="#Ftn_1">1</a> 
+  Although the availability of these processors was announced in November 2002 through 
+  Intel’s news release
+  <a href="https://www.intel.com/pressroom/archive/releases/2002/20021114comp.htm">
+  Intel Delivers Hyper-Threading Technology With Pentium® 4 Processor 3 Ghz Milestone</a>, 
+  it’s scarcely credible that even Microsoft had any of these processors to test 
+  as early as 1999. Removing the limit in 1999 looks like one of those rare things 
+  that both users and manufacturers should be glad of: a fix that was made in advance 
+  of users reporting a problem. </p>
+  <p>This is not to say, though, that no Windows users ever were affected. Of course 
+  they were, just not for a few years. For all sorts of reasons, even relatively 
+  ordinary computer users sometimes install an old Windows version on a new computer. 
+  Although the only people nowadays who would install anything older than Windows 
+  NT 4.0 SP6 are hobbyists, software developers will have needed to test their work 
+  on Windows NT 4.0 for many years after 1999. Some will have kept old computers. 
+  More will have installed it onto new computers, including into virtual machines 
+  on new computers. What they will have found is not just that early versions of 
+  Windows under-perform on new processors but that Windows NT 4.0 in particular 
+  crashes. </p>
+  <h4>Crash Windows NT 4.0 </h4>
+  <p>To see why, look first at what exactly it means that a processor whose
+  <span class="instruction">cpuid</span> reports a maximum leaf greater than 3 is 
+  treated like a Pentium whose <span class="instruction">cpuid</span> is unusable. 
+  Its meaning in versions 3.10 to 3.51 is straightforward. The processor is a Pentium, 
+  which means it has a <span class="register">cr4</span> register, which the kernel 
+  must include when saving and restoring processor state. But
+  <span class="instruction">cpuid</span> is never executed again. Version 4.0 changed 
+  this a little. One change is that it doesn’t infer existence of
+  <span class="register">cr4</span> from the processor’s being a Pentium, but what’s 
+  immediately relevant is that it doesn’t completely ignore
+  <span class="instruction">cpuid</span> as unusable. Instead, it executes
+  <span class="instruction">cpuid</span> leaf 1 exactly once. The problem is that 
+  it acts on this very early and later gets confused when it executes
+  <span class="instruction">cpuid</span> leaf 0, sees what it thinks is an implausible 
+  response in <span class="register">eax</span>, and concludes that
+  <span class="instruction">cpuid</span> is unusable. </p>
+  <p>Where the crash comes in is that if this first execution of
+  <span class="instruction">cpuid</span> just for leaf 1 finds that the processor 
+  has the <span class="instruction"><a href="../../cx8.htm">cmpxchg8b</a></span> 
+  instruction, then the kernel in version 4.0 commits to the instruction’s use and 
+  requires that all processors have the instruction. If the later, detailed test 
+  for any processor, including the boot processor, determines that
+  <span class="instruction">cmpxchg8b</span> is missing, then Windows stops with 
+  the bug check <span class="constant"><a href="../../../bugchecks/3e.htm">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</a></span> 
+  (0x3E)—yes, even on a single-processor system. </p>
+  <p>This became a well-known problem because the later test looked for
+  <span class="instruction">cmpxchg8b</span> support only if the
+  <a href="vendor.htm">vendor string from <span class="instruction">cpuid</span> 
+  leaf 0</a> showed the processor as being made by Intel, AMD or Cyrix. Other vendors’ 
+  processors that implemented <span class="instruction">cmpxchg8b</span> looked 
+  like they have it for the boot processor according to the early test but not for 
+  any other processor, including the boot processor, according to the later test. 
+  These other vendors and their customers will have been understandably unhappy 
+  with the consequent bug check. Microsoft attended to this in Windows NT 4.0 SP4 
+  by making it that the later test was no longer vendor-specific. </p>
+  <p>What evidently wasn’t noticed immediately is that the later test misses
+  <span class="instruction">cmpxchg8b</span> support not just for processors from 
+  the wrong vendors but also for new processors whose <span class="instruction">
+  cpuid</span> support extends beyond leaf 3. Any processor that was new enough 
+  to have a <span class="instruction">cpuid</span> leaf greater than 3 would surely 
+  also be new enough to have the <span class="instruction">cmpxchg8b</span> instruction. 
+  Support for this would be seen by the quick-and-early test and missed by the later 
+  test, triggering the bug check just as for an older processor from a lessor vendor. 
+  My suspicion is that Microsoft realised this, and corrected it in Windows NT 4.0 
+  SP6, not in reaction to an observation but because the programmers revisited
+  <span class="instruction">cmpxchg8b</span> support in the lead-up to Windows 2000.
+  </p>
+  <h4>Limit CPUID MAXVAL </h4>
+  <p>However it got attended to, a lesson was learnt: Windows has never since imposed 
+  a maximum on the maximum for basic leaves. But the consequences of having done 
+  so all those years ago are still with Windows even now, and perhaps even more 
+  with Intel and with BIOS manufacturers. </p>
+  <p>So that new computers could run old Windows versions, Intel arranged that new 
+  processors can be configured to have <span class="instruction">cpuid</span> report 
+  a maximum leaf of 3. This is arranged by setting bit 22 in the Model Specific 
+  Register <span class="register"><a href="../../msr/misc_enable.htm">IA32_MISC_ENABLE</a></span>. 
+  Of course, this is only needed in processors that would anyway report a maximum 
+  leaf higher than 3. The first known documentation is the
+  <span class="citation">IA-32 Intel® Architecture Software Developer’s Manual Volume 
+  3: System Programming Guide</span> from 2004 (order number 253668-013). </p>
+  <p>Some computers offer this controlled reduction of capability as an option in 
+  the BIOS setup. It’s not a bad workaround. Version 4.0 anyway doesn’t use a
+  <span class="instruction">cpuid</span> leaf higher than 1. If you want to run 
+  an early Windows on a new computer, then this BIOS option not only lets you do 
+  it but lets your early Windows see all the processor features it ever would have. 
+  It does, however, create another hostage for the future. </p>
+  <p>A new Windows on the same computer will want—and, far enough into the future, 
+  may need—information from higher <span class="instruction">cpuid</span> leaves 
+  and will be crippled if the BIOS option somehow remains enabled. Starting with 
+  version 6.0, Windows makes a point of clearing bit 22 in
+  <span class="register">IA32_MISC_ENABLE</span> on selected models of Intel processor 
+  before its initialisation of the processor has proceeded far enough to want higher
+  <span class="instruction">cpuid</span> leaves. </p>
+  <h3>Minimum Maximum </h3>
+  <p>The other early defence was retained up to and including version 6.2. The wonder 
+  is that it isn’t original: it wasn’t introduced until version 3.50. What it seems 
+  to address is whether some Pentium, or more likely a 80486, implements the
+  <span class="instruction">cpuid</span> instruction in too early or reduced a state 
+  to use. If only from what Intel documents, the <span class="instruction">cpuid</span> 
+  instruction cannot itself distinguish an 80486 from a Pentium except from the 
+  family field in the processor signature that leaf 1 produces in
+  <span class="register">eax</span>. Version 3.10 doesn’t check that
+  <span class="instruction">cpuid</span> has a leaf 1. Version 3.50 does. Whether 
+  this is because a Microsoft programmer got picky about not executing any
+  <span class="instruction">cpuid</span> leaf other than 0 without checking against 
+  the maximum leaf or because a processor with no leaf 1 ever was encountered may 
+  never be known, but a processor whose <span class="instruction">cpuid</span> leaves 
+  do not reach 1 is a processor that not only has no usable
+  <span class="instruction">cpuid</span> but can only be an 80486 (or even 80386). 
+  Anything more that is learnt about it is from the methods of
+  <a href="../../precpuid.htm">CPU Identification Before CPUID</a>. </p>
+  <div class="Footnotes">
+    <hr>
+    <p><a class="FootnoteReference" name="Ftn_1" href="#FtnRef_1">[1]</a> It’s not 
+    in the <span class="citation">IA-32 Intel® Architecture Software Developer’s 
+    Manual Volume 2A: Instruction Set Reference, A-M</span> (order number 245471-012) 
+    from 2003 but is in what appears to be its immediate successor (order number 
+    253666-013). </p>
+  </div>
+  <div class="Footer">
+    <p class="Dates">This page was created on 18th January from material first published 
+    on 8th <a href="../../../../../../new/19/12.htm">January 2020</a>. It was last 
+    modified on 7th July 2020. </p>
+    <!--webbot bot="Include" U-Include="../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="61845" -->
+  </div>
+</div>
+
+</body>
+
+</html>

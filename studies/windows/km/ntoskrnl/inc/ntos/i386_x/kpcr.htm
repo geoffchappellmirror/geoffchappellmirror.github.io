@@ -1,0 +1,734 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KPCR (i386)</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KPCR (i386) </h1>
+<p>The name <span class="struct">KPCR</span> stands for (Kernel) Processor Control 
+Region. The kernel keeps a <span class="struct">KPCR</span> (formally a
+<span class="struct">_KPCR</span>) for each logical processor. The
+<span class="struct">KPCR</span> is highly specific to the processor architecture. 
+This page concerns itself only with the <span class="struct">KPCR</span> in 32-bit 
+Windows for the processor architecture that’s variously named i386 or x86. The
+<a href="../amd64_x/kpcr.htm">x64 <span class="struct">KPCR</span></a> is presented 
+separately. </p>
+<h2>Access </h2>
+<p>Kernel-mode code can easily find the <span class="struct">KPCR</span> for whichever 
+processor it’s executing on, because when the processor last entered ring 0, however 
+it got there, the kernel will have loaded the <span class="register">fs</span> register 
+with a GDT selector (0x0030) for a segment whose base address is that of the processor’s
+<span class="struct">KPCR</span>. Microsoft’s assembly-language header KS386.INC 
+gives the symbolic name <span class="constant">KGDT_R0_PCR</span> for this selector.
+</p>
+<p>The <span class="struct">KPCR</span> conveniently holds its own address in the
+<span class="member">SelfPcr</span> member so that reading just this one member 
+using a segment register override makes the whole <span class="struct">KPCR</span> 
+accessible without overrides. This is so fundamental that all versions of the 32-bit 
+Windows kernel have it as an internal routine, typically inlined, which is coded 
+very much like: </p>
+<pre class="source">FORCEINLINE
+KPCR *KeGetPcr (VOID)
+{
+    return (KPCR *) __readfsdword (FIELD_OFFSET (KPCR, SelfPcr));
+}</pre>
+<p>Beware, though, that what this gets is the address of the
+<span class="struct">KPCR</span> for the processor that the thread was running on 
+at the time. It remains the address of the current <span class="struct">KPCR</span> 
+only while the thread can ensure it is not switched to another processor. I suspect 
+that more than a few things go very slightly wrong in kernel-mode Windows because 
+this point is insufficiently respected. </p>
+<p>Before version 6.2, space for the boot processor’s <span class="struct">KPCR</span> 
+is allocated by the loader at the fixed address 0xFFDFF000. The loader also prepares 
+the initial GDT so that the kernel starts its execution with this space already 
+addressable through the 0x0030 selector. This preparation allows that the kernel 
+can initialise its use of the boot processor before it has initialised a memory 
+manager, yet not carry the relatively large space in its own data. Before version 
+6.0, the kernel accepts the fixed address from the loader, builds the initial
+<span class="struct">KPCR</span> there, and keeps it there. Indeed, the single-processor 
+builds, for which the initial <span class="struct">KPCR</span> is the one and only, 
+use the fixed address in preference to the <span class="register">fs</span> register. 
+Aside from being of some practical use when debugging without symbols, this fixed 
+address for the boot processor’s <span class="struct">KPCR</span> was architectural 
+enough to be defined symbolically: from the Device Driver Kit (DDK) for Windows 
+XP up to and including the Windows Driver Kit (WDK) for Windows 8, either or both 
+of NTDDK.H and WDM.H name the fixed address 0xFFDFF000 symbolically as
+<span class="macro">KIP0PCRADDRESS</span>. </p>
+<h2>Documentation Status </h2>
+<p>Not even the role of the segment register in accessing the
+<span class="struct">KPCR</span> is formally documented, but the
+<span class="struct">KPCR</span> is made at least semi-official by C-language definitions 
+that Microsoft has published in NTDDK.H from every DDK or WDK since at least as 
+far back as Windows NT 3.51. </p>
+<p>That said, Microsoft has always been a little less open about the
+<span class="struct">KPCR</span> for the x86 processor than for others. Though the 
+NTDDK.H for Windows NT 3.1 has no C-language definition of the x86
+<span class="struct">KPCR</span>, it does for two other processor architectures. 
+Though every NTDDK.H since at least Windows NT 3.51 presents
+<span class="routine">KeGetPcr</span> (see above) as either a macro or inline routine 
+for at least one processor architecture, none has ever defined it for the x86. Of 
+course, this routine’s existence for the x86 does have public disclosure from the 
+very beginning in symbol files that Microsft publishes for debugging support. For 
+Windows NT 4.0, we’re even told it’s at lines 43 to 46 in a source file named i386pcr.asm.
+</p>
+<p>In no published DDK or WDK is the C-language definition of the
+<span class="struct">KPCR</span> complete—not just for the x86 but apparently for 
+all processors. A comment speaks of an “architecturally defined section of the PCR” 
+which “may be directly addressed by vendor/platform specific HAL code and will not 
+change from version to version of NT”. A ready inference is that this defined section 
+is just part of an undisclosed whole. How far this architecturally defined section 
+extends is unclear. Definitions in driver kits from before Windows Vista stop at
+<span class="member">Number</span> (which is as far as needed for the inline function
+<span class="routine">KeGetCurrentProcessorNumber</span>). Definitions since have 
+stretched to <span class="member">HalReserved</span>—in NTDDK.H, but the definitions 
+in NTOSP.H from early editions of the WDK for Windows 10 also stop at
+<span class="member">Number</span>. It’s not as if any published definitions have 
+a comment to mark the architecturally defined section’s end. All stop short of the 
+embedded <span class="struct"><a href="kprcb/index.htm">KPRCB</a></span>. </p>
+<p>The comment about the section’s start is anyway best taken as stating some intention 
+which is not strictly observed in practice. Certainly, the “architecturally defined 
+section” is not all that the HAL has access to. It may be all that the HAL accesses 
+from code written in C—and, indeed, the symbol files for the HAL have the NTDDK.H 
+definition of the <span class="struct">KPCR</span>—but parts of the HAL that are 
+written in assembly language access <span class="struct">KPRCB</span> members very 
+nearly at the end, e.g., <span class="member">HighCycleTime</span>, by knowing their 
+offsets from the start of the <span class="struct">KPCR</span>. </p>
+<h2>Variability </h2>
+<p>Whatever was or is the intention—perhaps that the <span class="struct">KPCR</span> 
+before the <span class="struct">KPRCB</span> is per-processor information that the 
+kernel shares but the <span class="struct">KPRCB</span> itself is (more) private 
+to the kernel—one practical consequence is that the <span class="struct">KPCR</span> 
+before the <span class="struct">KPRCB</span> is highly stable across Windows versions 
+while the <span class="struct">KPRCB</span> is highly changeable. </p>
+<p>Indeed, except for changes within the embedded <span class="struct">KPRCB</span>, 
+the x86 <span class="struct">KPCR</span> is so stable that although the structure 
+provides for <span class="member">MajorVersion</span> and <span class="member">MinorVersion</span> 
+numbers, they have never changed—they are both 1 in all versions—and arguably have 
+never needed changing. No member that isn’t labelled reserved or spare has ever 
+shifted because of some other member’s insertion or removal, though one has shifted 
+because of its own redefinition. </p>
+<p>The changing size of the whole <span class="struct">KPCR</span> structure, as 
+shown in the table below, is due entirely to the changing size of the
+<span class="struct">KPRCB</span> at the structure’s end. All versions have this 
+embedded <span class="struct">KPCR</span> at offset 0x0120. It can be convenient, 
+if not formally correct, to think of the <span class="struct">KPCR</span> as just 
+these first 0x0120 bytes. </p>
+<table class="Sizes">
+  <colgroup>
+    <col class="Version"><col class="Size">
+  </colgroup>
+  <tr>
+    <th>Version </th>
+    <th>Size </th>
+  </tr>
+  <tr>
+    <td>3.10 </td>
+    <td>0x03B8 </td>
+  </tr>
+  <tr>
+    <td>3.50 </td>
+    <td>0x0468 </td>
+  </tr>
+  <tr>
+    <td>3.51 </td>
+    <td>0x0480 </td>
+  </tr>
+  <tr>
+    <td>4.0 </td>
+    <td>0x0678 </td>
+  </tr>
+  <tr>
+    <td>5.0 </td>
+    <td>0x0B10 </td>
+  </tr>
+  <tr>
+    <td>5.1 </td>
+    <td>0x0D70 </td>
+  </tr>
+  <tr>
+    <td>early 5.2 (before SP1) </td>
+    <td>0x0EF0 </td>
+  </tr>
+  <tr>
+    <td>late 5.2 </td>
+    <td>0x0FE0 </td>
+  </tr>
+  <tr>
+    <td>early 6.0 (before SP1) </td>
+    <td>0x20B8 </td>
+  </tr>
+  <tr>
+    <td>late 6.0 </td>
+    <td>0x2128 </td>
+  </tr>
+  <tr>
+    <td>6.1 </td>
+    <td>0x3748 </td>
+  </tr>
+  <tr>
+    <td>6.2 </td>
+    <td>0x4280 </td>
+  </tr>
+  <tr>
+    <td>6.3 </td>
+    <td>0x4628 </td>
+  </tr>
+  <tr>
+    <td>10.0 to 1703 </td>
+    <td>0x4A20 </td>
+  </tr>
+  <tr>
+    <td>1709 </td>
+    <td>0x4A60 </td>
+  </tr>
+  <tr>
+    <td>1803 to 2004 </td>
+    <td>0x6020 </td>
+  </tr>
+</table>
+<h2>Layout </h2>
+<p>In the tables that follow, C-language definitions are reconstructed from type 
+information in symbol files that Microsoft publishes for the kernel and from definitions 
+in the NTDDK.H files from development kits for driver programming. Symbol-file type 
+information for the 32-bit <span class="struct">KPCR</span> is first available for 
+Windows 2003 SP3. For earlier versions, members after <span class="member">Number</span> 
+are therefore not known with certainty. Some notes on inferences and suppositions 
+arising from this point follow the table. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00 </td>
+    <td>
+    <pre class="source">NT_TIB NtTib;</pre>
+    </td>
+    <td>3.10 to 5.1 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    NT_TIB NtTib;
+    struct {
+        /*  slightly changing members, see below  */
+    };
+};</pre>
+    </td>
+    <td>5.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td>
+    <pre class="source">KPCR *SelfPcr;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">KPRCB *Prcb;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>
+    <pre class="source">KIRQL Irql;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>
+    <pre class="source">ULONG IRR;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2C </td>
+    <td>
+    <pre class="source">ULONG IrrActive;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td>
+    <pre class="source">ULONG IDR;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x34 </td>
+    <td>
+    <pre class="source">ULONG Reserved2;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">PVOID KdVersionBlock;</pre>
+    </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x38 </td>
+    <td>
+    <pre class="source">KIDTENTRY *IDT;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x3C </td>
+    <td>
+    <pre class="source">KGDTENTRY *GDT;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x40 </td>
+    <td>
+    <pre class="source">KTSS *TSS;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x44 </td>
+    <td>
+    <pre class="source">USHORT MajorVersion;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x46 </td>
+    <td>
+    <pre class="source">USHORT MinorVersion;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x48 </td>
+    <td>
+    <pre class="source">KAFFINITY SetMember;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4C </td>
+    <td>
+    <pre class="source">ULONG StallScaleFactor;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x50 </td>
+    <td>
+    <pre class="source">UCHAR DebugActive;</pre>
+    </td>
+    <td>3.10 to 5.1 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR SpareUnused;</pre>
+    </td>
+    <td>5.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x51 </td>
+    <td>
+    <pre class="source">UCHAR Number;</pre>
+    </td>
+    <td>3.50 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x52 </td>
+    <td>
+    <pre class="source">UCHAR VdmAlert;</pre>
+    </td>
+    <td>3.50 to 5.0 </td>
+    <td>next as <span class="type">ULONG</span> at 0x54 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR Spare0;</pre>
+    </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x51 (3.10); <br>
+    0x53 </td>
+    <td>
+    <pre class="source">UCHAR Reserved [3];</pre>
+    </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR Reserved [1];</pre>
+    </td>
+    <td>3.50 to 5.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR SecondLevelCacheAssociativity;</pre>
+    </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x54 </td>
+    <td>
+    <pre class="source">ULONG VdmAlert;</pre>
+    </td>
+    <td>5.1 and higher </td>
+    <td>previously <span class="type">UCHAR</span> at 0x52 </td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x54 (3.10 to 5.0); <br>
+    0x58 </td>
+    <td>
+    <pre class="source">ULONG KernelReserved [0x10];</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG KernelReserved [0x0F];</pre>
+    </td>
+    <td>5.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG KernelReserved [0x0E];</pre>
+    </td>
+    <td>5.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x90 </td>
+    <td>
+    <pre class="source">ULONG SecondLevelCacheSize;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x94 </td>
+    <td>
+    <pre class="source">ULONG HalReserved [0x10];</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xD4 </td>
+    <td>
+    <pre class="source">ULONG InterruptMode;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0xD8 </td>
+    <td>
+    <pre class="source">BOOLEAN DpcRoutineActive;</pre>
+    </td>
+    <td>3.10 to 3.50 </td>
+    <td>next as <span class="type">ULONG</span> at 0x030C in
+    <span class="struct">KPRCB</span> </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">BOOLEAN Spare1;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xDC </td>
+    <td>
+    <pre class="source">ULONG KernelReserved2 [0x11];</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0120 </td>
+    <td>
+    <pre class="source">KPRCB PrcbData;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>At any given moment, the 8-bit <span class="member">Irql</span> member
+<span class="emphasis">is</span> the processor’s current IRQL. It is what the long-documented 
+HAL function <span class="function">KeGetCurrentIrql</span> looks up. As suggested 
+by the comment “do not use 3 bytes after this as HALs assume they are zero” from 
+the NTDDK.H in the DDK for Windows Server 2003, the HAL sometimes sets 32 bits for 
+this member, e.g., in <span class="function">KeTryToAcquireQueuedSpinLock</span> 
+up to and including version 6.1, and even as late as version 10.0 when restoring 
+the <span class="member">Irql</span> after handling a Machine Check exception (interrupt 
+0x12). </p>
+<p>What <span class="member">KdVersionBlock</span> actually points to is an internal 
+kernel variable that is also named <span class="variable">KdVersionBlock</span>. 
+This variable is a <span class="struct">DBGKD_GET_VERSION64</span> structure, which 
+is defined in the WDK header file WDBGEXTS.H. This structure’s reason for existence 
+is presumably to provide the means for a kernel-mode debugger to know more detail 
+about the kernel it’s working with—even when debugging without the correct symbol 
+file. Among other things, the structure has pointers to numerous kernel variables 
+that are otherwise internal to the kernel, i.e., are not exported. Exposing the
+<span class="variable">KdVersionBlock</span> variable via the
+<span class="struct">KPCR</span> means that all those otherwise internal variables 
+are easily and reliably accessible to all kernel-mode software (including kernel-mode 
+malware). </p>
+<p>No use is known of <span class="member">Number</span> or <span class="member">
+VdmAlert</span> before version 3.50. It is here supposed that space for these was 
+taken from the front of a previously larger <span class="member">Reserved</span> 
+array. </p>
+<p>The <span class="member">SecondLevelCacheAssociativity</span> and
+<span class="member">SecondLevelCacheSize</span> are determined when initialising 
+the kernel’s use of the processor, but only if the CPU vendor string is one of the 
+following: </p>
+<ul>
+  <li>GenuineIntel; </li>
+  <li>AuthenticAMD (version 5.1 and higher); </li>
+  <li>CentaurHauls (version 6.2 and higher). </li>
+</ul>
+<p>For CPUs from other vendors the size and associativity are zero. The kernel is 
+not known to have any <a href="../../../../cpu/l2cache.htm">Second-Level (L2) Cache 
+Support</a> before version 5.0, which anyway does not bother about associativity. 
+The layout above supposes as the most plausible history that the kernel and HAL 
+reservations were originally the same size and that version 5.0 took
+<span class="member">SecondLevelCacheSize</span> from the end of the previously 
+larger <span class="member">KernelReserved</span> but version 5.1 took
+<span class="member">VdmAlert</span> from the start of it, thus not only shrinking 
+it but shifting it. </p>
+<p>The HAL certainly does use its <span class="member">HalReserved</span> area, 
+but the kernel knows nothing of what’s inside and type information in symbol files 
+for the HAL seems not to cover it. </p>
+<p>No use is known of the <span class="member">InterruptMode</span> in any version. 
+That it was defined from the start is known from the <span class="command">!pcr</span> 
+command as implemented by the I386KD debugger from the Windows NT 3.1 DDK. </p>
+<p>The byte that symbol files define as <span class="member">Spare1</span> was not 
+always spare. Before version 3.51, it tracks whether the processor is currently 
+executing a Deferred Procedure Call (DPC). Microsoft’s name for it is not known, 
+but <span class="member">DpcRoutineActive</span> is at least plausible since it’s 
+the name that turns up in symbol files for where this member subsequently appears 
+in the <span class="struct">KPRCB</span>. As with <span class="member">Irql</span> 
+there seems to be some disagreement about this member’s size. The kernel mostly 
+reads <span class="member">DpcRoutineActive</span> as a <span class="type">BOOLEAN</span>, 
+but always sets it as a <span class="type">ULONG</span>, though only ever to 0 or 
+1. Though the exported function <span class="function">KeIsExecutingDpc</span>—which 
+Microsoft got round to documenting in 2018 as if new for the 1803 release of Windows 
+10—returns all 32 bits, <span class="member">DpcRoutineActive</span> is treated 
+above as having been formally a one-byte type for consistency with the known type 
+of <span class="member">Spare1</span>. </p>
+<p>Something like <span class="member">KernelReserved2</span> will have been defined 
+all along, if only to place the <span class="member">PrcbData</span> at the reliable 
+offset of 0x0120. </p>
+<h4>NT_TIB Overlay </h4>
+<p>Starting with Windows Server 2003, the <span class="struct">NT_TIB</span> at 
+the beginning of the <span class="struct">KPCR</span> is given in union with an 
+unnamed structure whose members change a little between versions: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">EXCEPTION_REGISTRATION_RECORD *Used_ExceptionList;</pre>
+    </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">PVOID Used_StackBase;</pre>
+    </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x08 </td>
+    <td>
+    <pre class="source">PVOID PerfGlobalGroupMask;</pre>
+    </td>
+    <td>5.2 only </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">PVOID Spare2;</pre>
+    </td>
+    <td>6.0 to 6.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG MxCsr;</pre>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>
+    <pre class="source">PVOID TssCopy;</pre>
+    </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">ULONG ContextSwitches;</pre>
+    </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>
+    <pre class="source">KAFFINITY SetMemberCopy;</pre>
+    </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">PVOID Used_Self;</pre>
+    </td>
+    <td>5.2 and higher </td>
+  </tr>
+</table>
+<p>That version 5.2 defines these as alternatives to what NTDDK.H and WINNT.H present 
+for the <span class="struct">NT_TIB</span> itself is plausibly not just because 
+version 5.2 changed the use but was also to formalise that the kernel’s use of these 
+members had been different all along. The <span class="struct">NT_TIB</span> does 
+not exist only in the <span class="struct">KPCR</span> for each processor. It also 
+begins the <span class="struct"><a href="../../api/pebteb/teb/index.htm">TEB</a></span> 
+for each thread. This is a structure that is created by the kernel for the thread’s 
+user-mode representation. Those headers, even NTDDK.H which is ostensibly for kernel-mode 
+programming, describe the user-mode <span class="struct">NT_TIB</span>. The kernel-mode
+<span class="struct">NT_TIB</span> has always been a little different. </p>
+<p>Before this union was defined for version 5.2, the <span class="member">StackBase</span> 
+and <span class="member">StackLimit</span> at offsets 0x04 and 0x08 in the
+<span class="struct">NT_TIB</span> are respectively the upper and lower bounds on 
+the <span class="register">esp</span> register for the current thread’s kernel-mode 
+execution in its current circumstances. The name <span class="member">Used_StackBase</span> 
+perhaps warns that this kernel-mode <span class="member">StackBase</span> is interpreted 
+a little differently from the user-mode <span class="member">StackBase</span> in 
+the <span class="struct">NT_TIB</span> that begins the <span class="struct">TEB</span>. 
+The user-mode <span class="member">StackBase</span> is the page-aligned end of memory 
+that is allocated to the thread’s user-mode stack. The kernel-mode
+<span class="member">StackBase</span> is not the page-aligned end of the memory 
+that is allocated to the thread’s kernel-mode stack. The top of this memory is instead 
+given over to an area for saving floating-point state and <span class="member">StackBase</span> 
+addresses that. The stack, as a region to <span class="instruction">push</span> 
+to and <span class="instruction">pop</span> from, is underneath. </p>
+<p>This upper bound on what part of the stack allocation actually is available for 
+use as a stack can change—even without using the relatively modern provisions for 
+switching to a new stack in new memory. Among the contortions of “calling” user 
+mode is that the kernel can be re-entered. Its execution then should be well-separated 
+from its execution before. At each such call to user mode, however far
+<span class="register">esp</span> has yet got down the current thread’s kernel-mode 
+stack becomes a new top of stack with a new chain for exception handling and a new 
+area for saving floating-point state—which <span class="member">StackBase</span> 
+is changed to point to. If you can read the preceding without realising that the 
+kernel’s simulation of calling user mode risks exhausting the kernel-mode stack 
+(or worse), then kernel-mode programming is not yet for you. </p>
+<p>In version 5.2, the <span class="member">StackLimit</span> instead holds the 
+address of a <span class="struct">
+<a href="../../api/ntwmi/perfinfo_groupmask.htm">PERFINFO_GROUPMASK</a></span>. 
+This is an array of bits for what types of event are enabled in NT Kernel Logger 
+sessions. The intention was presumably to allow the tracing of different selections 
+of events on different processors. Whatever the plan, it didn’t survive even to 
+version 6.0. Neither was the old use brought back. Not until version 6.3 is the 
+space put to new use, specifically to hold the value that is to be loaded into the 
+processor’s <span class="register">mxcsr</span> on each entry to kernel mode.
+</p>
+<p>The name of the <span class="member">Used_Self</span> member is perhaps another 
+warning against naive expectation. The <span class="member">Self</span> member of 
+the <span class="struct">NT_TIB</span> does not point to the
+<span class="member">NtTib</span> in the <span class="struct">KPCR</span> but instead 
+to the <span class="member">NtTib</span> at the beginning of the current thread’s
+<span class="struct">TEB</span>. That it does so means that the
+<span class="struct">TEB</span> and related structures are not just accessible in 
+both user mode and kernel mode but are accessible by exactly the same (library) 
+code. Early versions made extensive use of this convenience, even to allocate from 
+and free to the user-mode process heap. There is thankfully ever less of this as 
+concern for the kernel’s security has become more important: it’s one thing for 
+the kernel to place into user-mode read-write memory any amount of data to help 
+with user-mode management of the thread, but quite another to depend on what it 
+reads there! </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 11th December 2020 from material first 
+  published on 21st May 2016. It was last modified on 29th December 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1620.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4893" -->
+</div>
+
+</body>
+
+</html>

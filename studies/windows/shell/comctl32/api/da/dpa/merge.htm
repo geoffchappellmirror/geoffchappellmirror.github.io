@@ -1,0 +1,240 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DPA_Merge</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>DPA_Merge </h1>
+<p>This function modifies one DPA according to the items in another DPA. </p>
+<h2>Declaration </h2>
+<pre class="source">BOOL
+DPA_Merge (
+    HDPA hdpaDest,
+    HDPA hdpaSrc,
+    DWORD dwFlags,
+    PFNDPACOMPARE pfnCompare,
+    PFNDPAMERGE pfnMerge,
+    LPARAM lParam);</pre>
+<!--webbot bot="Include" u-include="_include/ccb.htm" tag="BODY" startspan -->
+
+<p>The comparison callback function has the prototype: </p>
+<pre class="source">typedef int (*PFNDPACOMPARE) (PVOID p1, PVOID p2, LPARAM lParam);</pre>
+
+<!--webbot bot="Include" i-checksum="25902" endspan -->
+<p>The merge callback function has the prototype: </p>
+<pre class="source">typedef PVOID (*PFNDPAMERGE) (UINT uMsg, PVOID p1, PVOID p2, LPARAM lParam);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">hdpaDest</span> argument provides a handle to the 
+(target) DPA that may be modified. </p>
+<p>The <span class="argument">hdpaSrc</span> argument provides a handle to the (source) 
+DPA that provides new items. </p>
+<p>The <span class="argument">dwFlags</span> argument provides bit flags to direct 
+the behaviour. Recognised values are: </p>
+<table class="Constants">
+  <tr>
+    <td><span class="constant">DPAM_SORTED</span> (0x01) </td>
+    <td>both input lists are already sorted </td>
+  </tr>
+  <tr>
+    <td><span class="constant">DPAM_UNION</span> (0x04) </td>
+    <td>form a generalised union of the input lists </td>
+  </tr>
+  <tr>
+    <td><span class="constant">DPAM_INTERSECT</span> (0x08) </td>
+    <td>form a generalised intersection of the input lists </td>
+  </tr>
+</table>
+<p>The <span class="argument">pfnCompare</span> argument provides the address of 
+a comparison callback function that decides the relative order of any pair of items 
+from either DPA. </p>
+<p>The <span class="argument">pfnMerge</span> argument provides the address of a 
+merge callback function that notifies of changes to the target DPA. </p>
+<p>The <span class="argument">lParam</span> argument provides a caller-specific 
+context to be passed on each invocation of either callback function. </p>
+<h3>Return Value </h3>
+<p>The function returns TRUE for success, else FALSE. </p>
+<h2>Behaviour </h2>
+<p>The function fails if either DPA handle is NULL or if the address given for either 
+callback function is NULL. </p>
+<p>The function adds or removes items from the target list according to what items 
+are found in the source list. Decisions depend on the relative order of items from 
+each list, as defined by the combination of comparison function and context. If
+<span class="constant">DPAM_SORTED</span> is given in the <span class="argument">
+dwFlags</span>, the function assumes that both lists are already sorted in this 
+order. Otherwise, the function sorts both lists (and merely assumes that both sort 
+operations succeed). </p>
+<p>The following are the rules for modifying the target list, as presently coded 
+(see below for interpretation and comment): </p>
+<ol>
+  <li>for each source item that has no matching target item but is higher in order 
+  than at least one target item, if <span class="constant">DPAM_UNION</span> is 
+  given among the <span class="argument">dwFlags</span>, then the source item (or 
+  a new item generated from it) is inserted into the (output) target; </li>
+  <li>for each match of a source item and target item, one or the other (or a new 
+  item generated from them) takes the place of the target item in the (output) target, 
+  and neither the source item nor the target item can match any more items; </li>
+  <li>for each target item that has no matching source item but is higher in order 
+  than at least one source item, if <span class="constant">DPAM_INTERSECT</span> 
+  is given among the <span class="argument">dwFlags</span>, then the target item 
+  is deleted from the target; </li>
+  <li>for each source item that is lower in order than every (input) target item, 
+  if <span class="constant">DPAM_UNION</span> is given among the
+  <span class="argument">dwFlags</span>,, then the source item (or a new item generated 
+  from it) is inserted into the (output) target. </li>
+</ol>
+<p>Rules 1 to 3 are coded in one loop that works through the source and target from 
+highest to lowest. Rule 4 mops up any source items that are left over from that 
+loop. There is no rule 5 to mop up any target items that are left over. </p>
+<h3>Comparison Callback Function </h3>
+<p>Each time the <span class="function">DPA_Merge</span> function wants to know 
+the relative order of two items, it calls the comparison function. If
+<span class="constant">DPAM_SORTED</span> was not given among the
+<span class="argument">dwFlags</span>, the comparison function will first be called 
+repeatedly to determine the relative order of items in the source list, and then 
+to determine the relative order of items in the target list. Whatever the
+<span class="argument">dwFlags</span>, the comparison function may be called repeatedly 
+to determine the relative order of a target item and a source item. </p>
+<p>The comparison function is to return zero to indicate that the item at
+<span class="argument">p1</span> matches the item at <span class="argument">p2</span>. 
+A negative or positive result from the comparison function means respectively that 
+the item at <span class="argument">p1</span> is ordered before (lower than) or after 
+(higher than) the item at <span class="argument">p2</span>. </p>
+<h3>Merge Callback Function </h3>
+<p>Each time the <span class="function">DPA_Merge</span> function modifies the target 
+list, it calls the merge function. The type of modification is described by the
+<span class="argument">uMsg</span> argument: </p>
+<table class="Constants">
+  <tr>
+    <td><span class="constant">DPAMM_MERGE</span> (1) </td>
+    <td>found matching items; <br>
+    choose what to insert in target </td>
+  </tr>
+  <tr>
+    <td><span class="constant">DPAMM_DELETE</span> (2) </td>
+    <td>removed unmatched item from target; <br>
+    notification only, no response </td>
+  </tr>
+  <tr>
+    <td><span class="constant">DPAMM_INSERT</span> (3) </td>
+    <td>found unmatched item in source; <br>
+    choose what to insert in target </td>
+  </tr>
+</table>
+<p>For the <span class="constant">DPAMM_MERGE</span> modification,
+<span class="argument">p1</span> points to an item in the target list and
+<span class="argument">p2</span> to a matching item in the source list. The merge 
+function returns the address of an item that is to take the place of the given target 
+item. It may actually be the given target item, but obvious alternatives are the 
+given source item (or a copy) or a new item generated from the two given items. 
+If the merge function returns NULL, merging is aborted and
+<span class="function">DPA_Merge</span> fails (leaving the target list in what is 
+perhaps best regarded as an undefined state). </p>
+<p><span class="constant">DPAMM_DELETE</span> notifies that the item at
+<span class="argument">p1</span> has been removed from the target list. This case 
+arises because the given target item had no match in the source list and
+<span class="constant">DPAM_INTERSECT</span> was specified among the
+<span class="argument">dwFlags</span>. The <span class="argument">p2</span> argument 
+is NULL. The return value is ignored. </p>
+<p>For the <span class="constant">DPAMM_INSERT</span> modification, the source item 
+at <span class="argument">p1</span> has no match in the target list and
+<span class="constant">DPAM_UNION</span> was specified among the
+<span class="argument">dwFlags</span>. The merge function returns the address of 
+an item that is to be inserted into the target list. It may actually be the given 
+source item, but an obvious alternative is an item generated from it (e.g., a copy). 
+The <span class="argument">p2</span> argument is NULL. If the merge function returns 
+NULL, merging is aborted and <span class="function">DPA_Merge</span> fails (leaving 
+the target list in what is perhaps best regarded as an undefined state). </p>
+<h3>Interpretation and Coding Error </h3>
+<p>When both <span class="constant">DPAM_UNION</span> and <span class="constant">
+DPAM_INTERSECT</span> are clear, the number of items in the target does not change, 
+but items that had a match in the source may have been replaced. Indeed, this function’s 
+original (and perhaps still its best) use is when the <span class="constant">DPAMM_MERGE</span> 
+case of the merge callback returns its <span class="argument">p2</span> argument. 
+The effect is then a simple merge, in which target items that have a match in the 
+source are replaced by those matches. </p>
+<p>That <span class="constant">DPAM_UNION</span> without <span class="constant">
+DPAM_INTERSECT</span> forms the target list as a generalised union of the two input 
+lists is plain enough. The target ends with one item for every item that was in 
+either list but not in both, and one item for every matching pair. </p>
+<p>If <span class="constant">DPAM_INTERSECT</span> without
+<span class="constant">DPAM_UNION</span> is meant to produce a generalised intersection 
+of the two input lists, i.e., such that the target ends with one item for every 
+matching pair, then rule 3 ought apply to all target items that have no matching 
+source item. Without a rule 5 to deal with target items that are lower in order 
+than all source items, the intersection produced by this function is not reliable. 
+A <a href="mergebug.htm">demonstration</a> of this ridiculously long-standing bug 
+is presented separately. </p>
+<p>Though the behaviour from setting both <span class="constant">DPAM_INTERSECT</span> 
+and <span class="constant">DPAM_UNION</span> is well-defined, in the sense of being 
+reliably predictable from a description of the algorithm, useful interpretation 
+eludes me and I incline to think that the combination has never been intended despite 
+the handling of <span class="argument">dwFlags</span> as bits. </p>
+<h3>Variations </h3>
+<p>Historically, the defence against invalid arguments is stricter than described 
+above. In versions before 6.10, the function fails if either DPA handle is implausible 
+(meaning specifically that each must be an address at which the bytes of a
+<span class="struct"><a href="dpa.htm">DPA</a></span> structure are writable) or 
+if the address given for either callback function is not valid for reading at least 
+one byte. </p>
+<p>Rule 4 dates from 5.80. In earlier versions, the <span class="constant">DPAM_UNION</span> 
+case misses source items that are lower in order than all target items. It is at 
+least curious that this got fixed without noticing the corresponding incompleteness 
+to the <span class="constant">DPAM_INTERSECT</span> case. </p>
+<h2>Availability </h2>
+<p>The <span class="function">DPA_Merge </span>function is exported from COMCTL32.DLL 
+as ordinal 11 in version 4.71 and higher. The implementation for version 6.10 
+and higher is built into a statically linked library and thence is also exported 
+from the Internet Explorer module IERTUTIL.DLL as ordinal 87 in version 7.0 and 
+higher. </p>
+<!--webbot bot="Include" U-Include="../../_include/undoc471.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 1997, it was still not 
+documented by Microsoft in the MSDN Library at least as late as the CD edition 
+dated January 2004. </p>
+
+<!--webbot bot="Include" i-checksum="43173" endspan -->
+<p>This function has, however, got documented since then (in 2006, or perhaps some 
+time during 2005), albeit as requiring “version 5.0 or later”. This article now 
+uses Microsoft’s nomenclature. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th April 2005 and was last modified 
+  on 15th March 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c0510.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2005-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="4693" endspan -->
+</div>
+
+</body>
+
+</html>

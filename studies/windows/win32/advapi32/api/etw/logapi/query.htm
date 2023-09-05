@@ -1,0 +1,319 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>TraceQueryInformation</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>TraceQueryInformation </h1>
+<p>This function gets information about Event Tracing for Windows (ETW) in general 
+or about a trace session. </p>
+<h2>Declaration </h2>
+<pre class="source">ULONG 
+TraceQueryInformation (
+    TRACEHANDLE SessionHandle, 
+    TRACE_INFO_CLASS InformationClass, 
+    PVOID TraceInformation, 
+    ULONG InformationLength, 
+    ULONG *ReturnLength);</pre>
+<p>The <span class="enum">TRACE_INFO_CLASS</span> enumeration is also named
+<span class="enum">TRACE_QUERY_INFO_CLASS</span>. </p>
+<h3>Parameters </h3>
+<p>The <span class="argument">SessionHandle</span> argument selects a trace session, 
+also known as an event logger, to query. Some information classes query ETW in general 
+and require that this argument be zero. </p>
+<p>The <span class="argument">InformationClass</span> argument tells what sort of 
+information is sought. </p>
+<p>The <span class="argument">TraceInformation</span> and <span class="argument">
+InformationLength</span> arguments are respectively the address and size (in bytes) 
+of a buffer that is to receive the information. What the function puts into this 
+buffer depends on the information class. For one information class, the function 
+expects input from the buffer too. For another, the <span class="argument">TraceInformation</span> 
+argument can be <span class="constant">NULL</span> and the
+<span class="argument">InformationLength</span> argument is then ignored. </p>
+<p>The <span class="argument">ReturnLength</span> argument is the address of a variable 
+whose value on output tells how much information, in bytes, the successful function 
+has put into the buffer or may tell how much the failed function might have put 
+into the buffer (had the buffer been large enough). This argument can be
+<span class="constant">NULL</span> if the caller does not want to know how much 
+information is produced or is available. </p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">ERROR_SUCCESS</span> if successful, 
+else a non-zero error code. </p>
+<h2>Availability </h2>
+<p>The <span class="function">TraceQueryInformation</span> function is exported 
+from ADVAPI32 in version 6.2 and higher, as a forward to KERNELBASE. In version 
+6.3 and higher, it is forwarded instead to the API Set api-ms-win-eventing-controller-l1-1-0 
+and is implemented in SECHOST. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">TraceQueryInformation</span> function is documented. 
+However, for most of the information classes the documentation is essentially useless 
+since although it sketches (not always accurately) the purpose of the information 
+that may be produced it does not present the format. </p>
+<h2>Behaviour </h2>
+<p>The function supports the following information classes: </p>
+<table>
+  <tr>
+    <th>Value </th>
+    <th>Name </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td><span class="constant">TraceSystemTraceEnableFlagsInfo</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x05 </td>
+    <td><span class="constant">TraceSampledProfileIntervalInfo</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x07 </td>
+    <td><span class="constant">TraceProfileSourceListInfo</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0B </td>
+    <td><span class="constant">TraceVersionInfo</span> </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0E </td>
+    <td><span class="constant">TraceDisallowListQuery</span> </td>
+    <td>10.0 and higher </td>
+  </tr>
+</table>
+<p>Given any other, the function returns <span class="constant">ERROR_NOT_SUPPORTED</span>.
+</p>
+<p>All remaining behaviour varies with the information class. They have similar 
+elements to their treatment. This allows some shorthands. Notably, where the descriptions 
+below say simply that the function sets the return length, it’s left as understood 
+that what it sets is the variable at the address given by <span class="argument">
+ReturnLength</span> if the latter is not <span class="constant">NULL</span>. </p>
+<p>The essential handling for most information classes is to query the kernel through 
+the <span class="function">
+<a href="../../../../../km/ntoskrnl/api/ex/sysinfo/query.htm">NtQuerySystemInformation</a></span> 
+function, specifically through that function’s information class
+<span class="constant">SystemPerformanceTraceInformation</span> (0x1F). The kernel 
+has its own expectation for its information buffer as both input and output. The 
+first dword of input is yet another information class, the <span class="enum">
+<a href="../../../../../km/ntoskrnl/api/etw/tracesup/class.htm">EVENT_TRACE_INFORMATION_CLASS</a></span>, 
+which is described below as the <span class="definition">kernel’s information class</span>. 
+Typically, this input to the kernel continues with the <span class="argument">SessionHandle</span>, 
+unchanged, and then an allowance for output. The kernel’s output, on success, is 
+copied to the <span class="function">TraceQueryInformation</span> function’s information 
+buffer and becomes the function’s output. Failure of this call to the kernel is 
+failure for the function. The many reasons that the kernel may reject the call are 
+not discussed here. </p>
+<h3>TraceSystemTraceEnableFlagsInfo (0x04) </h3>
+<p>The information class <span class="constant">TraceSystemTraceEnableFlagsInfo</span> 
+reports which groups of kernel events are enabled for the given trace session, which 
+must be an NT Kernel Logger session. </p>
+<p>The information buffer is to receive an array of 32-bit group masks. The first 
+is compatible with the <span class="member">EnableFlags</span> that are documented 
+for the <span class="struct">EVENT_TRACE_PROPERTIES</span> structure that is the 
+input to such functions as <span class="function">StartTrace</span> and
+<span class="function">ControlTrace</span>. However, eight are presently meaningful. 
+Altogether they make a <span class="struct">
+<a href="../../../../../km/ntoskrnl/api/etw/tracesup/perfinfo_groupmask.htm">PERFINFO_GROUPMASK</a></span>. 
+The function sets the return length to the size of this structure. If the information 
+buffer is too small for the structure, the function returns
+<span class="constant">ERROR_BAD_LENGTH</span>. </p>
+<p>The array of group masks is obtained from the kernel’s information class
+<span class="constant">EventTraceGroupMaskInformation</span> (0x01). The kernel 
+receives an <span class="struct">
+<a href="../../../../../km/ntoskrnl/api/etw/tracesup/groupmask.htm">EVENT_TRACE_GROUPMASK_INFORMATION</a></span> 
+structure into which the function has placed the <span class="argument">SessionHandle</span> 
+as the <span class="member">TraceHandle</span>. On success, the function extracts 
+the <span class="member">EventTraceGroupMasks</span> as the whole of the function’s 
+own output. </p>
+<h3>TraceSampledProfileIntervalInfo (0x05) </h3>
+<p>The <span class="argument">SessionHandle</span> is irrelevant for this information 
+class and must be zero, else the function returns <span class="constant">ERROR_INVALID_PARAMETER</span>.
+</p>
+<p>The information buffer must provide exactly a <span class="struct">TRACE_PROFILE_INTERVAL</span> 
+structure as both input and output. This structure has a C-language definition in 
+EVNTRACE.H: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ULONG Source;</pre>
+    </td>
+    <td>input </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">ULONG Interval;</pre>
+    </td>
+    <td>output </td>
+  </tr>
+</table>
+<p>The function sets the return length to the size of this structure. If the information 
+buffer is not an exact fit, the function returns <span class="constant">ERROR_BAD_LENGTH</span>.
+</p>
+<p>The <span class="member">Source</span> takes its values from the
+<span class="enum">
+<a href="../../../../../km/ntoskrnl/api/ke/profobj/kprofile_source.htm">KPROFILE_SOURCE</a></span> 
+enumeration. This has a C-language definition in WDM.H from the Windows Driver Kit 
+(WDK). It lists the types of profiling data that the HAL may keep about processor 
+performance. It is presumably also defined in headers that Microsoft does not publish 
+but does make available to its own user-mode programmers: how else does type information 
+for it appear in symbol files for such high-level modules as the URLMON.DLL from 
+Internet Explorer? </p>
+<p>If the <span class="member">Source</span> on input is <span class="constant">
+ProfileTime</span> (0), the function gets the <span class="member">Interval</span> 
+from the kernel’s information class <span class="constant">EventTraceTimeProfileInformation</span> 
+(0x03). The kernel receives an <span class="struct">EVENT_TRACE_TIME_PROFILE_INFORMATION</span> 
+structure from which the function extracts the <span class="member">ProfileInterval</span> 
+as the <span class="member">Interval</span> within the function’s output. </p>
+<p>For non-zero values of <span class="member">Source</span>, the function gets 
+the corresponding interval from the kernel as output from the
+<span class="function">
+<a href="../../../../../km/ntoskrnl/api/ex/profile/queryinterval.htm">NtQueryIntervalProfile</a></span> 
+function, having passed the <span class="member">Source</span> through as input.
+</p>
+<h3>TraceProfileSourceListInfo (0x07) </h3>
+<p>The <span class="argument">SessionHandle</span> is irrelevant for this information 
+class and must be zero, else the function returns <span class="constant">ERROR_INVALID_PARAMETER</span>.
+</p>
+<p>The information buffer, if given, is to receive some number of irregularly spaced 
+fixed-size <span class="struct">PROFILE_SOURCE_INFO</span> structures. The spacing 
+is irregular because each such fixed-size structure can be followed by variable-size 
+data. This structure has a C-language definition in EVNTRACE.H: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ULONG NextEntryOffset;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">ULONG Source;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">ULONG MinInterval;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>
+    <pre class="source">ULONG MaxInterval;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">ULONG64 Reserved;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">WCHAR Description [ANYSIZE_ARRAY];</pre>
+    </td>
+  </tr>
+</table>
+<p>The function gets its output from the kernel’s information class
+<span class="constant">EventTraceProfileSourceListInformation</span> (0x0D). The 
+kernel receives an <span class="struct">EVENT_TRACE_PROFILE_LIST_INFORMATION</span> 
+structure as a fixed-size header for the variable-size data. Because the size is 
+not known in advance, the function double-buffers. Failure to get sufficient memory 
+is failure for the function, wich returns <span class="constant">ERROR_OUTOFMEMORY</span>. 
+The function can be given no information buffer as a way to determine how big a 
+buffer might have sufficed and which might still suffice if the call is repeated.
+<span class="alert">(Expression of detail still to be sorted out!)</span> </p>
+<h3>TraceVersionInfo (0x0B) </h3>
+<p>The <span class="argument">SessionHandle</span> is irrelevant for this information 
+class and must be zero, else the function returns <span class="constant">ERROR_INVALID_PARAMETER</span>.
+</p>
+<p>The information buffer must provide exactly a <span class="struct">TRACE_VERSION_INFO</span> 
+structure for the function to fill. This structure has a C-language definition in 
+EVNTRACE.H: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">UINT EtwTraceProcessingVersion;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">UINT Reserved;</pre>
+    </td>
+  </tr>
+</table>
+<p>The function sets the return length to the size of this structure. If the information 
+buffer is not an exact fit, the function returns <span class="constant">ERROR_BAD_LENGTH</span>.
+</p>
+<p>The function itself chooses the <span class="member">EtwTraceProcessingVersion</span> 
+for the output. Presently, this is 1. The <span class="member">Reserved</span> member 
+is ignored. </p>
+<h3>TraceDisallowListQuery (0x0E) </h3>
+<p>This information class is unusual in that it is implemented in terms of
+<span class="function">NtTraceControl</span>, specifically for its function code 
+0x22. Microsoft’s name for this is not known. Notes on <span class="function">NtTraceControl</span> 
+are in preparation. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 19th
+  <a href="../../../../../../../new/16/12.htm">December 2016</a>. and was last modified 
+  on 23rd November 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1618.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5013" -->
+</div>
+
+</body>
+
+</html>

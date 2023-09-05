@@ -1,0 +1,136 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EtwRegister</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="54033" endspan -->
+<h1>EtwEventRegister </h1>
+<p>This function registers an event provider. </p>
+<h2>Declaration </h2>
+<pre>ULONG
+EVNTAPI
+EtwEventRegister (
+    LPCGUID ProviderId,
+    PENABLECALLBACK EnableCallback,
+    PVOID CallbackContext,
+    PREGHANDLE RegHandle);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">ProviderId</span> argument is the address of a 
+GUID that represents the provider. </p>
+<p>The <span class="argument">EnableCallback</span> argument is the address of a 
+function that is to be called back whenever the provider is enabled or disabled. 
+This argument can be NULL to mean that the caller does not want to be called 
+back. </p>
+<p>The <span class="argument">CallbackContext</span> argument is a 
+caller-defined context that is to be passed back to the caller as one of the 
+arguments of the callback function. This argument is valid only if a callback 
+function is supplied. </p>
+<p>The <span class="argument">RegHandle</span> argument is the address of a 
+64-bit variable that is to receive a handle to the registered provider. </p>
+<h3>Callback </h3>
+<p>The callback function has the prototype </p>
+<pre class="source">typedef VOID (NTAPI *PENABLECALLBACK) (
+    LPCGUID SourceId,
+    ULONG IsEnabled,
+    UCHAR Level,
+    ULONGLONG MatchAnyKeyword,
+    ULONGLONG MatchAllKeyword,
+    PEVENT_FILTER_DESCRIPTOR FilterData,
+    PVOID CallbackContext);</pre>
+<h2>Behaviour </h2>
+<p>It is an error (<span class="constant">ERROR_INVALID_PARAMETER</span>) 
+to give a non-NULL callback context but no callback function. </p>
+<p>The function is implemented in terms of the undocumented function
+<span class="function">EtwNotificationRegister</span>. In translating to that 
+function’s form, the <span class="function">EtwEventRegister</span> function 
+requires a small amount of memory from the process heap to support the callback 
+and context. Failure to get this memory is an error (<span class="constant">ERROR_NOT_ENOUGH_MEMORY</span>) 
+for the function. </p>
+<p class="draft">It is permitted that the given provider, as specified by the GUID, is already 
+known. The obvious intention is that an event controller may enable a provider in 
+any number of loggers not just without knowing whether the provider is yet registered 
+but actually in anticipation of catching all of the provider’s output from the moment 
+it registers itself and starts writing events. That said, it is also explicitly 
+supported that the provider is known because of multiple registration. </p>
+<p>If the provider is not already registered or enabled, then memory (specifically, non-paged 
+pool) is required for a new structure (an <span class="struct">ETW_GUID_ENTRY</span>) 
+to represent the provider and may also be required for a security descriptor. Failure 
+is indicated by returning <span class="constant">STATUS_NO_MEMORY</span>. This is 
+also returned if too many providers are already registered or enabled. The 
+limit is 0x8000. </p>
+<p>Each registration of a provider is represented by another structure (an
+<span class="struct">ETW_REG_ENTRY</span>) that is created as an
+<span class="object">EtwRegistration</span> object (again in non-paged pool). This 
+is formally an object in the sense of being subject to the Object Manager. Failure 
+to create this object is fatal to the function. Note that when registering a 
+user-mode provider, the registration handle is formally a handle to this object 
+and cannot be obtained without <span class="constant">WMIGUID_NOTIFICATION</span> 
+and <span class="constant">TRACELOG_REGISTER_GUIDS</span> permissions. </p>
+<p>The provider may already be enabled for as many as eight loggers. Each has its 
+own logger mode. An undocumented mode represented by 0x01000000 is of special concern, 
+since it specifies that the logger may use paged pool. Loggers in this mode are 
+not tolerated, but neither are they fatal. The logger mode can change. Until then, 
+the function leaves the provider both registered and enabled but masks such loggers 
+from being sent events. </p>
+<p>If a callback function is supplied and the provider is already enabled, then 
+the callback function is called immediately. The <span class="argument">SourceId</span> 
+argument in this case is always for <span class="constant">GUID_NULL</span> no matter 
+what <span class="argument">SourceId</span> was given by any of the loggers that 
+enabled the provider. The <span class="argument">IsEnabled</span> argument is trivially 
+TRUE. The <span class="argument">FilterData</span> argument is always NULL. The
+<span class="argument">CallbackContext</span> argument is the same as given to the
+<span class="function">EtwRegister</span> function. For the other arguments, remember 
+that the different loggers for which the provider is enabled each specify their 
+own settings. The callback function receives an aggregate: the highest
+<span class="argument">Level</span>; the bit-wise OR of the
+<span class="argument">MatchAnyKeyword</span> from each logger; and the bit-wise 
+AND of the <span class="argument">MatchAllKeyword</span>. </p>
+<p>Whether or not the provider is already enabled for any logger, the callback function 
+will be called each time that the provider subsequently is enabled or disabled for 
+any logger. </p>
+<h2>Availability </h2>
+<p>The <span class="function">EtwRegister</span> is exported from the NT kernel 
+in version 6.0 and higher. It is documented in the Windows Driver Kit (WDK) for 
+Windows Vista. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 16th November 2008 and was last 
+  modified on 17th November 2008. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c08.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62741" endspan -->
+</div>
+
+</body>
+
+</html>

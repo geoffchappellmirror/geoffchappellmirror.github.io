@@ -1,0 +1,1433 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Clampi Kernel</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>The Clampi Kernel </h1>
+  <p>Though the installed program in a Clampi infection is not insubstantial, it 
+  is itself no more than a nuisance. Its threat lies entirely in being a platform 
+  for an extensible system of modules that can be downloaded from a controller. 
+  When the program sends the controller a list of loaded modules, the program lists 
+  itself as a module named KERNEL. </p>
+  <p>The kernel has two main jobs. One is to contact a controller over the Internet, 
+  identify itself (or obtain an identity) and then take directions from the controller. 
+  These directions include to receive, store and execute pretty much any number 
+  of downloaded modules. The kernel’s other main job is to manage the execution 
+  of those modules. As well as being the conduit for passing input from the controller 
+  and sending their output to the controller, the kernel also supports the modules 
+  with shared functionality for cryptography, Internet access, and for injecting 
+  code into arbitrary processes. These jobs are modelled as two interfaces, one 
+  with the controller and one with the modules. </p>
+  <p>If you hope to learn about Clampi, including its downloaded modules that are 
+  presently beyond the scope of this study, by watching Clampi’s communications 
+  with its controller, then the controller interface is what you need to know. However 
+  you study the modules, it will help to know what services they receive from the 
+  kernel: if nothing else, knowledge of the module interface provides an observer 
+  with some ready places at which to set breakpoints. </p>
+  <h2>Controller Interface </h2>
+  <p>Exchanges with the controller have the form of HTTP requests and responses. 
+  It is well-known that Clampi does its HTTP communications indirectly, after starting 
+  an Internet Explorer process and injecting code into it. If I don’t give this 
+  and a few other such things the same importance that other studies give them, 
+  it’s because I think Clampi treats them as embellishments. By leaving them for 
+  later, we get to the essential functionality sooner. </p>
+  <h3>Registry Settings </h3>
+  <p>Modules can be downloaded and executed without storing them on the infected 
+  computer. However, if they are installed, they persist not as files on disk but 
+  as registry values. Strictly speaking, this is an implementation detail rather 
+  than an interface feature. The interface does not require it and could be described 
+  without depending on it. </p>
+  <p>All the relevant registry values are in the Internet Explorer
+  <span class="regkey">Settings</span> key. Note that four other values in the same 
+  key, namely <span class="regvalue">GID</span>, <span class="regvalue">GatesList</span>,
+  <span class="regvalue">KeyM</span> and <span class="regvalue">KeyE</span>, are 
+  expected to have been set by the <a href="installer.htm">installer</a>. </p>
+  <h4>Module Storage </h4>
+  <p>The kernel can store as many as 256 modules in the registry: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Settings</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">M<span class="placeholder">xx</span></span>
+      </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_BINARY</span> </td>
+    </tr>
+  </table>
+  <p>The <span class="placeholder">xx</span> in the value’s name stands for any 
+  two hexadecimal digits, to be understood as numbering the values from 0 to 255. 
+  Data for the value is encrypted with a 448-bit Blowfish key. Decrypted, this data 
+  has the form: </p>
+  <ul>
+    <li>the dword 0x12345678; </li>
+    <li>the (case-sensitive) module name, as a null-terminated string; </li>
+    <li>a 32-bit version number; </li>
+    <li>the contents of the module, possibly compressed. </li>
+  </ul>
+  <p>Note that the interface knows the modules only by name. It may happen that 
+  a module with a particular name is always stored under a particular number, but 
+  there is no formal requirement. When the controller wants a module to be loaded 
+  from storage, it specifies the module by name. The kernel must then query the 
+  numbered values, decrypting the whole data for each, until it finds the one with 
+  the matching name. </p>
+  <p>Interpretation of the version (or revision) number is not knowable from inspection 
+  of the kernel. Even that it is a version number is something of a guess: when 
+  the kernel is to load a module but finds that a module with the same name is already 
+  loaded, it proceeds only if the new module has the higher version number. </p>
+  <p>If the contents are compressed, they begin with the characters C and M and 
+  then a dword that gives the decompressed size. Details of this compression scheme 
+  are beyond the scope of this study (and beyond my interest). Even with compression, 
+  these modules are surely not small, such that storing them as binary data in the 
+  registry may add significantly to the size of the hive file. </p>
+  <h4>The Persistent Identifier (PID) </h4>
+  <p>Since the kernel must have the means both to encrypt and decrypt the modules, 
+  the key cannot be entirely secret. If nothing else, it and the decrypted modules 
+  are observable during debugging. It shouldn’t surprise, however, that Clampi doesn’t 
+  just leave the key in plain sight. Indeed, it doesn’t ever store the key on the 
+  local machine, even disguised. Nor does it generate the key from data that can 
+  be found anywhere on the local machine. Instead, the key is received from the 
+  controller. </p>
+  <p>Yet if the key is not to be the same for all installations, the controller 
+  must have some way to remember which key it has sent to whom. So that information 
+  such as the Blowfish key for module storage can be kept at the controller, each 
+  Clampi installation is given an identifier by the controller. This is not a permanent 
+  identifier. It needs to persist only to the next time the kernel runs, when it 
+  can be sent to the controller in exchange for a new one. This allows the controller 
+  to remember which Blowfish key this particular installation uses for module storage, 
+  while not making it obvious to observers that the identifer is the controller’s 
+  persistent memory of the installation. The kernel saves this persistent identifier 
+  as yet another registry value in the Internet Explorer <span class="regkey">Settings</span> 
+  key: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Settings</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">PID</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_BINARY</span> </td>
+    </tr>
+  </table>
+  <p>The kernel expects 0x18 bytes of binary data when receiving a new
+  <span class="regvalue">PID</span> from the controller. An existing value that 
+  does not have 0x18 bytes of binary data is invalid. The kernel knows nothing about 
+  the bytes within the <span class="regvalue">PID</span> except that one communication 
+  with the controller uses only the first 8 bytes. </p>
+  <h3>Gates </h3>
+  <p>The kernel finds controllers from the <span class="regkey">GatesList</span> 
+  value. The binary data for this value is a series of entries, each of which is 
+  two null-terminated strings. The first string is the name of a host. The second 
+  is a target object to post to at the host. </p>
+  <p>For some reason (which I so little understand that I fear I have made a mistake 
+  in my reading of the code), if the bytes of the host name add up to 0xFF, the 
+  gate is ignored. The remaining gates are reordered randomly (in the list used 
+  by the kernel, not in the data for the registry value). The kernel then works 
+  through its list of gates until it finds one whose address is resolvable (specifically, 
+  one for which the WINSOCK function <span class="function">gethostbyname</span> 
+  succeeds). If no gates are addressable, e.g., because they are not known to the 
+  DNS server or even because there is no Internet connection, the kernel sleeps 
+  for some multiple of 30 minutes before restarting its search. The multiple increases 
+  with each such restart. </p>
+  <p>That a gate is addressable doesn’t mean that it is accessible, let alone that 
+  it hosts a Clampi controller. When an addressable gate is found, the kernel attempts 
+  a sequence of exchanges to establish secure communication. Failure at this handshaking 
+  means that the gate must be abandoned. The kernel sleeps for some whole number 
+  of minutes before returning to the search for an addressable gate. </p>
+  <p>Once communications are established with a gate, the kernel enters a command-processing 
+  loop. This may fail when asking for a command or receiving one, or when connecting 
+  to act on the command, or when sending a response to the command. In these cases 
+  the kernel abandons the gate and restarts the search for an addressable gate (including 
+  to reset the sleep time to 30 minutes). </p>
+  <h3>HTTP Communications </h3>
+  <p>Communications have the form of HTTP/1.1 requests and responses. The kernel 
+  does not expect persistent connection: it connects and disconnects for each pair 
+  of request and response. The kernel’s preference is to work with HTTP through 
+  WININET functions, but a fallback is coded so that the kernel can compose its 
+  own HTTP requests for transmission through WINSOCK functions. If using WININET 
+  for HTTP functionality, the kernel specifies “Mozilla/4.0 (compatible; MSIE 6.0; 
+  Windows NT 5.1)” as the user agent. This is consistent with the previously mentioned 
+  technique of arranging that HTTP communications be done through an Internet Explorer 
+  process, and with several other signs that Windows XP is the main target among 
+  Windows versions. However, it has dated: nowadays, the requests might readily 
+  be caught as suspicious because the user agent is wrong for the Internet Explorer 
+  version that is supposedly sending the request. </p>
+  <p>For each HTTP request to a gate, the method is POST, the host and the target 
+  object (called the Request-URI in the HTTP specification) are taken from the gate’s 
+  entry in the <span class="regvalue">GatesList</span> value, and the content type 
+  is application/x-www-form-urlencoded. This particular content type means that 
+  each request’s message body has the familiar form of URL query (or search) strings, 
+  i.e., a sequence of ampersand-separated parameter definitions, each in the form
+  <span class="placeholder">name</span>=<span class="placeholder">value</span>. 
+  The following combinations are possible: </p>
+  <ul>
+    <li>
+    <pre class="output">o=u&amp;s=<span class="placeholder">SessionID</span>&amp;b=<span class="placeholder">Base64</span> </pre>
+    </li>
+    <li>
+    <pre class="output">o=i&amp;b=<span class="placeholder">Base64</span> </pre>
+    </li>
+    <li>
+    <pre class="output">o=a&amp;s=<span class="placeholder">SessionID</span>&amp;b=<span class="placeholder">Base64</span> </pre>
+    </li>
+    <li>
+    <pre class="output">o=c&amp;s=<span class="placeholder">SessionID</span> </pre>
+    </li>
+    <li>
+    <pre class="output">o=d&amp;s=<span class="placeholder">SessionID</span>&amp;b=<span class="placeholder">Base64</span> </pre>
+    </li>
+  </ul>
+  <p>If we may presume that the writers of the Trojan work in English, then the 
+  “o” parameter plausibly denotes the intended operation and its possible values 
+  may be interpreted as follows: </p>
+  <table>
+    <tr>
+      <th>“o” Value </th>
+      <th>“b” Value Sent To Controller </th>
+      <th>Expected Response From Controller </th>
+    </tr>
+    <tr>
+      <td>u for update </td>
+      <td>Blowfish-encrypted hash derived from old <span class="regvalue">PID</span> 
+      value </td>
+      <td>Blowfish-encrypted new session identifier; <br>
+      else hash of old session identifier </td>
+    </tr>
+    <tr>
+      <td>i for identify or initiate </td>
+      <td>RSA-encrypted Blowfish key </td>
+      <td>Blowfish-encrypted new session identifier </td>
+    </tr>
+    <tr>
+      <td>a for associate or activate </td>
+      <td>Blowfish-encrypted old <span class="regvalue">PID</span> and
+      <span class="regvalue">GID</span> values </td>
+      <td>Blowfish-encrypted new <span class="regvalue">PID</span> value </td>
+    </tr>
+    <tr>
+      <td>c for call, command or continue </td>
+      <td>none </td>
+      <td>Blowfish-encrypted command description </td>
+    </tr>
+    <tr>
+      <td>d for data </td>
+      <td>result of command </td>
+      <td>none </td>
+    </tr>
+  </table>
+  <p>In all cases that use it, the “s” value is a hexadecimal representation of 
+  an 8-byte identifier. Perhaps “s” actually does stand for session. The session 
+  identifier is supplied by the controller in response to learning the Blowfish 
+  key that is to protect the current session’s requests and responses. It is in 
+  effect an opaque handle to the Blowfish key. The controller can use it to know 
+  how to decrypt the “b” value in requests and how to encrypt its responses. </p>
+  <p>The “b” value has the arbitrary data for the operation. It is always Base64 
+  encoded, which may be all that “b” stands for. Of course, the Base64 encoding 
+  is not meant as a disguise. It’s just to ensure that the body of the HTTP request 
+  is alphanumeric, as appropriate for posting results from an HTML form. To hide 
+  from anyone who might watch the communications, the data that’s to be sent as 
+  the “b” value is first encrypted and then encoded. The encryption is with a Blowfish 
+  cipher, except that when the Blowfish key itself is being sent to the controller 
+  (in an o=i request), it is encrypted with an RSA public key. </p>
+  <p>Note that Blowfish is a block cipher. Plain text must be a whole number of 
+  8-byte blocks, producing the same amount of cipher text. Whenever the kernel encrypts 
+  with Blowfish, it encrypts the plain text plus as many null bytes as needed to 
+  make a whole number of blocks and it precedes the cipher text with a dword that 
+  gives the original size. The controller is expected to do the same. When given 
+  data to decrypt with Blowfish, the kernel expects that the first dword is not 
+  encrypted, but is instead the amount of plain text to be extracted from the cipher 
+  text that follows. </p>
+  <p>Note also that the RSA public key does not encrypt a stream of bytes. It encrypts 
+  a plain-text message that must be numerically smaller than the key. The cipher 
+  text it produces can be anything in the same range, from zero up to but not including 
+  the key. Although the session’s Blowfish key is 0x38 bytes, its encryption with 
+  a 0x0100-byte RSA public key is typically also 0x0100 bytes. </p>
+  <p>The general idea to the exchanges is that the kernel sends a POST request and 
+  then reads from the controller. In all responses from the controller, the header 
+  is ignored and the message body has a standard form. The first dword gives the 
+  size of data to follow. Except in response to an o=u request, all this data is 
+  encrypted with the session’s Blowfish key. In the decrypted data, the first 0x10 
+  bytes are an MD5 hash of the remainder. It is this remainder that is the meaningful 
+  content of the response. After most requests, the kernel requires that the response 
+  has exactly an expected number of bytes of meaningful content. Failure to get 
+  this number (or at least an expected minimum in the response to an o=c request) 
+  is failure for the response. </p>
+  <h4>Update </h4>
+  <p>Although an o=i request (see below) is necessarily the first to be sent by 
+  a newly executing kernel, it is not necessarily the first request that the kernel 
+  sends to any particular gate. The handshaking provides for a quick resumption 
+  of communication if the command-processing loop has failed. To have got as far 
+  as processing commands, some earlier handshaking must have succeeded, though most 
+  likely with a different gate. The kernel should already have an 8-byte session 
+  identifier, a <span class="regvalue">PID</span> value and a Blowfish key for disguising 
+  its communications, and these may still be known to the controller even if access 
+  now goes through a different gate. To generate new ones would be excessive. The 
+  o=u request allows the kernel and controller to test whether their communications 
+  are already protected from observation. </p>
+  <p>As an aside, note that the o=u request succeeds best when the old and new gate 
+  access the one controller—or, if you like, when the old and new controller access 
+  a common database of information about Clampi installations. However, it also 
+  provides that the old and new gate may be disjoint, e.g., because of temporary 
+  disruption. If they are, then the installed modules are immediately invalid since 
+  the Blowfish key they are encrypted with is lost. A new key has to be supplied 
+  and the modules have to downloaded again and re-encrypted. </p>
+  <p>The “s” value is the kernel’s current 8-byte session identifier. The “b” value 
+  has the following form: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>0x10 </td>
+      <td>MD5 hash of disguised first 8 bytes of <span class="regvalue">PID</span>
+      </td>
+    </tr>
+    <tr>
+      <td>0x10 </td>
+      <td>0x08 </td>
+      <td>XOR stream used to disguise first 8 bytes of <span class="regvalue">PID</span>
+      </td>
+    </tr>
+  </table>
+  <p>before it gets Blowfish-encrypted and Base64-encoded. This allows the controller 
+  to test whether it correctly remembers the Blowfish key and
+  <span class="regvalue">PID</span> that correspond to the session key. That the 
+  kernel doesn’t send the whole <span class="regvalue">PID</span>, encrypted and 
+  encoded, as done for the o=a request (see below), is perhaps because the new gate 
+  is not yet known to host a Clampi controller. </p>
+  <p>The favoured response is that the old Blowfish key and
+  <span class="regvalue">PID</span> are known to this gate, so that command processing 
+  can be resumed immediately (though with a new session identifier). The response 
+  has the standard form. The kernel requires 8 bytes of meaningful content, after 
+  the usual extraction, decryption and hash validation. These 8 bytes are a new 
+  session identifier to send as the “s” value when processing commands. </p>
+  <p>A simpler response allows a positive indication that although the old Blowfish 
+  key and PID are not usable, the gate is, such that commands can be processed once 
+  the handshaking is redone as if for a new gate. Since the controller does not 
+  know what Blowfish key to encrypt its response with, the standard form of response 
+  is not available. Instead, the controller sends plain text. The first dword gives 
+  the size of data to follow, and this data is just an MD5 hash of the session identifier.
+  </p>
+  <h4>Identify </h4>
+  <p>The point to an o=i request is that no identity is yet established for communicating 
+  with whatever gate the kernel is now talking to. The kernel sends a randomly generated 
+  Blowfish key that is to protect its future communications with this gate, and 
+  receives an 8-byte session identifier. </p>
+  <p>There is no “s” value to send, just one to learn. The “b” value is a randomly 
+  generated Blowfish key, but encrypted with the RSA public key (from the
+  <span class="regvalue">KeyM</span> and <span class="regvalue">KeyE</span> values) 
+  and then Base64-encoded. Incidentally, the Blowfish key is 0x38 bytes, i.e., 448 
+  bits. It is obtained simply by asking for that many random bytes from the
+  <span class="function">CryptGenRandom</span> function using the
+  <span class="constant">PROV_RSA_FULL</span> provider. </p>
+  <p>Having sent the Blowfish key, the kernel requires exactly 8 bytes from the 
+  controller (after the usual extraction, decryption and hash validation). These 
+  8 bytes are immediately adopted as the session identifier to send as the “s” value 
+  in all future communications. </p>
+  <p>Failure at sending the key or receiving the session identifier means the gate 
+  must be abandoned. The kernel will look for a new gate, after sleeping a while, 
+  as described earlier. </p>
+  <h5>Associate </h5>
+  <p>Having got a session identifier, attention moves to the persistent identifier. 
+  This is 0x18 bytes to be stored as the <span class="regvalue">PID</span> value 
+  in the registry. The kernel sends what it has already (defaulting to 0x18 null 
+  bytes) and receives a new one. </p>
+  <p>Again, the “s” value is the 8-byte session identifier. The “b” value has the 
+  following form: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>0x10 </td>
+      <td>MD5 hash of remaining data </td>
+    </tr>
+    <tr>
+      <td>0x10 </td>
+      <td>0x18 </td>
+      <td><span class="regvalue">PID</span> value, defaulting to null bytes </td>
+    </tr>
+    <tr>
+      <td>0x28 </td>
+      <td>0x04 </td>
+      <td><span class="regvalue">GID</span> value, defaulting to null bytes </td>
+    </tr>
+  </table>
+  <p>before being encrypted with the session’s Blowfish key and then Base64-encoded.
+  </p>
+  <p>Having sent its old <span class="regvalue">PID</span> and
+  <span class="regvalue">GID</span>, the kernel requires 0x18 bytes from the controller 
+  (after the usual extraction, decryption and hash validation). Whatever it gets 
+  is adopted as the new <span class="regvalue">PID</span> and is written as such 
+  to the registry. </p>
+  <p>Failure at sending the identifiers or receiving a new
+  <span class="regvalue">PID</span> or saving it to the registry means the gate 
+  must be abandoned. The kernel will look for a new gate, after sleeping a while, 
+  as described above. </p>
+  <h4>Call </h4>
+  <p>With all the handshaking done, the client is ready to receive commands. It 
+  enters a loop: </p>
+  <ul>
+    <li>send an o=c request; </li>
+    <li>receive a command; </li>
+    <li>act on the command, possibly sending an o=d request in response; </li>
+    <li>sleep for a time specified with the command. </li>
+  </ul>
+  <p>The o=c request has no data to send except for the session identifier in the 
+  “s” value. Its only point can be to tell the controller that the kernel is ready 
+  for another command. Among the reasons that such notification is necessary are 
+  that: some commands do not want a response; failure to respond is anyway not fatal 
+  to handling more commands; the controller cannot depend on the kernel to sleep 
+  for precisely the specified time. </p>
+  <p>The controller’s response to an o=c request is a command for the kernel to 
+  obey. After the usual extraction, decryption and hash validation, there must be 
+  at least 9 bytes for a header, which can be followed by any amount of data that 
+  serves as the command’s arbitrary input: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>dword </td>
+      <td>identifier to use in response </td>
+    </tr>
+    <tr>
+      <td>0x04 </td>
+      <td>byte </td>
+      <td>command number </td>
+    </tr>
+    <tr>
+      <td>0x05 </td>
+      <td>dword </td>
+      <td>number of seconds to sleep after handling command </td>
+    </tr>
+    <tr>
+      <td>0x09 </td>
+      <td>varies </td>
+      <td>arbitrary input for command; interpretation depends on command </td>
+    </tr>
+  </table>
+  <p>The possible commands are listed shortly. </p>
+  <h4>Data </h4>
+  <p>Not all commands have a response. None require a response. When a command does 
+  have a response, the kernel sends it as an o=d request (and failure to send it 
+  is failure for the command-processing loop). The “s” value is the 8-byte session 
+  identifier, as usual. The “b” value has the following form: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>0x10 </td>
+      <td>MD5 hash of remaining data </td>
+    </tr>
+    <tr>
+      <td>0x10 </td>
+      <td>0x04 </td>
+      <td>identifier, from offset 0x00 in command header </td>
+    </tr>
+    <tr>
+      <td>0x14 </td>
+      <td>varies </td>
+      <td>arbitrary output from command; interpretation depends on command </td>
+    </tr>
+  </table>
+  <p>before being encrypted with the session’s Blowfish key and then Base64-encoded.
+  </p>
+  <p>The o=d request is unusual in that the kernel does not expect a response from 
+  the controller. </p>
+  <h3>Commands </h3>
+  <p>There are 16 recognised commands: </p>
+  <table>
+    <tr>
+      <th>Command Number </th>
+      <th>Description </th>
+      <th>Input </th>
+      <th>Output </th>
+    </tr>
+    <tr>
+      <td>0x00 </td>
+      <td>wait </td>
+      <td>none </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>0x01 </td>
+      <td>load new <span class="regvalue">GatesList</span> </td>
+      <td>new <span class="regvalue">GatesList</span> </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>0x02 </td>
+      <td>list modules </td>
+      <td>none </td>
+      <td>list of modules </td>
+    </tr>
+    <tr>
+      <td>0x03 </td>
+      <td>unload and/or uninstall module </td>
+      <td>case number; <br>
+      module name </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>0x04 </td>
+      <td>load and/or install module </td>
+      <td>case number; <br>
+      module name, version number and contents </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>0x05 </td>
+      <td>call module </td>
+      <td>module name; <br>
+      input to module </td>
+      <td>output from module </td>
+    </tr>
+    <tr>
+      <td>0x06 </td>
+      <td>run program </td>
+      <td>command line; <br>
+      file contents </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>0x07 </td>
+      <td>report Windows version </td>
+      <td>none </td>
+      <td>Windows version </td>
+    </tr>
+    <tr>
+      <td>0x08 </td>
+      <td>report administrative status </td>
+      <td>none </td>
+      <td>boolean result </td>
+    </tr>
+    <tr>
+      <td>0x0A </td>
+      <td>set Blowfish key for module storage </td>
+      <td>new key </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>0x0B </td>
+      <td>load module from storage </td>
+      <td>module name </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>0x0C </td>
+      <td>uninstall all modules </td>
+      <td>none </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>0x0F </td>
+      <td>assess virtualisation </td>
+      <td>none </td>
+      <td>boolean result </td>
+    </tr>
+    <tr>
+      <td>0x14 </td>
+      <td>uninstall </td>
+      <td>none </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>0x1F </td>
+      <td>read temporary file </td>
+      <td>none </td>
+      <td>contents of temporary file </td>
+    </tr>
+    <tr>
+      <td>0x20 </td>
+      <td>ping </td>
+      <td>none </td>
+      <td>null byte </td>
+    </tr>
+  </table>
+  <h4>Wait and Ping </h4>
+  <p>Command 0x00 asks for nothing in particular, which leaves it just as specifying 
+  a time to sleep. </p>
+  <p>Command 0x20 is similarly slight in effect, except for asking that the kernel 
+  should first send one byte in an o=d request, presumably just to test that the 
+  kernel actually is receiving commands and is not obviously unable to send its 
+  results. </p>
+  <h4>Load New Gates </h4>
+  <p>Through command 0x01 the kernel learns a new set of gates to communicate with. 
+  The old gates are discarded. </p>
+  <h4>List Modules </h4>
+  <p>The list of modules sent in response to command 0x02 is in two parts: the loaded 
+  modules and then the installed modules. Each module is represented as follows:
+  </p>
+  <ul>
+    <li>the byte 0 for a loaded module, else 1 for an installed module; </li>
+    <li>the module’s name, as a null-terminated string; </li>
+    <li>the module’s version number, as a dword. </li>
+  </ul>
+  <p>Note that there can be no installed modules unless the kernel has a Blowfish 
+  key for module storage (see command 0x0A). </p>
+  <p>While enumerating the installed modules, the kernel deletes any (invalid)
+  <span class="regvalue">M<span class="placeholder">xx</span></span> value whose 
+  decrypted data for the value does not begin with the signature dword 0x12345678.
+  </p>
+  <p>Incidentally, the version number of the kernel that has been studied for this 
+  report is 0x1C. </p>
+  <h4>Unload Or Uninstall Module </h4>
+  <p>Command 0x03 has two cases, distinguished by the first byte of input. Case 
+  0x00 provides for unloading a named module (from memory), case 0x01 for uninstalling 
+  a named module from the registry by deleting its <span class="regvalue">M<span class="placeholder">xx</span></span> 
+  value. In both cases, the input that follows the first byte is a null-terminated 
+  string to name the module. (Strictly speaking, although the whole input is to 
+  be null-terminated, the name extends only as far as the first null byte in the 
+  input.) </p>
+  <p>Note that a module cannot be uninstalled (case 0x01) unless the kernel has 
+  a Blowfish key for module storage (see command 0x0A). While searching for the 
+  named module among the registry values, the kernel deletes any (invalid)
+  <span class="regvalue">M<span class="placeholder">xx</span></span> value whose 
+  decrypted data for the value does not begin with the signature dword 0x12345678.
+  </p>
+  <p>The present coding for this command is defective such that it does not actually 
+  unload or uninstall. The problem is with the first byte. The coding prepares a 
+  new buffer which duplicates the input except for this first byte. However, it 
+  then proceeds with the unchanged input buffer. The function it calls to do the 
+  unloading or uninstalling will not succeed, since it expects to be given a buffer 
+  that starts with the module’s name. </p>
+  <h4>Load Or Install Module </h4>
+  <p>Command 0x04 also has two cases, distinguished by the first byte of input. 
+  In both cases, the input after the first byte is a null-terminated string to name 
+  the module, followed immediately by a 32-bit version number and then by the module’s 
+  contents, which may be compressed. Through case 0x00 the kernel receives the module 
+  as data in memory but does not save the contents to the registry. For case 0x01 
+  the contents are first saved to the registry and are then loaded from there as 
+  if they had been saved all along (see command 0x0B). </p>
+  <p>Note that a module cannot be installed (case 0x01) unless the kernel has a 
+  Blowfish key for module storage (see command 0x0A). Installation through case 
+  0x01 can be a re-installation: it deletes the first <span class="regvalue">M<span class="placeholder">xx</span></span> 
+  value that already has the given module name. The given module is installed to 
+  the first <span class="regvalue">M<span class="placeholder">xx</span></span> value 
+  that is not yet set: there is no fixed association of module names to
+  <span class="regvalue">M<span class="placeholder">xx</span></span> values. </p>
+  <h5>Kernel Update </h5>
+  <p>Special handling applies when the module is named KERNEL. Although case 0x00 
+  does not save this module in the registry, it does save it to disk as the current 
+  kernel’s replacement or update. Were a kernel to be received through case 0x01, 
+  it would be installed in the registry and be updated as a file. Either way, the 
+  version number is ignored and there is no provision for compressed contents.
+  </p>
+  <p>To begin updating itself, the kernel writes the new contents to a file named
+  <span class="placeholder">kernel</span>.new, where <span class="placeholder">kernel</span> 
+  stands for the module filename of the current kernel. This new file, in the same 
+  directory as the current kernel, is given the same Date Created and Date Modified 
+  as the Windows kernel (meaning here the file named KERNEL32.DLL in the Windows 
+  system directory). With the new file safely written, the current kernel is renamed 
+  to <span class="placeholder">kernel</span>.old and the new kernel is renamed to 
+  lose its .new extension. The old kernel, still running, then starts the new kernel, 
+  and also starts a Command Prompt to delete the old kernel as a file, and then 
+  exits. Both new processes are specified to run with windows hidden by default. 
+  The command line for the Command Prompt is </p>
+  <pre class="input">cmd.exe /c dir /s %SystemRoot%&gt;nul &amp;&amp; del &quot;<span class="placeholder">oldkernel</span>&quot; </pre>
+  <p>That the deletion is done this way in particular is plausibly just for timing, 
+  so that the old kernel is (in practice) sure to have terminated as a process before 
+  the attempt to delete it as a file. </p>
+  <h5>General Modules </h5>
+  <p>For modules that are not named KERNEL, if a module with the same name is already 
+  loaded, then loading does not proceed unless the new module has the higher version 
+  number. Given this, the existing module is first unloaded. </p>
+  <p>Modules not named KERNEL can have compressed contents. This is indicated when 
+  the first two characters in the given contents are C and M. The dword that follows 
+  gives the size of decompressed contents. All the remaining data has to be decompressed 
+  to get the module’s executable contents. </p>
+  <h4>Call Module </h4>
+  <p>A loaded module may be called at will. Command 0x05 names a module and provides 
+  arbitrary data to pass to the module through a calling point that was established 
+  during the module’s initialisation. The module has the use of very many facilities 
+  that were provided to it during that initialisation. The calling point provides 
+  for receiving arbitrary input and producing arbitrary output. Whatever is produced 
+  is then sent to the server as an o=d request. </p>
+  <p>The input begins with the module’s name as a null-terminated string. Whatever 
+  follows is the input for this call to that module. </p>
+  <h4>Run Program </h4>
+  <p>In addition to executing modules in memory without ever saving them as files, 
+  provision is also made for downloading an arbitrary program and executing it, 
+  albeit at the price of having the executable on disk as a file for a while.
+  </p>
+  <p>The input for command 0x06 begins with a command line as a null-terminated 
+  string and continues with the contents of an executable file. The kernel saves 
+  the given contents as a file with a randomly generated name (of 8 upper-case letters) 
+  in whatever directory Windows reports as suitable for temporary files. Having 
+  got the file on disk, it is run with the given command line, and specifying that 
+  windows be hidden by default. The kernel then waits for the new process to terminate, 
+  and then deletes the temporary file. </p>
+  <h4>Report Windows Version </h4>
+  <p>Command 0x07 asks the kernel to send a string that represents the Windows version, 
+  typcially including the suite and service pack. The very many possibilities do 
+  not seem important to list, except to note that explicit recognition stops with 
+  Windows Server 2003. </p>
+  <p>This is as good a place as any to date Clampi. If only in the copy inspected 
+  for this study, there is no explicit awareness of Windows Vista. That’s surely 
+  implausible of any software written later than, say, mid-2006. The program seems 
+  to have been compiled using a Windows SDK that does not anticipate Windows Longhorn 
+  (specifically for the changed definition of <span class="constant">PROCESS_ALL_ACCESS</span>). 
+  From the other direction, it is shown below (where the module interface deals 
+  with Internet access) that the program provides specifically for the Windows Firewall 
+  API which Microsoft introduced with Windows XP SP2. Thus, reports that date Clampi 
+  from 2005 are very plausible, and those that date it from 2007 seem to have missed 
+  some earlier history. </p>
+  <h4>Report Administrative Status </h4>
+  <p>For command 0x08, the kernel checks for membership of the Administrators group.
+  </p>
+  <h4>Set Key For Module Storage </h4>
+  <p>Installed modules are saved in <span class="regvalue">M<span class="placeholder">xx</span></span> 
+  values in the registry. The binary data is encrypted using a Blowfish key received 
+  from the controller. Until the kernel knows this key, it has no access to any 
+  installed modules. If the point to saving modules in the registry is to avoid 
+  having to download them afresh in successive sessions, then presumably, the controller 
+  remembers what key it has previously sent. The <span class="regvalue">PID</span> 
+  value in the registry is the only means of such memory. </p>
+  <h4>Load Module From Registry </h4>
+  <p>The input for command 0x0B is the name of a module (as a null-terminated string). 
+  The kernel searches the installed modules for one with this name. If the desired 
+  module is already installed, it is then loaded as if its contents from the registry 
+  had just been downloaded from the controller (see case 0x00 of command 0x04). 
+  . </p>
+  <p>As with the other commands for named modules, this one has the overhead of 
+  decrypting the whole data from successive <span class="regvalue">M<span class="placeholder">xx</span></span> 
+  values until the desired module is found. Any values that are found to be invalid, 
+  because the decrypted data does not begin with the dword 0x12345678, are deleted.
+  </p>
+  <h4>Virtualisation </h4>
+  <p>The output for command 0x0F is a boolean indicator of whether the address of 
+  the Interrupt Descriptor Table (IDT) is at least 0x81000000. </p>
+  <h4>Uninstall </h4>
+  <p>To uninstall because of command 0x14, the kernel uses the
+  <span class="function">MoveFileEx</span> function to arrange for the kernel’s 
+  deletion as a file when the system restarts. It then deletes its registry value 
+  from the <span class="regkey">Run</span> key. Though the installer may have set 
+  this value to any of a dozen names, the kernel knows nothing of this: the value 
+  is here deleted only if named <span class="regvalue">Regscan</span>. The cleanup 
+  is completed by deleting the possibly many values that the installer or kernel 
+  may have added to the Internet Explorer <span class="regkey">Settings</span> key:
+  <span class="regvalue">GatesList</span>, <span class="regvalue">GID</span>,
+  <span class="regvalue">PID</span>, <span class="regvalue">KeyE</span>,
+  <span class="regvalue">KeyM</span> and all 256 <span class="regvalue">M<span class="placeholder">xx</span></span> 
+  values (whether they exist or not). Deletion of the <span class="regvalue">M<span class="placeholder">xx</span></span> 
+  values can be done separately, as command 0x0C. </p>
+  <p>The different expectation concerning the <span class="regkey">Run</span> key 
+  is plausibly just a sign that the kernel and installer are out of synch. It’s 
+  as if Regscan was the original name for registering the installed Trojan, and 
+  survives in the kernel by oversight. Inasmuch as malware has any right to provide 
+  a name to be known by, Regscan is clearly the best on offer. Perhaps it’s too 
+  prosaic to have caught on. More plausible, if only to me, is that no other analysis 
+  got far enough into the code to see this name before the invented names were already 
+  too well established. </p>
+  <h4>Read Temporary File </h4>
+  <p>For reasons that seem unknowable just from inspecting the kernel, command 0x1F 
+  retrieves the contents of a particular file and then deletes that file. The file 
+  is necessary named sz7n23E.tmp in the directory for temporary files. </p>
+  <h2>Module Interface </h2>
+  <p>Each module is an ordinary Win32 executable. However, modules are not loaded 
+  from files on disk. The kernel has its own image loader, which takes as its input 
+  a buffer that holds the module’s (possibly compressed) contents as received over 
+  the Internet from the controller or as read from an <span class="regvalue">M<span class="placeholder">xx</span></span> 
+  registry value. </p>
+  <h3>Initialisation </h3>
+  <p>Modules are DLLs, but although the kernel’s image loader has code for calling 
+  the module’s entry point in the style of a <span class="function">DllMain</span> 
+  function, this provision is not used. The first execution of the module, done 
+  as part of loading it, is instead to call an exported function named
+  <span class="function">InitModuleInterface</span>: </p>
+  <pre class="source">bool __cdecl InitModuleInterface (CKernel const *, CModule **);</pre>
+  <p>This function takes two arguments and returns a boolean indicator of its success. 
+  The first argument tells the module about the kernel. The second is the address 
+  of a variable which the module is to set so that the kernel knows how to call 
+  the module when asked by the controller. (All names except
+  <span class="function">InitModuleInterface</span> are invented for this documentation.)
+  </p>
+  <h3>Shared Coding </h3>
+  <p>See that what the kernel and module know of each other is represented by C++ 
+  classes. What the kernel and module can do with each other is modelled mostly 
+  in terms of these classes’ virtual member functions (also known as methods). The 
+  classes and especially their methods depend on the kernel and the module to share 
+  at least a header file, and very likely a library, from which both pick up the 
+  same coding of yet more classes for such general functionality as managing buffers 
+  and lists. </p>
+  <p>It is not known how many classes have these identical but independent implementations 
+  in the kernel and modules. It will soon be apparent that the
+  <span class="class">CBuffer</span> and <span class="class">CList</span> classes, 
+  for managing buffers and lists respectively, must be duplicated. The
+  <span class="class">CBuffer</span> class certainly is duplicated in the installer, 
+  as are classes that the kernel uses for managing files and registry values. These 
+  classes would surely also be duplicated in any modules that work with files or 
+  registry values. </p>
+  <p>It’s tempting to assume that although the program’s writers may be happy to 
+  duplicate code for general functionality, much as nobody seems to mind when several 
+  programs reproduce the same (statically-linked) C Run-Time Library functions, 
+  they will have designed minimally when it comes to more sophisticated functionality. 
+  Against that, the module interface is not as clean as it might be. It’s less a 
+  neat separation of code into different executables than a minimal way of getting 
+  different executables compiled with shared code. Where a class is intended to 
+  be implemented only in the kernel, the modules know the class only by having a 
+  pointer to an instance of the class. Since the kernel has no exports, the modules 
+  cannot locate ordinary member functions or static data members in the kernel. 
+  The only members that are usable to them are virtual member functions and non-static 
+  data members. A natural separation would be that the kernel’s implementation is 
+  a derived class and the modules see only a base class that contains non-static 
+  data and (pure) virtual functions. If the Clampi code makes such a separation, 
+  it would show in the kernel: since all the relevant code in the kernel is compiled 
+  with optimisations disabled, a base class would have at least a compiler-generated 
+  constructor that is called from the derived class’s constructor. Yet the kernel 
+  actually has very few examples of constructors called from constructors. For each 
+  class that matters to the module interface, the modules must be compiled with 
+  the same definition that the kernel uses for its implementation, even though these 
+  definitions include members that the modules have no means to locate in the kernel. 
+  For this description of these classes for their role in the module interface, 
+  I present only idealised representations from which I have eliminated members 
+  that I do not think participate in the interface. </p>
+  <p>Almost all the shared classes, whether implemented in the kernel or module 
+  or both, have a common base that provides for a virtual destructor and a boolean 
+  indicator of whether the class is initialised: </p>
+  <pre class="source">struct CBase{
+    bool m_IsInitialised;
+    CBase (void);
+    virtual ~CBase (void);
+};</pre>
+  <p>Note especially that because this common base has a virtual destructor, the 
+  first method in most of the classes discussed below is at offset 0x04 in the virtual 
+  function table. </p>
+  <h3>Calling a Module </h3>
+  <p>What a module reveals of itself to the kernel may be as simple as: </p>
+  <pre class="source">struct CModule : CBase
+{
+    virtual bool v_Call (CBuffer const *, CBuffer **);
+};</pre>
+  <p>It is possible that the Clampi source code provides for more, but if so, the 
+  kernel doesn’t use it. </p>
+  <p>A loaded module may be called as often as the controller wants (see command 
+  0x05). Each time, the kernel calls the module’s <span class="method">v_Call</span> 
+  method, with one argument for input and one for output. The first argument provides 
+  the input from the controller. The second is the address of a variable through 
+  which the module returns anything it wants the kernel to send to the controller 
+  as the module’s response. Modules communicate with the controller only through 
+  this exchange, with the kernel as the intermediary. </p>
+  <p>Note that the input and output are passed in terms of a <span class="class">
+  CBuffer</span> class. This is one of those that the kernel and module pick up 
+  from a header or library: they have identical but independent implementations. 
+  This particular class, which has heavy use throughout the module interface, is 
+  a convenient representation of an arbitrary buffer known by address and size.
+  </p>
+  <h3>Kernel Support </h3>
+  <p>By far the most of the module interface deals with the kernel’s provision of 
+  services to all modules. An idealised representation of what the kernel shows 
+  of itself is: </p>
+  <pre class="source">struct CKernel : CBase
+{
+    DWORD m_Version;
+    CInternetBase *m_Internet;
+
+    virtual 
+    bool 
+    v_CreateProcess (
+        PCSTR CommandLine, 
+        bool HideWindow, 
+        bool CreateSuspended, 
+        bool CreateStdHandles, 
+        CProcess **Process);
+
+    virtual bool v_OpenProcess (DWORD ProcessId, CProcess **Process);
+    virtual bool v_GetProcAddress (PCSTR Module, PCSTR Proc, PVOID *Address);
+    virtual bool v_CreateRsa (CRsa **Rsa);
+    virtual bool v_CreateBlowfish (CBuffer const *Key, CBlowfish **Blowfish);
+};</pre>
+  <p>The <span class="method">v_GetProcAddress</span> method can only be for convenience. 
+  It locates an arbitrary module’s exported function within the same address space 
+  as the kernel. If the module is not already loaded, it gets loaded as part of 
+  the method. It is not clear why this work is exposed through the interface. If 
+  the goal is just the efficiency of sharing one implementation among multiple modules, 
+  then there are very many more functions that might usefully be coded as
+  <span class="class">CKernel</span> methods. </p>
+  <p>The other methods create yet more classes, which model yet more functionality:
+  </p>
+  <ul>
+    <li><span class="class">CProcess</span>, for running code in another process;
+    </li>
+    <li><span class="class">CRsa</span>, for using the RSA cipher and the MD5 hash;
+    </li>
+    <li><span class="class">CBlowfish</span>, for using the Blowfish cipher.
+    </li>
+  </ul>
+  <p>The kernel instantiates these same classes for its own purposes. When modules 
+  call these methods, they each get their own instances which function independently 
+  of any use that the kernel or another module makes of the same functionality. 
+  Indeed, these classes could just as well be implemented in each module that needs 
+  them. Exposing them through the interface gains by avoiding the duplication of 
+  code. Since the most gain would come if everything that the kernel does which 
+  might be used in a module is made available to the modules through the interface, 
+  I tend to think that what the kernel does with any of these classes is entirely 
+  separate from what the modules are expected to do with the same classes. Against 
+  that, there’s a very different reason to expose some classes: it may be done so 
+  that instances can be shared between modules. This is entirely speculative, perhaps 
+  even fancifully so, but it’s not inconceivable that one module creates one of 
+  these classes, puts the address in the output that goes to the controller, which 
+  then sends the address back in the input to another module. </p>
+  <p>The data members provide all modules with not just a shared functionality but 
+  with the same instance of that functionality. In particular, although the modules 
+  never talk directly with a controller, they get their Internet access through 
+  whatever facility the kernel has established for communicating with the controller. 
+  If the kernel’s Internet access goes through a subverted Internet Explorer process, 
+  then so does each module’s. </p>
+  <p>The <span class="member">m_Version</span> member has the same origin as the 
+  version number that is reported for the KERNEL module when the controller asks 
+  for a list of loaded modules (see command 0x02). In the copy inspected for this 
+  study, this version number is 0x1C. </p>
+  <h4>Internet Access </h4>
+  <p>As actually implemented in the kernel, the <span class="class">CInternetBase</span> 
+  class has a compiler-generated constructor and a virtual function table in which 
+  all the virtual member functions are pure. The <span class="member">m_Internet</span> 
+  member points to either of two derived classes, one for when the kernel does its 
+  own Internet access, the other for when its Internet access goes through a subverted 
+  Internet Explorer process. Modules do not know, and presumably do not care, which 
+  of these derived classes they have a pointer to. They take whatever Internet access 
+  the kernel has been able to establish. </p>
+  <pre class="source">struct CInternetBase
+{
+    /*  Windows Sockets  */
+
+    virtual bool v_gethostbyname (PCSTR Name, IN_ADDR *Address) = 0;
+    virtual bool v_connect (IN_ADDR Address, u_short Port, SOCKET *Socket) = 0;
+    virtual bool v_bind (IN_ADDR Address, u_short Port, SOCKET *Socket) = 0;
+    virtual VOID v_closesocket (SOCKET Socket, u_short Port) = 0;
+    virtual bool v_listen (SOCKET Socket) = 0;
+    virtual bool v_accept (SOCKET Listening, SOCKET *Connected, SOCKADDR_IN *Address) = 0;
+    virtual VOID v_closesocket (SOCKET Socket) = 0;
+    virtual bool v_select (SOCKET Socket, DWORD Type, bool *Ready) = 0;
+    virtual bool v_recv (SOCKET Socket, DWORD Size, int Flags, CBuffer **Buffer) = 0;
+    virtual bool v_recv (SOCKET Socket, DWORD Size, CBuffer **Buffer) = 0;
+    virtual bool v_send (SOCKET Socket, CBuffer const *Buffer) = 0;
+    virtual bool v_getsockname (SOCKET Socket, IN_ADDR *Address, u_short *Port) = 0;
+    virtual bool v_getpeername (SOCKET Socket, IN_ADDR *Address, u_short *Port) = 0;
+
+    /*  WININET  */
+
+    virtual bool v_InternetOpenA (LPCSTR lpszAgent, HINTERNET *Handle) = 0;
+
+    virtual 
+    bool 
+    v_InternetConnectA (
+	HINTERNET hInternet, 
+        LPCSTR lpszServerName, 
+        INTERNET_PORT nServerPort, 
+        DWORD dwService, 
+        DWORD dwFlags, 
+        HINTERNET *Handle) = 0;
+
+    virtual bool v_InternetCloseHandle (HINTERNET hInternet) = 0;
+
+    virtual 
+    bool 
+    v_HttpOpenRequestA (
+	HINTERNET hConnect, 
+        LPCSTR lpszVerb, 
+        LPCSTR lpszObjectName, 
+        DWORD dwFlags, 
+        HINTERNET *Handle) = 0;
+
+    virtual 
+    bool 
+    v_HttpSendRequestA (
+	HINTERNET hRequest, 
+        LPCSTR lpszHeaders, 
+        DWORD dwHeadersLength, 
+        LPVOID lpOptional, 
+        DWORD dwOptionalLength) = 0;
+
+    virtual 
+    bool 
+    v_InternetReadFile (
+        HINTERNET hFile, 
+        DWORD dwNumberOfBytesToRead, 
+        CBuffer **Buffer) = 0;
+};
+</pre>
+  <p>Methods are provided in two sets. In one, each method corresponds to a WINSOCK 
+  function (sometimes to two in composition), but specialised for Internet access. 
+  An exception is that the second <span class="method">v_recv</span> method is higher-level 
+  functionality which calls the first <span class="method">v_recv</span> method 
+  in a loop to receive data in smaller quantities (1KB per time when Internet access 
+  is native, but 10KB per time when going through Internet Explorer). The methods 
+  in the second set are a selection of WININET functions that suffice for the intended 
+  HTTP exchanges. </p>
+  <p>The only use that the kernel has for the <span class="class">CInternetBase</span> 
+  methods is to support its HTTP communications with the controller. It prefers 
+  the WININET methods, but if <span class="method">v_InternetOpen</span> fails on 
+  first use, the kernel steps down to doing all its HTTP work through the WINSOCK 
+  methods, at the price of having to construct HTTP headers as might otherwise have 
+  been done for free by the WININET methods. It is not known whether any modules 
+  have a similar fallback: though they do not get it through the module interface, 
+  it may be that the kernel’s HTTP usage can be duplicated in the modules through 
+  the header or library of shared code. </p>
+  <p>More plausible however is that although the WINSOCK methods are only a fallback 
+  for the kernel, they are of primary importance to one or another module. Not only 
+  could it be that modules want Internet access for something other than HTTP. There 
+  is also that when running on Windows XP and with Internet access obtained through 
+  Internet Explorer, the <span class="method">v_bind</span> method does not just 
+  call the <span class="function">bind</span> function in the Internet Explorer 
+  process but first executes a large amount of code in the Clampi process to ensure 
+  that the given port is enabled. Since the kernel does not ordinarily use the WINSOCK 
+  methods, this extra code must be for a service that the kernel provides to the 
+  modules. </p>
+  <h5>The Windows Firewall </h5>
+  <p>This elaboration of the <span class="method">v_bind</span> method in the module 
+  interface for Internet access is explicitly directed at the Windows Firewall, 
+  to ensure that the given port is open. It tries first through the Windows Firewall 
+  API and second through Windows Management Instrumentation (WMI). The former is 
+  both simpler and newer, from Windows XP SP2. Remember that either way, this firewall 
+  re-configuration applies only when the kernel is running on Windows XP and has 
+  arranged that Internet access goes through a subverted Internet Explorer process.
+  </p>
+  <p>The work with the Windows Firewall API begins with getting a list of globally 
+  open ports in the current firewall settings profile. This means creating an instance 
+  of the <span class="class">NetFwMgr</span> class to get the
+  <span class="property">LocalPolicy</span> property and thence the
+  <span class="property">CurrentProfile</span> property and finally the
+  <span class="property">GloballyOpenPorts</span> property. This has an
+  <span class="method">Item</span> method through which to find settings for the 
+  given port. If the port’s <span class="property">Enabled</span> property is not 
+  false, then no more needs to be done. Otherwise, the kernel creates an instance 
+  of the <span class="class">NetFwOpenPort</span> class, configures it to represent 
+  the given port (specifying the TCP protocol and the name Port__<span class="placeholder">portnumber</span>), 
+  and adds it to the <span class="property">GloballyOpenPorts</span>. </p>
+  <p>Working with the firewall through WMI is similar, but is convoluted, as so 
+  often with WMI. Since the technique is superseded, the following notes are just 
+  a sketch. The kernel first creates an instance of the <span class="class">WbemLocator</span> 
+  class and connects to Root\Microsoft\HomeNet. It this in turn contains an
+  <span class="object">HNet_PortMappingProtocol</span> object with the right
+  <span class="property">Port</span> and <span class="property">Protocol</span>, 
+  nothing more is done. Otherwise, the kernel creates an object to represent the 
+  given port, and adds it to <span class="object">HNet_PortMappingProtocol</span>. 
+  The kernel then returns to Root\Microsoft\HomeNet to enumerate objects in
+  <span class="object">HNet_ConnectionProperties</span>. For each enumerated object 
+  that has true for its <span class="property">IsFirewalled</span> property and 
+  has any <span class="property">Connection</span> property, the kernel adds a suitable 
+  object to <span class="object">HNet_ConnectionPortMapping2</span>. At the end 
+  of this, if any addition was made, the kernel notifies the SharedAccess service 
+  (through control code 0x81). </p>
+  <h4>Process Subversion </h4>
+  <p>Two <span class="class">CKernel</span> methods help modules manage other processes, 
+  especially to run code in them. </p>
+  <p>The <span class="method">v_CreateProcess</span> method starts a program and 
+  receives a <span class="class">CProcess</span> instance that represents the new 
+  process. The program is specified as a command line. Limited options are available: 
+  the initial window can be hidden; the primary thread can be initially suspended; 
+  pipes can be created for the standard handles. This method provides modules with 
+  access to the same code that the kernel itself uses to start a suspended Internet 
+  Explorer process. </p>
+  <p>The <span class="method">v_OpenProcess</span> method obtains a
+  <span class="class">CProcess</span> instance for a process that is already running 
+  and is known by its 32-bit process ID. </p>
+  <pre class="source">struct CProcess : public CBase
+{
+    virtual bool v_Resume (VOID);
+    virtual bool v_Terminate (VOID);
+    virtual bool v_GetExitCode (DWORD *ExitCode);
+    virtual bool v_ListMemory (CList **List);
+    virtual bool v_Alloc (DWORD Size, LPVOID *RemoteAddress);
+    virtual VOID v_Free (LPVOID RemoteAddress);
+    virtual bool v_Read (LPVOID RemoteAddress, DWORD Size, CBuffer **Buffer);
+    virtual bool v_Write (LPVOID RemoteAddress, LPCVOID Buffer, DWORD Size);
+    virtual bool v_Find (CBuffer const *Buffer, LPCVOID *RemoteAddress);
+
+    virtual 
+    bool 
+    v_CreateThread (
+        LPTHREAD_START_ROUTINE StartAddress, 
+        LPVOID Parameter, 
+        HANDLE *ThreadHandle, 
+        DWORD *ThreadId);
+
+    virtual 
+    bool 
+    v_CallThread (
+        LPTHREAD_START_ROUTINE StartAddress, 
+        LPVOID Parameter, 
+        DWORD *ExitCode);
+
+    virtual bool v_GetModuleEntry (PCSTR Name, MODULEENTRY32A *Entry);
+};</pre>
+  <p>The <span class="method">v_ListMemory</span> method obtains (by repeated calls 
+  to <span class="function">VirtualQueryEx</span>) a list of the target process’s 
+  committed memory allocations. Each block is listed by its base address and size. 
+  The list is produced in the form of another of those classes for which the kernel 
+  and module have identical but independent code. Another method that just gets 
+  information about the target process is <span class="method">v_GetModuleEntry</span>. 
+  It uses functions from the Tool Help Library to get information about a named 
+  module (not to be confused with a Clampi module) in the target process. </p>
+  <p>All the other methods are for interfering with the target process. </p>
+  <p>The <span class="method">v_Alloc</span> method uses the
+  <span class="function">VirtualAllocEx</span> function to find a given amount of 
+  page-aligned memory that is already reserved but not yet committed, and then to 
+  commit that memory. The committed pages allow read, write and execute access. 
+  The <span class="method">v_Free</span> method releases any given memory in the 
+  target process (using <span class="function">VirtualFreeEx</span>). Although
+  <span class="method">v_Alloc</span> finds memory that is already reserved,
+  <span class="method">v_Free</span> releases memory all the way back to being free 
+  instead of being reserved. This imbalance may be a coding error. </p>
+  <p>The <span class="method">v_Read</span> and <span class="method">v_Write</span> 
+  methods provide for reading from and writing to memory in the target process’s 
+  address space (using <span class="function">ReadProcessMemory</span> and
+  <span class="function">WriteProcessMemory</span>). The <span class="method">v_Find</span> 
+  method uses the <span class="method">v_List</span> and <span class="method">v_Read</span> 
+  methods to search all of the target process’s committed memory for the first occurrence 
+  of some given data. (The present coding simply assumes that each region of memory 
+  is larger than the given data.) </p>
+  <p>Given sufficient access rights to a target process, the
+  <span class="method">v_Write</span> method gets code into the process and two 
+  more methods can get that code executing (using <span class="function">CreateRemoteThread</span>). 
+  Both the <span class="method">v_CreateThread</span> and <span class="method">v_CallThread</span> 
+  methods call a given address in the target process’s memory and pass an arbitrary 
+  parameter. The former is asynchronous, and returns a handle and ID for the created 
+  thread. The latter waits for the created thread to exit, and returns the thread’s 
+  exit code. In both cases, the information about the created thread is returned 
+  in optional variables passed as arguments. </p>
+  <h4>RSA Cipher </h4>
+  <p>Though the kernel’s only use for the RSA cipher is to encrypt with the public 
+  key that is learnt from the <span class="regvalue">KeyM</span> and
+  <span class="regvalue">KeyE</span> values, it has code both for encrypting and 
+  decrypting. Modules access this same code through the <span class="method">v_CreateRsa</span> 
+  method of the <span class="class">CKernel</span> class. </p>
+  <pre class="source">struct CRsa : CBase
+{
+    virtual bool v_MakeKeyPair (VOID);
+    virtual bool v_Encrypt (CBuffer const *In, CBuffer **Out);
+    virtual bool v_Decrypt (CBuffer const *In, CBuffer **Out);
+    virtual bool v_GetPublicKey (CBuffer **Modulus, CBuffer **Exponent);
+    virtual bool v_GetPrivateKey (CBuffer **Prime1, CBuffer **Prime2);
+    virtual bool v_SetPublicKey (CBuffer const *Modulus, CBuffer const *Exponent);
+    virtual bool v_SetPrivateKey (CBuffer const *Prime1, CBuffer const *Prime2);
+    virtual bool v_HashAndEncrypt (CBuffer const *In, CBuffer **Out);
+    virtual bool v_HasSameEncryptedHash (CBuffer const *Data, CBuffer const *EncryptedHash);
+};</pre>
+  <p>The <span class="method">v_MakeKeyPair</span> method generates two large prime 
+  numbers to make both a private and public key. In combination with a relatively 
+  small exponent, the product of the primes acts as the public key. The code is 
+  constrained to generate the primes as 1024-bit random numbers, making a 2048-bit 
+  key. The public exponent is the smallest odd number, beginning from the well-known 
+  prime 0x00010001, that satisfies the encryption algorithm’s requirement. Purists 
+  may care to note a slight weakness on this point: if a key pair gets 0x00010003 
+  as its exponent, then the key is roughly 16 bits less secure, since one of the 
+  primes must be one more than some multiple of 0x00010001. </p>
+  <p>Note that the class remembers the primes, their product and the exponent. They 
+  can be inspected via the <span class="method">v_GetPrivateKey</span> and
+  <span class="method">v_GetPublicKey</span> methods. The primes on the one hand 
+  and the modulus and exponent on the other can be set independently through the
+  <span class="method">v_SetPrivateKey</span> and <span class="method">v_SetPublicKey</span> 
+  methods. The <span class="method">v_Encrypt</span> method uses the public key 
+  to encrypt an arbitrary message up to but not including 0x0100 bytes. That the 
+  class already has a public key is just assumed. The <span class="method">v_Decrypt</span> 
+  method uses the private key to decrypt 0x0100 bytes of input. Again, it is just 
+  assumed that the class already has a private key. </p>
+  <p>The <span class="method">v_HashAndEncrypt</span> method is a composition. It 
+  computes the MD5 hash of an arbitrary amount of input and then encrypts the 0x10-byte 
+  hash using the public key. A sort of inverse is provided by the
+  <span class="method">v_HasSameEncryptedHash</span> method. It checks whether an 
+  arbitrary amount of data given through the first argument has the same MD5 hash 
+  that is decrypted from the second argument. This method appears to have a coding 
+  error (or I have entirely misunderstood the method’s purpose): instead of returning 
+  a boolean, it returns the -1, 0 or 1 from comparing the hashes. </p>
+  <h4>Blowfish Cipher </h4>
+  <p>Modules have access to the same class that the kernel uses for encrypting and 
+  decrypting with the Blowfish cipher. </p>
+  <pre class="source">struct CBlowfish : CBase
+{
+    virtual bool v_SetKey (CBuffer const *Key);
+    virtual bool v_MakeKey (CBuffer **Key);
+    virtual bool v_Encrypt (CBuffer const *In, CBuffer **Out);
+    virtual bool v_Decrypt (CBuffer const *In, CBuffer **Out);
+};</pre>
+  <p>The implementation is constrained to a 448-bit key. The
+  <span class="method">v_MakeKey</span> method obtains 0x38 random bytes from the
+  <span class="function">CryptGenRandom</span> function and remembers these as the 
+  key. Setting a particular key is supported by the <span class="method">v_SetKey</span> 
+  method. It requires at least 0x38 bytes of input. The first 0x38 bytes are adopted 
+  as the key. </p>
+  <p>Blowfish is a block cipher. To encrypt data that is not a whole number of 8-byte 
+  blocks, the <span class="method">v_Encrypt</span> method does not just produce 
+  cipher text. The output is first a dword that records the size of plain text, 
+  and is then followed by the cipher text from encrypting the plain text padded 
+  with as many null bytes as needed to make a whole block. The reverse applies to 
+  the <span class="method">v_Decrypt</span> method. Its input is an unencrypted 
+  dword and then the cipher text. </p>
+  <h2>Initialisation </h2>
+  <p>So much for what the kernel can do. How does it get to do it? The time has 
+  come to trace the kernel’s initialisation. </p>
+  <p>The first thing the kernel does is arrange that it shouldn’t be exposed by 
+  error messages if anything serious goes wrong. It then sets a below-normal priority 
+  for itself and sleeps for 10 seconds before proceeding through a sequence of initialisations. 
+  Failure at any step is failure for the whole initialisation. </p>
+  <h3>Locale </h3>
+  <p>Execution is abandoned if the English name of the country for the user’s default 
+  locale begins with R. This same test is applied by the installer when extracting 
+  the kernel. </p>
+  <h3>Single Running Instance </h3>
+  <p>To guard against running multiple instances concurrently in the same Windows 
+  session, the kernel creates an event whose name is the Windows session ID (defaulting 
+  to zero) as eight hexadecimal digits followed by AlreadyRunned. If this event 
+  already exists, initialisation fails. </p>
+  <p>Whether this step in the initialisation succeeds or fails, the kernel also 
+  creates a mutex in the global namespace and waits up to one second to acquire 
+  it (but without caring whether the mutex actually is acquired). The name of this 
+  mutex is pseudo-random but predictable. After the Global prefix and backslash, 
+  the name continues for 10 to 15 upper-case letters. The number of letters and 
+  the letters themselves are determined from the serial number of whatever volume 
+  contains the Windows system directory. If the mutex can’t be created with this 
+  name in the global namespace, the kernel tries to create it just using the name, 
+  i.e., with no prefix and backslash. </p>
+  <h3>Windows Version </h3>
+  <p>The kernel must be able to learn the Windows version. The
+  <span class="function">GetVersionExA</span> function must succeed. Windows versions 
+  are then identified from the major and minor version numbers and the platform 
+  ID. The following combinations are recognised explicitly: </p>
+  <ul>
+    <li>versions 4.0, 4.10 and 4.90 of the old Windows that starts from DOS;
+    </li>
+    <li>versions 4.0, 5.0, 5.1 and 5.2 of Windows NT. </li>
+  </ul>
+  <p>Anything else is treated as a newer Windows NT version. All Windows NT versions 
+  are acceptable. The older Windows versions are accepted only if the kernel can 
+  register itself as a service process, i.e., as a process that is not terminated 
+  by a log off. </p>
+  <h3>Internet Access </h3>
+  <p>Communications over the Internet are vital to this malware. If running on a 
+  Windows NT version, the kernel tries to arrange that all its Internet access goes 
+  through an Internet Explorer process. Subverting Internet Explorer is only optional. 
+  Indeed, it is not even attempted if running on the sort of Windows that starts 
+  from DOS. If it turns out that Internet access can’t be made to go through Internet 
+  Explorer, the kernel does its own as might any program. The only initialisation 
+  required in that case is that the <span class="function">WSAStartup</span> function 
+  must succeed, so that WINSOCK functions are ready for use. </p>
+  <p>Getting Internet Explorer to do the kernel’s Internet access is a matter of 
+  starting Internet Explorer as a suspended process, getting code for Internet access 
+  into the Internet Explorer process’s address space, and executing that code as 
+  a remote thread. </p>
+  <p>The Internet Explorer executable is found from the default value of the following 
+  registry key: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_LOCAL_MACHINE\SOFTWARE\Classes\CLSID\{0002DF01-0000-0000-C000-000000000046}\LocalServer32</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td>default </td>
+    </tr>
+    <tr>
+      <td>Default: </td>
+      <td>C:\Program Files\Internet Explorer\iexplore.exe </td>
+    </tr>
+  </table>
+  <p>The data, of whatever type, is a path to the Internet Explorer executable. 
+  If this technique fails, the kernel defaults to a hard-coded pathname. </p>
+  <p>Though the kernel starts Internet Explorer by creating a
+  <span class="class">CProcess</span> class (discussed above as part of the module 
+  interface), and will run code by using that class’s <span class="method">v_CallThread</span> 
+  method, it does not inject code by using the <span class="method">v_Write</span> 
+  method. Instead, since the kernel itself starts Internet Explorer, it can get 
+  code into the Internet Explorer process via the command line, and can then search 
+  Internet Explorer’s memory for this code and execute it as a remote thread.
+  </p>
+  <p>Though a command line is not intended as a means of getting executable code 
+  into a child process, there should be no surprise in seeing it used this way. 
+  Though a command line traditionally consists of letters and numbers that might 
+  easily be typed at an arbitrary keyboard, there is no rule about it and there 
+  is a long history of programmers (even at Microsoft) passing raw data in command 
+  lines. The only formal constraint on the content of a Windows command line is 
+  that it ends with the first null byte. To deal with this, the Clampi kernel prepares 
+  the command line in two parts: first, a small amount of executable code that contains 
+  no null byte; then, an alphabetic representation of more substantial code. This 
+  alphabetic representation is a simple mapping of hexadecimal digits to upper-case 
+  letters from A to P inclusive, terminated with a Z. The actual code at the start 
+  will unpack the encoded code that follows it. </p>
+  <p>The child process is created but suspended. It does not run its intended code. 
+  To get the child process to look at its command line, and thus to get the command 
+  line’s contents into the child process’s address space, the kernel makes the child 
+  process call the <span class="function">GetCommandLine</span> function. It does 
+  this by specifying the function as the start routine for a remote thread (created 
+  through the <span class="function">CreateRemoteThread</span> function via the
+  <span class="method">v_CallThread</span> method). There are two problems with 
+  this technique in general, though neither is ordinarily any trouble given the 
+  kernel’s purposes in particular. First, the <span class="function">GetCommandLine</span> 
+  function really ought to be found in the child process’s address space, but the 
+  kernel’s present coding just gets the address from the kernel’s own address space. 
+  This is true also for all the KERNEL32 functions that are called from the injected 
+  code. Second, the <span class="function">GetCommandLine</span> function does not 
+  have the prototype of a thread’s start routine. </p>
+  <p>Having got the child process to bring in the command line, the kernel then 
+  sets about finding it. Note again that the kernel uses a facility, the
+  <span class="method">v_Find</span> method of the <span class="class">CProcess</span> 
+  class, that it also provides to the downloaded modules. To avoid the sin of executing 
+  data, the kernel sets read, write and execute permissions for all pages that contain 
+  the command line, which is then executed as another remote thread. The sole purpose 
+  of executing this injected code is to set up a persistent means of playing with 
+  the child process. This first execution of actual code just decodes the more substantial 
+  but encoded code that follows it. The address of this decoded code is returned 
+  to the kernel as the result of executing this remote thread. This code can then 
+  be called any number of times, whenever the kernel wants to. </p>
+  <p>What the kernel gets for these troubles is its own memory allocator in the 
+  child process. To get memory, the kernel calls this allocator as a remote thread, 
+  passing the number of bytes it wants. In the child process, the allocator creates 
+  a memory mapping supported through the paging file. The mapping is large enough 
+  for a small header and then the wanted bytes. The address of a view of this mapping 
+  is returned to the kernel as the remote thread’s exit code. The kernel can then 
+  use the <span class="method">v_Read</span> method (i.e., the
+  <span class="function">ReadProcessMemory</span> function) to retrieve the header. 
+  This includes a unique 8-character name, actually an alphabetic representation 
+  of the high 4 bytes of the CPU’s time-stamp counter when the mapping was created, 
+  and an address to call, again as a remote thread, when the time comes to deallocate 
+  the memory. With the name, the kernel can open the mapping and get unfettered 
+  read-write access to the allocated memory: the allocated memory is shared memory.
+  </p>
+  <p>The kernel has yet more injectable code so that it can call pretty much whatever 
+  it wants in the child process whenever it wants. To make each such call, the kernel 
+  gets two allocations of memory in the child process. One is for a code stub that 
+  actually makes the call. The other is for data that specifies what to call and 
+  with what arguments. The kernel executes the stub as yet another remote thread, 
+  waits as long as required for the thread to terminate, and then deallocates the 
+  remote memory. The stub is enough for calling an arbitrary
+  <span class="keyword">__stdcall</span> function with an arbitrary number of arguments 
+  and a result that fits into 32 bits. </p>
+  <p>The benefit to all this is that the kernel gets the means to have the child 
+  process call all sorts of system functionality on the kernel’s behalf. Moreover, 
+  it arranges this without putting very much code into the child process’s address 
+  space or ever using the <span class="function">WriteProcessMemory</span> function. 
+  Against this is that the kernel uses <span class="function">CreateRemoteThread</span> 
+  far more often than would be expected of a typical program and the child process 
+  executes far many more threads than might be typical (and is anyway suspect for 
+  being suspended so long). </p>
+  <p>If the kernel succeeds at subverting Internet Explorer, it has Internet Explorer 
+  create a window. More code is injected specifically for this. The injected code 
+  is in two pieces. The first creates the second as a thread. The second registers 
+  a window class, creates a window, and processes this window’s messages. The 8-character 
+  class name is an alphabetic representation of the XOR of the low and high dwords 
+  of the CPU’s time-stamp counter. No use is known for this window. Its window procedure 
+  is just the <span class="function">DefWindowProc</span> function. It is perhaps 
+  created only so that the subverted Internet Explorer process looks less suspicious 
+  for having a window. If the window cannot be created, then subversion of Internet 
+  Explorer is not considered complete, and the kernel falls back on doing its own 
+  Internet access. </p>
+  <p>Also required is successful initialisation of WINSOCK functions in the Clampi 
+  process, successful loading of WINSOCK and WININET in the Internet Explorer process, 
+  and successful initialisation of WINSOCK functions in the Internet Explorer process. 
+  With all this done, the kernel sets a below-normal priority class for the Internet 
+  Explorer process. </p>
+  <h3>HTTP Communications </h3>
+  <p>Although the kernel exposes its Internet access to the downloaded modules, 
+  the only use that the kernel itself makes of this Internet access is for HTTP 
+  communications with a controller. As noted above, the kernel prefers to use WININET 
+  functions, but if <span class="function">InternetOpen</span> fails when testing 
+  WININET during this initialisation, then the kernel falls back to using WINSOCK 
+  functions and composing its own HTTP request headers. </p>
+  <h3>Modules </h3>
+  <p>Initialising for the module interface is just a matter of preparing a list 
+  in which to record the modules as they load and of instantiating the one
+  <span class="class">CKernel</span> class that will be passed to each loaded module.
+  </p>
+  <h3>Settings </h3>
+  <p>Most of the various registry settings that are expected to have been prepared 
+  by the installer are vital to the kernel. Initialisation fails if the key for 
+  these settings cannot be opened. The <span class="regvalue">GID</span> and
+  <span class="regvalue">PID</span> values are invalid unless they have four and 
+  0x18 bytes of <span class="constant">REG_BINARY</span> data respectively. For 
+  each that is invalid, the kernel proceeds as if the values had the expected amount 
+  of null bytes. Initialisation fails if the <span class="regvalue">KeyM</span> 
+  and <span class="regvalue">KeyE</span> values do not both have
+  <span class="constant">REG_BINARY</span> data. The same is true of the
+  <span class="regvalue">GatesList</span> value. Binary data for this value must 
+  conform to expectations discussed above so that the kernel has controllers to 
+  try talking to. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 5th November 2009 and was last modified 
+    on 29th November 2009. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="41384" -->
+  </div>
+</div>
+
+</body>
+
+</html>

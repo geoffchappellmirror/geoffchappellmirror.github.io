@@ -1,0 +1,196 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The x86 BIOS Emulator in the Windows Vista HAL</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="43332" endspan -->
+<!--webbot bot="Include" U-Include="../../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" i-checksum="34080" endspan -->
+<h1>The x86 BIOS Emulator </h1>
+<p>The HAL in both the x86 and x64 builds of Windows Vista has a set of functions 
+for accessing the 16-bit firmware that Windows started from. This firmware is better 
+known as the ROM BIOS. It won’t surprise anyone that the functions for doing this 
+are all undocumented: </p>
+<ul>
+  <li><span class="undocumented function">HalInitializeBios</span> </li>
+  <li><span class="undocumented function"><a href="allocatebuffer.htm">x86BiosAllocateBuffer</a></span>
+  </li>
+  <li><span class="undocumented function"><a href="call.htm">x86BiosCall</a></span>
+  </li>
+  <li><span class="undocumented function"><a href="freebuffer.htm">x86BiosFreeBuffer</a></span>
+  </li>
+  <li><span class="undocumented function"><a href="readmemory.htm">x86BiosReadMemory</a></span>
+  </li>
+  <li><span class="undocumented function"><a href="writememory.htm">x86BiosWriteMemory</a></span>
+  </li>
+</ul>
+<p>What may surprise is the way it’s done. The HAL prepares a copy (apparently called 
+a shadow) of relevant areas of memory from the first megabyte, and implements a 
+16-bit emulator for “executing” the real-mode code. To the emulator, the real-mode 
+code is just a stream of bytes to interpret and act on. Registers that the real-mode 
+code would operate on when actually executing in real mode are instead just members 
+of a context structure in the HAL’s data. Where the real-mode code would read from 
+or write to some memory in its 1MB of physical address space, the HAL instead reads 
+from or writes to corresponding addresses in the shadow memory. </p>
+<p>Note that the functions whose names begin with x86Bios more-or-less reproduce 
+the <span class="member">Int10AllocateBuffer</span>, <span class="member">Int10CallBios</span>,
+<span class="member">Int10FreeBuffer</span>, <span class="member">Int10ReadMemory</span> 
+and <span class="member">Int10WriteMemory</span> members of a
+<span class="struct">VIDEO_PORT_INT10_INTERFACE</span> structure such as filled 
+by the <span class="function">VideoPortQueryServices</span> function. It seems a 
+reasonable hypothesis that the x86 BIOS emulator was developed (primarily, if not 
+solely) so that int 10h functionality for video drivers can be maintained on 64-bit 
+Windows without the need to have these systems support virtual-8086 execution.
+</p>
+<p>Indeed, the emulator appears first in the x64 builds of version 5.2, for a set 
+of functions that are superseded now that the emulator has common functions for 
+both builds: </p>
+<ul>
+  <li><span class="undocumented function">HalCallBios</span> </li>
+  <li><span class="undocumented function">x86BiosExecuteInterrupt</span> </li>
+  <li><span class="undocumented function">x86BiosInitializeBiosEx</span> </li>
+  <li><span class="undocumented function">x86BiosTranslateAddress</span> </li>
+</ul>
+<p>The new emulator is initialised when the kernel calls the
+<span class="function">HalInitializeBios</span> function. Thereafter, the BIOS’s 
+software-interrupt interface is available through the <span class="function">x86BiosCall</span> 
+function. This allows for an interrupt number, for passing parameters in the general 
+registers and the <span class="register">ds</span> and <span class="register">es</span> 
+segment registers, and for receiving results in the general registers. Where a software 
+interrupt expects an address for data, the <span class="function">x86BiosAllocateBuffer</span> 
+function may help by providing the address of a transfer buffer in the shadow memory. 
+Data can be read from or written to the transfer buffer, or to any address in the 
+shadow memory, through the functions <span class="function">x86BiosReadMemory</span> 
+and <span class="function">x86BiosWriteMemory</span>. </p>
+<h2>Memory </h2>
+<p>The shadow memory allows for 1MB of addresses, but with holes. The contents of 
+shadow memory in the addressing holes is undefined. The addresses that are supported 
+for emulation are: </p>
+<ul>
+  <li>the first 2KB, most notably including the real-mode interrupt vector table 
+  and PC-compatible BIOS data; </li>
+  <li>4KB at address 2000:0000 for use as a transfer buffer; </li>
+  <li>64KB at address 9000:0000, most notable for including the Extended BIOS Data 
+  Area; </li>
+  <li>128KB of PC-compatible video memory at address A000:0000; </li>
+  <li>256KB at address C000:0000, including the ROM BIOS. </li>
+</ul>
+<p>The shadow memory at A000:0000 actually is mapped to the physical address 0x000A0000. 
+Within any range other than this and the one at 2000:0000, a page is undefined in 
+shadow memory unless it is either not in the memory map that the kernel receives 
+from the loader or its memory type is <span class="constant">LoaderFirmwarePermanent</span> 
+or <span class="constant">LoaderSpecialMemory</span>. </p>
+<h2>Ports </h2>
+<p>Code interpreted by the emulator has access to all ports in the 64KB of I/O space, 
+but the following may be simulated: </p>
+<ul>
+  <li>the CMOS ports 70h and 71h; </li>
+  <li>ports B1h and B2h; </li>
+  <li>the PCI address ports 0CF8h to 0CFBh; </li>
+  <li>the PCI data ports 0CFCh to 0CFFh. </li>
+</ul>
+<h2>Instructions </h2>
+<p>The emulator supports all the general-purpose 80386 instructions, plus
+<span class="instruction">bswap, cmpxchg</span>, <span class="instruction">rdtsc</span>,
+<span class="instruction">xadd</span> (which were added for later processors), plus 
+the system instruction <span class="instruction">smsw</span>. </p>
+<h3>Decoding </h3>
+<p>Some quirks are known for the decoding of opcode sequences. Only one seems really 
+noteworthy: the <span class="instruction">bswap</span> instruction is recognised 
+only in the encoding that begins 0x0F 0xC8, i.e., to swap the bytes of the
+<span class="register">eax</span> register. </p>
+<p>The <span class="instruction">adc</span>, <span class="instruction">add</span>,
+<span class="instruction">and</span>, <span class="instruction">cmp</span>,
+<span class="instruction">or</span>, <span class="instruction">sbb</span>,
+<span class="instruction">sub</span> and <span class="instruction">xor</span> are 
+not supported in the encoding that begins with 0x82 (which Intel does list as valid, 
+though the apparently equivalent encoding that begins with 0x80 is clearly preferred).
+</p>
+<p>The <span class="instruction">inc</span> and <span class="instruction">dec</span> 
+encodings that begin with 0xFE are accepted for all values of the
+<span class="placeholder">reg</span> field in the second byte: even for
+<span class="instruction">inc</span>; odd for <span class="instruction">dec</span>.
+</p>
+<p>If the effective address for an opcode sequence that begins with 0x0F 0x01 is 
+zero, then no matter what instruction the sequence decodes to, all its bytes are 
+more or less ignored. If the operand is based on the <span class="register">bp</span> 
+or <span class="register">ebp</span> register, then the default segment (for the 
+next instruction) becomes <span class="register">ss</span>. Prefixes that precede 
+the sequence carry to the next. </p>
+<p>The <span class="instruction">bt</span>, <span class="instruction">btc</span>,
+<span class="instruction">btr</span> and <span class="instruction">bts</span> instructions 
+in the encoding that begins with 0x0F 0xBA are accepted if the
+<span class="placeholder">reg</span> field in the third byte is 0, 1, 2 or 3 respectively 
+(not just 4, 5, 6 or 7). </p>
+<h3>Implementation </h3>
+<p>Most instructions operate on the shadow registers and the shadow memory in the 
+expected way. The <span class="instruction">lock</span> prefix has no known effect. 
+The <span class="instruction">wait</span> instruction is ignored. </p>
+<p>The <span class="instruction">rdtsc</span> instruction is implemented to load
+<span class="register">edx</span>:<span class="register">eax</span> with the return 
+value of <span class="function">KeQueryPerformanceCounter</span>. </p>
+<p>The <span class="instruction">smsw</span> instruction is implemented as returning 
+0x2D, i.e., to have the <span class="bit">PE</span>, <span class="bit">EM</span>,
+<span class="bit">TS</span> and <span class="bit">NE</span> bits set and all others 
+clear. It is appropriate that the <span class="bit">PE</span> bit appears to be 
+set even though the BIOS code executes with real-mode addressing. Note however that 
+the emulator always has the <span class="bit">VM</span> bit clear in the shadowed
+<span class="register">eflags</span> register, and the <span class="bit">IOPL</span> 
+is always 0, too. </p>
+<p>Interrupts do not clear the interrupt and trap flags for their handlers. Of course, 
+when the emulator interprets code, it does not provide for interruption or tracing, 
+and it seems unlikely that any handlers will depend on these flags to be clear. 
+Interrupt 1Ah function B1h may be simulated. Interrupt 42h is ignored. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 27th April 2009 and was last modified 
+  on 4th January 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62869" endspan -->
+</div>
+
+</body>
+
+</html>

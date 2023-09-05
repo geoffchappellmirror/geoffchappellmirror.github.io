@@ -1,0 +1,176 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Interrupt 2Fh Function 122Fh</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/notes.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="20600" -->
+<div class="Main">
+  <h1>Interrupt 2Fh Function 122Fh </h1>
+  <p>This function sets or clears the fake version number that
+  <a href="../../21h/30h.htm"><span class="instruction">int 21h</span> function 30h</a> 
+  may return in <span class="register">ax</span>. It acts non-trivially only in 
+  version 4.0. </p>
+  <h2>Parameters </h2>
+  <p>The function uses registers for its input and output. As with any subfunction 
+  of <span class="instruction">int 2Fh</span> function 12h, it also reads a word 
+  from above the interrupt frame as if to access an argument. This particular subfunction, 
+  however, does not interpret the word. </p>
+  <h3>Input </h3>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>122Fh </td>
+      </tr>
+      <tr>
+        <td><span class="register">dx</span> </td>
+        <td>version number, major version in low byte; <br>
+        zero to use true version </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Given the kernel as implemented, this function has a well-defined effect if 
+  and only if <span class="register">dx</span> is zero. It then clears whatever 
+  fake version number the kernel may have adopted. Subsequent calls to
+  <span class="instruction">int 21h</span> function 30h return the true version.
+  </p>
+  <p>What’s intended for non-zero <span class="register">dx</span> is unclear. The 
+  behaviour depends on what programs and overlays the kernel has ever loaded. See 
+  below for details. </p>
+  <h3>Success (version 4.0) </h3>
+  <p>The function’s simple implementation in version 4.0 must be counted as succeeding 
+  trivially, but it does not explicitly indicate success or failure. As with any 
+  subfunction of <span class="instruction">int 2Fh</span> function 12h that doesn’t 
+  explicitly return anything in <span class="register">ax</span>, it corrupts
+  <span class="register">ax</span> simply for having used it but not preserved it.
+  </p>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>corrupt </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Output (version 5.0 and higher) </h3>
+  <p>Version 5.0 reduces the function to a placeholder. Whether its explicit clearing 
+  of <span class="register">al</span> to zero is meant to indicate failure or just 
+  success at doing nothing is not known. </p>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">al</span> </td>
+        <td>00h </td>
+      </tr>
+      <tr>
+        <td><span class="register">ah</span> </td>
+        <td>corrupt </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Failure (version 3.0 and higher) </h3>
+  <p>To versions 3.0 and higher but before 4.0, this function is an unimplemented 
+  subfunction of <span class="instruction">int 2Fh</span> function 12h. </p>
+  <table>
+    <tbody>
+      <tr>
+        <td><span class="register">flags</span> </td>
+        <td>carry flag set </td>
+      </tr>
+      <tr>
+        <td><span class="register">ax</span> </td>
+        <td>error code </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Before version 3.0, the kernel does not implement <span class="instruction">
+  int 2Fh</span> and has nothing to do with whatever happens from trying to call 
+  this function. </p>
+  <h2>Behaviour </h2>
+  <p>Each loading of a program or overlay has the kernel consult a “special entries” 
+  table for an entry that matches the file name. The entry provides both a non-zero 
+  fake version number and a duration for its use. The duration specifies either 
+  that the fake version affects some number of subsequent version queries or that 
+  it lasts until the next process termination. </p>
+  <h3>Clear </h3>
+  <p>The fake version cannot be zero. Put another way, while the fake version is 
+  zero, all version queries report the true DOS version. This is unambiguously what 
+  is set up by this function when called with zero for <span class="register">dx</span>.
+  </p>
+  <p>The only known use of <span class="instruction">int 2Fh</span> function 122Fh 
+  is with zero for <span class="register">dx</span>. This is done by the system 
+  initialisation in IO.SYS after loading and initialising each device driver. Remember, 
+  device drivers are overlays. Their return from their intialisation is not a process 
+  termination. If a fake version was adopted for a device driver, it needs to be 
+  cleared explicitly so that it can’t affect the next device driver. </p>
+  <h3>Set </h3>
+  <p>Calling the function with non-zero <span class="register">dx</span> might be 
+  thought to set a fake version, perhaps with the implied duration of lasting until 
+  the next process termination. It can have this effect, but it also can have no 
+  effect at all. </p>
+  <p>If there has never been a successful lookup or if the last was of the type 
+  that has a count and this count has expired, then the kernel is not currently 
+  faking its version number and this function does not make it start. Non-zero
+  <span class="register">dx</span> has no effect on any subsequent version queries.
+  </p>
+  <p>If the last successful lookup set a count that has not yet expired, or if it 
+  specified faking until the next process termination and no process has yet terminated, 
+  then the kernel is faking its version number and non-zero
+  <span class="register">dx</span> simply updates this fake version that the kernel 
+  will report until it would anyway have stopped. </p>
+  <p>If the last successful lookup was of the type that sets a fake version to apply 
+  until the next process termination and a process has since terminated, however 
+  long ago, then the kernel is not faking its version number but this function tells 
+  it to start. Non-zero <span class="register">dx</span> will be reported as the 
+  version number until the next process termination. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 29th
+    <a href="../../../../../new/21/08.htm">September 2021</a> and was last modified 
+    on 10th October 2021. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c21.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="46623" -->
+  </div>
+</div>
+
+</body>
+
+</html>

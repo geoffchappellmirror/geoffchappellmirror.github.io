@@ -1,0 +1,380 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Shim Database (SDB) Files</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="21016" -->
+<h1>Shim Database (SDB) Files </h1>
+<p>The introduction of Application Compatibility for Windows XP (chronologically, 
+with some back-fitting into the late service packs of Windows 2000) brought with 
+it a new type of file for holding potentially large amounts of data about programs 
+and drivers that need some sort of help. One type of help involves inserting code, 
+known generically as a <span class="definition">shim</span>, between a troubled 
+application and the Windows DLLs that it calls. The code in the shim then modifies 
+the application’s otherwise faulty use of the called functions. This shim
+<span class="emphasis">technology</span>, as Microsoft has been known to name it, 
+lends its name to the data files. </p>
+<p>These SDB files can exist anywhere, of course, but a set of them at a standard 
+location (and in subdirectories) is collectively the Application Compatibility Database.
+</p>
+<h2>The SDB File Format </h2>
+<p>The large-scale structure of an SDB file is strikingly simple. Each SDB file 
+is a fixed-size header and then a sequence of variable-size
+<span class="definition">tags</span>. Each tag is in three parts: </p>
+<ul>
+  <li>a 16-bit <span class="type"><a href="tag.htm">TAG</a></span>, whose numerical 
+  value tells of the tag’s type and purpose; </li>
+  <li>a size in bytes, which can be given explicitly as a dword or may be implied 
+  by the high 4 bits of the <span class="type">TAG</span>; </li>
+  <li>and then that many bytes of data, whose interpretation depends on the
+  <span class="type">TAG</span>. </li>
+</ul>
+<p>Of course, the increasingly many different values that are recognised for a
+<span class="type">TAG</span> allow for describing many different properties. Where 
+complexity comes into the large-scale structure, however, is that the description 
+can be hierarchical: again depending on the high 4 bits of the
+<span class="type">TAG</span>, the data can itself be a sequence of
+<span class="definition">child</span> tags. </p>
+<h3>Header </h3>
+<p>The fixed-size header is 0x0C bytes: </p>
+<table>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>major version number </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>minor version number </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>4 bytes </td>
+    <td>the characters “sdbf”, making the integer 'fbds', as a signature </td>
+  </tr>
+</table>
+<p>Microsoft’s names for the members aren’t known with the certainty of type information 
+from symbol files but a compelling guess can be had from error messages that APPHELP 
+can write to a log file. The text in all known versions describes the first and 
+last dwords as <span class="member">MajorVersion</span> and <span class="member">
+Magic</span>—and what would be the point of naming something
+<span class="member">MajorVersion</span> if there’s not a <span class="member">MinorVersion</span> 
+too? Even without this helpful text, the first two dwords might confidently be identified 
+as something like major and minor version numbers because the
+<span class="function">SdbGetDatabaseVersion</span> function, which is exported 
+in all versions, reproduces them into the variables whose addresses are given as 
+the function’s two arguments. </p>
+<p>The flip side to what APPHELP interprets of the header is what someone writes 
+as the header when creating an SDB file. Early versions of APPHELP were not involved 
+in creating SDB files, let alone in writing the SDB header. What later versions 
+export as the <span class="function">SdbCreateDatabase</span> function was at first 
+just a library routine that was linked in to other programs and DLLs that wanted 
+it for creating an SDB file. Not until the build of version 5.2 for Windows Server 
+2003 SP1 is the routine linked in to APPHELP and exported. Wherever it’s found, 
+the implementations before version 6.0 compose the minor version as a date stamp. 
+The following combinations of major and minor version are observed in SDB files 
+on the installation discs for various Windows versions (or in self-extracting executables 
+for some service packs): </p>
+<table>
+  <tr>
+    <th>Major Version </th>
+    <th>Minor Version </th>
+    <th>Windows Version </th>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>1 </td>
+    <td>Windows Vista to Windows 8.1, including all known services packs and updates
+    </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>10,817 (17th August 2001) </td>
+    <td>Windows XP </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>20,502 (2nd May 2002) <br>
+    20,718 (18th July 2002) </td>
+    <td>Windows 2000 SP3 </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>20,829 (29th August 2002) </td>
+    <td>Windows 2000 SP4 (msimain.sdb) <br>
+    Windows XP SP1 </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>30,325 (25th March 2003) </td>
+    <td>Windows Server 2003 </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>30,616 (16th June 2003) </td>
+    <td>Windows 2000 SP4 (sysmain.sdb) </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>40,804 (4th August 2004) </td>
+    <td>Windows XP SP2 </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>50,324 (24th March 2005) </td>
+    <td>Windows Server 2003 SP1 </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>70,217 (17th February 2007) </td>
+    <td>Windows Server 2003 SP2 </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td>80,414 (14th April 2008) </td>
+    <td>Windows XP SP3 </td>
+  </tr>
+  <tr>
+    <td>3 </td>
+    <td>0 </td>
+    <td>Windows 10 </td>
+  </tr>
+</table>
+<p>All APPHELP versions recognise major versions from older SDB files and accommodate 
+differences of interpretation. Even the <span class="function">SdbOpenDatabase</span> 
+function from SDBAPIU.DLL for Windows 2000 SP3 recognises both 1 and 2 for the major 
+version. The only known change from version 1 to version 2 is to force two-byte 
+alignment for all tags. Major version 3 is new for Windows 10. The only known change 
+in advancing to version 3 is a significant reinterpretation of the so-called runtime 
+platform that is the data for tag 0x4021. </p>
+<h3>Tags </h3>
+<p>The many numerical values that are yet defined for the <span class="type">TAG</span> 
+are listed separately. A few, however, have a special role in the large-scale structure 
+of the SDB file. </p>
+<h4>Root Tag </h4>
+<p>It can help to start the hierarchy of tags with a root tag that does not actually 
+exist in the file. Imagine it instead as a virtual tag that has no
+<span class="type">TAG</span> or size, just data that begins at offset 0x0C in the 
+file and continues to the end of the file. There is explicit support for this notion 
+in the APPHELP functions that work with SDB files. These typically refer to a tag 
+in the file by giving its offset in bytes from the start of the file as the tag’s
+<span class="type">TAGID</span>. The first tag that is physically present in the 
+file thus has 0x0000000C as its <span class="type">TAGID</span>, but users of the 
+API functions don’t know this (because they are spared the details of the file format, 
+including the size of the header). They instead find this first top-level tag by 
+asking the <span class="function">SdbGetFirstChild</span> function for the first 
+child of the virtual tag whose <span class="type">TAGID</span> is 0, which Microsoft 
+documents as <span class="constant">TAGID_ROOT</span>. </p>
+<h4>Top-Level Tags </h4>
+<p>In practice however, the immediate children of the root are the top-level tags 
+in the hierarchy. Three can be expected. Of these, one has the meaningful content 
+and the other two are meta-content that seem intended to be generated automatically 
+from the meaningful content. The summaries that follow may eventually link to separate 
+pages. </p>
+<p>Especially important as meta-content is a string table. This is a top-level tag 
+0x7801 (<span class="constant">TAG_STRINGTABLE</span>). Its children have tag 0x8801 
+(<span class="constant">TAG_STRINGTABLE_ITEM</span>). The data in each such item 
+is a null-terminated Unicode string. The point to having a string table is to avoid 
+repetition. For instance, among the executables that need a shim may be several 
+from the same vendor. The SDB file is smaller if the vendor’s name appears in just 
+one string-table item. Where tags that describe each executable refer to the one 
+vendor, they each have as their data not the string itself but a reference to the 
+one string. This string reference is the offset from the beginning of the string 
+table, i.e., the tag 0x7801, to the tag 0x8801 that has the string as its data.
+</p>
+<p>Arguably even more important for performance when working with SDB files are 
+the indexes. These are children of a top-level tag 0x7802 (<span class="constant">TAG_INDEXES</span>) 
+that some APPHELP code expects to be the first child of the root tag. Each index 
+is a tag 0x7803 (<span class="constant">TAG_INDEX</span>). APPHELP allows for 32 
+indexes. Each index must have among its children a tag 0x3802 (<span class="constant">TAG_INDEX_TAG</span>), 
+a tag 0x3803 (<span class="constant">TAG_INDEX_KEY</span>) and a tag 0x9801 (<span class="constant">TAG_INDEX_BITS</span>). 
+The first two have as their word of data a <span class="type">TAG</span>. The “bits” 
+are an array of 0x0C-byte structures that each have an 8-byte hash and a 4-byte
+<span class="type">TAGID</span> for instances of the “tag” sorted by the “key”.
+</p>
+<p>What is arguably the actual content of the database file is in a top-level tag 
+0x7001 (<span class="constant">TAG_DATABASE</span>). The typically substantial tree 
+of tags beneath this one is where the database describes the applications and drivers 
+that need shims, patches, and whatever. Some of the immediate children, however, 
+are significant for describing the database itself. </p>
+<h4>Database ID </h4>
+<p>Specially so is tag 0x9007 (<span class="constant">TAG_DATABASE_ID</span>) whose 
+data is the <span class="struct">GUID</span> that can be learnt from the
+<span class="function">SdbGetDatabaseID</span> function and which may identify the 
+SDB file as being suitable for use as one of the standard databases. APPHELP recognises 
+the following: </p>
+<table>
+  <tr>
+    <th>GUID </th>
+    <th>Symbolic Name </th>
+  </tr>
+  <tr>
+    <td>{11111111-1111-1111-1111-111111111111} </td>
+    <td><span class="symbol">GUID_SYSMAIN_SDB</span> </td>
+  </tr>
+  <tr>
+    <td>{D8FF6D16-6A3A-468A-8B44-01714DDC49EA} </td>
+    <td><span class="symbol">GUID_MSIMAIN_SDB</span> </td>
+  </tr>
+  <tr>
+    <td>{F9AB2228-3312-4A73-B6F9-936D70E112EF} </td>
+    <td><span class="symbol">GUID_DRVMAIN_SDB</span> </td>
+  </tr>
+</table>
+<h2>XML Representation </h2>
+<p>Of course, SDB files are not prepared in this form by hand, and probably not 
+even in a language that requires the preparer to know anything of the header and 
+tags. That Microsoft thinks in terms of compiling SDB files, if not quite like compiling 
+C-language source code for programs then perhaps as something like compiling resource 
+scripts, has been known since Microsoft’s documentation of a selection of APPHELP 
+functions apparently for Windows Vista. The data for tag 0x6022 is there described 
+as the “Shim database compiler version”. </p>
+<p>What can we know of whatever language Microsoft compiles SDB files from? Allow 
+that each <span class="type">TAG</span> has a friendly <span class="placeholder">
+name</span>. Take the size and data together as <span class="placeholder">data</span> 
+that can be represented as text. Take Microsoft’s known name <span class="type">
+TAG</span> as a hint. You will likely soon be picturing XML with either or both 
+of <span class="tag">&lt;<span class="placeholder">name</span>&gt;<span class="placeholder">data</span>&lt;/<span class="placeholder">name</span>&gt;</span> 
+tags or <span class="attribute"><span class="placeholder">name</span>="<span class="placeholder">data</span>"</span> 
+attributes. If you’re the experimental sort of reverse engineer that I am not, you 
+will likely also be thinking to run up some tool (or find an already-written one 
+on the Internet) to convert SDB to some sort of XML, and perhaps back. This article’s 
+interest, however, is in what can be learned of Microsoft’s practices from the software, 
+development kits and documentation that we have from Microsoft. After all, if Microsoft 
+does create SDB files from XML input, then Microsoft’s XML would be what we want 
+to know. </p>
+<p>That the SDB file is a binary re-packaging of data that Microsoft prepares as 
+XML was always at least a reasonable supposition just from what Microsoft supplies 
+with Windows. Though APPHELP has no code for creating an SDB file from XML input, 
+it does have code that in some sense goes the other way. Sadly, this doesn’t mean 
+going all the way to dumping a whole SDB file as XML for easier inspection by users 
+who want to know what run-time changes Windows makes to the software that’s on their 
+computers or what unusual support has turned out to be needed by software they’re 
+thinking to buy. Still, APPHELP has from its very first version, as did SDBAPIU 
+before it, exported functions that help represent database items as text that would 
+be suitable for an XML file. It even has functions that assemble such text as an 
+XML file specifically. </p>
+<p>The very many different values that are recognised for the <span class="type">
+TAG</span> do indeed have friendly names. These are readily obtained from the
+<span class="function"><a href="../api/attributes/sdbtagtostring.htm">SdbTagToString</a></span> 
+function. Most are immediately suitable for XML tags, though some were not until 
+a reworking for version 6.0. For the several dozen values that describe various 
+types of file attributes, both the <span class="type">TAG</span> and the data (e.g., 
+size, checksum, version number, timestamp or copyright notice) can be nicely formatted 
+as <span class="placeholder">attribute</span>="<span class="placeholder">value</span>", 
+crying out for inclusion in an XML tag, by the <span class="function">SdbFormatAttribute</span> 
+function in all versions. The undocumented functions <span class="function">
+<a href="../api/grabmi/sdbgrabmatchinginfo.htm">SdbGrabMatchingInfo</a></span> and
+<span class="function"><a href="../api/grabmi/sdbgrabmatchinginfoex.htm">SdbGrabMatchingInfoEx</a></span> 
+collect these attributes for potentially very many so-called matching files and 
+write the lot out as properly formatted XML. Here’s an example: </p>
+<pre>&lt;?xml version="1.0" encoding="UTF-16"?&gt;
+&lt;DATABASE&gt;
+&lt;EXE NAME="Exe Not Specified" FILTER="GRABMI_FILTER_NORMAL"&gt;
+    &lt;MATCHING_FILE NAME="apphelp_xp.dll" SIZE="145512" CHECKSUM="0xAE40BB1E" BIN_FILE_VERSION="6.1.9600.16384" BIN_PRODUCT_VERSION="6.1.9600.16384" PRODUCT_VERSION="6.1.9600.16384" FILE_DESCRIPTION="Application Compatibility Client Library" COMPANY_NAME="Microsoft Corporation" PRODUCT_NAME="Microsoft Application Compatibility Toolkit 6.1" FILE_VERSION="6.1.9600.16384 (winblue_rtm.130821-1623)" ORIGINAL_FILENAME="Apphelp" INTERNAL_NAME="Apphelp" LEGAL_COPYRIGHT="© Microsoft Corporation. All rights reserved." VERDATEHI="0x0" VERDATELO="0x0" VERFILEOS="0x40004" VERFILETYPE="0x2" MODULE_TYPE="WIN32" PE_CHECKSUM="0x2EFDF" LINKER_VERSION="0x60003" UPTO_BIN_FILE_VERSION="6.1.9600.16384" UPTO_BIN_PRODUCT_VERSION="6.1.9600.16384" LINK_DATE="08/22/2013 03:55:53" UPTO_LINK_DATE="08/22/2013 03:55:53" EXPORT_NAME="apphelp_xp.dll" VER_LANGUAGE="English (United States) [0x409]" /&gt;
+    &lt;MATCHING_FILE NAME="Compatadmin.exe" SIZE="1478320" CHECKSUM="0x468440DC" BIN_FILE_VERSION="6.1.9600.17029" BIN_PRODUCT_VERSION="6.1.9600.17029" PRODUCT_VERSION="6.1.9600.17029" FILE_DESCRIPTION="Compatability Administrator" COMPANY_NAME="Microsoft Corporation" PRODUCT_NAME="Microsoft Application Compatibility Toolkit 6.1" FILE_VERSION="6.1.9600.17029 (winblue_gdr.140219-1702)" ORIGINAL_FILENAME="CompatAdmin.exe" INTERNAL_NAME="CompatAdmin.exe" LEGAL_COPYRIGHT="© Microsoft Corporation. All rights reserved." VERDATEHI="0x0" VERDATELO="0x0" VERFILEOS="0x40004" VERFILETYPE="0x1" MODULE_TYPE="WIN32" PE_CHECKSUM="0x173A94" LINKER_VERSION="0x60003" UPTO_BIN_FILE_VERSION="6.1.9600.17029" UPTO_BIN_PRODUCT_VERSION="6.1.9600.17029" LINK_DATE="02/20/2014 07:25:18" UPTO_LINK_DATE="02/20/2014 07:25:18" VER_LANGUAGE="English (United States) [0x409]" /&gt;
+&lt;/EXE&gt;
+&lt;/DATABASE&gt;
+</pre>
+<p>If Microsoft does compile SDB files from XML input, then much of the point to 
+the XML output of these functions would be that it compiles. If nothing else, the 
+suggestion must be strong that Microsoft’s XML uses the <span class="attribute">
+<span class="placeholder">name</span>="<span class="placeholder">data</span>"</span> 
+style at least for SDB tags whose data describe matching files and perhaps for all 
+SDB tags that have no child tags. Also to be expected is some amount of interpretation 
+of the <span class="placeholder">data</span> in its string form according to the
+<span class="placeholder">name</span>, as where “6.1.9600.16384” for
+<span class="attribute">BIN_FILE_VERSION</span> is what anyone would want in the 
+XML instead of the qword 0x0006000125804000 that would be the data for a tag 0x5002 
+(<span class="constant">TAG_BIN_FILE_VERSION</span>) in the SDB file. </p>
+<p>Supposition that Microsoft designed SDB files for easy preparation from XML input 
+is explicitly confirmed by a comment in a header file, named SHIMDB.H, that Microsoft 
+publishes in a Windows Driver Kit (WDK) for Windows 10. How or why SHIMDB.H came 
+to be public may be anyone’s guess. It has no programmatic content of its own, just 
+a few <span class="directive">#include</span> directives to bring in other headers, 
+some of which aren’t supplied. But even if this header is pretty much useless to 
+programmers outside Microsoft, its disclosure is welcome for clarifying the history:
+</p>
+<pre class="source">This "database" is more of a tagged file, designed to mimic the structure of an XML
+file. An XML file can be converted into this packed data format easily, and all strings
+will by default be packed into a stringtable and referenced by a DWORD identifier, so files
+that contain a lot of common strings (like the XML used by the App Compat team) will not
+bloat.</pre>
+<p>It is important to keep in mind, however, that even with this confirmation that 
+what Microsoft compiles SDB files from is XML specifically, no amount of studying 
+SDB files or Microsoft’s documentation of the API for working with SDB files or 
+even the binary code of programs that come with Windows—and most likely not the 
+source code, either—gives any <span class="emphasis">deduction</span> of what Microsoft’s 
+XML looks like. To know this we would need the compiler that Microsoft uses for 
+creating SDB files from XML. </p>
+<h3>The Shim Database Compiler </h3>
+<p>Outside of APPHELP.DLL and other such files that are on every Windows computer, 
+there is the separately downloadable Application Compatibilty Toolkit (ACT), nowadays 
+rebranded as the Windows Assessment and Deployment Kit (ADK). This kit’s Compatibility 
+Administrator, named CompatAdmin.exe, and a program named QFixApp.exe that Microsoft 
+supplied only with the kit’s early versions certainly can create SDB files from 
+XML input. The intention is that system administrators and advanced users may create 
+custom database files to support applications whose need for compatibility support 
+was not known to Microsoft for the database files that are supplied with Windows. 
+Both programs are tightly constrained, but they turn out to have the whole of Microsoft’s 
+Shim Database Compiler built in. Microsoft surely has this compiler as a separate 
+program, apparently named ShimDBC.exe, but its operation as code and data that is 
+linked in to the Compatibility Administrator certainly is open to study. </p>
+<p>To get Microsoft’s SHIMDBC.exe, download Microsoft’s Application Compatbility 
+Toolkit (ACT), lately rebadged as the Assessment and Deployment Kit (ADK), and “extract” 
+it from the Compatibility Administrator. For directions, with details for one version, 
+see my article <a href="shimdbc.htm">Where Is ShimDBC.exe?</a> which was first published 
+separately as <a href="https://www.alchemistowl.org/pocorgtfo/pocorgtfo13.pdf">PoC||GTFO 
+13:9</a>. </p>
+<p>For a limited—but certainly working—example of what might be hoped for by way 
+of representing SDB files as XML, see my <a href="shimdbdc.htm">Shim Database De-Compiler</a>.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 19th
+  <a href="../../../../../new/16/08.htm">August 2016</a> and was last modified on 
+  7th October 2018. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c1618.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5403" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,852 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Scenario Event Mapper (SEM)</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="54033" -->
+<h1>The Scenario Event Mapper (SEM) </h1>
+<p>The kernel’s involvement with the Windows Diagnostic Infrastructure (WDI) is 
+mostly to implement the Scenario Event Mapper (SEM). For this purpose, a
+<span class="definition">scenario</span> is a sequence of events to log should they 
+ever occur. The scenario has one <span class="definition">start event</span> and 
+multiple <span class="definition">end events</span>. From start to end, or for some 
+configurable time, selected events from selected event providers, here called
+<span class="definition">context events</span> and <span class="definition">context 
+providers</span>, are also logged. </p>
+<h2>Programming </h2>
+<p>Though the WDI has “infrastructure” in its name, it is for its programmatic operation 
+more a superstructure on Event Tracing for Windows (ETW). Scenarios can be started 
+and stopped by undocumented variations <span class="function">
+<a href="wdiapi/start.htm">EtwWriteStartScenario</a></span> and
+<span class="function"><a href="wdiapi/end.htm">EtwWriteEndScenario</a></span> of 
+the documented <span class="function">EtwWrite</span> function. There is a user-mode 
+interface too, with slightly different names: <span class="function">EventWriteStartScenario</span>, 
+etc., for the ADVAPI32 exports; and <span class="function">EtwEventWriteStartScenario</span>, 
+etc., for the NTDLL exports. Some very limited management can be exercised through 
+two of the many function codes that are recognised by the <span class="function">
+<a href="../etw/traceapi/control/index.htm">NtTraceControl</a></span> function.
+</p>
+<p>That said, though the “scenario” functions take the same arguments as
+<span class="function">EtwWrite</span> and retain the Etw prefix, and though the 
+only C-language declarations that Microsoft has disclosed in public are in a header 
+named NTETW.H, section contributions in the public symbol files for the kernel show 
+that these “scenario” variations are built not in the “etw” subdirectory with the 
+rest of the <span class="function">EtwWrite</span> family but in a “wdi” subdirectory—specifically 
+in a source file that builds to an object file named “wdiapi.obj”. Plainly, Microsoft’s 
+programmers regard these functions as an API for the WDI. </p>
+<h2>Configurability </h2>
+<p>How the SEM gives WDI its primary usefulness is in avoiding programmatic operation: 
+the SEM is configured from the registry. </p>
+<p>An unpublished early version of this page, from 2008 when WDI was new for Windows 
+Vista, even listed the registry configuration for a newly installed Windows. A decade 
+later, for Windows 10, this initial configuration is of course much too large for 
+its listing here to be practical. But doesn’t its evidently increasing use by Microsoft 
+make it all the more astonishing that nobody outside Microsoft seems to have detailed 
+it for public review? I don’t say that what’s collected in the scenarios is necessarily 
+a worry for anyone’s privacy, but neither is it credible that Microsoft has gone 
+to this trouble for information that is not somehow useful or important. Or not, 
+for surely the world’s experts in computer forensics must have picked over it by 
+now to see what useful information Microsoft has Windows keep about how and when 
+it started. </p>
+<p>Registry settings that affect the SEM are in and under what will sometimes be 
+referred to here as the WDI control key. Two settings in a subkey named
+<span class="regkey">Config</span> govern overall behaviour: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Config</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">SEMEnabled</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>The default is that the SEM is enabled. To disable the SEM,
+<span class="regvalue">SEMEnabled</span> must be present and evaluate to zero: then, 
+no more registry keys and values matter. </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Config</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">SEMTimeoutValue</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>The data is the number of minutes after which the SEM may stop a scenario for 
+which timing out is enabled. The default is 10. Zero means that no scenarios time 
+out. While the SEM is enabled, it checks its state periodically. Ending scenarios 
+by timing out is only one task. The period is one tenth of the timeout. If zero 
+is set as the timeout, then the period is 1 minute, i.e., as if
+<span class="regvalue">SEMTimeoutValue</span> had defaulted. </p>
+<h3>Group Policy </h3>
+<p>Whether the SEM is enabled is subject to Group Policy, both overall and for particular 
+scenarios. These settings are in and under what may as well be called the WDI policy 
+key. </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\WDI</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ScenarioExecutionEnabled</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>Zero disables the SEM (such that no more registry keys and values matter). Anything 
+else enables the SEM for all the scenarios that are defined under the WDI control 
+key (see below). </p>
+<p>This registry setting has user-interface support through the Local Group Policy 
+Editor as “Diagnostics: Configure scenario execution level” in “Troubleshooting 
+and Diagnostics” under System in the Administrative Templates. </p>
+<p>Absence of <span class="regvalue">ScenarioExecutionEnabled</span> in the WDI 
+policy key allows that scenarios can be selectively disabled. The affected scenarios 
+each have their own subkey. The name of the subkey is the scenario’s GUID in string 
+form between curly braces. A subkey that is not in this form is ignored, except 
+that a subkey whose name exceeds 64 characters is an error and disables the SEM.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\WDI\{<span class="placeholder">scenario</span>}</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ScenarioExecutionEnabled</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>The default is that the scenario is enabled. To disable the scenario,
+<span class="regvalue">ScenarioExecutionEnabled</span> in the scenario’s subkey 
+must be zero. At most 64 scenarios can be disabled through these subkeys. Exceeding 
+this disables the SEM. </p>
+<p>These registry settings also have user-interface support through the Local Group 
+Policy Editor, though of course only for particular scenarios. For instance, for 
+scenario {2698178D-FDAD-40AE-9D3C-1371703ADC5B}, which is described in some detail 
+below under the heading Installed Scenarios, the policy is presented as Configure 
+Scenario Execution Level in a folder named Windows Shutdown Performance Diagnostics 
+under “Troubleshooting and Diagnostics”. </p>
+<h3>Scenarios </h3>
+<p>The defined scenarios are listed under the <span class="regkey">Scenarios</span> 
+subkey of the WDI control key. The scenario’s own subkey is the scenario’s GUID 
+in string form between curly braces. A subkey that is not in this form is ignored, 
+except that a subkey whose name exceeds 64 characters is an error and disables the 
+SEM. </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}</span>
+    </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>subkeys and values as <span class="placeholder">scenario</span> configuration 
+    and definition </td>
+  </tr>
+</table>
+<p>If the scenario’s GUID is configured as disabled by Group Policy (see above), 
+then everything else about the scenario’s subkey is ignored, as if the scenario 
+were not defined. The scenario can also be disabled by a value in the
+<span class="regkey">Config</span> subkey: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}\Config</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ScenarioExecutionEnabled</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>The default is that the scenario is enabled. To disable the scenario,
+<span class="regvalue">ScenarioExecutionEnabled</span> must be zero. </p>
+<p>The scenario’s <span class="regkey">Config</span> subkey can also have a setting 
+that specifies whether the scenario can end by timing out. </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}\Config</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ScenarioTimeoutEnabled</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>The timing out of scenarios is enabled by default. To stop a scenario from timing 
+out, <span class="regvalue">ScenarioTimeoutEnabled</span> must be zero. </p>
+<h4>Instrumentation </h4>
+<p>How a scenario ever starts, let alone what effect it has between its start and 
+end, is defined under a subkey named <span class="regkey">Instrumentation</span>. 
+A scenario that does not have this subkey is in effect not defined. Beneath the
+<span class="regkey">Instrumentation</span> subkey, the definition can extend to 
+three levels of subkeys. The first specifies a start event. For each, a second level 
+differentiates end events and context providers. A third level lists the multiple 
+end events and the multiple context providers. Providers are specified by GUID. 
+Events are specified a 16-bit event ID relative to their provider. Both providers 
+and events can have <span class="regvalue">Level</span>, <span class="regvalue">
+Keyword</span> and <span class="regvalue">EnableProperty</span> values. Providers 
+can have a <span class="regvalue">CaptureState</span> value. </p>
+<p>It is perhaps as well to note here that the implementation has hard-coded limits:
+</p>
+<ul>
+  <li>up to 64 distinct start events; </li>
+  <li>for each such start event, up to 16 end events and up to 124 context providers;
+  </li>
+  <li>up to 1024 distinct providers, counting both context providers and the providers 
+  of start and end events. </li>
+</ul>
+<p>This last limit, of distinct providers, is only 128 in versions 6.0 and 6.1.
+</p>
+<h5>Start Event </h5>
+<p>A scenario’s hierarchical definition in its <span class="regkey">Instrumentation</span> 
+subkey starts with subkeys that specify start events: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}\Instrumentation</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Subkey: </td>
+    <td><span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span></span>
+    </td>
+  </tr>
+</table>
+<p>The ideal is that the subkey’s name has three parts: </p>
+<ul>
+  <li><span class="placeholder">start-provider</span>, being the event provider’s 
+  GUID in string form between curly braces; </li>
+  <li>a semicolon; </li>
+  <li><span class="placeholder">start-event</span>, being the event ID in decimal 
+  digits. </li>
+</ul>
+<p>The start event, along with end events and context providers that might follow 
+from it, is explicitly rejected if: </p>
+<ul>
+  <li>the subkey is longer than 64 characters; </li>
+  <li>or the subkey contains no semicolon; </li>
+  <li>or the characters before the semicolon are not a GUID in string form between 
+  curly braces; </li>
+  <li>or no characters follow the semicolon. </li>
+</ul>
+<p>That white space immediately before <span class="placeholder">start-event</span> 
+is ignored, as are characters other than decimal digits after, is here taken as 
+incidental. Also disregarded here, but more as undefined than unintended, is the 
+interpretation if the decimal digits continue too far for 16-bit evaluation. Possibly 
+also unintended is that <span class="placeholder">start-event</span> evaluates as 
+zero in default of being interpretable as a decimal number. That said, explicit 
+allowance is made for <span class="placeholder">start-event</span> to be exactly 
+an asterisk (see below). </p>
+<p>The subkey for a start event can have any combination of
+<span class="regvalue">Level</span>, <span class="regvalue">Keyword</span> and
+<span class="regvalue">EnableProperty</span> values. So can subkeys for end events 
+and for context providers: they are taken altogether, later. </p>
+<h5>End Events </h5>
+<p>To be useful, a start event must have at least one end event. The defined end 
+events are listed as subkeys of an <span class="regkey">EndEvents</span> subkey.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}\Instrumentation</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Subkey: </td>
+    <td><span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span> 
+    \EndEvents\{<span class="placeholder">end-provider</span>};<span class="placeholder">end-event</span></span>
+    </td>
+  </tr>
+</table>
+<p>The <span class="placeholder">end-provider</span> and
+<span class="placeholder">end-event</span> are respectively the GUID of the event 
+provider and the 16-bit event ID. Interpretation follows that of the
+<span class="placeholder">start-provider</span> and <span class="placeholder">start-event</span>, 
+but now to define an end event. The subkey for an end event may also have any combination 
+of <span class="regvalue">Level</span>, <span class="regvalue">Keyword</span> and
+<span class="regvalue">EnableProperty</span> values. </p>
+<p>If the key for a start event has no <span class="regkey">EndEvents</span> or 
+if this subkey defines no end event, then the start event can never start a scenario.
+</p>
+<p>If the key for a start event has an asterisk for its event ID, then its end events 
+are parsed but it is rejected anyway (unless it has no end events). Since a newly 
+installed Windows 10 (original) has two examples, Microsoft presumably has some 
+purpose for the asterisk, perhaps beyond just marking a place: what, however, is 
+unclear. </p>
+<h5>Context Providers </h5>
+<p>Much of the point to a scenario is to use the start event as signalling that 
+events from other event providers may be especially useful to collect, whether for 
+a time or until the occurrence of a matching end event. The SEM enables these providers 
+for the WdiContextLog. Those that are defined for a given start event are listed 
+as subkeys of the start event’s <span class="regkey">ContextProviders</span> subkey:
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}\Instrumentation</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Subkey: </td>
+    <td><span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span> 
+    \ContextProviders\{<span class="placeholder">context-provider</span>}</span>
+    </td>
+  </tr>
+</table>
+<p>The <span class="placeholder">context-provider</span> is the GUID of an event 
+provider that the SEM is to enable for the duration of the scenario. How the provider 
+is enabled can be configured through values named <span class="regvalue">Level</span>,
+<span class="regvalue">Keyword</span>, <span class="regvalue">CaptureState</span> 
+and <span class="regvalue">EnableProperty</span>. </p>
+<p>A start event need not have a <span class="regkey">ContextProviders</span> subkey 
+and this subkey need not define any context providers. The start event, along with 
+its end events and other context providers, is explicitly rejected if: </p>
+<ul>
+  <li>the subkey is longer than 64 characters; </li>
+  <li>the subkey is not a GUID in string form between curly braces; </li>
+  <li>this GUID is that of the SEM’s own provider. </li>
+</ul>
+<h5>Event and Provider Values </h5>
+<p>The SEM’s business with the start and end events and with the context providers 
+is to trace events to either or both of the SEM’s dedicated loggers. Start and end 
+events go to the DiagLog and possibly also to the WdiContextLog. Between a scenario’s 
+start and end, events from the corresponding context providers go to the WdiContextLog. 
+The SEM enables the providers of start and end events when the SEM starts. As scenarios 
+start and end, the SEM enables and disables the applicable context providers. Mostly 
+it won’t be wanted that the SEM’s loggers receive all events that the providers 
+ever can send. The volume of analysis is very much reduced if whenever the SEM enables 
+a provider for tracing to a logger, it can refine what gets traced. </p>
+<p>All three levels of subkey allow for this through registry values that supply 
+arguments for the <span class="function">EtwEnableTrace</span> function. (That this 
+function is undocumented is a story in itself for what it says of Microsoft’s attitude 
+to ETW’s kernel-mode use by anyone other than Microsoft. Let’s just say it’s roughly 
+a kernel-mode equivalent of the documented <span class="function">EventTraceEx</span>.) 
+Three registry values, <span class="regvalue">Level</span>,
+<span class="regvalue">Keyword</span> and <span class="regvalue">EnableProperty</span> 
+correspond to the <span class="argument">Level</span>, <span class="argument">MatchAnyKeyword</span> 
+and <span class="argument">EnableProperty</span> arguments. </p>
+<p>Event providers define for each of their events an 8-bit level. When the provider 
+is enabled for a logger, a level may be set for the logger so that it ignores events 
+whose level is higher than the logger’s. The natural understanding is that numerically 
+higher levels are for events that are less important. Whenever the SEM enables a 
+provider, it sets the <span class="argument">Level</span> argument to the highest
+<span class="regvalue">Level</span> value from any applicable registry key. </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}\Instrumentation</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Subkeys: </td>
+    <td><span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span></span>
+    <br>
+    <span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span> 
+    \EndEvents\{<span class="placeholder">end-provider</span>};<span class="placeholder">end-event</span></span>
+    <br>
+    <span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span> 
+    \ContextProviders\{<span class="placeholder">context-provider</span>}</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Level</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>Zero is reinterpreted as 0xFF. For anything else, only the low 8 bits matter. 
+The default is 0xFF, as if the logger is to trace all levels of event. </p>
+<p>Event providers also define for each of their events a 64-bit mask of flags that 
+act as something like keywords. When the provider is enabled for a logger, a mask 
+of keywords may be set for the logger so that it ignores events that have no keywords 
+in common. Whenever the SEM enables a provider, it sets the
+<span class="argument">MatchAnyKeyword</span> argument to the bitwise-OR of the
+<span class="regvalue">Keyword</span> values from all applicable registry keys.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}\Instrumentation</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Subkeys: </td>
+    <td><span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span></span>
+    <br>
+    <span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span> 
+    \EndEvents\{<span class="placeholder">end-provider</span>};<span class="placeholder">end-event</span></span>
+    <br>
+    <span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span> 
+    \ContextProviders\{<span class="placeholder">context-provider</span>}</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Keyword</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_QWORD</span> </td>
+  </tr>
+</table>
+<p>Zero is reinterpreted as setting all bits. The default is that all bits are set, 
+as if the logger is to trace all events. </p>
+<p>When a provider is enabled for a logger, it can be configured so that system-supplied 
+data is added to every traced event as an extended data item. Whenever the SEM enables 
+a provider, it sets the <span class="argument">EnableProperty</span> argument to 
+the bitwise-OR of the <span class="regvalue">EnableProperty</span> values from all 
+applicable registry keys. </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}\Instrumentation</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Subkeys: </td>
+    <td><span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span></span>
+    <br>
+    <span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span> 
+    \EndEvents\{<span class="placeholder">end-provider</span>};<span class="placeholder">end-event</span></span>
+    <br>
+    <span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span> 
+    \ContextProviders\{<span class="placeholder">context-provider</span>}</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">EnableProperty</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>The default is zero, as if to add no extended data items. </p>
+<h5>Context Provider Values </h5>
+<p>One more value is relevant but only in a subkey that defines a context provider:
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\WDI\Scenarios\{<span class="placeholder">scenario</span>}\Instrumentation</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Subkey: </td>
+    <td><span class="regkey">{<span class="placeholder">start-provider</span>};<span class="placeholder">start-event</span> 
+    \ContextProviders\{<span class="placeholder">context-provider</span>}</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">CaptureState</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>The default is zero. The meaningful values are 1 and 2. The significance and 
+usefulness is yet to be understood. </p>
+<h2>Installed Scenarios </h2>
+<p>There always have been too many <span class="placeholder">scenario</span> subkeys 
+to interpret and list, and their number does not decrease as the years advance. 
+What’s still just about practical, however, is to list the ones that define scenarios 
+in the sense of having a start event that triggers the enabling of context providers 
+until the occurrence of some end event. (There is also some merit that with this 
+interpretation, the list hardly differs from what I prepared in 2008.) </p>
+<p>The following such scenarios are already defined when Windows is installed. The 
+format for the start and end events is: the event provider’s name; a semicolon; 
+the event ID. The name is not that of the event provider, strictly speaking, but 
+of the publisher as understood for such tools as WINEVT, here taken as the most 
+readily useful interpretation of the GUID. </p>
+<p>This still leaves four of the context providers to be given only by GUID. No 
+name for them is known from the registry or from any manifest or MOF file. They 
+are, for instance, not listed as publishers by Microsoft’s WEVTUTIL program or as 
+event providers that the Reliability and Performance Monitor can add to any of its 
+Event Trace Sessions. However, each GUID is named in Microsoft’s symbol files:
+</p>
+<table>
+  <tr>
+    <th>Provider GUID </th>
+    <th>Symbolic Name </th>
+  </tr>
+  <tr>
+    <td>{41932CAB-7E12-40D6-A728-62D30E054593} </td>
+    <td><span class="symbol">MS_Kernel_BootDiagnostics_UserProxy_Provider</span>
+    </td>
+  </tr>
+  <tr>
+    <td>{7EFE4AB3-990D-4350-A878-CD8772888199} </td>
+    <td><span class="symbol">MS_Kernel_BootDiagnostics_SystemProxy_Provider</span>
+    </td>
+  </tr>
+  <tr>
+    <td>{AD5C7A10-4E08-45E1-81B5-CB5EB6EC8917} </td>
+    <td><span class="symbol">MS_Kernel_ShutdownDiagnostics_Proxy_Provider</span>
+    </td>
+  </tr>
+  <tr>
+    <td>{B27A2C15-40F4-4EA3-9637-628FC612A1D0} </td>
+    <td><span class="symbol">MS_Kernel_SecondaryLogonDiagnostics_Proxy_Provider</span>
+    </td>
+  </tr>
+</table>
+<h3>Scenario {2698178D-FDAD-40AE-9D3C-1371703ADC5B} </h3>
+<p>This scenario has two start events—in fact the same event but from different 
+sources that once upon a time were one—but the end events and context providers 
+are set up exactly the same for both: </p>
+<table>
+  <tr>
+    <td>Start Events: </td>
+    <td>Microsoft-Windows-Wininit;6001 <br>
+    Microsoft-Windows-Winlogon;6001 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00020000 </td>
+  </tr>
+  <tr>
+    <td>End Event: </td>
+    <td>Microsoft-Windows-Kernel-Power;48 </td>
+    <td>Level: 4 <br>
+    Keyword: 1 </td>
+  </tr>
+  <tr>
+    <td rowspan="6">Context Providers: </td>
+    <td>Microsoft-Windows-Services </td>
+    <td>Level: 4 <br>
+    Keyword: all </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Wininit </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00010000 </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Kernel-Power </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00000008 </td>
+  </tr>
+  <tr>
+    <td>{AD5C7A10-4E08-45E1-81B5-CB5EB6EC8917} </td>
+    <td>Level: 85 <br>
+    Keyword: zero </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Winlogon </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00010000 </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Subsys-Csr </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00010000 </td>
+  </tr>
+</table>
+<p>This is as good an example as any to choose for looking at what the Scenario 
+Event Mapper can help with. It’s also an example of how the understanding of a Windows 
+feature quickly ties you to Microsoft’s diagnostics tools for lack of independent 
+knowledge of the particular events that are used here to start and end the scenario 
+or of the levels and keywords for the events that are logged as context. Of course, 
+the ideal—if only as customer service for system administrators—would be that Microsoft 
+would document the many events that its many components can create. Next might be 
+that the world’s legions of independent experts at Windows internals have produced 
+a catalogue for general use. None of this happens in any sort of real world, of 
+course. </p>
+<p>Here, the scenario helps with diagnosing problems as Windows shuts down. The 
+relevant event providers in WINLOGON and WININIT define event 6001 specifically 
+as a signal to start this diagnostics: Microsoft’s public symbol files for WINLOGON 
+show that the <span class="struct">EVENT_DESCRIPTOR</span> for the event with ID 
+6001 is named <span class="symbol">WLDiagEvt_ShutdownDiagnostics_Start</span>. The 
+scenario, and thus the shutdown diagnostics, ends when the kernel writes an event 
+whose <span class="struct">EVENT_DESCRIPTOR</span> is shown in the kernel’s symbol 
+files to be named <span class="symbol">POP_ETW_EVENT_GRACEFUL_SHUTDOWN</span>. All 
+the while, six event providers trace a neatly delimited and potentially useful record 
+of what happened (and thus some support for inferring what did not happen) while 
+Windows was shutting down. </p>
+<p>It may have to be spelled out, but these six event providers are not the only 
+ones whose behaviour in this difficult interval can be caught for diagnosis. The 
+registry settings that define this scenario can be edited to add context providers 
+from third-party software whose misbehaviour during shutdown may be your misfortune 
+to debug. </p>
+<h3>Scenario {533A67EB-9FB5-473D-B884-958CF4B9C4A3} </h3>
+<p>Continuing the theme of the SEM automating diagnostics collection at times when 
+Windows necessarily gives limited visibility even to user-mode diagnostics tools, 
+this scenario traces across power transitions. Public symbol files for the kernel 
+show the start and end events as having event descriptors that are named
+<span class="symbol">POP_ETW_EVENT_POWERTRANSITION_START</span> and
+<span class="symbol">POP_ETW_EVENT_POWERTRANSITION_END</span>. &nbsp;</p>
+<table>
+  <tr>
+    <td>Start Event: </td>
+    <td>Microsoft-Windows-Kernel-Power;1 </td>
+    <td>Level: 1 <br>
+    Keyword: 0x00000000`00000001 </td>
+  </tr>
+  <tr>
+    <td>End Event: </td>
+    <td>Microsoft-Windows-Kernel-Power;2 </td>
+    <td>Level: 1 <br>
+    Keyword: 0x00000000`00000001 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">Context Providers: </td>
+    <td>Microsoft-Windows-Kernel-Power </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00000004 </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-HAL </td>
+    <td>Level: 2 <br>
+    Keyword: 0x00000000`00000001 </td>
+  </tr>
+</table>
+<h3>Scenario {67144949-5132-4859-8036-A737B43825D8} </h3>
+<table>
+  <tr>
+    <td>Start Event: </td>
+    <td>Microsoft-Windows-Kernel-BootDiagnostics;501 </td>
+    <td>Level: 4 <br>
+    Keyword: all </td>
+  </tr>
+  <tr>
+    <td>End Event: </td>
+    <td>Microsoft-Windows-Winlogon;5007 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00020000 </td>
+  </tr>
+  <tr>
+    <td rowspan="5">Context Providers: </td>
+    <td>Microsoft-Windows-Services </td>
+    <td>Level: 4 <br>
+    Keyword: all </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Kernel-Prefetch </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00000020 </td>
+  </tr>
+  <tr>
+    <td>{7EFE4AB3-990D-4350-A878-CD8772888199} </td>
+    <td>Level: 85 <br>
+    Keyword: zero </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Kernel-PnP </td>
+    <td>Level: 4 <br>
+    Keyword: 0xE0000000`000FFFFF </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Winlogon </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00010000 </td>
+  </tr>
+</table>
+<h3>Scenario {86432A0B-3C7D-4DDF-A89C-172FAA90485D} </h3>
+<table>
+  <tr>
+    <td>Start Event: </td>
+    <td>Microsoft-Windows-Winlogon;5001 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00020000 </td>
+  </tr>
+  <tr>
+    <td>End Event: </td>
+    <td>Microsoft-Windows-Winlogon;5002 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00020000 </td>
+  </tr>
+  <tr>
+    <td rowspan="4">Context Providers: </td>
+    <td>Microsoft-Windows-Services </td>
+    <td>Level: 4 <br>
+    Keyword: all </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Shell-Core </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`04000000 </td>
+  </tr>
+  <tr>
+    <td>{41932CAB-7E12-40D6-A728-62D30E054593} </td>
+    <td>Level: 85 <br>
+    Keyword: zero </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Winlogon </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00010000 </td>
+  </tr>
+</table>
+<h3>Scenario {924F25BC-020A-4CAD-A53E-4A49CFABB6B6} </h3>
+<table>
+  <tr>
+    <td>Start Event: </td>
+    <td>Microsoft-Windows-Kernel-PnP;223 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00040000 </td>
+  </tr>
+  <tr>
+    <td>End Event: </td>
+    <td>Microsoft-Windows-Kernel-PnP;224 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00040000 </td>
+  </tr>
+</table>
+<h3>Scenario {9F41811A-0429-42AA-81B7-CFD4D968411F} </h3>
+<table>
+  <tr>
+    <td>Start Event: </td>
+    <td>Microsoft-Windows-Winlogon;5003 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00020000 </td>
+  </tr>
+  <tr>
+    <td>End Event: </td>
+    <td>Microsoft-Windows-Diagnostics-Performance;10001 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`02000000 </td>
+  </tr>
+  <tr>
+    <td rowspan="4">Context Providers: </td>
+    <td>Microsoft-Windows-Services </td>
+    <td>Level: 4 <br>
+    Keyword: all </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Shell-Core </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`04000000 </td>
+  </tr>
+  <tr>
+    <td>{B27A2C15-40F4-4EA3-9637-628FC612A1D0} </td>
+    <td>Level: 85 <br>
+    Keyword: zero </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Winlogon </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00010000 </td>
+  </tr>
+</table>
+<h3>Scenario {AA526ADC-508B-448A-B2D1-C59511CB59D4} </h3>
+<table>
+  <tr>
+    <td>Start Event: </td>
+    <td>Microsoft-Windows-Kernel-PnP;216 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00008000 </td>
+  </tr>
+  <tr>
+    <td>End Event: </td>
+    <td>Microsoft-Windows-Kernel-PnP;218 </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00008000 </td>
+  </tr>
+</table>
+<h3>Scenario {FFC42108-4920-4ACF-A4FC-8ABDCC68ADA4} </h3>
+<table>
+  <tr>
+    <td>Start Event: </td>
+    <td>Microsoft-Windows-Kernel-Power;1 </td>
+    <td>Level: 1 <br>
+    Keyword: 0x00000000`00000001 </td>
+  </tr>
+  <tr>
+    <td>End Event: </td>
+    <td>Microsoft-Windows-Kernel-Power;2 </td>
+    <td>Level: 1 <br>
+    Keyword: 0x00000000`00000001 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">Context Providers: </td>
+    <td>Microsoft-Windows-DriverFrameworks-UserMode </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00000001 </td>
+  </tr>
+  <tr>
+    <td>Microsoft-Windows-Kernel-Power </td>
+    <td>Level: 4 <br>
+    Keyword: 0x00000000`00000008 </td>
+  </tr>
+</table>
+<p>This scenario has the same start event (and end event) as another, such that 
+the two are merged. One context provider is common to both (but with different keywords). 
+When this start event starts a scenario, three context providers are enabled.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 14th November 2008 but was not published 
+  until 31st <a href="../../../../../../new/18/12.htm">December 2018</a>. It was 
+  last modified on 10th May 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="55335" -->
+</div>
+
+</body>
+
+</html>

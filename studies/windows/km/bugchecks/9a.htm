@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Bug Check 0x09A: SYSTEM_LICENSE_VIOLATION</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+  <h1>Bug Check 0x9A </h1>
+  <p>The <span class="constant">SYSTEM_LICENSE_VIOLATION</span> bug check reports 
+  a fatal error in validating the license to use Windows. </p>
+  <table>
+    <tr>
+      <td>Bug Check Code: </td>
+      <td><span class="constant">SYSTEM_LICENSE_VIOLATION</span> </td>
+    </tr>
+    <tr>
+      <td>1st Argument: </td>
+      <td>case </td>
+    </tr>
+    <tr>
+      <td>2nd Argument: </td>
+      <td>status code or number of bytes or 0, depending on case </td>
+    </tr>
+    <tr>
+      <td>3rd Argument: </td>
+      <td>sub-case or 0 </td>
+    </tr>
+    <tr>
+      <td>4th Argument: </td>
+      <td>0 </td>
+    </tr>
+  </table>
+  <p>Some two dozen different causes are indicated by the first argument. For most, 
+  the second argument is a status code. Some have sub-cases indicated by the third 
+  argument. The fourth argument is always zero. </p>
+  <p>To understand all this bug check’s cases, it helps to know the kernel’s algorithm 
+  for license validation. Windows Vista has two distinct approaches. One is inherited 
+  from earlier versions and is here referred to as license protection. The other 
+  involves the new scheme of named license values and is here referred to as tamper 
+  detection. </p>
+  <h2>License Protection </h2>
+  <p>For license protection, relevant registry values are monitored for changes, 
+  most such changes are signalled as license violations, and all changes are undone 
+  by rewriting the value. </p>
+  <p>Whatever may be suggested by this bug check’s symbolic name or stated explicitly 
+  in Microsoft’s documentation, an occurrence of bug check 0x9A for license protection 
+  does not mean that the license for using Windows has been found to be violated. 
+  The bug check means only that the kernel ran into a problem while trying to detect 
+  a violation and protect the license. Though the most likely reason is very plausibly 
+  that a user has damaged relevant registry keys or values while attempting to violate 
+  the license, the violation is not of itself what bug check 0x9A reports. </p>
+  <p>In particular, when the detection proceeds without error and actually does 
+  find that the relevant registry values have changed in a way that violates the 
+  license, the kernel does not respond with any bug check, let alone with this one. 
+  What it does instead is to raise a so-called hard error. The visible outcome is 
+  not a stopped system, just an entry in the System event log, with the stern text:
+  </p>
+  <pre class="output">Application popup: Windows - License Violation : The system has detected tampering with your 
+registered product type. This is a violation of your software license. Tampering with product type 
+is not permitted. </pre>
+  <p>Incidentally, lawyers may want to consider that the presence of such an entry 
+  in the System log is not immediately good evidence that the system detected a 
+  license violation. It can be produced by any kernel-mode component, such as a 
+  driver, simply by calling the (admittedly undocumented) function
+  <span class="function">ExRaiseHardError</span> and giving
+  <span class="constant">STATUS_LICENSE_VIOLATION</span> (0xC000026A) as the status 
+  code. </p>
+  <h3>Initialisation </h3>
+  <p>License protection is prepared at the beginning of phase 2 of system initialisation. 
+  Ordinarily, the failure of any operation for initialising license protection causes 
+  bug check 0x9A. In Setup mode, most failures are not fatal but just cause the 
+  kernel to proceed no further with protecting the license. </p>
+  <h4>The Setup Key </h4>
+  <p>Though license protection is much reduced in Setup mode, the kernel must be 
+  certain that it is in Setup mode. The determination is from the registry values
+  <span class="regvalue">SetupType</span> and <span class="regvalue">SystemSetupInProgress</span> 
+  in the <span class="regkey">HKEY_LOCAL_MACHINE\System\Setup</span> key. The kernel 
+  assumes that each value has at least 4 bytes of data. The kernel interprets 1 
+  and 4 for <span class="regvalue">SetupType</span> as meaning that Windows is in 
+  Setup mode, and 1 for <span class="regvalue">SystemSetupInProgress</span> as meaning 
+  that system setup is in progress. </p>
+  <p>The kernel must not only open the <span class="regkey">Setup</span> key but 
+  also reference it as an object. The only purpose to this is to protect the key 
+  from being deleted. (The kernel’s code for deleting a registry key explictly checks 
+  that the object to be deleted is not this one that the kernel has kept referenced 
+  for license protection.) If Setup mode is detected from the subsequent reading 
+  of <span class="regvalue">SetupType</span>, the kernel dereferences the object.
+  </p>
+  <p>In WinPE mode, checking these values in the <span class="regkey">Setup</span> 
+  key is as far as the kernel proceeds with license protection. (WinPE mode is known 
+  from phase 1, if <span class="switch">MININT</span> is in the boot options.) That 
+  it proceeds even this far seems useless and is presumably vestigial: earlier versions 
+  will have done something non-trivial, namely to protect the
+  <span class="regvalue">SystemPrefix</span> value in the <span class="regkey">Setup</span> 
+  key. </p>
+  <h4>The ProductOptions Key </h4>
+  <p>The essential registry values for differentiating the various editions of a 
+  Windows version are <span class="regvalue">ProductType</span> and
+  <span class="regvalue"><a href="../ntoskrnl/api/ex/exinit/productsuite.htm">ProductSuite</a></span> 
+  in the registry key <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\ProductOptions</span>.
+  </p>
+  <p>In Setup mode, failure to open the <span class="regkey">ProductOptions</span> 
+  key causes the kernel to abandon license protection. </p>
+  <p>Except in Setup mode, the kernel must not only open the
+  <span class="regkey">ProductOptions</span> key but also reference it as an object. 
+  The only purpose to this is to protect the key from being deleted. (The kernel’s 
+  code for deleting a registry key explictly checks that the object to be deleted 
+  is not this one that the kernel has kept referenced for license validation.)
+  </p>
+  <p>In Windows Vista, the product type and product suite are determined only in 
+  part from the <span class="regvalue">ProductType</span> and
+  <span class="regvalue">ProductSuite</span> values. A value named
+  <span class="regvalue">ProductPolicy</span> (also in the <span class="regkey">
+  ProductOptions</span> key) provides for an essentially arbitrary number of named 
+  license values. One of these, <span class="licvalue">Kernel-ProductInfo</span>, 
+  is checked in phase 0 of initialisation and may override what was read from
+  <span class="regvalue">ProductType</span> and <span class="regvalue">ProductSuite</span>. 
+  If the product type has been re-determined from <span class="licvalue">Kernel-ProductInfo</span>, 
+  then in phase 2 unless in Setup mode, the kernel rewrites both values, whether 
+  or not they are changed. It then proceeds as if for earlier versions, which involves 
+  re-reading what it has just written. </p>
+  <p>The general idea to protecting the <span class="regvalue">ProductType</span> 
+  and <span class="regvalue">ProductSuite</span> values is to read them now, save 
+  their original data, and then watch the <span class="regkey">ProductOptions</span> 
+  key for changes, so that any attempt to change these values can be undone by rewriting 
+  the original data. It seems that the <span class="regvalue">ProductType</span> 
+  is mandatory for the scheme but the <span class="regvalue">ProductSuite</span> 
+  is merely desirable. However, there are quirks. If the kernel cannot obtain memory 
+  for the <span class="regvalue">ProductType</span> value’s original data, it abandons 
+  license protection. In Setup mode, failure to read the <span class="regvalue">
+  ProductType</span> also causes the kernel to abandon license protection. The
+  <span class="regvalue">ProductSuite</span> value gets protected only if it has 
+  more than four bytes of data. For some reason, obtaining memory in which to hold 
+  this data is vital, but failure to read the data is not. In Setup mode, failure 
+  to read the <span class="regvalue">ProductSuite</span> causes the kernel to abandon 
+  license protection. </p>
+  <p>Having saved the original data for these two values, the kernel registers a 
+  work queue item that is to execute as a change-notify callback for the
+  <span class="regkey">ProductOptions</span> key. The action taken should this work 
+  queue item ever execute is discussed below. In Setup mode, failure to register 
+  the callback causes the kernel to abandon license protection. </p>
+  <h4>The LicenseInfoSuites Key </h4>
+  <p>More registry values for licensing are supported through the
+  <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\LicenseInfoSuites</span> 
+  key. Even the presence of this key is merely optional. If the key cannot be opened, 
+  the initialisation of license protection is complete. </p>
+  <p>The <span class="regkey">LicenseInfoSuites</span> key may have subkeys, each 
+  treated here as representing some sort of <span class="definition">suite</span>. 
+  Each of these subkeys may have yet more subkeys, each treated here as representing 
+  some sort of <span class="definition">suite product</span>. (These terms are from 
+  Microsoft’s documentation of the bug check. The <span class="regkey">LicenseInfoSuites</span> 
+  key and its subkeys seem otherwise to be undocumented.) </p>
+  <p>The kernel’s only interest in the keys for the suites and suite products is 
+  the <span class="regvalue">ConcurrentLimit</span> value. </p>
+  <p class="alert">TO BE DONE </p>
+  <h3>Changes in the ProductOptions Key </h3>
+  <p>During initialisation, the kernel registers a work queue item which is to execute 
+  if changes are detected in the <span class="regkey">ProductOptions</span> key. 
+  Of course, not all changes in that key suggest a license violation, just changes 
+  to the <span class="regvalue">ProductType</span> value and only then if not in 
+  Setup mode. A change of <span class="regvalue">ProductType</span> to
+  <span class="regsz">LanmanNT</span> or <span class="regsz">ServerNT</span> from 
+  anything other than <span class="regsz">WinNT</span> is not treated as a license 
+  violation. Any other change, including if implied by failure to read the value, 
+  is. </p>
+  <p class="alert">TO BE DONE </p>
+  <h3>Changes in a LicenseInfoSuites Subkey </h3>
+  <p class="alert">TO BE DONE </p>
+  <h2>Tamper Detection </h2>
+  <p class="alert">TO BE DONE </p>
+  <p>Approximately every hour, the kernel resynchronises system time with the real-time 
+  clock. (This resynchronisation is performed at other times, too, particularly 
+  after events that may have stopped the handling of timer interrupts, as when execution 
+  breaks to a kernel-mode debugger.) This hourly update is also an opportunity for 
+  license validation. Unless system setup is in progress, the kernel checks that 
+  the license data has not been tampered with and that the license has not expired 
+  its evaluation period (as specified by the <span class="licvalue">Kernel-ExpirationDate</span> 
+  license value). </p>
+  <h2>Bug Check Parameters </h2>
+  <p>In the table that follows, the several cases in which the 3rd argument takes 
+  values that Microsoft does not document for this bug check are highlighted yellow.
+  </p>
+  <table>
+    <tr>
+      <th>1st Argument </th>
+      <th>2nd Argument </th>
+      <th>3rd Argument </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x02 </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error opening <span class="regkey">Setup</span> key (during initialisation)
+      </td>
+    </tr>
+    <tr>
+      <td>0x03 </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error reading <span class="regvalue">SetupType</span> or
+      <span class="regvalue">SystemSetupInProgress</span> value (during initialisation)
+      </td>
+    </tr>
+    <tr>
+      <td>0x06 </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error opening <span class="regkey">ProductOptions</span> key (during initialisation)
+      </td>
+    </tr>
+    <tr>
+      <td>0x07 </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error reading <span class="regvalue">ProductType</span> value (during 
+      initialisation) </td>
+    </tr>
+    <tr>
+      <td>0x08 </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error registering change-notify callback for <span class="regkey">ProductOptions</span> 
+      key (during initialisation) </td>
+    </tr>
+    <tr>
+      <td>0x0B </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error referencing <span class="regkey">Setup</span> key as object (during 
+      initialisation) </td>
+    </tr>
+    <tr>
+      <td>0x0C </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error referencing <span class="regkey">ProductOptions</span> key as object 
+      (during initialisation) </td>
+    </tr>
+    <tr>
+      <td>0x0D </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error re-opening <span class="regkey">ProductOptions</span> key (during
+      <span class="regkey">ProductOptions</span> callback) </td>
+    </tr>
+    <tr>
+      <td rowspan="3">0x11 </td>
+      <td rowspan="3">status code </td>
+      <td><span class="undocumented">1</span> </td>
+      <td>error setting <span class="regvalue">ProductType</span> (during initialisation 
+      or in <span class="regkey">ProductOptions</span> callback); <br>
+      error setting <span class="regvalue">ProductPolicy</span> (in
+      <span class="regkey">ProductOptions</span> callback) </td>
+    </tr>
+    <tr>
+      <td><span class="undocumented">2</span> </td>
+      <td>error setting <span class="regvalue">ProductSuite</span> (during initialisation 
+      or in <span class="regkey">ProductOptions</span> callback) </td>
+    </tr>
+    <tr>
+      <td><span class="undocumented">4</span> </td>
+      <td>error re-registering change-notify callback for <span class="regkey">ProductOptions</span> 
+      key </td>
+    </tr>
+    <tr>
+      <td>0x12 </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error re-opening key for suite </td>
+    </tr>
+    <tr>
+      <td rowspan="3">0x13 </td>
+      <td rowspan="3">status code </td>
+      <td>0 </td>
+      <td>error reading a suite key </td>
+    </tr>
+    <tr>
+      <td><span class="undocumented">1</span> </td>
+      <td>error reading the <span class="regkey">LicenseInfoSuites</span> key
+      </td>
+    </tr>
+    <tr>
+      <td><span class="undocumented">2</span> </td>
+      <td>error reading <span class="regvalue">ConcurrentLimit</span> for suite
+      </td>
+    </tr>
+    <tr>
+      <td>0x14 </td>
+      <td>size wanted </td>
+      <td>0 for information about key for suite product; <br>
+      <span class="undocumented">1</span> for composing registry paths for suite 
+      products; <br>
+      <span class="undocumented">2</span> to save data for
+      <span class="regvalue">ProductSuite</span> value; <br>
+      <span class="undocumented">3</span> for composing registry paths for suites;
+      <br>
+      <span class="undocumented">4</span> for information about key for suite;
+      <br>
+      <span class="undocumented">5</span> for reading <span class="regvalue">ConcurrentLimit</span> 
+      for suite; <br>
+      <span class="undocumented">6</span> for array of structures describing suites;
+      <br>
+      <span class="undocumented">7</span> to save registry path for particular suite
+      </td>
+      <td>error obtaining memory for intended operation </td>
+    </tr>
+    <tr>
+      <td>0x15 </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error setting <span class="regvalue">ConcurrentLimit</span> for suite
+      </td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x16 </td>
+      <td rowspan="2">status code </td>
+      <td>0 </td>
+      <td>error opening key for suite product </td>
+    </tr>
+    <tr>
+      <td><span class="undocumented">1</span> </td>
+      <td>error opening key for suite </td>
+    </tr>
+    <tr>
+      <td>0x17 </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error setting <span class="regvalue">ConcurrentLimit</span> for suite 
+      product </td>
+    </tr>
+    <tr>
+      <td>0x18 </td>
+      <td>status code </td>
+      <td>0 during change-notify callback; <br>
+      <span class="undocumented">1</span> during initialisation </td>
+      <td>error registering change-notify callback for suite key </td>
+    </tr>
+    <tr>
+      <td>0x1A </td>
+      <td>status code </td>
+      <td>0 </td>
+      <td>error enumerating <span class="regkey">LicenseInfoSuites</span> key
+      </td>
+    </tr>
+    <tr>
+      <td>0x1B </td>
+      <td>0 </td>
+      <td>0 </td>
+      <td>tampering with license data detected </td>
+    </tr>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 10th March 2009 and was last modified 
+    on 25th March 2009. </p>
+    <!--webbot bot="Include" U-Include="../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63259" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,432 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KDPC</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>KDPC </h1>
+  <p>The <span class="struct">KDPC</span> is the structure in which the kernel keeps 
+  the state of a <a href="../../../api/ke/dpcobj/index.htm">Deferred Procedure Call 
+  (DPC)</a>. The latter is a routine that kernel-mode code can register with the 
+  kernel to be called back at <span class="constant">DISPATCH_LEVEL</span>. Since
+  <span class="constant">DISPATCH_LEVEL</span> is not a friendly Interrupt Request 
+  Level (IRQL), the usual reason for scheduling a routine to execute at
+  <span class="constant">DISPATCH_LEVEL</span> is that the IRQL at the time is even 
+  more restrictive, as when servicing a hardware interrupt. </p>
+  <p>In version 5.2 and higher, a <span class="struct">KDPC</span> can represent 
+  either a normal DPC, as described above, or a Threaded DPC. In the latter variant, 
+  if the kernel can arrange it, the scheduled procedure is called back at
+  <span class="constant">PASSIVE_LEVEL</span> from a highest-priority thread. However, 
+  support can be disabled (or may have failed), and so a threaded DPC can be called 
+  at <span class="constant">DISPATCH_LEVEL</span> much as if it had been a normal 
+  DPC all along. Let the implication for programming be stressed: a threaded DPC’s 
+  execution at <span class="constant">PASSIVE_LEVEL</span> is a bonus that must 
+  not be assumed; a threaded DPC must be written such that it can execute safely 
+  at <span class="constant">DISPATCH_LEVEL</span>. </p>
+  <h2>Documentation Status </h2>
+  <p>Deferred Procedure Calls have been documented from the beginning. Threaded 
+  DPCs are documented as being “available in Windows Vista and later versions.” 
+  Why they are not documented for Windows Server 2003 may be a mystery even at Microsoft. 
+  After all, the NTIFS.H from the Windows Driver Kit (WDK) for Windows Vista wraps 
+  its declaration of the <span class="function">KeInitializeThreadedDpc</span> function 
+  in a conditional block for Windows Server 2003 and higher. </p>
+  <p>Though DPCs have always been documented, the <span class="emphasis">content</span> 
+  of the <span class="struct">KDPC</span> that supports the functionality has always 
+  been explicitly not documented. The <span class="struct">KDPC</span> is said to 
+  be “an opaque structure” and programmers are warned “do not set members of this 
+  structure directly.” Explicit warnings are perhaps necessary because a C-language 
+  definition has been provided in every Device Driver Kit (DDK) or WDK all the way 
+  back to Windows NT 3.1. The layout seems to have been published only so that where 
+  drivers and other kernel-mode modules create a <span class="struct">KDPC</span> 
+  they can know how much space to allocate. Since what happens in the space is entirely 
+  in the hands of kernel functions that are provided for initialising and then working 
+  with the object, Microsoft might as well have defined the <span class="struct">
+  KDPC</span> as containing an array of bytes, with no consequences for programmers 
+  at large except if the size ever changed. </p>
+  <h2>Layout </h2>
+  <p>In all versions, the <span class="struct">KDPC</span> is 0x20 and 0x40 bytes 
+  in 32-bit and 64-bit Windows respectively. Constancy of size is not strictly required 
+  by the expectation of opacity in user-supplied memory but is very nearly so. The 
+  same opacity, however, means that interpretation within the constant size is free 
+  to change completely even between builds. The following shorthands apply throughout 
+  this article: </p>
+  <ul>
+    <li>late 5.2 begins with Windows Server 2003 SP1, i.e., the first that has both 
+    x86 and x64 builds; </li>
+    <li>late 6.0 begins with Windows Vista SP1, i.e., the build that doubles as 
+    Windows Server 2008. </li>
+  </ul>
+  <p>One complication to the description is that Windows 8.1 overlays the first 
+  four bytes with a 32-bit integer for simultaneous access. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x00 </td>
+        <td rowspan="2">0x00 </td>
+        <td>
+        <pre class="source">/*  individual members, see below  */</pre>
+        </td>
+        <td>3.10 to 6.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    ULONG TargetInfoAsUlong;
+    struct {
+        /*  individual members, see below  */
+    };
+};</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>As the integer’s name suggests, these first four bytes mostly record the desired 
+  circumstances for executing the DPC. With the overlay aside, these first four 
+  bytes are: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x00 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">SHORT Type;</pre>
+        </td>
+        <td>3.10 to early 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">UCHAR Type;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01 </td>
+        <td>0x01 </td>
+        <td>
+        <pre class="source">UCHAR Importance;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+        <td>previously at 0x03 </td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x02 </td>
+        <td rowspan="4">0x02 </td>
+        <td>
+        <pre class="source">SHORT Size;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Number;</pre>
+        </td>
+        <td>3.51 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT Number;</pre>
+        </td>
+        <td>early 6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT volatile Number;</pre>
+        </td>
+        <td>late 6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x03 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR Importance;</pre>
+        </td>
+        <td>3.51 to early 5.2 </td>
+        <td>next at 0x01 </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td>
+        <pre class="source">UCHAR Expedite;</pre>
+        </td>
+        <td>late 5.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>As for other kernel objects, the <span class="member">Type</span> at the start 
+  of a <span class="struct">KDPC</span> comes from the <span class="enum">
+  <a href="../ke/kobjects.htm">KOBJECTS</a></span> enumeration. For the
+  <span class="struct">KDPC</span>, the <span class="member">Type</span> is specifically
+  <span class="constant">DpcObject</span> for normal DPCs or, in version 5.2 and 
+  higher, <span class="constant">ThreadedDpcObject</span> for a threaded DPC. These 
+  values are set by the <span class="function">KeInitializeDpc</span> and
+  <span class="function">KeInitializeThreadedDpc</span> functions, respectively, 
+  and then the <span class="member">Type</span> is left alone. Note that the numerical 
+  values of <span class="constant">DpcObject</span> and <span class="constant">ThreadedDpcObject</span> 
+  are version-dependent: </p>
+  <ul>
+    <li><span class="constant">DpcObject</span> is 0x08 originally, 0x09 in versions 
+    3.50 to 3.51, and 0x13 ever since; </li>
+    <li><span class="constant">ThreadedDpcObject</span> is 0x18 in versions 5.2 
+    to 6.2, and is thereafter 0x1A. </li>
+  </ul>
+  <p>It was not until version 3.51 that DPCs could either be prioritised or be targeted 
+  to a specific processor (represented by <span class="member">Number</span>). The
+  <span class="member">Importance</span> takes its values from the
+  <span class="enum">KDPC_IMPORTANCE</span> enumeration. It is
+  <span class="constant">MediumImportance</span> (1) initially, but can be changed 
+  by calling the <span class="function">KeSetImportanceDpc</span> function. When 
+  a later call to <span class="function">KeInsertQueueDpc</span> inserts the
+  <span class="struct">KDPC</span> into a list for deferred execution, it goes to 
+  the head of the list if <span class="member">Importance</span> is
+  <span class="constant">HighImportance</span> (2), else to the tail. For normal 
+  DPCs, the <span class="member">Importance</span> also affects whether DPC processing 
+  is requested at the time of insertion. </p>
+  <p>Also new for version 3.51 was that a DPC could be targeted to a specific processor. 
+  The target processor is kept in the <span class="struct">KDPC</span> as the
+  <span class="member">Number</span>. It is set by calling the
+  <span class="function">KeSetTargetProcessor</span> function or, starting with 
+  Windows 7, <span class="function">KeSetTargetProcessEx</span>. A later call to
+  <span class="function">KeInsertQueueDpc</span> inserts the
+  <span class="struct">KDPC</span> into the corresponding per-processor list.
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x04 </td>
+        <td rowspan="2">0x08 </td>
+        <td>
+        <pre class="source">LIST_ENTRY DpcListEntry;</pre>
+        </td>
+        <td>3.10 to 6.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">SINGLE_LIST_ENTRY DpcListEntry;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>0x10 </td>
+        <td>
+        <pre class="source">KAFFINITY ProcessorHistory;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="function">KeInsertQueueDpc</span> function schedules a DPC 
+  by inserting the <span class="struct">KDPC</span> into a double-linked or single-linked 
+  list, depending on the version. At first, with no targeting of the DPC’s eventual 
+  execution to a selected processor, there was only one list for all DPCs. Version 
+  3.50 introduced one list per processor, as the <span class="member">DpcListHead</span> 
+  member of the <span class="struct"><a href="../kprcb.htm">KPRCB</a></span>. In 
+  version 5.2 and higher, each processor has two lists, one for normal DPCs and 
+  one for threaded DPCs. Whichever list a <span class="struct">KDPC</span> is inserted 
+  into, it is linked into the list through the <span class="member">DpcListEntry</span> 
+  member. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0C </td>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">VOID 
+(*DeferredRoutine) (
+    KDPC *,
+    PVOID,
+    PVOID,
+    PVOID);</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">PVOID DeferredContext;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x14 </td>
+        <td>0x28 </td>
+        <td>
+        <pre class="source">PVOID SystemArgument1;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td>0x30 </td>
+        <td>
+        <pre class="source">PVOID SystemArgument2;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x1C </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN Inserted;</pre>
+        </td>
+        <td>3.10 only </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG *Lock;</pre>
+        </td>
+        <td>3.50 to 5.1 </td>
+      </tr>
+      <tr>
+        <td>0x38 </td>
+        <td>
+        <pre class="source">PVOID DpcData;</pre>
+        </td>
+        <td>5.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">DeferredRoutine</span> is, of course, the address 
+  of the routine that is to be called back. It is specified when the
+  <span class="struct">KDPC</span> is initialised, and is thereafter left alone 
+  (unless the <span class="struct">KDPC</span> is re-initialised). It receives four 
+  arguments: the address of the <span class="struct">KDPC</span>; plus others that 
+  are retrieved from the <span class="struct">KDPC</span>. Of these, the
+  <span class="member">DeferredContext</span> is set with the
+  <span class="member">DeferredRoutine</span> when initialising the
+  <span class="struct">KDPC</span>, but <span class="member">SystemArgument1</span> 
+  and <span class="member">SystemArgument2</span> are set afresh whenever the
+  <span class="struct">KDPC</span> is inserted. </p>
+  <p>It is mere supposition that <span class="member">Inserted</span> is Microsoft’s 
+  name for the <span class="type">BOOLEAN</span> with which version 3.10 records 
+  that the <span class="struct">KDPC</span> is inserted in that version’s global 
+  list of all queued DPCs. </p>
+  <p>The C-language definitions in Microsoft’s headers have <span class="member">
+  Lock</span> pointing to a <span class="type">ULONG</span> originally but to a
+  <span class="type">ULONG_PTR</span> starting with the DDK for Windows XP. This 
+  is appropriate, since what’s pointed to is specifically a spin lock, but as far 
+  as concerns x86 and x64 builds, at least while no x64 build of version 5.1 is 
+  known, the difference between <span class="type">ULONG_PTR</span> and
+  <span class="type">ULONG</span> has no practical consequence. For all versions 
+  in question, an inserted <span class="struct">KDPC</span> has its
+  <span class="member">Lock</span> pointed to its target processor’s
+  <span class="member">DpcLock</span> in the <span class="struct">KPRCB</span>. 
+  (In version 3.50, the target processor is necessarily the current processor at 
+  the time of insertion.) </p>
+  <p>Though the <span class="member">DpcData</span> member of the
+  <span class="struct">KDPC</span> is declared as pointing to <span class="type">
+  void</span> in version 5.2 and higher, what it actually points to is a
+  <span class="struct"><a href="../../../api/ke/dpcobj/kdpc_data.htm">KDPC_DATA</a></span> 
+  structure. </p>
+  <div class="Footer">
+    <p class="Dates">s page was created on 25th
+    <a href="../../../../../../../new/16/06.htm">June 2016</a> and was last modified 
+    on 29th September 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4925" -->
+  </div>
+</div>
+
+</body>
+
+</html>

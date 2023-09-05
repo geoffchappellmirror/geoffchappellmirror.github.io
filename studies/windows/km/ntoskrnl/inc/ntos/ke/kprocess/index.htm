@@ -1,0 +1,1733 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KPROCESS</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>KPROCESS </h1>
+  <p>The <span class="struct">KPROCESS</span> structure (formally
+  <span class="struct">_KPROCESS</span>) is the Kernel’s portion of the Executive’s
+  <span class="struct"><a href="../../ps/eprocess/index.htm">EPROCESS</a></span> 
+  structure. The latter <span class="emphasis">is</span> the process object as exposed 
+  through the Object Manager. The <span class="struct">KPROCESS</span> is the start 
+  of it. </p>
+  <h2>Availability </h2>
+  <p>The process is a fundamental object in Windows. The <span class="struct">KPROCESS</span> 
+  exists in all versions, i.e., 3.10 and higher. </p>
+  <h3>Documentation Status </h3>
+  <p>For being fundamental, the <span class="struct">KPROCESS</span> has never been 
+  secret as something that exists. It is, however, deeply internal. It is not formally 
+  documented. Even among C-language headers in the Device Driver Kit (DDK) or Windows 
+  Driver Kit (WDK), the <span class="struct">KPROCESS</span> is only ever declared 
+  as an opaque type: its contents are never defined. </p>
+  <p>Though Microsoft is not known ever to have published a C-language definition 
+  of the <span class="struct">KPROCESS</span>, the practical equivalent is disclosed 
+  as type information in public symbol files for the kernel starting with Windows 
+  2000 SP3. One earlier disclosure of type information is known from a statically 
+  linked library, named craShlib.Lib (sic), which Microsoft distributed with the 
+  Win32 SDK in 1996. Though it is supplied to help with building the user-mode Dr. 
+  Watson sample, it has type information that matches the kernel-mode
+  <span class="struct">KPROCESS</span> for version 4.0. </p>
+  <h3>Access </h3>
+  <p>Presumably because the <span class="struct">KPROCESS</span> is only as much 
+  of the process’s representation as needed by the core of the kernel, it has very 
+  little exposure independently of its nesting in the <span class="struct">EPROCESS</span> 
+  as the latter’s <span class="member">Pcb</span> member. Where code outside the 
+  kernel refers to a process by address, what will almost always be wanted is the 
+  larger <span class="struct">EPROCESS</span>. Notable exceptions are the
+  <span class="struct">KTHREAD</span> and <span class="struct">KAPC_STATE</span>: 
+  being other creatures of the kernel’s core, these each have a member named
+  <span class="member">Process</span> that points to a <span class="struct">KPROCESS</span>.
+  </p>
+  <h2>Layout </h2>
+  <p>The <span class="struct">KPROCESS</span> structure is plainly internal to the 
+  kernel and its layout changes greatly between Windows versions and even between 
+  builds. Throughout this article, early and late builds within a version have the 
+  following cut-offs: </p>
+  <ul>
+    <li>late 5.1 begins with Windows XP SP2; </li>
+    <li>late 5.2 begins with Windows Server 2003 SP1; </li>
+    <li>late 6.0 begins with Windows Vista SP1 (which doubles as Windows Server 
+    2008). </li>
+  </ul>
+  <p>Though the <span class="struct">KPROCESS</span> is highly variable, it has 
+  grown mostly by appending. This article attempts to lay out the structure’s members 
+  as one sequence for all versions. The following changes of size are known: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3.10 </td>
+        <td>0x70 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.50 to 4.0 </td>
+        <td>0x68 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>5.0 to early 5.2 </td>
+        <td>0x6C </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.2 </td>
+        <td>0x78 </td>
+        <td>0xB8 </td>
+      </tr>
+      <tr>
+        <td>6.0 </td>
+        <td>0x80 </td>
+        <td>0xC0 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0x98 </td>
+        <td>0x0160 </td>
+      </tr>
+      <tr>
+        <td>6.2 to 6.3 </td>
+        <td>0xA0 </td>
+        <td>0x02C8 </td>
+      </tr>
+      <tr>
+        <td>10.0 to 1607 </td>
+        <td>0xA8 </td>
+        <td>0x02D8 </td>
+      </tr>
+      <tr>
+        <td>1703 to 1809 </td>
+        <td>0xB0 </td>
+        <td>0x02D8 </td>
+      </tr>
+      <tr>
+        <td>1903 </td>
+        <td>0xB0 </td>
+        <td>0x02E0 </td>
+      </tr>
+      <tr>
+        <td>2004 </td>
+        <td>0xE0 </td>
+        <td>0x0438 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>These sizes, and the offsets, types and names in the tables that follow, are 
+  from Microsoft’s public symbol files for the kernel starting with Windows 2000 
+  SP3. Since symbol files for earlier versions do not contain type information for 
+  the <span class="struct">KPROCESS</span>, what’s known for earlier versions is 
+  instead inferred from what use the kernel is seen to make of the
+  <span class="struct">KPROCESS</span>. Sizes are relatively straightforward, even 
+  without symbol files, but Microsoft’s names and types are something of a guess. 
+  Where use of a member corresponds closely with that of a version for which Microsoft’s 
+  symbols are available, it seems reasonable to suppose continuity. Some use, however, 
+  has no correspondence, the code having changed too much. Even where the use hasn’t 
+  changed, tracking it down exhaustively would be difficult, if not impossible, 
+  even with source code. </p>
+  <h2>Layout </h2>
+  <p>For the detailed layout in the tables that follow, it helps with some processor-dependent 
+  definitions if a macro, say <span class="constant">MAX_PROC_GROUPS</span>, is 
+  presumed for the maximum number of processor groups: </p>
+  <ul>
+    <li>1 for 32-bit Windows and for 64-bit Windows before version 6.1; </li>
+    <li>4 for 64-bit Windows in version 6.1; </li>
+    <li>20 for 64-bit Windows in version 6.2 and higher. </li>
+  </ul>
+  <p>Note that the intention here is not to say that these limits on processor groups 
+  are permanent, let alone that they should be depended on when programming, just 
+  that they’re what are built in to various members of the <span class="struct">
+  KPROCESS</span> in the presently observed Windows versions. </p>
+  <h3>Original </h3>
+  <p>It is well known even to user-mode programmers that a process can be waited 
+  on until it gets signalled, as happens when the process ends its execution. In 
+  version 3.50 and higher, this is effected by having the <span class="struct">KPROCESS</span> 
+  start with a <span class="struct">
+  <a href="../../ntosdef_x/dispatcher_header/index.htm">DISPATCHER_HEADER</a></span> 
+  so that it can be waited on by passing its address to such functions as
+  <span class="function">KeWaitForSingleObject</span>. In this header, the
+  <span class="member">Type</span> is <span class="constant">ProcessObject</span> 
+  (3) from the <span class="enum"><a href="../kobjects.htm">KOBJECTS</a></span> 
+  enumeration. </p>
+  <p>It was not always so, however. In all versions, the <span class="struct">EPROCESS</span> 
+  can be waited on by passing a handle to <span class="function">NtWaitForSingleObject</span>, 
+  but what’s actually waited on in version 3.10 is a <span class="struct">KEVENT</span> 
+  at offset 0x70 in the <span class="struct">EPROCESS</span>. The
+  <span class="struct">KPROCESS</span> originally has no role in this. It does not 
+  begin with a <span class="struct">DISPATCHER_HEADER</span>, but like the other 
+  kernel objects that do not have this header, it does begin with a
+  <span class="member">Type</span> and <span class="member">Size</span>. In version 
+  3.10, this <span class="member">Type</span> was surely named
+  <span class="constant">ProcessObject</span>, as for later versions, but its 
+  numerical value is 0x0E. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">USHORT Type;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next in <span class="member">Header</span> at 0x00 </td>
+      </tr>
+      <tr>
+        <td>0x02 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">USHORT Size;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next in <span class="member">Header</span> at 0x00 </td>
+      </tr>
+      <tr>
+        <td>0x04 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG StackCount;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next as <span class="type">USHORT</span> at 0x60 </td>
+      </tr>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">DISPATCHER_HEADER Header;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x08 (3.10); <br>
+        0x10 </td>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ProfileListHead;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Whether the header is the full <span class="struct">DISPATCHER_HEADER</span> 
+  or just something a little like one, 
+  it has somehow always been followed by the list head for process-specific
+  <span class="struct"><a href="../../../../api/ke/profobj/kprofile.htm">KPROFILE</a></span> 
+  objects. Pretty much everything else that’s original to the
+  <span class="struct">KPROCESS</span> was rearranged even as soon as versions 3.50 
+  and 3.51. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x10 (3.10); <br>
+        0x18 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">LIST_ENTRY ReadyListHead;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x40 </td>
+      </tr>
+      <tr>
+        <td>0x18 (3.10); <br>
+        0x20 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">LIST_ENTRY SwapListEntry;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x48 </td>
+      </tr>
+      <tr>
+        <td>0x20 (3.10); <br>
+        0x28 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">LIST_ENTRY ThreadListHead;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x50 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x28 (3.10); <br>
+        0x30 (3.50) </td>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">LARGE_INTEGER KernelTime;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG KernelTime;</pre>
+        </td>
+        <td>3.50 only </td>
+        <td>next at 0x38 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x30 (3.10); <br>
+        0x34 (3.50) </td>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">LARGE_INTEGER UserTime;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG UserTime;</pre>
+        </td>
+        <td>3.50 only </td>
+        <td>next at 0x3C </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x38 (3.10 to 3.50); <br>
+        0x18 </td>
+        <td rowspan="2">0x28 </td>
+        <td>
+        <pre class="source">ULONG_PTR DirectoryTableBase [2];</pre>
+        </td>
+        <td>3.10 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR DirectoryTableBase;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1C (6.0) </td>
+        <td>0x30 (6.0) </td>
+        <td>
+        <pre class="source">ULONG_PTR Unused0;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x40 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>unknown <span class="type">KSPIN_LOCK</span> </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x44 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG Iopl;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next as <span class="type">UCHAR</span> at 0x5E </td>
+      </tr>
+      <tr>
+        <td>0x48 (3.10); <br>
+        0x3C (3.50) </td>
+        <td>&nbsp;</td>
+        <td>unaccounted eight bytes </td>
+        <td>3.10 to 3.50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x50 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">LONG ThreadQuantum;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next as <span class="type">CHAR</span> at 0x65 </td>
+      </tr>
+      <tr>
+        <td>0x54 (3.10); <br>
+        0x44 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KAFFINITY ActiveProcessors;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x34 </td>
+      </tr>
+      <tr>
+        <td>0x58 (3.10); <br>
+        0x48 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KAFFINITY Affinity;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x5C </td>
+      </tr>
+      <tr>
+        <td>0x5C (3.10); <br>
+        0x4C (3.50); <br>
+        0x20 (3.51 to 6.0); <br>
+        0x1C </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KGDTENTRY LdtDescriptor;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x54 (3.50); <br>
+        0x28 (3.51 to 6.0); <br>
+        0x24 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KIDTENTRY Int21Descriptor;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x64 (3.10); <br>
+        0x5C (3.50); <br>
+        0x30 (3.51 to 6.0) </td>
+        <td>0x38 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">USHORT IopmOffset;</pre>
+        </td>
+        <td>3.10 to 6.0 </td>
+        <td>next at 0x6E (x86) </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x5E (3.50); <br>
+        0x32 (3.51 to 6.0) </td>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR Iopl;</pre>
+        </td>
+        <td>3.50 to early 6.0 </td>
+        <td>previously <span class="type">ULONG</span> at 0x44 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Unused1;</pre>
+        </td>
+        <td>late 6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x66 (3.10); <br>
+        0x5F (3.50); <br>
+        0x33 (3.51 to 6.0) </td>
+        <td rowspan="3">&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR VdmFlag;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Unused;</pre>
+        </td>
+        <td>5.1 to early 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Unused2;</pre>
+        </td>
+        <td>late 6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x34 (3.51 to 6.0) </td>
+        <td rowspan="2">0x40 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">KAFFINITY ActiveProcessors;</pre>
+        </td>
+        <td>3.51 to 5.1 </td>
+        <td>previously 0x44 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KAFFINITY volatile ActiveProcessors;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+        <td>next as <span class="type">KAFFINITY_EX volatile</span> at 0x50 and 
+        0x88 </td>
+      </tr>
+      <tr>
+        <td>0x38 (3.51 to 6.0) </td>
+        <td>0x48 (5.0 to 6.0) </td>
+        <td>
+        <pre class="source">ULONG KernelTime;</pre>
+        </td>
+        <td>3.51 to 6.0 </td>
+        <td>previously 0x30; <br>
+        next at 0x88 and 0xF8 </td>
+      </tr>
+      <tr>
+        <td>0x3C (3.51 to 6.0) </td>
+        <td>0x4C (5.0 to 6.0) </td>
+        <td>
+        <pre class="source">ULONG UserTime;</pre>
+        </td>
+        <td>3.51 to 6.0 </td>
+        <td>previously 0x34; <br>
+        next at 0x8C and 0xFC </td>
+      </tr>
+      <tr>
+        <td>0x2C </td>
+        <td>0x30 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ThreadListHead;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously 0x50 and 0x70 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x34 </td>
+        <td rowspan="2">0x40 </td>
+        <td>
+        <pre class="source">ULONG_PTR ProcessLock;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously 0x58 and 0x80 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG ProcessLock;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">&nbsp;</td>
+        <td rowspan="2">0x44 </td>
+        <td>
+        <pre class="source">ULONG Spare0;</pre>
+        </td>
+        <td>6.2 to 1607 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG ProcessTimerDelay;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>at 0xAC for x86 </td>
+      </tr>
+      <tr>
+        <td>0x38 </td>
+        <td>0x48 </td>
+        <td>
+        <pre class="source">ULONGLONG DeepFreezeStartTime;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x38 (6.1 to 6.3); <br>
+        0x40 </td>
+        <td>0x48 (6.1 to 6.3); <br>
+        0x50 </td>
+        <td>
+        <pre class="source">KAFFINITY_EX Affinity;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously <span class="struct">KAFFINITY</span> at 0x5C and 0x88
+        </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0xF8 </td>
+        <td>
+        <pre class="source">ULONGLONG AffinityPadding [0x0C];</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x40 (3.51 to 6.0); <br>
+        0x44 (6.1 to 6.3); <br>
+        0x4C </td>
+        <td>0x50 (late 5.2 to 6.0); <br>
+        0x70 (6.1); <br>
+        0xF0 (6.2 to 6.3); <br>
+        0xF8 (10.0 to 1903); <br>
+        0x0158 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ReadyListHead;</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>previously 0x18 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x48 (3.51 to 6.0); <br>
+        0x4C (6.1 to 6.3); <br>
+        0x54 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">LIST_ENTRY SwapListEntry;</pre>
+        </td>
+        <td>3.51 to 5.0 </td>
+        <td>previously 0x20 </td>
+      </tr>
+      <tr>
+        <td>0x60 (late 5.2 to 6.0); <br>
+        0x80 (6.1); <br>
+        0x0100 (6.2 to 6.3); <br>
+        0x0108 (10.0 to 1903); <br>
+        0x0168 </td>
+        <td>
+        <pre class="source">SINGLE_LIST_ENTRY SwapListEntry;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x50 (6.1 to 6.3); <br>
+        0x58 </td>
+        <td>0x88 (6.1); <br>
+        0x0108 (6.2 to 6.3); <br>
+        0x0110 (10.0 to 1903); <br>
+        0x0170 </td>
+        <td>
+        <pre class="source">KAFFINITY_EX volatile ActiveProcessors;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously <span class="type">KAFFINITY volatile</span> at 0x34 and 
+        0x40 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0218 </td>
+        <td>
+        <pre class="source">ULONGLONG ActiveProcessorsPadding [0x0C];</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x4C (5.1 to 6.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID VdmTrapcHandler;</pre>
+        </td>
+        <td>5.1 to 6.0 </td>
+        <td>next at 0x90 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">&nbsp;</td>
+        <td rowspan="2">0x68 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">PVOID Reserved1;</pre>
+        </td>
+        <td>late 5.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID InstrumentationCallback;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>next at 0x0100 </td>
+      </tr>
+      <tr>
+        <td>0x50 (3.51 to 6.0) </td>
+        <td>0x70 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">LIST_ENTRY ThreadListHead;</pre>
+        </td>
+        <td>3.51 to 6.0 </td>
+        <td>previously 0x28; <br>
+        next at 0x2C and 0x30 </td>
+      </tr>
+      <tr>
+        <td>0x58 (3.51 to 6.0) </td>
+        <td>0x80 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">KSPIN_LOCK ProcessLock;</pre>
+        </td>
+        <td>3.51 to 6.0 </td>
+        <td>next at 0x34 and 0x40 </td>
+      </tr>
+      <tr>
+        <td>0x5C (3.51 to 6.0) </td>
+        <td>0x88 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">KAFFINITY Affinity;</pre>
+        </td>
+        <td>3.51 to 6.0 </td>
+        <td>previously at 0x48; <br>
+        next as <span class="struct">KAFFINITY_EX</span> at 0x40 and 0x50 </td>
+      </tr>
+      <tr>
+        <td>0x60 (3.50 to early 5.2) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">USHORT StackCount;</pre>
+        </td>
+        <td>3.50 to early 5.2 </td>
+        <td>previously as <span class="type">ULONG</span> at 0x04; <br>
+        next as <span class="type">ULONG_PTR</span> at 0x6C and 0xA0 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x60 (late 5.2 to 6.0); <br>
+        0x5C (6.1 to 6.3); <br>
+        0x64 </td>
+        <td rowspan="2">0x90 (late 5.2 to 6.0); <br>
+        0xB0 (6.1); <br>
+        0x01B0 (6.2 to 6.3); <br>
+        0x01B8 (10.0 to 1903); <br>
+        0x0278 </td>
+        <td>
+        <pre class="source">union {
+    struct {
+        /*  bit fields, follow link  */
+    };
+    LONG <a href="processflags.htm">ProcessFlags</a>;
+};</pre>
+        </td>
+        <td>late 5.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    struct {
+        /*  bit fields, follow link  */
+    };
+    LONG volatile ProcessFlags;
+};</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x67 (3.10); <br>
+        0x62 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN AutoAlignment;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x64 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x01BC (1903); <br>
+        0x027C </td>
+        <td>
+        <pre class="source">ULONG ActiveGroupsMask;</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>previously in <span class="member">ProcessFlags</span> </td>
+      </tr>
+      <tr>
+        <td>0x68 (3.10); <br>
+        0x63 (3.50); <br>
+        0x62 (3.51 to early 5.2); <br>
+        0x64 (late 5.2 to 6.0); <br>
+        0x60 (6.1 to 6.3); <br>
+        0x68 </td>
+        <td>0x94 (late 5.2 to 6.0); <br>
+        0xB4 (6.1); <br>
+        0x01B4 (6.2 to 6.3); <br>
+        0x01BC (10.0 to 1809); <br>
+        0x01C0 (1903); <br>
+        0x0280 </td>
+        <td>
+        <pre class="source">CHAR BasePriority;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x69 (3.10); <br>
+        0x64 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR State;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x65; <br>
+        last member in 3.10 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x65 (3.50); <br>
+        0x63 (3.51 to early 5.2); <br>
+        0x65 (late 5.2 to 6.0); <br>
+        0x61 (6.1 to 6.3); <br>
+        0x69 </td>
+        <td rowspan="2">0x95 (late 5.2 to 6.0); <br>
+        0xB5 (6.1); <br>
+        0x01B5 (6.2 to 6.3); <br>
+        0x01BD (10.0 to 1809); <br>
+        0x01C1&nbsp; (1903); <br>
+        0x0281 </td>
+        <td>
+        <pre class="source">CHAR ThreadQuantum;</pre>
+        </td>
+        <td>3.50 to early 5.2 </td>
+        <td>previously <span class="type">LONG</span> at 0x50; <br>
+        last member in 3.50 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">CHAR QuantumReset;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x64 (3.51 to early 5.2) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN AutoAlignment;</pre>
+        </td>
+        <td>3.51 to early 5.2 </td>
+        <td>previously 0x62; <br>
+        next in <span class="member">ProcessFlags</span> </td>
+      </tr>
+      <tr>
+        <td>0x65 (3.51 to early 5.2); <br>
+        0x66 (late 5.2 to 6.0) </td>
+        <td>0x96 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">UCHAR State;</pre>
+        </td>
+        <td>3.51 to 6.0 </td>
+        <td>previously 0x64; <br>
+        next in <span class="member">StackCount</span>; <br>
+        last member in 3.51 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Whatever may have motivated the reordering of byte-size members at the end 
+  in versions 3.10 to 3.51, all these versions end the structure with unused space 
+  because of alignment: six bytes in 3.10 because of the structure’s 8-byte alignment 
+  (from using <span class="union">LARGE_INTEGER</span> for <span class="member">
+  KernelTime</span> and <span class="member">UserTime</span>); two bytes in versions 3.50 
+  and 3.51. </p>
+  <h3>Appended for Windows NT 4.0 </h3>
+  <p>Version 4.0 adds just two bytes which anyway fit into the earlier versions’ 
+  alignment padding. Neither stays put. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x66 (4.0 to early 5.2); <br>
+        0x67 (late 5.2 to 6.0) </td>
+        <td>0x97 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">UCHAR ThreadSeed;</pre>
+        </td>
+        <td>4.0 to 6.0 </td>
+        <td>next as <span class="type">ULONG</span> array at 0x64 and 0xB8 </td>
+      </tr>
+      <tr>
+        <td>0x67 (4.0 to early 5.2) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN DisableBoost;</pre>
+        </td>
+        <td>4.0 to early 5.2 </td>
+        <td>next in <span class="member">ProcessFlags</span>; <br>
+        last member in 4.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">ThreadSeed</span> helps to spread the process’s threads 
+  over the available processors. It is initialised pseudo-randomly (from the low 
+  byte of <span class="variable">KeTickCount</span>) when the process is created. 
+  As each thread is initialised, the process’s <span class="member">ThreadSeeed</span> 
+  (modulo the number of processors) becomes that thread’s <span class="member">IdealProcessor</span> 
+  and is then incremented in anticipation of the next thread. When Windows 7 greatly 
+  increased the potential number of processors, the single-byte processor number 
+  widened to the four-byte processor index and the <span class="member">ThreadSeed</span> 
+  was reworked elsewhere in the structure. </p>
+  <h3>Appended for Windows 2000 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x68 (5.0 to 6.0) </td>
+        <td>0x98 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">UCHAR PowerState;</pre>
+        </td>
+        <td>5.0 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x69 (5.0 to early 5.2) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN DisableQuantum;</pre>
+        </td>
+        <td>5.0 to early 5.2 </td>
+        <td>next in <span class="member">ProcessFlags</span> </td>
+      </tr>
+      <tr>
+        <td>0x6A (5.0) <br>
+        </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR Spare [2];</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>last member in 5.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows XP </h3>
+  <p>Additions for version 5.1 begin with the bytes that version 5.0 left explicitly
+  <span class="member">Spare</span> at its end. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x6A (5.1 to early 5.2); <br>
+        0x69 (late 5.2 to 6.0) </td>
+        <td>0x99 (late 5.2 to 6.0) </td>
+        <td>
+        <pre class="source">UCHAR IdealNode;</pre>
+        </td>
+        <td>5.1 to 6.0 </td>
+        <td>next as <span class="type">USHORT</span> array at 0x68 and 0xC8 </td>
+      </tr>
+      <tr>
+        <td>0x6A (late 5.2 to 6.0); <br>
+        0x62 (6.1 to 6.3); <br>
+        0x6A </td>
+        <td>0x9A (late 5.2 to 6.0); <br>
+        0xB6 (6.1); <br>
+        0x01B6 (6.2 to 6.3); <br>
+        0x01BE (10.0 to 1809); <br>
+        0x01C2&nbsp; (1903); <br>
+        0x0282 </td>
+        <td>
+        <pre class="source">BOOLEAN Visited;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x6B (5.1 to 6.0); <br>
+        0x63 (6.1 to 6.3); <br>
+        0x6B </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR Spare;</pre>
+        </td>
+        <td>early 5.1; <br>
+        early 5.2 </td>
+        <td>last member in early 5.1; <br>
+        last member in early 5.2 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x9B (late 5.2 to 6.0); <br>
+        0xB7 (6.1); <br>
+        0x01B7 (6.2 to 6.3); <br>
+        0x01BF (10.0 to 1809); <br>
+        0x01C3 (1903); <br>
+        0x0283 </td>
+        <td>
+        <pre class="source">union {
+    <a href="../kexecute_options.htm">KEXECUTE_OPTIONS</a> Flags;
+    UCHAR ExecuteOptions;
+};</pre>
+        </td>
+        <td>late 5.1; <br>
+        late 5.2 to 6.0 </td>
+        <td>next without <span class="type">union</span> at 0x6C and 0xD2; <br>
+        last member in late 5.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Spare3;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KEXECUTE_OPTIONS Flags;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x6C and 0xD2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Inserted for Windows 7 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x64 (6.1 to 6.3); <br>
+        0x6C </td>
+        <td rowspan="2">0xB8 (6.1); <br>
+        0x01B8 (6.2 to 6.3); <br>
+        0x01C0 (10.0 to 1809); <br>
+        0x01C4 (1903); <br>
+        0x0284 </td>
+        <td>
+        <pre class="source">ULONG ThreadSeed [MAX_PROC_GROUPS];</pre>
+        </td>
+        <td>6.1 to 1809 </td>
+        <td>previously <span class="type">UCHAR</span> at 0x67 and 0x97 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT ThreadSeed [MAX_PROC_GROUPS];</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x02AC </td>
+        <td>
+        <pre class="source">USHORT ThreadSeedPadding [0x0C];</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x6E </td>
+        <td>0x01EC (1903); <br>
+        0x02C4 </td>
+        <td>
+        <pre class="source">USHORT IdealProcessor [MAX_PROC_GROUPS];</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x02EC </td>
+        <td>
+        <pre class="source">USHORT IdealProcessorPadding [0x0C];</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x68 (6.1 to 6.3); <br>
+        0x70 </td>
+        <td>0xC8 (6.1); <br>
+        0x0208 (6.2 to 6.3); <br>
+        0x0210 (10.0 to 1809); <br>
+        0x0214 (1903); <br>
+        0x0304 </td>
+        <td>
+        <pre class="source">USHORT IdealNode [MAX_PROC_GROUPS];</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously <span class="type">UCHAR</span> at 0x69 and 0x99 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x032C </td>
+        <td>
+        <pre class="source">USHORT IdealNodePadding [0x0C];</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x6A (6.1 to 6.3); <br>
+        0x72 </td>
+        <td>0xD0 (6.1); <br>
+        0x0230 (6.2 to 6.3); <br>
+        0x0238 (10.0 to 1809); <br>
+        0x023C (1903); <br>
+        0x0344 </td>
+        <td>
+        <pre class="source">USHORT IdealGlobalNode;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x6C (6.1 to 6.3); <br>
+        0x74 </td>
+        <td rowspan="2">0xD2 (6.1); <br>
+        0x0232 (6.2 to 6.3); <br>
+        0x023A (10.0 to 1809); <br>
+        0x023E (1903); <br>
+        0x0346 </td>
+        <td>
+        <pre class="source">KEXECUTE_OPTIONS Flags;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously in <span class="type">union</span> at 0x6B and 0x9B; <br>
+        next at 0x63 and 0x01B7 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT Spare1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x6D (6.1) </td>
+        <td>0xD3 (6.1) </td>
+        <td>
+        <pre class="source">UCHAR Unused1;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x6E (6.1 to 6.3); <br>
+        0x76 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">USHORT IopmOffset;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously at 0x30 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0xD4 (6.1) </td>
+        <td>
+        <pre class="source">ULONG Unused2;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x70 (6.1 to 6.3); <br>
+        0x78 </td>
+        <td>0xD8 (6.1) </td>
+        <td>
+        <pre class="source">ULONG Unused4;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KSCHEDULING_GROUP *SchedulingGroup;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>x64 at 0x0258 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows Server 2003 SP1 </h3>
+  <p>While the first version with x64 builds found a few opportunities to save space 
+  by converting the <span class="member">AutoAlignment</span>,
+  <span class="member">DisableBoost</span> and <span class="member">DisableQuantum</span> 
+  booleans to bit fields in what were then the new <span class="member">ProcessFlags</span>, 
+  it widened the <span class="member">StackCount</span> and moved it to the end. 
+  Version 6.1 merged the ancient <span class="member">State</span> into the
+  <span class="member">StackCount</span> as a bit field. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x6C (late 5.2 to 6.0); <br>
+        0x74 (6.1 to 6.3); <br>
+        0x7C </td>
+        <td rowspan="3">0xA0 (late 5.2 to 6.0); <br>
+        0xDC (6.1); <br>
+        0x0234 (6.2 to 6.3); <br>
+        0x023C (10.0 to 1809); <br>
+        0x0240 (1903); <br>
+        0x0348 </td>
+        <td>
+        <pre class="source">ULONG_PTR StackCount;</pre>
+        </td>
+        <td>late 5.2 to 6.0 </td>
+        <td>previously <span class="type">USHORT</span> at 0x60 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source"><a href="../kstack_count.htm">KSTACK_COUNT</a> StackCount;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">KSTACK_COUNT volatile StackCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x70 (late 5.2 to 6.0); <br>
+        0x78 (6.1 to 6.3); <br>
+        0x80 </td>
+        <td>0xA8 (late 5.2 to 6.0); <br>
+        0xE0 (6.1); <br>
+        0x0238 (6.2 to 6.3); <br>
+        0x0240 (10.0 to 1809); <br>
+        0x0248 (1903); <br>
+        0x0350 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ProcessListEntry;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+        <td>last member in late 5.2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>On x64 builds only, the <span class="member">ProcessListEntry</span> links 
+  the <span class="struct">KPROCESS</span> into a global list whose head is an internal 
+  kernel variable that symbol files name <span class="variable">KiProcessListHead</span>. 
+  The only known use is for Kernel Patch Protection (perhaps more commonly known 
+  as PatchGuard). The list entry is defined all the while for the x86 builds, but 
+  not even initialised. </p>
+  <h3>Appended For Windows Vista </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x78 (6.0); <br>
+        0x80 (6.1 to 6.3); <br>
+        0x88 </td>
+        <td rowspan="2">0xB8 (late 5.2 to 6.0); <br>
+        0xF0 (6.1); <br>
+        0x0248 (6.2 to 6.3); <br>
+        0x0250 (10.0 to 1809); <br>
+        0x0258 (1903); <br>
+        0x0360 </td>
+        <td>
+        <pre class="source">ULONGLONG volatile CycleTime;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>last member in 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG CycleTime;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Inserted For Windows 8 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x88 (6.2 to 6.3); <br>
+        0x90 </td>
+        <td>0x0250 (6.2 to 6.3); <br>
+        0x0258 (10.0 to 1809); <br>
+        0x0260 (1903); <br>
+        0x0368 </td>
+        <td>
+        <pre class="source">ULONGLONG ContextSwitches;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0258 (6.2 to 6.3); <br>
+        0x0260 (10.0 to 1809); <br>
+        0x0268 (1903); <br>
+        0x0370 </td>
+        <td>
+        <pre class="source">KSCHEDULING_GROUP *SchedulingGroup;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>x86 at 0x70 </td>
+      </tr>
+      <tr>
+        <td>0x90 (6.2 to 6.3); <br>
+        0x98 </td>
+        <td>0x0260 (6.2 to 6.3); <br>
+        0x0268 (10.0 to 1809); <br>
+        0x0270 (1903); <br>
+        0x0378 </td>
+        <td>
+        <pre class="source">ULONG FreezeCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended For Windows 7 </h3>
+  <p>Version 6.1 did not so much append to the structure as move some old, even 
+  ancient, members to the end. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x88 (6.1); <br>
+        0x94 (6.2 to 6.3); <br>
+        0x9C </td>
+        <td>0xF8 (6.1); <br>
+        0x0264 (6.2 to 6.3); <br>
+        0x026C (10.0 to 1809); <br>
+        0x0274 (1903); <br>
+        0x037C </td>
+        <td>
+        <pre class="source">ULONG KernelTime;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously 0x38 and 0x48 </td>
+      </tr>
+      <tr>
+        <td>0x8C (6.1); <br>
+        0x98 (6.2 to 6.3); <br>
+        0xA0 </td>
+        <td>0xFC (6.1); <br>
+        0x0268 (6.2 to 6.3); <br>
+        0x0270 (10.0 to 1809); <br>
+        0x0278 (1903); <br>
+        0x0380 </td>
+        <td>
+        <pre class="source">ULONG UserTime;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously 0x3C and 0x4C </td>
+      </tr>
+      <tr>
+        <td>0xA4 </td>
+        <td>0x0274 (1703 to 1809); <br>
+        0x027C (1903); <br>
+        0x0384 </td>
+        <td>
+        <pre class="source">ULONG ReadyTime;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x90 (6.1); <br>
+        0x9C (6.2 to 6.3); <br>
+        0xA4 (10.0 to 1607); <br>
+        0xA8 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID VdmTrapcHandler;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously 0x4C; <br>
+        last member in 6.1 to 1607 (x86) </td>
+      </tr>
+      <tr>
+        <td>0xAC </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG ProcessTimerDelay;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>at 0x44 for x64; <br>
+        last member in 1703 to 1903 (x86) </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Appended for 64-Bit Windows 7 </h4>
+  <p>The only truly new members that Windows 7 added are for 64-bit Windows only. 
+  Even these relatively few additions are not pretty, since shifts in preceding 
+  members allowed version 6.2 to get tighter packing just from rearranging what 
+  version 6.1 added. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0100 (6.1) </td>
+        <td>
+        <pre class="source">PVOID InstrumentationCallback;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously 0x68; <br>
+        next at 0x02C0 </td>
+      </tr>
+      <tr>
+        <td>0x0108 (6.1) </td>
+        <td>
+        <pre class="source">KDGENTRY64 LdtSystemDescriptor;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next at 0x0270 </td>
+      </tr>
+      <tr>
+        <td>0x0118 (6.1) </td>
+        <td>
+        <pre class="source">PVOID LdtBaseAddress;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next at 0x0280 </td>
+      </tr>
+      <tr>
+        <td>0x0120 (6.1) </td>
+        <td>
+        <pre class="source">KGUARDED_MUTEX LdtProcessLock;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next as <span class="struct">FAST_MUTEX</span> at 0x0288 </td>
+      </tr>
+      <tr>
+        <td>0x0158 (6.1); <br>
+        0x026C (6.2 to 6.3); <br>
+        0x0274 (10.0 to 1607) </td>
+        <td>
+        <pre class="source">USHORT LdtFreeSelectorHint;</pre>
+        </td>
+        <td>6.1 to 1607 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x015A (6.1); <br>
+        0x026E (6.2 to 6.3); <br>
+        0x0276 (10.0 to 1607) </td>
+        <td>
+        <pre class="source">USHORT LdtTableLength;</pre>
+        </td>
+        <td>6.1 to 1607 </td>
+        <td>last member in 6.1 (x64) </td>
+      </tr>
+      <tr>
+        <td>0x0270 (6.2 to 6.3); <br>
+        0x0278 (10.0 to 1607) </td>
+        <td>
+        <pre class="source">KGDTENTRY64 LdtSystemDescriptor;</pre>
+        </td>
+        <td>6.2 to 1607 </td>
+        <td>previously 0x0108 </td>
+      </tr>
+      <tr>
+        <td>0x0280 (6.2 to 6.3); <br>
+        0x0288 (10.0 to 1607) </td>
+        <td>
+        <pre class="source">PVOID LdtBaseAddress;</pre>
+        </td>
+        <td>6.2 to 1607 </td>
+        <td>previously 0x0118 </td>
+      </tr>
+      <tr>
+        <td>0x0288 (6.2 to 6.3); <br>
+        0x0290 (10.0 to 1607) </td>
+        <td>
+        <pre class="source">FAST_MUTEX LdtProcessLock;</pre>
+        </td>
+        <td>6.2 to 1607 </td>
+        <td>previously <span class="struct">KGUARDED_MUTEX</span> at 0x0120 </td>
+      </tr>
+      <tr>
+        <td>0x0278 (1803 to 1809); <br>
+        0x0280 (1903); <br>
+        0x0388 </td>
+        <td>
+        <pre class="source">ULONGLONG UserDirectoryTableBase;</pre>
+        </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0280 (1803 to 1809); <br>
+        0x0288 (1903); <br>
+        0x0390 </td>
+        <td>
+        <pre class="source">UCHAR AddressPolicy;</pre>
+        </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0278 (1703 to 1709); <br>
+        0x0281 (1803 to 1809); <br>
+        0x0289 (1903); <br>
+        0x0391 </td>
+        <td>
+        <pre class="source">UCHAR Spare2 [0x50];</pre>
+        </td>
+        <td>1703 to 1709 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Spare2 [0x47];</pre>
+        </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02C0 (6.2 to 6.3); <br>
+        0x02C8 (10.0 to 1809); <br>
+        0x02D0 (1903); <br>
+        0x03D8 </td>
+        <td>
+        <pre class="source">PVOID InstrumentationCallback;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously 0x0100; <br>
+        last member in 6.2 to 6.3 (x64) </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02D0 (10.0 to 1809); <br>
+        0x02D8 (1903); <br>
+        0x03E0 </td>
+        <td>
+        <pre class="source">ULONGLONG SecurePid;</pre>
+        </td>
+        <td>10.0 to 1703 </td>
+        <td>last member in 10.0 to 1703 (x64) </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    ULONGLONG SecureHandle;
+    struct {
+        ULONGLONG SecureProcess : 1;
+        ULONGLONG Unused : 1;
+    } Flags;
+} SecureState;</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>last member in 1709 to 1903 (x64) </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 Version 2004 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xB0 </td>
+        <td>0x03E8 </td>
+        <td>
+        <pre class="source">ULONGLONG KernelWaitTime;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB8 </td>
+        <td>0x03F0 </td>
+        <td>
+        <pre class="source">ULONGLONG UserWaitTime;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC0 </td>
+        <td>0x03F8 </td>
+        <td>
+        <pre class="source">ULONG_PTR EndPadding [8];</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>last member in 2004 </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 15th
+    <a href="../../../../../../../../new/16/06.htm">June 2016</a> and was last 
+    modified on 6th October 2022.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14250" --></div>
+</div>
+
+</body>
+
+</html>

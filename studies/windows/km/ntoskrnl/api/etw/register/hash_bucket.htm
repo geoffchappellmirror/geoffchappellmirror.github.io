@@ -1,0 +1,136 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ETW_HASH_BUCKET</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>ETW_HASH_BUCKET </h1>
+<p>The <span class="struct">ETW_HASH_BUCKET</span> structure was introduced for 
+Windows 8 to shorten the lists of <span class="struct"><a href="guid_entry.htm">
+ETW_GUID_ENTRY</a></span> structures that represent the event providers that are 
+currently known to the kernel. </p>
+<p>Each time that a provider is registered (for writing events) or is enabled in 
+a tracing session (to read events), the kernel must find the matching
+<span class="struct">ETW_GUID_ENTRY</span>. Earlier versions keep these structures 
+in two double-linked lists, one for each type of event provider that was yet defined: 
+trace providers and notification providers. The list heads are in an array that 
+is indexed by the <span class="enum"><a href="guid_type.htm">ETW_GUID_TYPE</a></span> 
+enumeration, is in the kernel’s own data, and is guarded by one push lock (which 
+these versions acquire exclusively even when searching the lists). </p>
+<p>Proliferation of event providers (if only as written by Microsoft’s programmers, 
+many others taking surprisingly long to appreciate the benefits of modernising their 
+event writing) will have seen these lists become unsatisfactorily long. Windows 
+8 split each of the old double-linked lists into 64, so that each new double-linked 
+list is for event providers whose GUIDs have the same hash. Nothing sophisticated 
+is needed for the hash, just enough to spread the providers reasonably well over 
+the multiple lists: it’s simply the low 6 bits of an XOR of the successive dwords 
+in the GUID. Where Windows Vista and Windows 7 have global variables for an array 
+of two list heads (named <span class="internal variable">EtwpGuidListHead</span>) 
+and for one lock (named <span class="internval variable">EtwpGuidListLock</span>), 
+Windows 8 has one global variable (named <span class="internal variable">EtwpGuidHashTable</span>) 
+for an array of 64 <span class="struct">ETW_HASH_BUCKET</span> structures, one for 
+each possible hash. Each structure contains two list heads and a lock. </p>
+<p>Windows 10 extends the <span class="enum">ETW_GUID_TYPE</span> to allow for event 
+provider groups, thus adding another list head. The double-linked lists are also 
+affected by something more substantial that is new for Windows 10: each event provider 
+exists separately in each silo. For the original release of Windows 10, event providers 
+that have the same GUID and the same <span class="enum">ETW_GUID_TYPE</span> but 
+are in different silos have <span class="struct">ETW_GUID_ENTRY</span> structures 
+in the same double-linked list. </p>
+<p>The expected take-up of silos would tend to lengthen each double-linked list. 
+That each list has structures from different silos was perhaps a concern for how 
+well silos are isolated from one another. The 1511 release of Windows 10 reworks 
+the array of <span class="struct">ETW_HASH_BUCKET</span> structures from a global 
+variable to the <span class="member">EtwpGuidHashTable</span> member of the per-silo
+<span class="struct"><a href="../tracesup/silodriverstate.htm">ETW_SILODRIVERSTATE</a></span> 
+structure. </p>
+<h2>Documentation Status </h2>
+<p>That the array of 64 <span class="struct">ETW_HASH_BUCKET</span> structures became 
+a member of another structure in the 1511 release of Windows 10 has the side-effect 
+that Microsoft’s names and types are disclosed as type information in public symbol 
+files. Otherwise, the <span class="struct">ETW_HASH_BUCKET</span> would be not just 
+undocumented but undisclosed. </p>
+<table class="Struct">
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">LIST_ENTRY ListHead [EtwGuidTypeMax];</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x10 (6.2 to 6.3); <br>
+    0x18 </td>
+    <td>0x20 (6.2 to 6.3); <br>
+    0x30 </td>
+    <td>
+    <pre class="source">EX_PUSH_LOCK BucketLock;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p>Introduction of the <span class="struct">ETW_HASH_BUCKET</span> has a side-effect 
+for callers of the <span class="function">EnumerateTraceGuidsEx</span> function. 
+When given its information class <span class="constant">TraceGuidQueryList</span>, 
+this function produces as its output an array of GUIDs, one for each provider that 
+has an <span class="struct">ETW_GUID_ENTRY</span> in the kernel’s lists of providers 
+whose type is <span class="constant">EtwTraceGuidType</span>. As with any return 
+of information to user mode, this array can be stale by the time the user-mode caller 
+even begins to examine it. The most a user-mode caller—or a user who is involved 
+in forensic analysis—can expect is that there existed some earlier interval during 
+which the returned information was correct. Before Windows 8, this expectation is 
+met: the providers in the returned array were exactly the providers in the kernel’s 
+one double-linked list while changes to it were guarded by one lock. In Windows 
+8 and higher, a side-effect of the multiple locks is that there need never have 
+existed any one moment at which all the providers in the returned list actually 
+were in the kernel’s lists. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 5th
+  April 2020 and was last modified 
+  on 28th <a href="../../../../../../../new/20/05.htm">May 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

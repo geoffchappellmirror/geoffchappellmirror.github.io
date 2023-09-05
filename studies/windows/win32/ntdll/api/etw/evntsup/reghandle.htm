@@ -1,0 +1,216 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The User-Mode REGHANDLE</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>The User-Mode REGHANDLE </h1>
+<p>A substantial development of Event Tracing for Windows (ETW) in Windows Vista 
+is that an event provider registers its intention to write events and gets back 
+a <span class="type">REGHANDLE</span> to use when writing them. Kernel-mode providers 
+register by calling the kernel export <span class="function">
+<a href="../../../../../km/ntoskrnl/api/etw/register/register.htm">EtwRegister</a></span> 
+or <span class="function">
+<a href="../../../../../km/ntoskrnl/api/etw/register/registerclassicprovider.htm">
+EtwRegisterClassicProvider</a></span> and get a kernel-mode <span class="type">REGHANDLE</span>. 
+User-mode providers register by calling the ADVAPI32 export
+<span class="function">EventRegister</span>, forwarded to NTDLL as
+<span class="function"><a href="../etweventregister.htm">EtwEventRegister</a></span>, 
+and get a user-mode <span class="type">REGHANDLE</span>. This note is concerned 
+only with this user-mode registration handle. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="type">REGHANDLE</span> is documented as are most of the functions 
+that either produce it or accept it as input. But it is opaque. Formally, it is 
+just an unsigned 64-bit integer. Well-behaved programs do not interpret it. </p>
+<h2>Interpretation </h2>
+<p>Interpretation can, however, be useful to programmers when debugging and at any 
+time to the reverse engineer. It is anyway instructive to know the type’s interpretation 
+even without ever relying on it. </p>
+<p>The point to the <span class="type">REGHANDLE</span> is of course that it points 
+in some abstracted way to some abstracted structure that represents the registration. 
+In a naive implementation entirely in kernel mode, this representative structure 
+might exist only in kernel mode and be formally an Object Manager object so that 
+the user-mode <span class="type">REGHANDLE</span> could be (or contain) an Object 
+Manager <span class="type">HANDLE</span>. Instead, each user-mode registration of 
+an event provider has substantial support in user mode and so the representative 
+structure is a creation of NTDLL (and in turn contains a <span class="type">HANDLE</span> 
+to access the underlying kernel-mode support). Microsoft’s name for this user-mode 
+structure is known to be <a href="registration_entry.htm"><span class="struct">ETW_REGISTRATION_ENTRY</span></a>. 
+It has evident continuity through all versions but in no version is the user-mode
+<span class="type">REGHANDLE</span> simply the address of the registration entry.
+</p>
+<h3>Original </h3>
+<p>Before Windows 8, the user-mode <span class="type">REGHANDLE</span> doesn’t even 
+contain the address of the registration entry. Instead, NTDLL keeps an array of 
+pointers to the registration entries and an allocated <span class="type">REGHANDLE</span> 
+contains, among other things, a 0-based index into this array. Sometimes here, and 
+in pages that are linked to from here, this array is referred to as the
+<span class="definition">registration list</span> because its name as an internal 
+variable is known from public symbols for NTDLL to be
+<span class="internal variable">EtwpRegList</span>. The array’s capacity is hard-coded 
+as 0x0400, which is thus a non-inclusive upper bound on the index in a valid
+<span class="type">REGHANDLE</span> and is also the (documented) maximum number 
+of user-mode registrations that any process can have at any one time. </p>
+<p>The 8-byte registration handle is known to be interpreted internally as a structure:
+</p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">struct {
+    ULONG InUse : 16;</pre>
+    <span class="source">&nbsp;&nbsp;&nbsp;&nbsp;</span>unknown 16-bit sequence 
+    number
+    <pre class="source">} RegSignature;</pre>
+    </td>
+    <td>6.0 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>unknown 32-bit index into registration list </td>
+    <td>6.0 to 6.1 </td>
+  </tr>
+</table>
+<p>What little is known of this structural interpretation is from the WMITRACE.DLL 
+debugger extension. For its obsolete <span class="command">!regtable</span> command, 
+it knows that the structure exists in the <span class="struct">ETW_REGISTRATION_ENTRY</span> 
+as the <span class="member">RegistrationHandle</span> and that
+<span class="member">InUse</span> must be 1. Also known is that
+<span class="member">InUse</span> is nested within something named
+<span class="member">RegSignature</span>, which is merely thought above to be just 
+the first dword. It would not surprise if the second dword is named
+<span class="member">RegIndex</span>. (Support that <span class="member">InUse</span> 
+is a <span class="type">ULONG</span> bit field is thin. WMITRACE reads it into four 
+bytes but might read into just two if <span class="member">InUse</span> were known 
+to be defined more simply as a <span class="type">USHORT</span>.) </p>
+<p>The point to <span class="member">InUse</span> is that although a registration 
+entry is needed for each user-mode registration of an event provider, it is not 
+necessarily created afresh. Unregistering merely takes the registration entry out 
+of use, leaving it pointed to from its slot in the array and available for reuse. 
+When a registration entry is created for a registration, its
+<span class="member">RegistrationHandle</span> has 1 for <span class="member">InUse</span> 
+and 1 for its sequence number. While a registration entry is out of use, its
+<span class="member">RegistrationHandle</span> has zero for <span class="member">
+InUse</span>. When reused, its <span class="member">InUse</span> is restored to 
+1 and its sequence number is incremented. See that this sequence number is independent 
+for each index: it is a sequence number of the corresponding index number’s reuse.
+</p>
+<p>The plain intention is that a valid <span class="type">REGHANDLE</span> selects 
+an in-use <span class="struct">ETW_REGISTRATION_ENTRY</span> whose own
+<span class="member">RegistrationHandle</span> matches the <span class="type">REGHANDLE</span>. 
+The actual implementation is not quite so strict. A <span class="type">REGHANDLE</span> 
+is invalid unless all the following are true: </p>
+<ul>
+  <li>the low word in a valid <span class="type">REGHANDLE</span> is not zero;
+  </li>
+  <li>the high dword is less than 0x0400 and the address it indexes in the registration 
+  list is not <span class="constant">NULL</span>; </li>
+  <li>the low dword is exactly the same as the low dword of the
+  <span class="member">RegistrationHandle</span> in the indexed
+  <span class="struct">ETW_REGISTRATION_ENTRY</span>. </li>
+</ul>
+<p>Note that although the <span class="member">RegSignature</span> portion of the
+<span class="type">REGHANDLE</span>, with its boolean <span class="member">InUse</span> 
+and its sequence number, may be adequate defence against a stale
+<span class="type">REGHANDLE</span>, it still leaves the <span class="type">REGHANDLE</span> 
+as essentially an index, with conspicuously little entropy: the low word can only 
+be 1, the second word is almost always 1; and the high dword is often small and 
+never exceeds 1023. </p>
+<h3>Modern </h3>
+<p>The <span class="type">REGHANDLE</span> has much more entropy in Windows 8 because 
+it is essentially a pointer. Though the number of user-mode registrations and thus 
+of <span class="struct">ETW_REGISTRATION_ENTRY</span> structures that a process 
+can have at any one time is still limited (but now to the undocumented 2048), there 
+is no index to use in the <span class="type">REGHANDLE</span>. There is no longer 
+an array to index. Instead, the registration entries are nodes in a red-black tree 
+(sorted by GUID). A valid <span class="type">REGHANDLE</span> is mostly the address 
+of the corresponding registration entry. </p>
+<p>But the <span class="type">REGHANDLE</span> is not only a pointer to a registration 
+entry. What versions 6.2 and higher have instead of the index is a sequence number, 
+now truly counting the registration’s place in the order of all the process’s registrations.
+</p>
+<table>
+  <tr>
+    <th>Mask (x86) </th>
+    <th>Mask (x64) </th>
+    <th>Interpretation </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00000000`FFFFFFFF </td>
+    <td>0x0000FFFF`FFFFFFFF </td>
+    <td>address of registration entry </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0000FFFF`00000000 </td>
+    <td>0xFFFF0000`00000000 </td>
+    <td>sequence number </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p>A <span class="type">REGHANDLE</span> is valid only if all the following are 
+true: </p>
+<ul>
+  <li>the sequence number is non-zero; </li>
+  <li>the address is not numerically odd; </li>
+  <li>the sequence number is exactly the sequence number that’s recorded in the 
+  addressed <span class="struct">ETW_REGISTRATION_ENTRY</span>. </li>
+</ul>
+<p>To be clear: a numerically even address from the <span class="type">REGHANDLE</span>, 
+including <span class="constant">NULL</span>, is treated as safe to inspect. The 
+point to the sequence number, as far as concerns its use in the
+<span class="type">REGHANDLE</span>, is a very particular defence. As with earlier 
+versions, registration entries are not freed at un-registration. They are cached 
+and reused. The defence is only against a stale <span class="type">REGHANDLE</span> 
+which retains the address of a registration entry that is now not in use or has 
+been reused. The defence is not against a corrupt, random or mischievously manufacturerd
+<span class="type">REGHANDLE</span>. Feed such a thing to an API function for ETW 
+and the likely outcome is that you crash the process. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 16th May 2020 but was not published 
+  until 28th <a href="../../../../../../../new/20/05.htm">May 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

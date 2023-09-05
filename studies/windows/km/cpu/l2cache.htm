@@ -1,0 +1,579 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Second-Level Cache Support in the Windows Kernel</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../_include/x86specific.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">If only for now, this article is specific to 32-bit Windows 
+  (i386 or x86). </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="58497" -->
+  <h1>Second-Level Cache Support in the Windows Kernel </h1>
+  <p>Intel’s processors have long provided for the <span class="instruction">cpuid</span> 
+  instruction to return information about the various caches that are built into 
+  the processor. The Windows kernel starts collecting this information as of version 
+  5.0. </p>
+  <p>The particular interest of this article, if only for now, is what the kernel 
+  learns about the size and associativity of the second-level (L2) cache while initialising 
+  the processor. The results go into the <span class="member">SecondLevelCacheAssociativity</span> 
+  and <span class="member">SecondLevelCacheSize</span> members of the
+  <span class="struct"><a href="../ntoskrnl/inc/ntos/kpcr.htm">KPCR</a></span> structure. 
+  How the kernel gets these results from multiple calls to
+  <span class="instruction">cpuid</span> is a small lesson in the practical difficulties 
+  an operating system’s manufacturer has with supporting processors that evolve 
+  rapidly and come from multiple vendors. </p>
+  <h2>Intel </h2>
+  <p>Version 5.0 bothered only with Intel. The algorithm remains essentially unchanged, 
+  even to version 10.0, but as the possible cases for interpretation grew, the interpretations 
+  changed and even though the interpretations were settled ahead of version 6.0 
+  they don’t all match Intel’s literature (which also changes). </p>
+  <p>The <span class="instruction">cpuid</span> instruction is here understood as 
+  taking a leaf number in the <span class="register">eax</span> register and returning 
+  results in <span class="register">eax</span>, <span class="register">ebx</span>,
+  <span class="register">ecx</span> and <span class="register">edx</span>. Given 
+  that earlier <a href="../ntoskrnl/cpu/index.htm">CPU identification</a> has established 
+  from leaf 0 that the vendor is GenuineIntel, the Windows kernel expects cache 
+  characteristics from leaf 2. The general idea is that: </p>
+  <ul>
+    <li>each characteristic has a one-byte descriptor to be interpreted; </li>
+    <li>these descriptors can be returned in any of the bytes of any of the registers;
+    </li>
+    <li>and there can be so many that retrieving them all may require multiple executions 
+    of leaf 2. </li>
+  </ul>
+  <p>To proceed, the kernel re-executes leaf 0 to check that it sets
+  <span class="register">eax</span> to at least 2. Otherwise, leaf 2 is not supported 
+  and there can be no cache characteristics to learn. Given that leaf 2 is supported, 
+  its first execution is special for returning in <span class="register">al</span> 
+  the number of times that <span class="instruction">cpuid</span> must be executed, 
+  each time with 2 in <span class="register">eax</span>, for complete retrieval. 
+  Except for that case, each non-zero byte of any register that is returned with 
+  the 0x80000000 bit clear is a descriptor. The kernel examines the registers in 
+  the order <span class="register">eax</span>, <span class="register">ebx</span>,
+  <span class="register">ecx</span>, <span class="register">edx</span>, and the 
+  bytes of each register from least significant to most. </p>
+  <table>
+    <tr>
+      <th>Descriptor </th>
+      <th>Cache Size </th>
+      <th>Associativity </th>
+      <th>Line Size </th>
+      <th>NTA Granularity </th>
+      <th>Applicable Versions </th>
+    </tr>
+    <tr>
+      <td>0x22 </td>
+      <td>512KB </td>
+      <td>4 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x23 </td>
+      <td>1MB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x24 </td>
+      <td>0 </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x25 </td>
+      <td>2MB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x26 </td>
+      <td>0 </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x27 </td>
+      <td>0 </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x28 </td>
+      <td>0 </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x29 </td>
+      <td>4MB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x2C </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>64 bytes </td>
+      <td>5.1 from Windows XP SP2, and higher </td>
+    </tr>
+    <tr>
+      <td>0x41 </td>
+      <td>128KB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x42 </td>
+      <td>256KB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x43 </td>
+      <td>512KB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x44 </td>
+      <td>1MB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x45 </td>
+      <td>2MB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x46 </td>
+      <td>4MB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x47 </td>
+      <td>8MB </td>
+      <td>4 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x48 </td>
+      <td>16MB </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 only </td>
+    </tr>
+    <tr>
+      <td>0x49 </td>
+      <td>32MB </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 only </td>
+    </tr>
+    <tr>
+      <td>0x4A </td>
+      <td>4MB </td>
+      <td>8 </td>
+      <td>64 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.2 from Windows Server 2003 SP1, and higher </td>
+    </tr>
+    <tr>
+      <td>0x4B </td>
+      <td>6MB </td>
+      <td>12 </td>
+      <td>64 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.2 from Windows Server 2003 SP1, and higher </td>
+    </tr>
+    <tr>
+      <td>0x4C </td>
+      <td>8MB </td>
+      <td>16 </td>
+      <td>64 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.2 from Windows Server 2003 SP1, and higher </td>
+    </tr>
+    <tr>
+      <td>0x66 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>64 bytes </td>
+      <td>5.0 from Windows 2000 SP3, and higher </td>
+    </tr>
+    <tr>
+      <td>0x67 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>64 bytes </td>
+      <td>5.0 from Windows 2000 SP3, and higher </td>
+    </tr>
+    <tr>
+      <td>0x68 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>64 bytes </td>
+      <td>5.0 from Windows 2000 SP3, and higher </td>
+    </tr>
+    <tr>
+      <td>0x78 </td>
+      <td>1MB </td>
+      <td>4 </td>
+      <td>64 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.2 from Windows Server 2003 SP1, and higher </td>
+    </tr>
+    <tr>
+      <td>0x79 </td>
+      <td>128KB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x7A </td>
+      <td>256KB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x7B </td>
+      <td>512KB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x7C </td>
+      <td>1MB </td>
+      <td>8 </td>
+      <td>128 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x7D </td>
+      <td>2MB </td>
+      <td>8 </td>
+      <td>64 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.2 from Windows Server 2003 SP1, and higher </td>
+    </tr>
+    <tr>
+      <td>0x7F </td>
+      <td>512KB </td>
+      <td>2 </td>
+      <td>64 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.2 from Windows Server 2003 SP1, and higher </td>
+    </tr>
+    <tr>
+      <td>0x81 </td>
+      <td>128KB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x82 </td>
+      <td>256KB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x83 </td>
+      <td>512KB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x84 </td>
+      <td>1MB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td>0x85 </td>
+      <td>2MB </td>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 and higher (cache size); <br>
+      5.1 and higher (associativity) </td>
+    </tr>
+    <tr>
+      <td rowspan="3">0x86 </td>
+      <td rowspan="2">4MB </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 only </td>
+    </tr>
+    <tr>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.1 to 5.2 before Windows Server 2003 SP1 </td>
+    </tr>
+    <tr>
+      <td>512KB </td>
+      <td>4 </td>
+      <td>64 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.2 from Windows Server 2003 SP1, and higher </td>
+    </tr>
+    <tr>
+      <td rowspan="3">0x87 </td>
+      <td rowspan="2">8MB </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 only </td>
+    </tr>
+    <tr>
+      <td>8 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.1 to 5.2 before Windows Server 2003 SP1 </td>
+    </tr>
+    <tr>
+      <td>1MB </td>
+      <td>8 </td>
+      <td>64 bytes </td>
+      <td>&nbsp;</td>
+      <td>5.2 from Windows Server 2003 SP1, and higher </td>
+    </tr>
+    <tr>
+      <td>0x88 </td>
+      <td>16MB </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 only </td>
+    </tr>
+    <tr>
+      <td>0x89 </td>
+      <td>32MB </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>5.0 only </td>
+    </tr>
+    <tr>
+      <td>0xF0 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>64 bytes </td>
+      <td>5.1 from Windows XP SP2, and higher </td>
+    </tr>
+    <tr>
+      <td>0xF1 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>128 bytes </td>
+      <td>5.1 from Windows XP SP2, and higher </td>
+    </tr>
+  </table>
+  <p>Version 5.0 is unconcerned about associativity or line size. Early builds interpret 
+  the descriptors only to learn the cache size. The build for Windows 2000 SP3 recognises 
+  additional descriptors as telling just of the processor’s capacity to prefetch 
+  for Non-Temporal Access (NTA). The NTA granularity affects what was then the newly 
+  introduced (but not yet documented) <span class="function">
+  <a href="../ntoskrnl/api/rtl/prefetchmemorynontemporal.htm">RtlPrefetchMemoryNonTemporal</a></span> 
+  function. At any given time, the granularity that the kernel uses is whatever 
+  it last learnt for any processor, defaulting to 32 bytes. </p>
+  <p>Different versions deal differently with the occurrence of more than one descriptor 
+  that is interpreted as specifying a cache size. In version 5.0, the cache size 
+  that is adopted for the processor is simply the last that’s found. In version 
+  5.1 and higher, the descriptor that counts for both cache size and associativity 
+  is the one for which the size divided by the associativity is greatest. </p>
+  <p>Of descriptors that are interpreted as specifying a line size, the one that 
+  counts is whichever gives the largest that is anyway larger than 64 bytes. The 
+  size of the largest cache line on any processor is made readily available to all 
+  kernel-mode software as the result of the documented <span class="function">KeGetRecommendedSharedDataAlignment</span> 
+  function and less readily to all user-mode software as information produced by 
+  the <span class="function"><a href="../ntoskrnl/api/ex/sysinfo/query.htm">NtQuerySystemInformation</a></span> 
+  function when given the undocumented information class <span class="constant">
+  SystemRecommendedSharedDataAlignment</span>. </p>
+  <h2>AMD </h2>
+  <p>Processors that have the vendor string AuthenticAMD are supported in version 
+  5.1 and higher. For these, the kernel expects cache characteristics from
+  <span class="instruction">cpuid</span> leaves 0x80000005 and 0x80000006. </p>
+  <p>If executing <span class="instruction">cpuid</span> leaf 0x80000000 returns 
+  at least 0x80000005 in <span class="register">eax</span>, then leaf 0x80000005 
+  is supported and executing it returns the NTA granularity in
+  <span class="register">cl</span>. </p>
+  <p>If executing <span class="instruction">cpuid</span> function 0x80000000 returns 
+  at least 0x80000006 in <span class="register">eax</span>, then leaf 0x80000006 
+  is supported and executing it returns cache characterics in
+  <span class="register">ecx</span>: </p>
+  <ul>
+    <li>the cache size, in KB, as the high 2 bytes (bits 16 to 31); </li>
+    <li>an encoding of the associativity as bits 12 to 15; </li>
+    <li>the line size, in bytes, as the low byte (bits 0 to 7). </li>
+  </ul>
+  <p>For family 6, model 3, stepping 0, the cache size is taken to be 64KB whatever 
+  the result from <span class="instruction">cpuid</span>. </p>
+  <p>Associativity is encoded according to the following table: </p>
+  <table>
+    <tr>
+      <th>Encoding </th>
+      <th>Associativity </th>
+      <th>Applicable Versions </th>
+    </tr>
+    <tr>
+      <td>0x02 </td>
+      <td>2 </td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x04 </td>
+      <td>4 </td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x06 </td>
+      <td>8 </td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x08 </td>
+      <td>16 </td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0F </td>
+      <td>16 </td>
+      <td>5.2 and higher </td>
+    </tr>
+    <tr>
+      <td>else </td>
+      <td>1 </td>
+      <td>5.1 and higher </td>
+    </tr>
+  </table>
+  <p>Recognition of 0x0F for the high four bits is prevented until version 5.2 because 
+  of a coding error (which did not get fixed in chronologically later service packs 
+  of version 5.1). </p>
+  <h2>Centaur </h2>
+  <p>Not until version 6.2 are processors whose vendor string is CentaurHauls even 
+  considered for any sort of determination of their cache characteristics. Now that 
+  they are, they’re treated exactly as if they’re GenuineIntel. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 23rd
+    <a href="../../../../new/16/05.htm">May 2016</a> and was last modified on 1st 
+    November 2016. </p>
+    <!--webbot bot="Include" U-Include="../_include/c16.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62939" -->
+  </div>
+</div>
+
+</body>
+
+</html>

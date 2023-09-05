@@ -1,0 +1,665 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>HV_X64_PLATFORM_CAPABILITIES</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>HV_X64_PLATFORM_CAPABILITIES </h1>
+  <p>The <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> structure (formally
+  <span class="union">_HV_X64_PLATFORM_CAPABILITIES</span> and actually a union) 
+  collects the flags that a Microsoft-compatible hypervisor produces in the
+  <span class="register">eax</span>, <span class="register">ebx</span>,
+  <span class="register">ecx</span> and <span class="register">edx</span> registers 
+  as output for some unknown leaf of the <span class="instruction">
+  <a href="../../../../cpu/cpuid/index.htm">cpuid</a></span> instruction. </p>
+  <p>Or so it seems reasonable to infer. The <span class="union">
+  <a href="hv_cpuid_result.htm">HV_CPUID_RESULT</a></span> union that Microsoft 
+  defined in the Windows Driver Kit (WDK) for Windows 7 was at least intended at 
+  the time to cover all the <span class="instruction">cpuid</span> leaves that matter 
+  to the hypervisor. For Windows 10, according to symbol files (see below), this 
+  union got three new members. The older members are in increasing order of
+  <span class="instruction">cpuid</span> leaf, and had got as far as 0x40000006. 
+  The first of the new members has the mystery type <span class="union">HV_X64_PLATFORM_CAPABILITIES</span>. 
+  It is followed by members whose types, <span class="struct">
+  <a href="hv_x64_hypervisor_cpu_management_features.htm">HV_X64_HYPERVISOR_CPU_MANAGEMENT_FEATURES</a></span> 
+  and <span class="struct"><a href="hv_hypervisor_svm_features.htm">HV_HYPERVISOR_SVM_FEATURES</a></span>, 
+  are clearly for <span class="instruction">cpuid</span> leaves 0x40000007 and 0x40000008. 
+  Among <span class="instruction">cpuid</span> leaves in the hypervisor series that 
+  starts 0x40000000, none that the Windows kernel is presently known to execute 
+  produces flags that match the <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> 
+  definition. </p>
+  <p>The best guess I have—and beware that I say guess because what I base it on 
+  is too thin to call evidence—is that the <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> 
+  structure models the output of <span class="instruction">cpuid</span> leaf 0x40000082. 
+  This <span class="instruction">cpuid</span> leaf can be executed by the kernel 
+  in versions 6.1 to 6.3 inclusive and by various boot applications, notably the 
+  EFI boot manager and boot loader, starting with 64-bit Windows 8 and 32-bit Windows 
+  8.1, and continuing at least to the 2004 release of Windows 10. Indeed, the latter 
+  use has been broadening, such that it is also seen in KDNET.DLL. The kernel and 
+  the others each test one of the lowest two bits that <span class="instruction">
+  cpuid</span> leaf 0x40000082 produces in <span class="register">eax</span>, the 
+  kernel for licensing, the others for whether to allow debugging (of themselves 
+  and of the kernel). Squint a little and the use of these two bits look a little 
+  like matching the <span class="member">AllowRedSignedCode</span> and
+  <span class="member">AllowKernelDebugging</span> that the structure has for its 
+  two first bits (see below). In the absence of any other explanation for what
+  <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> can be meant for in the
+  <span class="union">HV_CPUID_RESULT</span>, I latch onto
+  <span class="instruction">cpuid</span> leaf 0x40000082. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> is not documented. 
+  The hypervisor’s <span class="instruction">cpuid</span> implementation is documented 
+  in the
+  <a href="https://msdn.microsoft.com/en-us/virtualization/hyperv_on_windows/reference/tlfs">
+  Hypervisor Top-Level Functional Specification</a> (TLFS), which Microsoft provides 
+  under the Microsoft Open Specification Promise. No known version of this specification, 
+  from 2.0 dated May 2012 to 6.0b dated February 2020, mentions
+  <span class="instruction">cpuid</span> leaf 0x40000082 or any other whose output 
+  looks even a little like the <span class="union">HV_X64_PLATFORM_CAPABILITIES</span>.
+  </p>
+  <p>TLFS versions up to and including 5.0c, dated July 2018, do however have an 
+  appendix titled Architectural CPUID which documents the range 0x40000080 to 0x400000FF 
+  as “Reserved for use of intercept handlers in the parent partition”. I cannot 
+  discount that an earlier TLFS or precursor documented
+  <span class="instruction">cpuid</span> leaf 0x40000082 and perhaps even that hypervisors 
+  with Microsoft as vendor implement 0x40000080 as beginning a second series of 
+  hypervisor leaves that closely follow the pattern of the first. A quick search 
+  of the Internet turns up headers whose authors define at least something for
+  <span class="instruction">cpuid</span> leaf 0x400000082 and cite the TLFS (but 
+  not which version) at least for reference if not as their actual source. My thinking 
+  is that they mean their citation of the TLFS only as an inspiration for their 
+  own programmatic definitions, not that their definitions are reproduced from whatever 
+  Microsoft presented. After all, among these headers are two different names that 
+  suggest very different purposes. That I even bother to point out such apparently 
+  unreliable non-Microsoft secondary or tertiary sources is to make the point that
+  <span class="instruction">cpuid</span> leaf 0x40000082 is about as obscure as 
+  things get. </p>
+  <p>Independently of which <span class="instruction">cpuid</span> leaf might be 
+  modelled by the <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> structure, 
+  there is anyway that the structure is about as obscure as things get for undocumented 
+  structures. In the downloadable packages of public symbols for 32-bit and 64-bit 
+  Windows 10, only the symbol files for URLMON.DLL have type information for
+  <span class="union">HV_X64_PLATFORM_CAPABILITIES</span>. URLMON is a user-mode 
+  DLL that originated as a component of Internet Explorer (and still follows Internet 
+  Explorer’s version numbering). Well might you wonder what this DLL has to do with 
+  the hypervisor such that its symbol files have type information for this structure 
+  but the kernel’s don’t! Symbol files for URLMON.DLL starting with Windows 8, both 
+  in packages of Windows symbols and when downloaded from Microsoft’s public symbol 
+  server, happen to be private symbols. This surely was an oversight, but however 
+  this disclosure came about, Microsoft stopped it for Version 1803. That URLMON.DLL 
+  knows of the <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> is because 
+  some URLMON.DLL source code has a <span class="directive">#include</span> for 
+  a header named <a href="../../../source/inc/hvgdk_mini.htm">hvgdk_mini.h</a>. 
+  Microsoft is known to use his header for its own programming of the Windows kernel 
+  but is not known to have ever made it available for use by programmers in general 
+  (let alone by the programmers of competing web browsers). </p>
+  <p>Type information for the <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> 
+  turns out to have been also disclosed in the relatively plain sight of two statically 
+  linked libraries. I say relatively plain because even experts tend to overlook 
+  that libraries can hold type information. Beware anyway that type information 
+  in statically linked libraries does not always match the operating system that 
+  the library is supposedly intended for. One of the libraries, named CLFSMGMT.LIB, 
+  is among the many that are supplied with the Software Development Kit (SDK) for 
+  user-mode programming. Type information for the <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> 
+  drops out of this library in Version 2004. The other is more obviously related 
+  to hypervisors. It is named KDHV.LIB. Microsoft distributes it among the programming 
+  samples in the Debugging Tools for Windows. It has type information for the
+  <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> for all versions of Windows 
+  10 at least to the 2004 release. </p>
+  <h2>Layout </h2>
+  <p>The <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> is 0x10 bytes in 
+  both 32-bit and 64-bit Windows. Offsets, masks and definitions below are from 
+  type information in symbol files for URLMON.DLL before Version 1803 and then in 
+  KDHV.DLL. </p>
+  <p>Formally, the <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> is a 
+  16-byte union of a structure of bit fields for the various flags and of two 64-bit 
+  integers for accessing of all flags together: </p>
+  <pre class="source">union {
+    UINT64 AsUINT64 [2];
+    struct {
+        /*  mostly bit fields, see below  */
+    };
+};</pre>
+  <p>The structure is essentially four dwords, each for one register as loaded by 
+  executing the unknown <span class="instruction">cpuid</span> leaf: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">/*  bit fields for EAX, see below  */</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>
+        <pre class="source">/*  bit fields for EBX, see below  */</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">UINT ReservedEcx;</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>0x0C </td>
+        <td>
+        <pre class="source">/*  bit fields for EDX, see below  */</pre>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>What counts, of course, are the flags as bit fields. </p>
+  <h3>Offset 0x00 (EAX) </h3>
+  <p>Except for one bit that is named as if reserved but perhaps had earlier use, 
+  the dword for output in <span class="register">eax</span> is fully assigned even 
+  for the original Windows 10: </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00000001 </td>
+        <td>
+        <pre class="source">UINT AllowRedSignedCode : 1;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000002 </td>
+        <td>
+        <pre class="source">UINT AllowKernelModeDebugging : 1;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000004 </td>
+        <td>
+        <pre class="source">UINT AllowUserModeDebugging : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000008 </td>
+        <td>
+        <pre class="source">UINT AllowTelnetServer : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000010 </td>
+        <td>
+        <pre class="source">UINT AllowIOPorts : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000020 </td>
+        <td>
+        <pre class="source">UINT AllowFullMsrSpace : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000040 </td>
+        <td>
+        <pre class="source">UINT AllowPerfCounters : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000080 </td>
+        <td>
+        <pre class="source">UINT AllowHost512MB : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UINT ReservedEax1 : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000200 </td>
+        <td>
+        <pre class="source">UINT AllowRemoteRecovery : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000400 </td>
+        <td>
+        <pre class="source">UINT AllowStreaming : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000800 </td>
+        <td>
+        <pre class="source">UINT AllowPushDeployment : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00001000 </td>
+        <td>
+        <pre class="source">UINT AllowPullDeployment : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00002000 </td>
+        <td>
+        <pre class="source">UINT AllowProfiling : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00004000 </td>
+        <td>
+        <pre class="source">UINT AllowJsProfiling : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00008000</td>
+        <td>
+        <pre class="source">UINT AllowCrashDump : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00010000 </td>
+        <td>
+        <pre class="source">UINT AllowVsCrashDump : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00020000 </td>
+        <td>
+        <pre class="source">UINT AllowToolFileIO : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00040000 </td>
+        <td>
+        <pre class="source">UINT AllowConsoleMgmt : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00080000 </td>
+        <td>
+        <pre class="source">UINT AllowTracing : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00100000 </td>
+        <td>
+        <pre class="source">UINT AllowXStudio : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00200000 </td>
+        <td>
+        <pre class="source">UINT AllowGestureBuilder : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00400000 </td>
+        <td>
+        <pre class="source">UINT AllowSpeechLab : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00800000 </td>
+        <td>
+        <pre class="source">UINT AllowSmartglassStudio : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01000000 </td>
+        <td>
+        <pre class="source">UINT AllowNetworkTools : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02000000 </td>
+        <td>
+        <pre class="source">UINT AllowTcrTool : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04000000 </td>
+        <td>
+        <pre class="source">UINT AllowHostNetworkStack : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08000000 </td>
+        <td>
+        <pre class="source">UINT AllowSystemUpdateTest : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x10000000 </td>
+        <td>
+        <pre class="source">UINT AllowOffChipPerfCtrStreaming : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x20000000 </td>
+        <td>
+        <pre class="source">UINT AllowToolingMemory : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000000 </td>
+        <td>
+        <pre class="source">UINT AllowSystemDowngrade : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000000 </td>
+        <td>
+        <pre class="source">UINT AllowGreenDiskLicenses : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>That the first two flags are given above for versions before 10.0 is to be 
+  understood in the context of guessing that the <span class="union">HV_X64_PLATFORM_CAPABILITIES</span> 
+  is the output of <span class="instruction">cpuid</span> leaf 0x40000082. </p>
+  <p>The kernel in versions 6.1 to 6.3, both for 32-bit and 64-bit Windows, executes
+  <span class="instruction">cpuid</span> leaf 0x40000082 solely to check for the 
+  0x00000001 bit. Its sole purpose is to configure the later behaviour of
+  <span class="internal routine">NtQueryLicenceValue</span>, which is of course 
+  the implementation of the exported <span class="function">ZwQueryLicenseValue</span>. 
+  The specific query that is affected is for <span class="licvalue">Kernel-VMDetection-Private</span>. 
+  How this might match the structure’s <span class="member">AllowRedSignedCode</span> 
+  is a topic for research. Meanwhile, I observe only that the bit’s name (for signing) 
+  isn’t obviously incompatible with the kernel’s use (for licensing). </p>
+  <p>Interestingly, the kernel’s expectation for availability of
+  <span class="instruction">cpuid</span> leaf 0x40000082 is only that
+  <a href="../../../../cpu/cpuid/00000001h/ecx.htm"><span class="register">ecx</span> 
+  from <span class="instruction">cpuid</span> leaf 1</a> reports that a hypervisor 
+  is present and <span class="instruction">cpuid</span> leaf 0x40000000 identifies 
+  the vendor as “Microsoft Hv”. Public symbols name relevant internal routines as
+  <span class="internal routine">ExpIsViridian</span> and
+  <span class="internal routine">ExpIsViridianGuest</span>, apparently called to 
+  answer <span class="internal routine">ExpIsVirtualMachinePrivate</span>. </p>
+  <p>Other software, none yet known to predate version 6.2, executes
+  <span class="instruction">cpuid</span> leaf 0x40000082 solely to check for the 
+  0x00000002 bit. All this known use is for setting up kernel-mode debugging but 
+  not in its whole generality, only for whether to use something named synthetic 
+  debugging. Again, more research is required. </p>
+  <h3>Offset 0x04 (EBX) </h3>
+  <p>What <span class="instruction">cpuid</span> produces in
+  <span class="register">ebx</span> was still in active development if only briefly 
+  after the original Windows 10 but no changes are known beyond Version 1511:
+  </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00000001 </td>
+        <td>
+        <pre class="source">UINT IsLiveConnected : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000002 </td>
+        <td>
+        <pre class="source">UINT IsMteBoosted : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000004 </td>
+        <td>
+        <pre class="source">UINT IsQaSlt : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000008 </td>
+        <td>
+        <pre class="source">UINT IsStockImage : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000010 </td>
+        <td>
+        <pre class="source">UINT IsMsTestLab : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000020 </td>
+        <td>
+        <pre class="source">UINT IsRetailDebugger : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000040 </td>
+        <td>
+        <pre class="source">UINT IsXvdSort : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000080 </td>
+        <td>
+        <pre class="source">UINT IsGreenDebug : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000100 </td>
+        <td>
+        <pre class="source">UINT IsHwDevTest : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000200 </td>
+        <td>
+        <pre class="source">UINT AllowDiskLicenses : 1;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000400 </td>
+        <td>
+        <pre class="source">UINT AllowInstrumentation : 1;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00000800 </td>
+        <td>
+        <pre class="source">UINT AllowWifiTester : 1;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00001000 </td>
+        <td>
+        <pre class="source">UINT AllowWifiTesterDFS : 1;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00002000 </td>
+        <td>
+        <pre class="source">UINT IsHwTest : 1;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00004000 </td>
+        <td>
+        <pre class="source">UINT AllowHostOddTest : 1;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00008000 </td>
+        <td>
+        <pre class="source">UINT IsLiveUnrestricted : 1;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x00010000 </td>
+        <td>
+        <pre class="source">UINT AllowDiscLicensesWithoutMediaAuth : 1;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">UINT ReservedEbx : 23;</pre>
+        </td>
+        <td>10.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UINT ReservedEbx : 15;</pre>
+        </td>
+        <td>1511 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Offset 0x0C (EDX) </h3>
+  <p>Registers <span class="register">ecx</span> and <span class="register">edx</span> 
+  look to have been kept as reserved except for the most significant bit: </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UINT ReservedEdx : 31;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000000 </td>
+        <td>
+        <pre class="source">UINT UseAlternateXvd : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 12th
+    <a href="../../../../../../../new/16/11.htm">November 2016</a> and was last 
+    modified on 10th <a href="../../../../../../../new/22/12.htm">December 2022</a>.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4925" -->
+  </div>
+</div>
+
+</body>
+
+</html>

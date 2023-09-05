@@ -1,0 +1,586 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ERESOURCE</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+<h1>ERESOURCE </h1>
+<p>The <span class="struct">ERESOURCE</span> is a compound object with which the 
+Executive supports a more elaborate model of synchronisation than does any one dispatcher 
+object. Threads that contend for access to some protected resource call functions 
+that acquire and release the <span class="struct">ERESOURCE</span>. A contending 
+thread may require exclusive access or be satisfied to share its access. Moreover, 
+a thread that already has access may reacquire it. The Executive implements this 
+synchronisation by combining a <span class="struct">KEVENT</span> and
+<span class="struct">KSEMAPHORE</span> with various counts and flags protected by 
+a <span class="type">KSPIN_LOCK</span>. </p>
+<h2>Documentation Status </h2>
+<p>Though the <span class="struct">ERESOURCE</span> has always been documented, 
+its content is explicitly not documented. Relevant functions take the address of 
+an <span class="struct">ERESOURCE</span> among their arguments, but callers merely 
+provide sufficient (non-paged) memory for the kernel to initialise what it wants 
+how it wants. The most the documentation says of the content is that “the
+<span class="struct">ERESOURCE</span> structure is opaque: that is, its members 
+are reserved for system use.” </p>
+<p>Explicit warning is perhaps necessary because a C-language definition has been 
+provided in every Device Driver Kit (DDK) from as far back as Windows NT 3.51 and 
+presumably before. The apparent purpose is that drivers and other kernel-mode modules 
+that ask the kernel to intialise an <span class="struct">ERESOURCE</span> should 
+know how much memory to provide. Since what happens in the space is entirely in 
+the hands of kernel functions that are provided for initialising and then working 
+with this memory, Microsoft might as well have defined the
+<span title="struct" class="struct">ERESOURCE</span> as containing an array of bytes, 
+with no consequences for programmers at large except if the required size ever grew.</p>
+<h2>Layout </h2>
+<p>Yet the size has changed. In all versions since 3.50, the
+<span class="struct">ERESOURCE</span> is 0x38 and 0x68 bytes in 32-bit and 64-bit 
+Windows, respectively, but the structure in version 3.10 is 0x78 bytes. </p>
+<h3>Original </h3>
+<p>For whatever reason, the original <span class="struct">ERESOURCE</span> from 
+version 3.10 was reworked almost immediately. The very next version, 3.50, has a 
+new set of functions to work with a new <span class="struct">ERESOURCE</span> and 
+retains not quite half of the old functions to work with the old
+<span class="struct">ERESOURCE</span>. For all the kerfuffle with new and old functions, 
+the structure didn’t change name, and its most important members in the original 
+implementation are at least recognisable in the new implementation. Indeed, some 
+such correspondence is essential since the two forms of <span class="struct">ERESOURCE</span> 
+coexisted up to and including version 5.0 and were both reported for the
+<span class="constant">SystemLocksInformation</span> case of
+<span class="function"><a href="../sysinfo/query.htm">NtQuerySystemInformation</a></span>, 
+such that they needed at the very least to be reliably distinguishable. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="1"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">LIST_ENTRY SystemResourcesList;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x08 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">ERESOURCE_THREAD *OwnerThreads;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x0C (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">UCHAR *OwnerCounts;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x10 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">USHORT TableSize;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x12 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">USHORT ActiveCount;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x14 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">USHORT Flag;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x16 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">USHORT TableRover;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x18 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">UCHAR InitialOwnerCounts [4];</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x1C (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">ERESOURCE_THREAD InitialOwnerThreads [4];</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x2C (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">ULONG Spare1;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x30 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">ULONG ContentionCount;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x34 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">USHORT NumberOfExclusiveWaiters;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x36 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">USHORT NumberOfSharedWaiters;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x38 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">KSEMAPHORE SharedWaiters;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x4C (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">KEVENT ExclusiveWaiters;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x5C (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">KSPIN_LOCK SpinLock;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x60 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">ULONG CreatorBackTraceIndex;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x64 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">USHORT Depth;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x66 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">USHORT Reserved;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x68 (3.10 to 5.0) </td>
+    <td>
+    <pre class="source">PVOID OwnerBackTrace [4];</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+  </tr>
+</table>
+<p>The point to the <span class="member">SystemResourcesList</span> is that initialising 
+an <span class="struct">ERESOURCE</span> (unless it is in user-mode address space) 
+gets the <span class="struct">ERESOURCE</span> inserted into a double-linked list 
+whose head is in the kernel’s own data. Being in this list is how the
+<span class="struct">ERESOURCE</span> structures are enumerated for
+<span class="function">NtQuerySystemInformation</span>. </p>
+<p>At any given time, an <span class="struct">ERESOURCE</span> may have no owners 
+or one exclusive owner or any number of shared owners. The <span class="type">ERESOURCE_THREAD</span> 
+is Microsoft’s type, originally a <span class="type">ULONG</span> but later a
+<span class="type">ULONG_PTR</span>, for representing an owner thread. What it actually 
+holds is, unsurprisingly, the address of the owner thread’s <span class="struct">
+<a href="../../../inc/ntos/ke/kthread/310.htm">KTHREAD</a></span> (or perhaps
+<span class="struct"><a href="../../../inc/ntos/ps/ethread/index.htm">ETHREAD</a></span>). 
+Since an owner thread can reacquire the resource multiple times, the
+<span class="struct">ERESOURCE</span> keeps for each owner both an
+<span class="struct">ERESOURCE_THREAD</span> and a count. </p>
+<p>The original implementation keeps separate arrays of the owner threads and owner 
+counts, naturally enough named <span class="member">OwnerThreads</span> and
+<span class="member">OwnerCounts</span>. Together they are an owner table that describes
+<span class="member">TableSize</span> owners. </p>
+<p>In the original implementation, allowance for an exclusive owner or four shared 
+owners is built in as arrays of <span class="member">InitialOwnerCounts</span> and
+<span class="member">InitialOwnerThreads</span> that are initially pointed to from
+<span class="member">OwnerCounts</span> and <span class="member">OwnerThreads</span>, 
+respectively. If more than four threads ever share the resource, then memory is 
+found for a growable table of owner threads and counts. The <span class="member">
+OwnerThreads</span> and <span class="member">OwnerCounts</span> members then point 
+to the threads and counts in the table. The threads are straightforwardly an array 
+at the beginning of the table. The counts are less so. When these are built-in they 
+are simply an array of four byte-sized counts. In the growable table, they follow 
+the array of threads but successive byte-sized counts are spaced 0x10 bytes apart. 
+(No reason is known for this spacing.) The <span class="member">TableSize</span> 
+is the table’s capacity for owners, both exclusive and shared, whether the table 
+is built in or not. This capacity always grows to a multiple of four. </p>
+<p>Versions 3.50 to 5.0 retain the original <span class="struct">ERESOURCE</span> 
+for use by the original functions, but they do not retain all of these original 
+functions. In particular, no means is provided by which old binaries that still 
+call the old functions can acquire shared ownership. In these versions then, the
+<span class="member">OwnerThreads</span> in an old <span class="struct">ERESOURCE</span> 
+can only ever point to the built-in <span class="member">InitialOwnerThreads</span>. 
+This becomes the mechanism by which the old <span class="struct">ERESOURCE</span> 
+and the new can be distinguished: the new retains a pointer at offset 0x08 in such 
+a way that it cannot ever point to offset 0x1C. </p>
+<p>The <span class="member">ActiveCount</span> tells how many threads currently 
+have access to the resource. A thread’s recursive reacquisition of the resource 
+does not change this count. This <span class="member">ActiveCount</span> is what’s 
+shown as the resource’s <span class="member">LockCount</span> in the
+<span class="struct"><a href="process_lock_information.htm">RTL_PROCESS_LOCK_INFORMATION</a></span> 
+structure when the resource is described for the <span class="constant">SystemLocksInformation</span> 
+case of <span class="function">NtQuerySystemInformation</span>. </p>
+<p>Bits for the <span class="member">Flag</span> are defined compatibly between 
+the old and new: </p>
+<table class="Bits">
+  <tr>
+    <th>Mask </th>
+    <th>Name </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x0001 </td>
+    <td>&nbsp;</td>
+    <td>3.10 to 5.0 </td>
+    <td>set if any thread is waiting for exclusive access; <br>
+    debug output suggests <span class="constant">ExclusiveWaiter</span> as name
+    </td>
+  </tr>
+  <tr>
+    <td>0x0002 </td>
+    <td>&nbsp;</td>
+    <td>3.10 only </td>
+    <td>set if any thread is waiting for shared access; <br>
+    debug output suggests <span class="constant">SharedWaiter</span> as name
+    </td>
+  </tr>
+  <tr>
+    <td>0x0004 </td>
+    <td>&nbsp;</td>
+    <td>3.10 only </td>
+    <td>set if using external owner table </td>
+  </tr>
+  <tr>
+    <td>0x0008 </td>
+    <td>&nbsp;</td>
+    <td>all </td>
+    <td>set if priority boost disabled </td>
+  </tr>
+  <tr>
+    <td>0x0010&nbsp; </td>
+    <td><span class="constant">ResourceNeverExclusive</span> </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0020 </td>
+    <td><span class="constant">ResourceReleaseByOtherThread</span> </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0080 </td>
+    <td><span class="constant">ResourceOwnedExclusive</span> </td>
+    <td>all </td>
+    <td>debug output&nbsp;in 3.10 to 5.0 suggests <span class="constant">IsOwnedExclusive</span> 
+    as name </td>
+  </tr>
+</table>
+<p>The <span class="member">ContentionCount</span> is of times that threads have 
+been made to wait. Such waits can happen multiple times within any one call to acquire 
+the resource. Though the <span class="member">ContentionCount</span> does not correlate 
+directly with calls to acquire the resource, it does only increase, never decrease 
+(except to wrap around to zero). </p>
+<h3>Revised </h3>
+<p>The original <span class="struct">ERESOURCE</span> was largely scrapped as soon 
+as the second Windows version. It was retained only with the reduced functionality 
+of not allowing shared ownership and only then until version 5.0. Moreover, the 
+revision seems to have been considered substantial enough that a new set of functions 
+was provided for the new implementation. Old code, not yet rebuilt, could continue 
+to call the old functions such as <span class="function">ExInitializeResource</span> 
+and <span class="function">ExAcquireResourceExclusive</span> to provide the kernel 
+with space for an old <span class="struct">ERESOURCE</span> to work with and to 
+get old behaviour. New code would call new functions such as
+<span class="function">ExInitializeResourceLite</span> and
+<span class="function">ExAcquireResourceExclusiveLite</span> to provide the kernel 
+with a new <span class="struct">ERESOURCE</span> and to get new behaviour. Old code 
+rebuilt with new definitions would get the new behaviour because macros redefine 
+the old functions to use the new names. </p>
+<p>The new functionality is perhaps “lite” only in the sense that the new
+<span class="struct">ERESOURCE</span> is smaller, notably for not having a
+<span class="struct">KSEMAPHORE</span> or <span class="struct">KEVENT</span> until 
+the corresponding type of access (shared or exclusive, respectively) is requested. 
+Yet precisely because the new <span class="struct">ERESOURCE</span> is smaller, 
+old code that was not yet rebuilt but had properly treated the old
+<span class="struct">ERESOURCE</span> as opaque would have been undisturbed by the 
+change of implementation: it would simply have provided more space than the new 
+kernel would use. A reason that would have compelled a name change is that old code 
+was known that did not treat the space as opaque, but this would not explain why 
+the retention of old functions was only of those for exclusive ownership. Whatever 
+the reason, no public explanation from Microsoft is known. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">LIST_ENTRY SystemResourcesList;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">OWNER_ENTRY *OwnerTable;</pre>
+    </td>
+    <td>3.50 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">SHORT ActiveCount;</pre>
+    </td>
+    <td>3.50 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0E </td>
+    <td rowspan="2">0x1A </td>
+    <td>
+    <pre class="source">USHORT Flag;</pre>
+    </td>
+    <td>3.50 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    USHORT Flag;
+    struct {
+        UCHAR ReservedLowFlags;
+        UCHAR WaiterPriority;
+    };
+};</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x10 </td>
+    <td rowspan="2">0x20 </td>
+    <td>
+    <pre class="source">KSEMAPHORE *SharedWaiters;</pre>
+    </td>
+    <td>3.50 to 6.3 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">KWAIT_CHAIN SharedWaiters;</pre>
+    </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>0x28 </td>
+    <td>
+    <pre class="source">KEVENT *ExclusiveWaiters;</pre>
+    </td>
+    <td>3.50 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x18 </td>
+    <td rowspan="2">0x30 </td>
+    <td>
+    <pre class="source">OWNER_ENTRY OwnerThreads [2];</pre>
+    </td>
+    <td>3.50 to 5.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">OWNER_ENTRY OwnerEntry;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>0x40 </td>
+    <td>
+    <pre class="source">ULONG ActiveEntries;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x28 (3.50 to 5.2); <br>
+    0x24 </td>
+    <td>0x50 (5.2); <br>
+    0x44 </td>
+    <td>
+    <pre class="source">ULONG  ContentionCount;</pre>
+    </td>
+    <td>3.50 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x2C (3.50 to 5.2); <br>
+    0x28 </td>
+    <td rowspan="2">0x54 (5.2); <br>
+    0x48 </td>
+    <td>
+    <pre class="source">USHORT NumberOfSharedWaiters;</pre>
+    </td>
+    <td>3.50 to 5.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG NumberOfSharedWaiters;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x2E (3.50 to 5.2); <br>
+    0x2C </td>
+    <td rowspan="2">0x56 (5.2); <br>
+    0x4C </td>
+    <td>
+    <pre class="source">USHORT NumberOfExclusiveWaiters;</pre>
+    </td>
+    <td>3.50 to 5.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG NumberOfExclusiveWaiters;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x50 </td>
+    <td>
+    <pre class="source">PVOID Reserved2;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td>0x58 </td>
+    <td>
+    <pre class="source">union {
+    PVOID Address;
+    ULONG_PTR CreatorBackTraceIndex;
+};</pre>
+    </td>
+    <td>3.50 and higher </td>
+  </tr>
+  <tr>
+    <td>0x34 </td>
+    <td>0x60 </td>
+    <td>
+    <pre class="source">KSPIN_LOCK SpinLock;</pre>
+    </td>
+    <td>3.50 and higher </td>
+  </tr>
+</table>
+<p>The revision consolidates the tracking of threads and counts into an
+<span class="struct">OWNER_ENTRY</span> structure. As with the original, there is 
+both a built-in allowance and a growable table. In the revision, however, the external
+<span class="member">OwnerTable</span> does not replace the built-in allowance but 
+adds to it. Whether the <span class="struct">ERESOURCE</span> has an
+<span class="member">OwnerThreads</span> array or just the one
+<span class="member">OwnerEntry</span>, these built-in provisions remain in use 
+forever. </p>
+<p>In all versions, the first built-in <span class="struct">OWNER_ENTRY</span>, 
+whether as the first in the <span class="member">OwnerThreads</span> array or just 
+as plain <span class="member">OwnerEntry</span>, is for the exclusive owner whenever 
+the resource has one. For as long as it happens that the resource never has a shared 
+owner, it has no external <span class="member">OwnerTable</span>. Even once the 
+resource has an <span class="member">OwnerTable</span>, the first built-in
+<span class="struct">OWNER_ENTRY</span> remains the one that tracks the exclusive 
+owner. </p>
+<p>In those (early) versions that have two built-in <span class="struct">OWNER_ENTRY</span> 
+structures, the second is for a shared owner. For as long as it happens that the 
+resource never is owned by two threads concurrently, it has no external
+<span class="member">OwnerTable</span>. The second built-in <span class="struct">
+OWNER_ENTRY</span> remains available for tracking a shared owner even when more 
+entries are available in an external table. </p>
+<p>In all versions, the first <span class="struct">OWNER_ENTRY</span> in the external
+<span class="member">OwnerTable</span> is a dummy. It never tracks a shared owner. 
+Its only meaningful member is the <span class="member">TableSize</span>, which is 
+the number of entries in the table, including the dummy. Versions 5.0 and higher 
+formalise this by having the <span class="member">TableSize</span> in union with 
+the <span class="member">OwnerCount</span>, the former for the first
+<span class="struct">OWNER_ENTRY</span> pointed to from <span class="member">OwnerTable</span>, 
+the latter for all that follow. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 11th November 2018 but was not pubished 
+  until 28th <a href="../../../../../../../new/20/06.htm">June 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

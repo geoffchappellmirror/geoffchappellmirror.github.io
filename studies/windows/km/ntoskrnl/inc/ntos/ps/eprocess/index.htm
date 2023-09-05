@@ -1,0 +1,5274 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EPROCESS</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>EPROCESS </h1>
+  <p>The <span class="struct">EPROCESS</span> structure (formally
+  <span class="struct">_EPROCESS</span>) is the kernel’s representation of a process 
+  object. For instance, if the <span class="function">ObReferenceObjectByHandle</span> 
+  function successfully resolves a handle though directed to do so only if the object 
+  type is <span class="variable">PsProcessType</span>, then what the function produces 
+  as its pointer to the object is a pointer to an <span class="struct">EPROCESS</span>.
+  </p>
+  <p>Many functions that are exported from the kernel, e.g., for use by drivers, 
+  provide for referring to a process object through a pointer to an
+  <span class="struct">EPROCESS</span>. The structure itself, however, is meant 
+  to be opaque outside the kernel, if not to Microsoft-supplied modules such as 
+  WIN32K.SYS, then at least to device drivers. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="struct">EPROCESS</span> is not formally documented, but headers 
+  that Microsoft publishes for device driver programming have always declared the
+  <span class="struct">EPROCESS</span> as an opaque type. For instance, NTDDK.H 
+  from as far back as the Device Driver Kit (DDK) for Windows NT 3.1 has </p>
+  <pre class="source">typedef struct _EPROCESS *PEPROCESS;</pre>
+  <p>a few lines after a comment “Define types that are not exported”. Documentation 
+  for later versions makes increasingly clear what this pointer type points to. 
+  For instance, the DDK for Windows NT 3.51 has that <span class="function">IoGetCurrentProcess</span> 
+  “returns a pointer to the current process” and the Windows Driver Kit (WDK) for 
+  Windows Vista has that the input to <span class="function">PsGetProcessId</span> 
+  is “a process object structure”. The WDK for Windows Vista is anyway the first 
+  to document that <span class="variable">PsProcessType</span> directs
+  <span class="function">ObReferenceObjectByHandle</span> to produce a pointer to 
+  an <span class="struct">EPROCESS</span>, and it warns very clearly that the structure 
+  is “opaque, and drivers cannot access the structure members.” </p>
+  <h2>Access </h2>
+  <p>The <span class="struct">EPROCESS</span> exists only in kernel-mode memory. 
+  User-mode software has only indirect access through handles. </p>
+  <h2>Variability </h2>
+  <p>Since the <span class="struct">EPROCESS</span> structure is internal to the 
+  kernel, it should not surprise that the layout changes greatly between Windows 
+  versions and even between builds. In the following table of sizes, different builds 
+  of the same version are distinguished as early and late because they are known 
+  to vary the structure even if they don’t change the size. These descriptions, 
+  as early and late, are then used throughout the article as a shorthand. </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3.10 </td>
+        <td>0x0280 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.50 to 4.0 </td>
+        <td>0x01F8 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>early 5.0 (before SP3); <br>
+        late 5.0 </td>
+        <td>0x0288 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>early 5.1 (before SP2) </td>
+        <td>0x0258 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.1 </td>
+        <td>0x0260 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>early 5.2 (before SP1); <br>
+        late 5.2 </td>
+        <td>0x0278 </td>
+        <td>0x03E0 </td>
+      </tr>
+      <tr>
+        <td>early 6.0 (before SP1); <br>
+        late 6.0 </td>
+        <td>0x0270 </td>
+        <td>0x03E8 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0x02C0 </td>
+        <td>0x04D0 </td>
+      </tr>
+      <tr>
+        <td>6.2 </td>
+        <td>0x02E8 </td>
+        <td>0x0660 </td>
+      </tr>
+      <tr>
+        <td>6.3 </td>
+        <td>0x02F8 </td>
+        <td>0x06B8 </td>
+      </tr>
+      <tr>
+        <td>10.0 </td>
+        <td>0x0380 </td>
+        <td>0x0798 </td>
+      </tr>
+      <tr>
+        <td>1511 </td>
+        <td>0x0370 </td>
+        <td>0x0788 </td>
+      </tr>
+      <tr>
+        <td>1607 </td>
+        <td>0x0388 </td>
+        <td>0x07B0 </td>
+      </tr>
+      <tr>
+        <td>1703 </td>
+        <td>0x03E0 </td>
+        <td>0x0818 </td>
+      </tr>
+      <tr>
+        <td>1709 </td>
+        <td>0x03E8 </td>
+        <td>0x0838 </td>
+      </tr>
+      <tr>
+        <td>1803 </td>
+        <td>0x0400 </td>
+        <td>0x0848 </td>
+      </tr>
+      <tr>
+        <td>1809 </td>
+        <td>0x0408 </td>
+        <td>0x0850 </td>
+      </tr>
+      <tr>
+        <td>1903 </td>
+        <td>0x0480 </td>
+        <td>0x0880 </td>
+      </tr>
+      <tr>
+        <td>2004 </td>
+        <td>0x04C0 </td>
+        <td>0x0A40 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout </h2>
+  <p>These sizes, and the offsets, types and names in the tables that follow, are 
+  from Microsoft’s symbol files for the kernel starting with Windows 2000 SP3.
+  </p>
+  <p>Since symbol files for earlier versions do not contain type information for 
+  the <span class="struct">EPROCESS</span>, what’s known for these versions is instead 
+  inferred from what use the kernel is seen to make of the <span class="struct">
+  EPROCESS</span>. Sizes are straightforward, even without symbol files, since
+  <span class="function">ObCreateObject</span> and <span class="variable">PsProcessType</span> 
+  are exported (and so code that creates an <span class="struct">EPROCESS</span>, 
+  and thus knows the size, is easily found). Microsoft’s names and types are something 
+  of a guess, even with symbol files for later versions. Where use of a member corresponds 
+  closely with that of a version for which Microsoft’s symbols are available, it 
+  seems reasonable to suppose continuity. Some use, however, has no correspondence, 
+  the code having changed too much. Even where the use hasn’t changed, tracking 
+  it down exhaustively would be difficult, if not impossible, even with source code.
+  </p>
+  <p>That said, for some members in some early versions, offsets and names (but 
+  not types) are known with more or less confidence from the output of debugger 
+  extensions: the <span class="command">!processfields</span> command of the KDEXTX86 
+  debugger extension in version 3.51; and, both more comprehensively and plausibly 
+  more definitively, the <span class="command">
+  <a href="../../../../../debug/userkdx/dso.htm">!dso</a></span> commands of the 
+  USEREXTS and USERKDX extensions for versions 4.0 and 5.0, and the
+  <span class="command"><a href="../../../../../debug/kdex2x86/strct.htm">!strct</a></span> 
+  command of the KDEX2X86 extension again for versions 4.0 and 5.0. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source"><a href="../../ke/kprocess/index.htm">KPROCESS</a> Pcb;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x70 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KEVENT LockEvent;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next at 0x6C </td>
+      </tr>
+      <tr>
+        <td>0x80 (3.10); <br>
+        0x68 (3.50 to 4.0); <br>
+        0x6C (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">NTSTATUS ExitStatus;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next at 0x024C </td>
+      </tr>
+      <tr>
+        <td>0x84 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>unknown <span class="struct">KSEMAPHORE</span> </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x6C (3.50 to 4.0); <br>
+        0x70 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KEVENT LockEvent;</pre>
+        </td>
+        <td>3.50 to 5.0 </td>
+        <td>previously at 0x70 </td>
+      </tr>
+      <tr>
+        <td>0x7C (3.50 to 4.0); <br>
+        0x80 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG LockCount;</pre>
+        </td>
+        <td>3.50 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x6C (5.1 to early 5.2); <br>
+        0x78 (late 5.2); <br>
+        0x80 (6.0); <br>
+        0x98 (6.1); <br>
+        0xA0 (6.2 to 6.3); <br>
+        0xA8 (10.0 to 1607); <br>
+        0xB0 (1703 to 1903); <br>
+        0xE0 </td>
+        <td>0xB8 (late 5.2); <br>
+        0xC0 (6.0); <br>
+        0x0160 (6.1); <br>
+        0x02C8 (6.2 to 6.3); <br>
+        0x02D8 (10.0 to 1809); <br>
+        0x02E0 (1903); <br>
+        0x0438 </td>
+        <td>
+        <pre class="source">EX_PUSH_LOCK ProcessLock;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x98 (3.10); <br>
+        0x80 (3.50 to 4.0); <br>
+        0x88 (5.0); <br>
+        0x70 (5.1 to early 5.2); <br>
+        0x80 (late 5.2); <br>
+        0x88 (6.0); <br>
+        0xA0 (6.1); <br>
+        0xA8 (6.2 to 6.3) </td>
+        <td>0xC0 (late 5.2); <br>
+        0xC8 (6.0); <br>
+        0x0168 (6.1); <br>
+        0x02D0 (6.2 to 6.3) </td>
+        <td>
+        <pre class="source">LARGE_INTEGER CreateTime;</pre>
+        </td>
+        <td>3.10 to 6.3 </td>
+        <td>next at 0xC8 and 0x0308 </td>
+      </tr>
+      <tr>
+        <td>0xA0 (3.10); <br>
+        0x88 (3.50 to 4.0); <br>
+        0x90 (5.0); <br>
+        0x78 (5.1 to early 5.2); <br>
+        0x88 (late 5.2); <br>
+        0x90 (6.0); <br>
+        0xA8 (6.1) </td>
+        <td>0xC8 (late 5.2); <br>
+        0xD0 (6.0); <br>
+        0x0170 (6.1) </td>
+        <td>
+        <pre class="source">LARGE_INTEGER ExitTime;</pre>
+        </td>
+        <td>3.10 to 6.1 </td>
+        <td>next at 0x02B8 and 0x0610 </td>
+      </tr>
+      <tr>
+        <td>0xA8 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>unaccounted eight bytes </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x90 (3.50 to 4.0); <br>
+        0x98 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source"><a href="../../ke/kthread/index.htm">KTHREAD</a> *LockOwner;</pre>
+        </td>
+        <td>3.50 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x80 (5.1 to early 5.2); <br>
+        0x90 (late 5.2); <br>
+        0x98 (6.0); <br>
+        0xB0 (6.2 to 6.3); <br>
+        0xAC (10.0 to 1607) </td>
+        <td>0xD0 (late 5.2); <br>
+        0xD8 (6.0); <br>
+        0x0178 (6.1); <br>
+        0x02D8 (6.2 to 6.3); <br>
+        0x02E0 (10.0 to 1607) </td>
+        <td>
+        <pre class="source">EX_RUNDOWN_REF RundownProtect;</pre>
+        </td>
+        <td>5.1 to 1607 </td>
+        <td>next at 0xC0 and 0x02F8 </td>
+      </tr>
+      <tr>
+        <td>0xB0 (10.0 to 1607) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID VdmObjects;</pre>
+        </td>
+        <td>10.0 to 1607 </td>
+        <td>previously at 0x0128; <br>
+        next at 0xC4 </td>
+      </tr>
+      <tr>
+        <td>0xB0 (3.10); <br>
+        0x94 (3.50 to 4.0); <br>
+        0x9C (5.0); <br>
+        0x84 (5.1 to early 5.2); <br>
+        0x94 (late 5.2); <br>
+        0x9C (6.0); <br>
+        0xB4 (6.1 to 1903); <br>
+        0xE4 </td>
+        <td>0xD8 (late 5.2); <br>
+        0xE0 (6.0); <br>
+        0x0180 (6.1); <br>
+        0x02E0 (6.2 to 6.3); <br>
+        0x02E8 (10.0 to 1607); <br>
+        0x02E0 (1703 to 1809); <br>
+        0x02E8 (1903); <br>
+        0x0440 </td>
+        <td>
+        <pre class="source">PVOID UniqueProcessId;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xB4 (3.10); <br>
+        0x98 (3.50 to 4.0); <br>
+        0xA0 (5.0); <br>
+        0x88 (5.1 to early 5.2); <br>
+        0x98 (late 5.2); <br>
+        0xA0 (6.0); <br>
+        0xB8 (6.1 to 1903); <br>
+        0xE8 </td>
+        <td>0xE0 (late 5.2); <br>
+        0xE8 (6.0); <br>
+        0x0188 (6.1); <br>
+        0x02E8 (6.2 to 6.3); <br>
+        0x02F0 (10.0 to 1607); <br>
+        0x02E8 (1703 to 1809); <br>
+        0x02F0 (1903); <br>
+        0x0448 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ActiveProcessLinks;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC0 (1703 to 1903); <br>
+        0xF0 </td>
+        <td>0x02F8 (1703 to 1809); <br>
+        0x0300 (1903); <br>
+        0x0458 </td>
+        <td>
+        <pre class="source">EX_RUNDOWN_REF RundownProtect;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>previously at 0xAC and 0x02E0 </td>
+      </tr>
+      <tr>
+        <td>0xC4 (1703 to 1903); <br>
+        0xF4 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID VdmObjects;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>previously at 0xB0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Two sets of bit fields, in union with <span class="member">Flags</span> and
+  <span class="member">Flags2</span>, that Windows XP and Windows Vista introduced 
+  towards what was then the end of the structure were moved near to the front for 
+  Windows 8. Perhaps not coincidentally, Windows 8 is the version that brings all 
+  64 bits into use. More flags were added soon, as <span class="member">Flags3</span>, 
+  but again near the end of the structure. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xC0 (6.2 to 1607); <br>
+        0xC8 (1703 to 1903); <br>
+        0xF8 </td>
+        <td>0x02F8 (6.2 to 6.3); <br>
+        0x0300 (10.0 to 1809); <br>
+        0x0308 (1903); <br>
+        0x0460 </td>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="flags2.htm">Flags2</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x026C and 0x043C </td>
+      </tr>
+      <tr>
+        <td>0xC4 (6.2 to 1607); <br>
+        0xCC (1703 to 1903); <br>
+        0xFC </td>
+        <td>0x02FC (6.2 to 6.3); <br>
+        0x0304 (10.0 to 1809); <br>
+        0x030C (1903); <br>
+        0x0464 </td>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="flags.htm">Flags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x0270 and 0x0440 </td>
+      </tr>
+      <tr>
+        <td>0xC8 (10.0 to 1607); <br>
+        0xD0 (1703 to 1903); <br>
+        0x0100 </td>
+        <td>0x0308 (10.0 to 1809); <br>
+        0x0310 (1903); <br>
+        0x0468 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER CreateTime;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>previously 0xA8 and 0x02D0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>There now comes a set of members that track the process’s use of memory from 
+  the pools and the paging file. These resources are subject to quotas, but the 
+  limits apply to all processes that share a quota block. An
+  <span class="struct"><a href="../../../../api/ps/psquota/block.htm">EPROCESS_QUOTA_BLOCK</a></span> 
+  has the limits and tracks the use, both current and peak, by all the applicable 
+  processes. The corresponding members here in the <span class="struct">EPROCESS</span> 
+  track the current and peak use by just the one process. For no reason yet known, 
+  the process’s pointer to its quota block, i.e., the <span class="member">QuotaBlock</span> 
+  member, is in almost all versions placed further into the structure. </p>
+  <p>Each quota block has a spin lock, named <span class="member">QuotaLock</span>, 
+  that guards both the quota block’s members and these members here in the
+  <span class="struct">EPROCESS</span>. All versions except 3.10 have a default 
+  quota block in the kernel’s data. Its spin lock also guards the process’s
+  <span class="member">QuotaBlock</span> pointer. Version 3.10 instead provides 
+  its own spin lock in the <span class="struct">EPROCESS</span>. Microsoft’s name 
+  for it is not known, but the sharing of names such as <span class="member">QuotaPoolUsage</span> 
+  between the <span class="struct">EPROCESS</span> and the <span class="struct">
+  EPROCESS_QUOTA_BLOCK</span> speaks strongly for <span class="member">QuotaLock</span>.
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xBC (3.10) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KSPIN_LOCK QuotaLock;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC0 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>unknown <span class="type">KSPIN_LOCK</span> </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC4 (3.10); <br>
+        0xA0 (3.50 to 4.0); <br>
+        0xA8 (5.0) </td>
+        <td></td>
+        <td>
+        <pre class="source">ULONG QuotaPeakPoolUsage [2];</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next as <span class="member">QuotaPeak</span> </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0xCC (3.10); <br>
+        0xA8 (3.50 to 4.0); <br>
+        0xB0 (5.0) <br>
+        0x90 (5.1 to early 5.2); <br>
+        0xA0 (late 5.2); <br>
+        0xA8 (6.0); <br>
+        0xC0 (6.1); <br>
+        0xC8 (6.2 to 6.3); <br>
+        0xD0 (10.0 to 1607); <br>
+        0xD8 (1703 to 1903); <br>
+        0x0108 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG QuotaPoolUsage [2];</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xF0 (late 5.2); <br>
+        0xF8 (6.0); <br>
+        0x0198 (6.1); <br>
+        0x0300 (6.2 to 6.3); <br>
+        0x0310 (10.0 to 1809); <br>
+        0x0318 (1903); <br>
+        0x0470 </td>
+        <td>
+        <pre class="source">ULONG_PTR QuotaUsage [3];</pre>
+        </td>
+        <td>5.1 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR ProcessQuotaUsage [2];</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x9C (5.1 to early 5.2); <br>
+        0xAC (late 5.2); <br>
+        0xB4 (6.0); <br>
+        0xC8 (6.1); <br>
+        0xD0 (6.2 to 6.3); <br>
+        0xD8 (10.0 to 1607); <br>
+        0xE0 (1703 to 1903); <br>
+        0x0110 </td>
+        <td rowspan="2">0x0108 (late 5.2); <br>
+        0x0110 (6.0);&nbsp; <br>
+        0x01A8 (6.1); <br>
+        0x0310 (6.2 to 6.3); <br>
+        0x0320 (10.0 to 1809); <br>
+        0x0328 (1903); <br>
+        0x0480 </td>
+        <td>
+        <pre class="source">ULONG_PTR QuotaPeak [3];</pre>
+        </td>
+        <td>5.1 to 6.0 </td>
+        <td>previously <span class="member">QuotaPeakPoolUsage</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR ProcessQuotaPeak [2];</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xD4 (3.10); <br>
+        0xB0 (3.50 to 4.0); <br>
+        0xB8 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG PagefileUsage;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next in <span class="member">QuotaPeak</span> </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xD8 (3.10); <br>
+        0xB4 (3.50 to 4.0); <br>
+        0xBC (5.0); <br>
+        0xA8 (5.1 to early 5.2); <br>
+        0xB8 (late 5.2); <br>
+        0xC0 (6.0); <br>
+        0xD0 (6.1) </td>
+        <td rowspan="2">0x0120 (late 5.2); <br>
+        0x0128 (6.0); <br>
+        0x01B8 (6.1) </td>
+        <td>
+        <pre class="source">ULONG_PTR CommitCharge;</pre>
+        </td>
+        <td>3.10 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR volatile CommitCharge;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>next at 0x01EC and 0x04D8 </td>
+      </tr>
+      <tr>
+        <td>0xDC (3.10); <br>
+        0xB8 (3.50 to 4.0); <br>
+        0xC0 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG PeakPagefileUsage;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next in <span class="member">QuotaUsage</span> </td>
+      </tr>
+      <tr>
+        <td>0xD4 (6.1) </td>
+        <td>0x01C0 (6.1) </td>
+        <td>
+        <pre class="source">EPROCESS_QUOTA_BLOCK *QuotaBlock;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>previously at 0x0118 and 0x01D8; <br>
+        next at 0x014C and 0x0400 </td>
+      </tr>
+      <tr>
+        <td>0xD8 (6.1) </td>
+        <td>0x01C8 (6.1) </td>
+        <td>
+        <pre class="source">PS_CPU_QUOTA_BLOCK *CpuQuotaBlock;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">PagefileUsage</span>, <span class="member">CommitCharge</span> 
+  and <span class="member">PeakPagefileUsage</span> members count pages. The others 
+  count bytes. </p>
+  <p>The precise arrangement of the various members for current and peak use of 
+  the non-paged and pages pools and of the pagefile has varied with the
+  <span class="struct">EPROCESS_QUOTA_BLOCK</span> implementation. Version 5.1 brought 
+  the pools and pagefile together into a <span class="enum">
+  <a href="../../../../api/ps/psquota/type.htm">PS_QUOTA_TYPE</a></span> enumeration 
+  that indexes the <span class="member">QuotaUsage</span> and
+  <span class="member">QuotaPeak</span> arrays, which thus absorb what had been
+  <span class="member">PagefileUsage</span> and <span class="member">PeakPagefileUsage</span>.
+  </p>
+  <p>All the statistical members in the preceding set are retrievable through either 
+  or both of two native API functions in all versions: as members of
+  <span class="struct">VM_COUNTERS</span>, as filled by the
+  <span class="constant">ProcessVmCounters</span> (0x03) case of the
+  <span class="function">NtQueryInformationProcess</span> function; and as members 
+  of <span class="struct"><a href="../../../../api/ex/sysinfo/process.htm">SYSTEM_PROCESS_INFORMATION</a></span>, 
+  as filled by the <span class="constant">SystemProcessInformation</span> (0x05) 
+  case of the <span class="function">
+  <a href="../../../../api/ex/sysinfo/query.htm">NtQuerySystemInformation</a></span> 
+  function. For the latter, what is here called the <span class="member">CommitCharge</span> 
+  is there called the <span class="member">PrivatePageCount</span>—and in the
+  <span class="struct">VM_COUNTERS_EX</span>, which is supported in version 5.1 
+  and higher, it is named <span class="member">PrivateUsage</span>. </p>
+  <p>This area of statistical members also has the original counters of I/O operations 
+  and the bytes that these transferred. Presumably, this is because they were also 
+  retrievable in the <span class="struct">SYSTEM_PROCESS_INFORMATION</span>. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xE0 (3.10) </td>
+        <td>
+        <pre class="source">LARGE_INTEGER ReadTransferCount;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next at 0x0250 (5.0) </td>
+      </tr>
+      <tr>
+        <td>0xE8 (3.10) </td>
+        <td>
+        <pre class="source">LARGE_INTEGER WriteTransferCount;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next at 0x0258 (5.0) </td>
+      </tr>
+      <tr>
+        <td>0xF0 (3.10) </td>
+        <td>
+        <pre class="source">LARGE_INTEGER OtherTransferCount;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next at 0x0260 (5.0) </td>
+      </tr>
+      <tr>
+        <td>0xF8 (3.10) </td>
+        <td>
+        <pre class="source">ULONG ReadOperationCount;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next as <span class="union">LARGE_INTEGER</span> at 0x0238 (5.0)
+        </td>
+      </tr>
+      <tr>
+        <td>0xFC (3.10) </td>
+        <td>
+        <pre class="source">ULONG WriteOperationCount;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next as <span class="union">LARGE_INTEGER</span> at 0x0240 (5.0)
+        </td>
+      </tr>
+      <tr>
+        <td>0x0100 (3.10) </td>
+        <td>
+        <pre class="source">ULONG OtherOperationCount;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next as <span class="union">LARGE_INTEGER</span> at 0x0248 (5.0)
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The original implementation’s allowance of only 32 bits for counting the operations 
+  soon became problematic. Indeed, these counters disappear from the
+  <span class="struct">EPROCESS</span> until version 5.0 brings them back, all 64 
+  bits wide, but near to what was then the end of the structure. </p>
+  <p>In version 3.10, these I/O counters are retrievable through either or both 
+  of two native API functions: as members of <span class="struct">IO_COUNTERS</span>, 
+  as filled by the <span class="constant">ProcessIoCounters</span> (0x02) case of 
+  the <span class="function">NtQueryInformationProcess</span> function; and as members 
+  of <span class="struct">SYSTEM_PROCESS_INFORMATION</span>. They are in version 
+  5.0 and higher, too. In the intervening versions, the corresponding members of 
+  the <span class="struct">SYSTEM_PROCESS_INFORMATION</span> are unused or repurposed, 
+  and the <span class="constant">ProcessIoCounters</span> case is failed immediately 
+  as being not implemented. The NTDDK.H from the DDK for both Windows NT 3.51 and 
+  4.0 presents a C-language definition of the original <span class="struct">IO_COUNTERS</span> 
+  structure, with 32-bit operation counts, as output from <span class="constant">
+  ProcessIoCounters</span>, though trying to get that output can only have been 
+  a waste of time. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0104 (3.10); <br>
+        0xBC (3.50 to 4.0); <br>
+        0xC4 (5.0); <br>
+        0xAC (5.1 to early 5.2); <br>
+        0xBC (late 5.2); <br>
+        0xC4 (6.0); <br>
+        0xDC (6.1); <br>
+        0xD8 (6.2 to 6.3); <br>
+        0xE0 (10.0 to 1607); <br>
+        0xE8 (1703 to 1903); <br>
+        0x0118 </td>
+        <td>0x0128 (late 5.2); <br>
+        0x0130 (6.0); <br>
+        0x01D0 (6.1); <br>
+        0x0320 (6.2 to 6.3); <br>
+        0x0330 (10.0 to 1809); <br>
+        0x0338 (1903); <br>
+        0x0490 </td>
+        <td>
+        <pre class="source">ULONG_PTR PeakVirtualSize;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x0108 (3.10); <br>
+        0xC0 (3.50 to 4.0); <br>
+        0xC8 (5.0); <br>
+        0xB0 (5.1 to early 5.2); <br>
+        0xC0 (late 5.2); <br>
+        0xC8 (6.0); <br>
+        0xE0 (6.1); <br>
+        0xDC (6.2 to 6.3); <br>
+        0xE4 (10.0 to 1607); <br>
+        0xEC (1703 to 1903); <br>
+        0x011C </td>
+        <td>0x0130 (late 5.2); <br>
+        0x0138 (6.0); <br>
+        0x01D8 (6.1); <br>
+        0x0328 (6.2 to 6.3); <br>
+        0x0338 (10.0 to 1809); <br>
+        0x0340 (1903); <br>
+        0x0498 </td>
+        <td>
+        <pre class="source">ULONG_PTR VirtualSize;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">PeakVirtualSize</span> and <span class="member">VirtualSize</span> 
+  count pages. In all versions, conversions to bytes are retrievable as identically 
+  named members of the <span class="struct">VM_COUNTERS</span> structure that is 
+  filled by the <span class="constant">ProcessVmCounters</span> (0x03) case of the
+  <span class="function">NtQueryInformationProcess</span> function. </p>
+  <p>All versions 3.10 to 5.0 have four bytes of unused alignment space before the 
+  next member (which has 8-byte alignment before version 6.0). </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0110 (3.10); <br>
+        0xC8 (3.50 to 4.0); <br>
+        0xD0 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source"><a href="../mmsupport.htm">MMSUPPORT</a> Vm;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next at 0x01F8 </td>
+      </tr>
+      <tr>
+        <td>0x0140 (3.10); <br>
+        0xF8 (3.50 to 4.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID LastProtoPteFault;</pre>
+        </td>
+        <td>3.10 to 4.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0118 (5.0); <br>
+        0xB4 (5.1 to early 5.2); <br>
+        0xC4 (late 5.2); <br>
+        0xCC (6.0); <br>
+        0xE4 (6.1); <br>
+        0xE0 (6.2 to 6.3); <br>
+        0xE8 (10.0 to 1607); <br>
+        0xF0 (1703 to 1903); <br>
+        0x0120 </td>
+        <td>0x0138 (late 5.2); <br>
+        0x0140 (6.0); <br>
+        0x01E0 (6.1); <br>
+        0x0330 (6.2 to 6.3); <br>
+        0x0340 (10.0 to 1809); <br>
+        0x0348 (1903); <br>
+        0x04A0 </td>
+        <td>
+        <pre class="source">LIST_ENTRY SessionProcessLinks;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0144 (3.10); <br>
+        0xFC (3.50 to 4.0); <br>
+        0x0120 (5.0); <br>
+        0xBC (5.1 to early 5.2); <br>
+        0xCC (late 5.2); <br>
+        0xD4 (6.0); <br>
+        0xEC (6.1) </td>
+        <td>0x0148 (late 5.2); <br>
+        0x0150 (6.0); <br>
+        0x01F0 (6.1) </td>
+        <td>
+        <pre class="source">PVOID DebugPort;</pre>
+        </td>
+        <td>3.10 to 6.1 </td>
+        <td>next at 0x0154 and 0x0410 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0148 (3.10); <br>
+        0x0100 (3.50 to 4.0); <br>
+        0x0124 (5.0); <br>
+        0xC0 (5.1 to early 5.2); <br>
+        0xD0 (late 5.2); <br>
+        0xD8 (6.0); <br>
+        0xF0 (6.1); <br>
+        0xE8 (6.2 to 6.3); <br>
+        0xF0 (10.0 to 1607); <br>
+        0xF8 (1703 to 1903); <br>
+        0x0128 </td>
+        <td rowspan="2">0x0150 (late 5.2); <br>
+        0x0158 (6.0); <br>
+        0x01F8 (6.1); <br>
+        0x0340 (6.2 to 6.3); <br>
+        0x0350 (10.0 to 1809); <br>
+        0x0358 (1903); <br>
+        0x04B0 </td>
+        <td>
+        <pre class="source">PVOID ExceptionPort;</pre>
+        </td>
+        <td>3.10 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    PVOID ExceptionPortData;
+    ULONG_PTR ExceptionPortValue;
+    ULONG_PTR ExceptionPortState : 3;
+};</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x014C (3.10); <br>
+        0x0104 (3.50 to 4.0); <br>
+        0x0128 (5.0); <br>
+        0xC4 (5.1 to early 5.2); <br>
+        0xD4 (late 5.2); <br>
+        0xDC (6.0); <br>
+        0xF4 (6.1) </td>
+        <td>0x0158 (late 5.2); <br>
+        0x0160 (6.0); <br>
+        0x0200 (6.1) </td>
+        <td>
+        <pre class="source">HANDLE_TABLE *ObjectTable;</pre>
+        </td>
+        <td>3.10 to 6.1 </td>
+        <td>next at 0x0150 and 0x0408 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0150 (3.10); <br>
+        0x0108 (3.50 to 4.0); <br>
+        0x012C (5.0); <br>
+        0xC8 (5.1 to early 5.2); <br>
+        0xD8 (late 5.2); <br>
+        0xE0 (6.0); <br>
+        0xF8 (6.1); <br>
+        0xEC (6.2 to 6.3); <br>
+        0xF4 (10.0 to 1607); <br>
+        0xFC (1703 to 1903); <br>
+        0x012C </td>
+        <td rowspan="2">0x0160 (late 5.2); <br>
+        0x0168 (6.0); <br>
+        0x0208 (6.1); <br>
+        0x0348 (6.2 to 6.3); <br>
+        0x0358 (10.0 to 1809); <br>
+        0x0360 (1903); <br>
+        0x04B8 </td>
+        <td>
+        <pre class="source">PVOID Token;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">EX_FAST_REF Token;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0154 (3.10); <br>
+        0x010C (3.50 to 4.0); <br>
+        0x0130 (5.0); <br>
+        0xCC (5.1) </td>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">KMUTANT WorkingSetLock;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">FAST_MUTEX WorkingSetLock;</pre>
+        </td>
+        <td>3.50 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0174 (3.10); <br>
+        0x012C (3.50 to 4.0); <br>
+        0x0150 (5.0); <br>
+        0xEC (5.1); <br>
+        0xCC (early 5.2); <br>
+        0xDC (late 5.2); <br>
+        0xE4 (6.0); <br>
+        0xFC (6.1); <br>
+        0xF0 (6.2 to 6.3); <br>
+        0xF8 (10.0 to 1607); <br>
+        0x0100 (1703 to 1903); <br>
+        0x0130 </td>
+        <td rowspan="2">0x0168 (late 5.2); <br>
+        0x0170 (6.0); <br>
+        0x0210 (6.1); <br>
+        0x0350 (6.2 to 6.3); <br>
+        0x0360 (10.0 to 1809); <br>
+        0x0368 (1903); <br>
+        0x04C0 </td>
+        <td>
+        <pre class="source">ULONG_PTR WorkingSetPage;</pre>
+        </td>
+        <td>3.10 to 1607 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG MmReserved;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0178 (3.10); <br>
+        0x0130 (3.50 to 4.0); <br>
+        0x0154 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN ProcessOutswapEnabled;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next as <span class="member">OutswapEnabled</span> in
+        <span class="member">Flags</span> </td>
+      </tr>
+      <tr>
+        <td>0x0179 (3.10); <br>
+        0x0131 (3.50 to 4.0); <br>
+        0x0155 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN ProcessOutswapped;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next as <span class="member">Outswapped</span> in
+        <span class="member">Flags</span> </td>
+      </tr>
+      <tr>
+        <td>0x017A (3.10); <br>
+        0x0132 (3.50 to 4.0); <br>
+        0x0156 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN AddressSpaceInitialized;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x017B (3.10); <br>
+        0x0133 (3.50 to 4.0); <br>
+        0x0157 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN AddressSpaceDeleted;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x017C (3.10); <br>
+        0x0134 (3.50 to 4.0); <br>
+        0x0158 (5.0); <br>
+        0xF0 (5.1); <br>
+        0xD0 (early 5.2); <br>
+        0xE0 (late 5.2); <br>
+        0xE8 (6.0); <br>
+        0x0100 (6.1); <br>
+        0xF4 (6.2 to 6.3); <br>
+        0xFC (10.0 to 1607); <br>
+        0x0104 (1703 to 1903); <br>
+        0x0134 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KEVENT AddressCreationLock;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">FAST_MUTEX AddressCreationLock;</pre>
+        </td>
+        <td>3.50 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0170 (late 5.2); <br>
+        0x0178 (6.0); <br>
+        0x0218 (6.1); <br>
+        0x0358 (6.2 to 6.3); <br>
+        0x0368 (10.0 to 1809); <br>
+        0x0370 (1903); <br>
+        0x04C8 </td>
+        <td>
+        <pre class="source">KGUARDED_MUTEX AddressCreationLock;</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">EX_PUSH_LOCK AddressCreationLock;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0154 (3.50 to 4.0); <br>
+        0x0178 (5.0); <br>
+        0x0110 (5.1); <br>
+        0xF0 (early 5.2); <br>
+        0x0100 (late 5.2) </td>
+        <td>0x01A8 (late 5.2) </td>
+        <td>
+        <pre class="source">KSPIN_LOCK HyperSpaceLock;</pre>
+        </td>
+        <td>3.50 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>HyperSpace is a per-process region of kernel-mode address space. In these versions 
+  that have a <span class="member">HyperSpaceLock</span>, the x86, PAE and x64 builds 
+  have hyperspace at the pre-set addresses 0xC0400000, 0xC0800000 and 0xFFFFF700`00000000, 
+  respectively. The <span class="member">HyperSpaceLock</span> is for a particular 
+  use of a relatively small part of hyperspace that provides temporary linear addresses 
+  for the kernel’s own preparation of physical memory that is otherwise not (yet) 
+  accessible. Speed is of the essence. Version 3.10 simply rotates through a pool 
+  of 0x80 pages of linear address space and risks that threads in the process don’t 
+  map into hyperspace in such a rush that one gets an address that another is still 
+  using. Version 3.50 continues the rotating allocation but protects with a spin 
+  lock: only one thread can have a hyperspace mapping at any one time; releasing 
+  the lock releases the mapping. Though this surely meant that one page of linear 
+  address space could serve all threads, version 3.51 increases the pool to 0x0100 
+  pages. For the PAE builds, starting in version 5.0, the pool is 0x7F pages. Version 
+  6.0 speeds the mapping into hyperspace by mapping to a per-processor region instead. 
+  Since threads on different processors map from different regions, the only “lock” 
+  that is now needed for mapping to “hyperspace” is to raise the IRQL: the
+  <span class="member">HyperSpaceLock</span> is needed no more. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xF8 (6.3); <br>
+        0x0100 (10.0 to 1607); <br>
+        0x0108 (1703 to 1903); <br>
+        0x0138 </td>
+        <td>0x0360 (6.2 to 6.3); <br>
+        0x0370 (10.0 to 1809); <br>
+        0x0378 (1903); <br>
+        0x04D0 </td>
+        <td>
+        <pre class="source">EX_PUSH_LOCK PageTableCommitmentLock;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xEC (6.0); <br>
+        0x0104 (6.1); <br>
+        0xF8 (6.2); <br>
+        0xFC (6.3); <br>
+        0x0104 (10.0 to 1607); <br>
+        0x010C (1703 to 1903); <br>
+        0x013C </td>
+        <td>0x0180 (6.0); <br>
+        0x0220 (6.1); <br>
+        0x0360 (6.2); <br>
+        0x0368 (6.2 to 6.3); <br>
+        0x0378 (10.0 to 1809); <br>
+        0x0380 (1903); <br>
+        0x04D8 </td>
+        <td>
+        <pre class="source"><a href="../ethread/index.htm">ETHREAD</a> *RotateInProgress;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x018C (3.10); <br>
+        0x0158 (3.50 to 4.0); <br>
+        0x017C (5.0); <br>
+        0x0114 (5.1); <br>
+        0xF4 (early 5.2); <br>
+        0x0104 (late 5.2); <br>
+        0xF0 (6.0); <br>
+        0x0108 (6.1); <br>
+        0xFC (6.2); <br>
+        0x0100 (6.3); <br>
+        0x0108 (10.0 to 1607); <br>
+        0x0110 (1703 to 1903); <br>
+        0x0140 </td>
+        <td>0x01B0 (late 5.2); <br>
+        0x0188 (6.0); <br>
+        0x0228 (6.1); <br>
+        0x0368 (6.2); <br>
+        0x0370 (6.2 to 6.3); <br>
+        0x0380 (10.0 to 1809); <br>
+        0x0388 (1903); <br>
+        0x04E0 </td>
+        <td>
+        <pre class="source">ETHREAD *ForkInProgress;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0190 (3.10); <br>
+        0x015C (3.50 to 4.0); <br>
+        0x0180 (5.0) </td>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">ULONG VmOperation;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT VmOperation;</pre>
+        </td>
+        <td>3.51 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x015E (3.51 to 4.0); <br>
+        0x0182 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN ForkWasSuccessful;</pre>
+        </td>
+        <td>3.51 to 5.0 </td>
+        <td>previously at 0x0184 </td>
+      </tr>
+      <tr>
+        <td>0x015F (4.0); <br>
+        0x0183 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR MmAgressiveWsTrimMask;</pre>
+        </td>
+        <td>4.0 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0194 (3.10); <br>
+        0x0160 (3.50 to 4.0); <br>
+        0x0184 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KEVENT *VmOperationEvent;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0198 (3.10); <br>
+        0x0164 (3.50 to 4.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source"><a href="../../../../api/mm/mi/hardware_pte.htm">HARDWARE_PTE</a> PageDirectoryPte;</pre>
+        </td>
+        <td>3.10 to 4.0 </td>
+        <td>next at 0x01F0 </td>
+      </tr>
+      <tr>
+        <td>0x0188 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID PaeTop;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>next at 0x019C </td>
+      </tr>
+      <tr>
+        <td>0x019C (3.10); <br>
+        0x0168 (3.50 to 4.0); <br>
+        0x018C (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG LastFaultCount;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next at 0x0238 </td>
+      </tr>
+      <tr>
+        <td>0x01A0 (3.10); <br>
+        0x016C (3.50 to 4.0); <br>
+        0x0190 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG ModifiedPageCount;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next at 0x023C </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>That the <span class="member">LastFaultCount</span> has earlier history than 
+  is known from type information in symbol files for version 5.0 is confirmed by 
+  debugger extensions. It is here assumed to have been defined all along, but beware 
+  that no use is yet known in any of these early versions. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0118 (5.1); <br>
+        0xF8 (early 5.2); <br>
+        0x0108 (late 5.2); <br>
+        0xF4 (6.0); <br>
+        0x010C (6.1); <br>
+        0x0100 (6.2) </td>
+        <td>0x01B8 (late 5.2); <br>
+        0x0190 (6.0); <br>
+        0x0230 (6.1); <br>
+        0x0370 (6.2) </td>
+        <td>
+        <pre class="source">ULONG_PTR HardwareTrigger;</pre>
+        </td>
+        <td>5.1 to 6.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01A4 (3.10); <br>
+        0x0170 (3.50 to 4.0); <br>
+        0x0194 (5.0); <br>
+        0x011C (5.1) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID VadRoot;</pre>
+        </td>
+        <td>3.10 to 5.1 <br>
+        </td>
+        <td>next at 0x0258 </td>
+      </tr>
+      <tr>
+        <td>0x01A8 (3.10); <br>
+        0x0174 (3.50 to 4.0); <br>
+        0x0198 (5.0); <br>
+        0x0120 (5.1) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID VadHint;</pre>
+        </td>
+        <td>3.10 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xFC (early 5.2); <br>
+        0x010C (late 5.2); <br>
+        0xF8 (6.0); <br>
+        0x0110 (6.1) </td>
+        <td>0x01C0 (late 5.2); <br>
+        0x0198 (6.0); <br>
+        0x0238 (6.1) </td>
+        <td>
+        <pre class="source">MM_AVL_TABLE *PhysicalVadRoot;</pre>
+        </td>
+        <td>5.2 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0104 (6.2 to 6.3); <br>
+        0x010C (10.0 to 1607); <br>
+        0x0114 (1703 to 1903); <br>
+        0x0144 </td>
+        <td>0x0378 (6.2 to 6.3); <br>
+        0x0388 (10.0 to 1809); <br>
+        0x0390 (1903); <br>
+        0x04E8 </td>
+        <td>
+        <pre class="source"><a href="../ejob/index.htm">EJOB</a> *CommitChargeJob;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01AC (3.10); <br>
+        0x0178 (3.50 to 4.0); <br>
+        0x019C (5.0); <br>
+        0x0124 (5.1); <br>
+        0x0100 (early 5.2); <br>
+        0x0110 (late 5.2); <br>
+        0xFC (6.0); <br>
+        0x0114 (6.1); <br>
+        0x0108 (6.2 to 6.3); <br>
+        0x0110 (10.0 to 1607); <br>
+        0x0118 (1703 to 1903); <br>
+        0x0148 </td>
+        <td rowspan="2">0x01C8 (late 5.2); <br>
+        0x01A0 (6.0); <br>
+        0x0240 (6.1); <br>
+        0x0380 (6.2 to 6.3); <br>
+        0x0390 (10.0 to 1809); <br>
+        0x0398 (1903); <br>
+        0x04F0 </td>
+        <td>
+        <pre class="source">PVOID CloneRoot;</pre>
+        </td>
+        <td>3.10 to 6.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source"><a href="../../../shared/rtlrbtree/rtl_avl_tree.htm">RTL_AVL_TREE</a> CloneRoot;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01B0 (3.10); <br>
+        0x017C (3.50 to 4.0); <br>
+        0x01A0 (5.0); <br>
+        0x0128 (5.1); <br>
+        0x0104 (early 5.2); <br>
+        0x0114 (late 5.2); <br>
+        0x0100 (6.0); <br>
+        0x0118 (6.1); <br>
+        0x010C (6.2 to 6.3); <br>
+        0x0114 (10.0 to 1607); <br>
+        0x011C (1703 to 1903); <br>
+        0x014C </td>
+        <td rowspan="2">0x01D0 (late 5.2); <br>
+        0x01A8 (6.0); <br>
+        0x0248 (6.1); <br>
+        0x0388 (6.2 to 6.3); <br>
+        0x0398 (10.0 to 1809); <br>
+        0x03A0 (1903); <br>
+        0x04F8 </td>
+        <td>
+        <pre class="source">ULONG_PTR NumberOfPrivatePages;</pre>
+        </td>
+        <td>3.10 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR volatile NumberOfPrivatePages;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01B4 (3.10); <br>
+        0x0180 (3.50 to 4.0); <br>
+        0x01A4 (5.0); <br>
+        0x012C (5.1); <br>
+        0x0108 (early 5.2); <br>
+        0x0118 (late 5.2); <br>
+        0x0104 (6.0); <br>
+        0x011C (6.1); <br>
+        0x0110 (6.2 to 6.3); <br>
+        0x0118 (10.0 to 1607); <br>
+        0x0120 (1703 to 1903); <br>
+        0x0150 </td>
+        <td rowspan="2">0x01D8 (late 5.2); <br>
+        0x01B0 (6.0); <br>
+        0x0250 (6.1); <br>
+        0x0390 (6.2 to 6.3); <br>
+        0x03A0 (10.0 to 1809); <br>
+        0x03A8 (1903); <br>
+        0x0500 </td>
+        <td>
+        <pre class="source">ULONG_PTR NumberOfLockedPages;</pre>
+        </td>
+        <td>3.10 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR volatile NumberOfLockedPages;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01B8 (3.10); <br>
+        0x0184 (3.50) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN ForkWasSuccessful;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>next at 0x015E </td>
+      </tr>
+      <tr>
+        <td>0x01B9 (3.10) </td>
+        <td>&nbsp;</td>
+        <td>unaccounted two bytes </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0185 (3.50); <br>
+        0x0184 (3.51 to 4.0); <br>
+        0x01A8 (5.0) </td>
+        <td rowspan="2">&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR NextPageColor;</pre>
+        </td>
+        <td>3.50 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT NextPageColor;</pre>
+        </td>
+        <td>3.51 to 5.0 </td>
+        <td>next at 0x0250 </td>
+      </tr>
+      <tr>
+        <td>0x0186 (3.50 to 4.0); <br>
+        0x01AA (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN ExitProcessCalled;</pre>
+        </td>
+        <td>3.50 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01BB (3.10); <br>
+        0x0187 (3.50 to 4.0); <br>
+        0x01AB (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN CreateProcessReported;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next as <span class="member">CreateReported</span> in
+        <span class="member">Flags</span> </td>
+      </tr>
+      <tr>
+        <td>0x0130 (5.1); <br>
+        0x010C (early 5.2); <br>
+        0x011C (late 5.2); <br>
+        0x0108 (6.0); <br>
+        0x0120 (6.1); <br>
+        0x0114 (6.2 to 6.3); <br>
+        0x011C (10.0 to 1607); <br>
+        0x0124 (1703 to 1903); <br>
+        0x0154 </td>
+        <td>0x01E0 (late 5.2); <br>
+        0x01B8 (6.0); <br>
+        0x0258 (6.1); <br>
+        0x0398 (6.2 to 6.3); <br>
+        0x03A8 (10.0 to 1809); <br>
+        0x03B0 (1903); <br>
+        0x0508 <br>
+        </td>
+        <td>
+        <pre class="source">PVOID Win32Process;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>previously at 0x0214 </td>
+      </tr>
+      <tr>
+        <td>0x0134 (5.1); <br>
+        0x0110 (early 5.2); <br>
+        0x0120 (late 5.2); <br>
+        0x010C (6.0); <br>
+        0x0124 (6.1); <br>
+        0x0118 (6.2 to 6.3); <br>
+        0x0120 (10.0 to 1607); <br>
+        0x0128 (1703 to 1903); <br>
+        0x0158 </td>
+        <td>0x01E8 (late 5.2); <br>
+        0x01C0 (6.0); <br>
+        0x0260 (6.1); <br>
+        0x03A0 (6.2 to 6.3); <br>
+        0x03B0 (10.0 to 1809); <br>
+        0x03B8 (1903); <br>
+        0x0510 </td>
+        <td>
+        <pre class="source">EJOB *Job;</pre>
+        </td>
+        <td>5.1 and higher <br>
+        </td>
+        <td>previously at 0x0218 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01BC (3.10); <br>
+        0x0188 (3.50 to 4.0); <br>
+        0x01AC (5.0); <br>
+        0x0138 (5.1); <br>
+        0x0114 (early 5.2); <br>
+        0x0124 (late 5.2); <br>
+        0x0110 (6.0); <br>
+        0x0128 (6.1); <br>
+        0x011C (6.2 to 6.3); <br>
+        0x0124 (10.0 to 1607); <br>
+        0x012C (1703 to 1903); <br>
+        0x015C </td>
+        <td rowspan="2">0x01F0 (late 5.2); <br>
+        0x01C8 (6.0); <br>
+        0x0268 (6.1); <br>
+        0x03A8 (6.2 to 6.3); <br>
+        0x03B8 (10.0 to 1809); <br>
+        0x03C0 (1903); <br>
+        0x0518 </td>
+        <td>
+        <pre class="source">HANDLE SectionHandle;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SectionObject;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01C0 (3.10); <br>
+        0x018C (3.50 to 4.0); <br>
+        0x01B0 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source"><a href="../../../../../../win32/ntdll/structs/peb.htm">PEB</a> *Peb;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next at 0x01B0 </td>
+      </tr>
+      <tr>
+        <td>0x01C4 (3.10); <br>
+        0x0190 (3.50 to 4.0); <br>
+        0x01B4 (5.0); <br>
+        0x013C (5.1); <br>
+        0x0118 (early 5.2); <br>
+        0x0128 (late 5.2); <br>
+        0x0114 (6.0); <br>
+        0x012C (6.1); <br>
+        0x0120 (6.2 to 6.3); <br>
+        0x0128 (10.0 to 1607); <br>
+        0x0130 (1703 to 1903); <br>
+        0x0160 </td>
+        <td>0x01F8 (late 5.2); <br>
+        0x01D0 (6.0); <br>
+        0x0270 (6.1); <br>
+        0x03B0 (6.2 to 6.3); <br>
+        0x03C0 (10.0 to 1809); <br>
+        0x03C8 (1903); <br>
+        0x0520 </td>
+        <td>
+        <pre class="source">PVOID SectionBaseAddress;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01C8 </td>
+        <td>&nbsp;</td>
+        <td>unaccounted 0x18 bytes </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01E0 (3.10); <br>
+        0x0194 (3.50 to 4.0); <br>
+        0x01B8 (5.0); <br>
+        0x0140 (5.1); <br>
+        0x011C (early 5.2); <br>
+        0x012C (late 5.2); <br>
+        0x0118 (6.0) </td>
+        <td>0x0200 (late 5.2); <br>
+        0x01D8 (6.0) </td>
+        <td>
+        <pre class="source">EPROCESS_QUOTA_BLOCK *QuotaBlock;</pre>
+        </td>
+        <td>3.10 to 6.0 </td>
+        <td>next at 0xD4 and 0x01C0 </td>
+      </tr>
+      <tr>
+        <td>0x0130 (6.1); <br>
+        0x0124 (6.2 to 6.3); <br>
+        0x012C (10.0 to 1607); <br>
+        0x0134 (1703 to 1903); <br>
+        0x0164 </td>
+        <td>0x0278 (6.1); <br>
+        0x03B8 (6.2 to 6.3); <br>
+        0x03C8 (10.0 to 1809); <br>
+        0x03D0 (1903); <br>
+        0x0528 </td>
+        <td>
+        <pre class="source">ULONG Cookie;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously at 0x0258 and 0x03C0 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0134 (6.1) </td>
+        <td rowspan="2">0x027C (6.1) </td>
+        <td>
+        <pre class="source">ULONG Spare8;</pre>
+        </td>
+        <td>6.1 only (x86) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG UmsScheduledThreads;</pre>
+        </td>
+        <td>6.1 only (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0128 (6.2 to 6.3) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID VdmObjects;</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+        <td>previously at 0x0148; <br>
+        next at 0xB0 </td>
+      </tr>
+      <tr>
+        <td>0x01E4 (3.10); <br>
+        0x0198 (3.50 to 4.0); <br>
+        0x01BC (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">LONG LastThreadExitStatus;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next at 0x01AC </td>
+      </tr>
+      <tr>
+        <td>0x01E8 (3.10); <br>
+        0x019C (3.50 to 4.0); <br>
+        0x01C0 (5.0); <br>
+        0x0144 (5.1); <br>
+        0x0120 (early 5.2); <br>
+        0x0130 (late 5.2); <br>
+        0x011C (6.0); <br>
+        0x0138 (6.1); <br>
+        0x012C (6.2 to 6.3); <br>
+        0x0130 (10.0 to 1607); <br>
+        0x0138 (1703 to 1903); <br>
+        0x0168 </td>
+        <td>0x0208 (late 5.2); <br>
+        0x01E0 (6.0); <br>
+        0x0280 (6.1); <br>
+        0x03C0 (6.2 to 6.3); <br>
+        0x03D0 (10.0 to 1809); <br>
+        0x03D8 (1903); <br>
+        0x0530 </td>
+        <td>
+        <pre class="source">PAGEFAULT_HISTORY *WorkingSetWatch;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01EC (3.10); <br>
+        0x01A0 (3.50 to 4.0); <br>
+        0x01C4 (5.0); <br>
+        0x0148 (5.1); <br>
+        0x0124 (early 5.2); <br>
+        0x0134 (late 5.2); <br>
+        0x0120 (6.0); <br>
+        0x013C (6.1); <br>
+        0x0130 (6.2 to 6.3); <br>
+        0x0134 (10.0 to 1607); <br>
+        0x013C (1703 to 1903); <br>
+        0x016C </td>
+        <td rowspan="2">0x0210 (late 5.2); <br>
+        0x01E8 (6.0); <br>
+        0x0288 (6.1); <br>
+        0x03C8 (6.2 to 6.3); <br>
+        0x03D8 (10.0 to 1809); <br>
+        0x03E0 (1903); <br>
+        0x0538 </td>
+        <td>
+        <pre class="source">PVOID LpcPort;</pre>
+        </td>
+        <td>3.10 to 3.51&nbsp; </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Win32WindowStation;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">Win32WindowStation</span> is an example of an
+  <span class="struct">EPROCESS</span> member that is known outside the kernel, 
+  specifically to WIN32K.SYS in versions 4.0 and 5.0. Indeed, the kernel itself 
+  is not known to use this member until version 5.1 introduces the exported functions
+  <span class="function">PsGetProcessWin32WindowStation</span>. and
+  <span class="function">PsSetProcessWindowStation</span>. The KDEXTX86 debugger 
+  extension for version 3.51 reports the corresponding offset as holding the
+  <span class="member">LpcPort</span>. Continuity is here assumed from the beginning, 
+  but no use is yet known in any version before 4.0. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01F0 (3.10); <br>
+        0x01A4 (3.50 to 4.0); <br>
+        0x01C8 (5.0); <br>
+        0x014C (5.1); <br>
+        0x0128 (early 5.2); <br>
+        0x0138 (late 5.2); <br>
+        0x0124 (6.0); <br>
+        0x0140 (6.1); <br>
+        0x0134 (6.2 to 6.3); <br>
+        0x0138 (10.0 to 1607); <br>
+        0x0140 (1703 to 1903); <br>
+        0x0170 </td>
+        <td>0x0218 (late 5.2); <br>
+        0x01F0 (6.0); <br>
+        0x0290 (6.1); <br>
+        0x03D0 (6.2 to 6.3); <br>
+        0x03E0 (10.0 to 1809); <br>
+        0x03E8 (1903); <br>
+        0x0540 </td>
+        <td>
+        <pre class="source">PVOID InheritedFromUniqueProcessId;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01F4 (3.10); <br>
+        0x01A8 (3.51 to 4.0); <br>
+        0x01CC (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ACCESS_MASK GrantedAccess;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next at 0x01A4 </td>
+      </tr>
+      <tr>
+        <td>0x01F8 (3.10); <br>
+        0x01AC (3.50 to 4.0); <br>
+        0x01D0 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG DefaultHardErrorProcessing;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>next at 0x01A8 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01FC (3.10); <br>
+        0x01B0 (3.50 to 4.0); <br>
+        0x01D4 (5.0); <br>
+        0x0150 (5.1); <br>
+        0x012C (early 5.2); <br>
+        0x013C (late 5.2); <br>
+        0x0128 (6.0); <br>
+        0x0144 (6.1); <br>
+        0x0138 (6.2 to 6.3); <br>
+        0x013C (10.0 to 1607); <br>
+        0x0144 (1703 to 1903); <br>
+        0x0174 </td>
+        <td rowspan="2">0x0220 (late 5.2); <br>
+        0x01F8 (6.0); <br>
+        0x0298 (6.1); <br>
+        0x03D8 (6.2 to 6.3); <br>
+        0x03E8 (10.0 to 1809) <br>
+        </td>
+        <td>
+        <pre class="source">PVOID LdtInformation;</pre>
+        </td>
+        <td>all (x86); <br>
+        5.2 to 1803 (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Spare0;</pre>
+        </td>
+        <td>1809 only (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0200 (3.10); <br>
+        0x01B4 (3.50 to 4.0); <br>
+        0x01D8 (5.0); <br>
+        0x0154 (5.1); <br>
+        0x0130 (early 5.2); <br>
+        0x0140 (late 5.2); <br>
+        0x012C (6.0) </td>
+        <td rowspan="2">0x0228 (late 5.2); <br>
+        0x0200 (6.0) </td>
+        <td>
+        <pre class="source">PVOID VadFreeHint;</pre>
+        </td>
+        <td>3.10 to early 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Spare;</pre>
+        </td>
+        <td>late 6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0204 (3.10); <br>
+        0x01B8 (3.50 to 4.0); <br>
+        0x01DC (5.0); <br>
+        0x0158 (5.1); <br>
+        0x0x134 (early 5.2); <br>
+        0x0144 (late 5.2); <br>
+        0x0130 (6.0); <br>
+        0x0148 (6.1) </td>
+        <td rowspan="2">0x0230 (late 5.2); <br>
+        0x0208 (6.0); <br>
+        0x02A0 (6.1) </td>
+        <td>
+        <pre class="source">PVOID VdmObjects;</pre>
+        </td>
+        <td>3.10 to 6.1 (x86); <br>
+        5.2 to 6.0 (x64) </td>
+        <td>next at 0x0128 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Spare;</pre>
+        </td>
+        <td>6.1 only (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0208 (3.10); <br>
+        0x01BC (3.50 to 4.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">KMUTANT ProcessMutant;</pre>
+        </td>
+        <td>3.10 to 4.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x014C (6.1); <br>
+        0x013C (6.2 to 6.3); <br>
+        0x0140 (10.0 to 1607); <br>
+        0x0148 (1703 to 1903); <br>
+        0x0178 </td>
+        <td rowspan="3">0x02A8 (6.1); <br>
+        0x03E0 (6.2 to 6.3); <br>
+        0x03F0 (10.0 to 1903); <br>
+        0x0548 </td>
+        <td>
+        <pre class="source">ULONG_PTR ConsoleHostProcess;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    EPROCESS *CreatorProcess;
+    ULONG_PTR ConsoleHostProcess;
+};</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR volatile OwnerProcessId;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0140 (6.2 to 6.3); <br>
+        0x0144 (10.0 to 1607); <br>
+        0x014C (1703 to 1903); <br>
+        0x017C </td>
+        <td>0x03E8 (6.2 to 6.3); <br>
+        0x03F8 (10.0 to 1903); <br>
+        0x0550 </td>
+        <td>
+        <pre class="source">PEB *Peb;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x01A8 and 0x0338 </td>
+      </tr>
+      <tr>
+        <td>0x0144 (6.2 to 6.3); <br>
+        0x0148 (10.0 to 1607); <br>
+        0x0150 (1703 to 1903); <br>
+        0x0180 </td>
+        <td>0x03F0 (6.2 to 6.3); <br>
+        0x0400 (10.0 to 1903); <br>
+        0x0558 </td>
+        <td>
+        <pre class="source">PVOID Session;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x0168 and 0x02D8 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0148 (6.2 to 6.3); <br>
+        0x014C (10.0 to 1607); <br>
+        0x0154 (1703 to 1903); <br>
+        0x0184 </td>
+        <td rowspan="2">0x03F8 (6.2 to 6.3); <br>
+        0x0408 (10.0 to 1903); <br>
+        0x0560 </td>
+        <td>
+        <pre class="source">PVOID AweInfo;</pre>
+        </td>
+        <td>6.2 to 1803 </td>
+        <td>previously at 0x01E8 and 0x0388 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Spare1;</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x014C (6.2 to 6.3); <br>
+        0x0150 (10.0 to 1607); <br>
+        0x0158 (1703 to 1903); <br>
+        0x0188 </td>
+        <td>0x0400 (6.2 to 6.3); <br>
+        0x0410 (10.0 to 1903); <br>
+        0x0568 </td>
+        <td>
+        <pre class="source">EPROCESS_QUOTA_BLOCK *QuotaBlock;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0xD4 and 0x01C0 </td>
+      </tr>
+      <tr>
+        <td>0x0150 (6.2 to 6.3); <br>
+        0x0154 (10.0 to 1607); <br>
+        0x015C (1703 to 1903); <br>
+        0x018C </td>
+        <td>0x0408 (6.2 to 6.3); <br>
+        0x0418 (10.0 to 1903); <br>
+        0x0570 </td>
+        <td>
+        <pre class="source">HANDLE_TABLE *ObjectTable;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x0F4 and 0x0200 </td>
+      </tr>
+      <tr>
+        <td>0x0154 (6.2 to 6.3); <br>
+        0x0158 (10.0 to 1607); <br>
+        0x0160 (1703 to 1903); <br>
+        0x0190 </td>
+        <td>0x0410 (6.2 to 6.3); <br>
+        0x0420 (10.0 to 1903); <br>
+        0x0578 </td>
+        <td>
+        <pre class="source">PVOID DebugPort;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0xEC and 0x01F0 </td>
+      </tr>
+      <tr>
+        <td>0x0158 (6.2 to 6.3); <br>
+        0x015C (10.0 to 1607); <br>
+        0x0164 (1703 to 1903); <br>
+        0x0194 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID PaeTop;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x0194 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">&nbsp;</td>
+        <td rowspan="2">0x0418 (6.2 to 6.3); <br>
+        0x0428 (10.0 to 1903); <br>
+        0x0580 </td>
+        <td>
+        <pre class="source">PVOID Wow64Process;</pre>
+        </td>
+        <td>6.2 to 10.0 </td>
+        <td>previously at 0x0320 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">EWOW64PROCESS *Wow64Process;</pre>
+        </td>
+        <td>1511 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01E0 (5.0); <br>
+        0x015C (5.1); <br>
+        0x0138 (early 5.2); <br>
+        0x0148 (late 5.2); <br>
+        0x0134 (6.0); <br>
+        0x0150 (6.1); <br>
+        0x015C (6.2 to 6.3); <br>
+        0x0160 (10.0 to 1607); <br>
+        0x0168 (1703 to 1903); <br>
+        0x0198 </td>
+        <td>0x0238 (late 5.2); <br>
+        0x0210 (6.0); <br>
+        0x02B0 (6.1); <br>
+        0x0420 (6.2 to 6.3); <br>
+        0x0430 (10.0 to 1903); <br>
+        0x0588 </td>
+        <td>
+        <pre class="source">PVOID DeviceMap;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01E4 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG SessionId;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01E8 (5.0); <br>
+        0x0160 (5.1); <br>
+        0x013C (early 5.2); <br>
+        0x014C (late 5.2) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">LIST_ENTRY PhysicalVadList;</pre>
+        </td>
+        <td>5.0 to 5.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0240 (late 5.2) </td>
+        <td>
+        <pre class="source">PVOID Spare0 [3];</pre>
+        </td>
+        <td>5.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0138 (6.0); <br>
+        0x0154 (6.1); <br>
+        0x0160 (6.2 to 6.3); <br>
+        0x0164 (10.0 to 1607); <br>
+        0x016C (1703 to 1903); <br>
+        0x019C </td>
+        <td>0x0218 (6.0); <br>
+        0x02B8 (6.1); <br>
+        0x0428 (6.2 to 6.3); <br>
+        0x0438 (10.0 to 1903); <br>
+        0x0590 </td>
+        <td>
+        <pre class="source">PVOID EtwDataSource;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x013C (6.0); <br>
+        0x0158 (6.1) </td>
+        <td>0x0220 (6.0); <br>
+        0x02C0 (6.1) </td>
+        <td>
+        <pre class="source">PVOID FreeTebHint;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x02C8 (6.1) </td>
+        <td>
+        <pre class="source">PVOID FreeUmsTebHint;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">EtwDataSource</span>, when it is not
+  <span class="constant">NULL</span>, is historically the address of an
+  <span class="struct"><a href="../../../../api/etw/notify/data_source.htm">ETW_DATA_SOURCE</a></span> 
+  structure which supports inter-process communication by Event Tracing for Windows 
+  (ETW). Starting with version 6.3, it is different things at different times. A 
+  process that intends to receive notifications but has not yet sent any can supply 
+  an event that the kernel is to signal whenever notifications are ready for receipt. 
+  The <span class="member">EtwDataSource</span> then holds the address of the event 
+  object but with the low bit set. If the process then sends any notifications, 
+  the <span class="member">EtwDataSource</span> is changed to be the address of 
+  the supporting structure, and the event object’s address is transferred to this 
+  structure. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x01F0 (5.0); <br>
+        0x0168 (5.1); <br>
+        0x0148 (early 5.2); <br>
+        0x0158 (late 5.2); <br>
+        0x0140 (6.0); <br>
+        0x0160 (6.1); <br>
+        0x0168 (10.0 to 1607); <br>
+        0x0170 (1703 to 1903); <br>
+        0x01A0 </td>
+        <td rowspan="2">0x0258 (late 5.2); <br>
+        0x0228 (6.0); <br>
+        0x02D0 (6.1); <br>
+        0x0430 (6.2 to 6.3); <br>
+        0x0440 (10.0 to 1903); <br>
+        0x0598 </td>
+        <td>
+        <pre class="source">union {
+    HARDWARE_PTE PageDirectoryPte;
+    ULONGLONG Filler;
+};</pre>
+        </td>
+        <td>5.0 to 6.1 </td>
+        <td>previously at 0x0164 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG PageDirectoryPte;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01F8 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG PaePageDirectoryPage;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Versions 5.0 to 6.1 of the 32-bit kernel exist in two forms. One has the processor 
+  translate 32-bit linear addresses to 32-bit physical addresses. The other uses 
+  Physical Address Extension (PAE) to support a larger physical address space. For 
+  the former, each Page Table Entry (PTE) is four bytes. With PAE, each PTE is eight 
+  bytes. Not shown above is that Microsoft at first separated the original
+  <span class="struct">HARDWARE_PTE</span> into separately named structures,
+  <span class="struct">HARDWARE_PTE_X86</span> and <span class="struct">HARDWARE_PTE_X86PAE</span>. 
+  The version 5.1 from Windows XP SP1 returned to the simplicity of having the one
+  <span class="struct">HARDWARE_PTE</span>, now defined differently according to 
+  whether the kernel does or does not use PAE (or is for 64-bit Windows). Version 
+  6.2 discontinued the 32-bit kernel that does not use PAE, and so the
+  <span class="member">Filler</span> lost its reason for existence. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0170 (5.1); <br>
+        0x0150 (early 5.2); <br>
+        0x0160 (late 5.2); <br>
+        0x0148 (6.0); <br>
+        0x0168 (6.1) </td>
+        <td>0x0260 (late 5.2); <br>
+        0x0230 (6.0); <br>
+        0x02D8 (6.1) </td>
+        <td>
+        <pre class="source">PVOID Session;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>next at 0x0144 and 0x03F0 </td>
+      </tr>
+      <tr>
+        <td>0x0170 (1511 to 1607); <br>
+        0x0178 (1703 to 1903); <br>
+        0x01A8 </td>
+        <td>0x0448 (1511 to 1903); <br>
+        0x05A0 </td>
+        <td>
+        <pre class="source">FILE_OBJECT *ImageFilePointer;</pre>
+        </td>
+        <td>1511 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0228 (3.10); <br>
+        0x01DC (3.50 to 4.0); <br>
+        0x01FC (5.0); <br>
+        0x0174 (5.1); <br>
+        0x0154 (early 5.2); <br>
+        0x0164 (late 5.2); <br>
+        0x014C (6.0); <br>
+        0x016C (6.1); <br>
+        0x0170 (6.2 to 10.0); <br>
+        0x0174 (1511 to 1607); <br>
+        0x017C (1703 to 1903); <br>
+        0x01AC </td>
+        <td rowspan="3">0x0268 (late 5.2); <br>
+        0x0238 (6.0); <br>
+        0x02E0 (6.1); <br>
+        0x0438 (6.2 to 6.3); <br>
+        0x0448 (10.0); <br>
+        0x0450 (1511 to 1903); <br>
+        0x05A8 </td>
+        <td>
+        <pre class="source">UCHAR ImageFileName [0x20];</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR ImageFileName [0x10];</pre>
+        </td>
+        <td>3.50 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR ImageFileName [0x0F];</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x017B (6.1); <br>
+        0x017F (6.2 to 10.0); <br>
+        0x0183 (1511 to 1607); <br>
+        0x018B (1703 to 1903); <br>
+        0x01BB </td>
+        <td>0x02EF (6.1); <br>
+        0x0447 (6.2 to 6.3); <br>
+        0x0457 (10.0); <br>
+        0x045F (1511 to 1903); <br>
+        0x05B7 </td>
+        <td>
+        <pre class="source">UCHAR PriorityClass;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>previously at 0x0234 and 0x037C </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="alert">There is a plan to write something here. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0248 (3.10); <br>
+        0x01EC (3.50 to 4.0); <br>
+        0x020C (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG VmTrimFaultValue;</pre>
+        </td>
+        <td>3.10 to 5.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x024C (3.10) </td>
+        <td>&nbsp;</td>
+        <td>unaccounted 0x34 bytes </td>
+        <td>3.10 only </td>
+        <td>last member in 3.10 </td>
+      </tr>
+      <tr>
+        <td>0x01F0 (3.50 to 4.0); <br>
+        0x0210 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN SetTimerResolution;</pre>
+        </td>
+        <td>3.50 to 5.0 </td>
+        <td>next in <span class="member">Flags</span>; <br>
+        last member in 3.50 </td>
+      </tr>
+      <tr>
+        <td>0x01F1 (3.51 to 4.0); <br>
+        0x0211 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR PriorityClass;</pre>
+        </td>
+        <td>3.51 to 5.0 </td>
+        <td>next at 0x0254 </td>
+      </tr>
+      <tr>
+        <td>0x01F2 (3.51 to 4.0); <br>
+        0x0212 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">union {
+    struct {
+        UCHAR SubSystemMinorVersion;
+        UCHAR SubSystemMajorVersion;
+    };
+    USHORT SubSystemVersion;
+};</pre>
+        </td>
+        <td>3.51 to 5.0 </td>
+        <td>next at 0x0252 </td>
+      </tr>
+      <tr>
+        <td>0x01F4 (3.51 to 4.0); <br>
+        0x0214 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID Win32Process;</pre>
+        </td>
+        <td>3.51 to 5.0 </td>
+        <td>next at 0x0130; <br>
+        last member in 3.51 to 4.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="alert">There is a plan to write something here. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0180 (6.2 to 10.0); <br>
+        0x0184 (1511 to 1607); <br>
+        0x018C (1703 to 1903); <br>
+        0x01BC </td>
+        <td>0x0448 (6.2 to 6.3); <br>
+        0x0458 (10.0); <br>
+        0x0460 (1511 to 1903); <br>
+        0x05B8 </td>
+        <td>
+        <pre class="source">PVOID SecurityPort;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x0190 and 0x0318 </td>
+      </tr>
+      <tr>
+        <td>0x0184 (6.2 to 10.0); <br>
+        0x0188 (1511 to 1607); <br>
+        0x0190 (1703 to 1903); <br>
+        0x01C0 </td>
+        <td>0x0450 (6.2 to 6.3); <br>
+        0x0460 (10.0); <br>
+        0x0468 (1511 to 1903); <br>
+        0x05C0 </td>
+        <td>
+        <pre class="source"><a href="../se_audit_process_creation_info.htm">SE_AUDIT_PROCESS_CREATION_INFO</a> SeAuditProcessCreationInfo;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x01EC and 0x0390 </td>
+      </tr>
+      <tr>
+        <td>0x0218 (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">EJOB *Job;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>next at 0x0134 </td>
+      </tr>
+      <tr>
+        <td>0x021C (5.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG JobStatus;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>next at 0x0244 </td>
+      </tr>
+      <tr>
+        <td>0x0220 (5.0); <br>
+        0x0184 (5.1); <br>
+        0x0164 (early 5.2); <br>
+        0x0174 (late 5.2); <br>
+        0x015C (6.0); <br>
+        0x017C (6.1); <br>
+        0x0188 (6.2 to 10.0); <br>
+        0x018C (1511 to 1607); <br>
+        0x0194 (1703 to 1903); <br>
+        0x01C4 </td>
+        <td>0x0278 (late 5.2); <br>
+        0x0248 (6.0); <br>
+        0x02F0 (6.1); <br>
+        0x0458 (6.2 to 6.3); <br>
+        0x0468 (10.0); <br>
+        0x0470 (1511 to 1903); <br>
+        0x05C8 </td>
+        <td>
+        <pre class="source">LIST_ENTRY JobLinks;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0228 (5.0); <br>
+        0x018C (5.1); <br>
+        0x016C (early 5.2); <br>
+        0x017C (late 5.2); <br>
+        0x0164 (6.0); <br>
+        0x0184 (6.1) </td>
+        <td>0x0288 (late 5.2); <br>
+        0x0258 (6.0); <br>
+        0x0300 (6.1) </td>
+        <td>
+        <pre class="source">PVOID LockedPagesList;</pre>
+        </td>
+        <td>5.0 to 6.1 </td>
+        <td>next as <span class="type">MM_AVL_TABLE *</span> at 0x01B0 and 0x0498
+        </td>
+      </tr>
+      <tr>
+        <td>0x0190 (6.2 to 10.0); <br>
+        0x0194 (1511 to 1607); <br>
+        0x019C (1703 to 1903); <br>
+        0x01CC </td>
+        <td>0x0468 (6.2 to 6.3); <br>
+        0x0478 (10.0); <br>
+        0x0480 (1511 to 1903); <br>
+        0x05D8 </td>
+        <td>
+        <pre class="source">PVOID HighestUserAddress;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x0264 and 0x0430 </td>
+      </tr>
+      <tr>
+        <td>0x0190 (5.1); <br>
+        0x0170 (early 5.2); <br>
+        0x0180 (late 5.2); <br>
+        0x0168 (6.0); <br>
+        0x0188 (6.1); <br>
+        0x0194 (6.2 to 10.0); <br>
+        0x0198 (1511 to 1607); <br>
+        0x01A0 (1703 to 1903); <br>
+        0x01D0 </td>
+        <td>0x0290 (late 5.2); <br>
+        0x0260 (6.0); <br>
+        0x0308 (6.1); <br>
+        0x0470 (6.2 to 6.3); <br>
+        0x0480 (10.0); <br>
+        0x0488 (1511 to 1903); <br>
+        0x05E0 </td>
+        <td>
+        <pre class="source">LIST_ENTRY ThreadListHead;</pre>
+        </td>
+        <td>5.1 and higher <br>
+        </td>
+        <td>previously at 0x0270 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="alert">There is a plan to write something here. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x022C (5.0); <br>
+        0x0198 (5.1); <br>
+        0x0178 (early 5.2); <br>
+        0x0188 (late 5.2); <br>
+        0x0170 (6.0); <br>
+        0x0190 (6.1) </td>
+        <td>0x02A0 (late 5.2); <br>
+        0x0270 (6.0); <br>
+        0x0318 (6.1) </td>
+        <td>
+        <pre class="source">PVOID SecurityPort;</pre>
+        </td>
+        <td>5.0 to 6.1 </td>
+        <td>next at 0x0180 and 0x0448 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0230 (5.0) </td>
+        <td rowspan="2">0x02A8 (late 5.2); <br>
+        0x0278 (6.0); <br>
+        0x0320 (6.1) </td>
+        <td>
+        <pre class="source">WOW64_PROCESS *Wow64Process;</pre>
+        </td>
+        <td>5.0 only (x86); <br>
+        late 5.2 to 6.0 (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Wow64Process;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next at 0x0418 </td>
+      </tr>
+    </tbody>
+  </table>
+  <!--
+  <p>In all versions of 64-bit Windows up to and including the original Windows 
+  10, the <span class="member">Wow64Process</span> 
+  from an arbitrary <span class="struct">EPROCESS</span> can be read in kernel 
+  mode by calling the undocumented <span class="function">PsGetProcessWow64Process</span> function, 
+  and the <span class="function">PsGetCurrentProcessWow64Process</span> 
+  conveniently reads it from the current <span class="struct">EPROCESS</span>. 
+  Beware that interpreting what these functions return is problematic because 
+  what <span class="member">Wow64Process</span> holds changes with the versions. </p>
+  <p>Before version 6.1, if <span class="member">Wow64Process</span> is not
+  <span class="constant">NULL</span>, it addresses a <span class="struct">
+  WOW64_PROCESS</span> structure in non-paged pool. This in turn has just the 
+  one member, a <span class="type">PVOID</span> named <span class="member">Wow64</span>. 
+  If this is not <span class="constant">NULL</span>, it addresses the process’s 
+  32-bit <span class="struct">PEB</span>. </p>
+  <p>Version 6.1 both simplifies and complicates. The <span class="struct">
+  WOW64_PROCESS</span> structure is discontinued. A non-<span class="constant">NULL</span>
+  <span class="member">
+  Wow64Process</span> is ordinarily the address of the process’s 32-bit
+  <span class="struct">PEB</span>. The complication is that <span class="member">
+  Wow64Process</span> can be no pointer at all but instead have the special 
+  value 1 to mark that the 32-bit <span class="struct">PEB</span> is yet to be 
+  created. </p>
+  <p>The <span class="member">Wow64Process</span> is also exposed, if 
+  indirectly, through the <span class="function">NtQueryInformationProcess</span> 
+  function when given the information class <span class="constant">
+  ProcessWow64Information</span>. This is true even of 32-bit Windows 2000. </p>
+  -->
+  <p class="alert">There is a plan to write something here. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x019C (5.1); <br>
+        0x017C (early 5.2); <br>
+        0x018C (late 5.2); <br>
+        0x0174 (6.0); <br>
+        0x0194 (6.1) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID PaeTop;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>previously at 0x0188; <br>
+        next at 0x0158 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01A0 (5.1); <br>
+        0x0180 (early 5.2); <br>
+        0x0190 (late 5.2); <br>
+        0x0178 (6.0); <br>
+        0x0198 (6.1); <br>
+        0x019C (6.2 to 10.0); <br>
+        0x01A0 (1511 to 1607); <br>
+        0x01A8 (1703 to 1903); <br>
+        0x01D8 </td>
+        <td rowspan="2">0x02B0 (late 5.2); <br>
+        0x0280 (6.0); <br>
+        0x0328 (6.1); <br>
+        0x0480 (6.2 to 6.3); <br>
+        0x0490 (10.0); <br>
+        0x0498 (1511 to 1903); <br>
+        0x05F0 </td>
+        <td>
+        <pre class="source">ULONG ActiveThreads;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG volatile ActiveThreads;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x017C (6.0); <br>
+        0x019C (6.1); <br>
+        0x01A0 (6.2 to 10.0); <br>
+        0x01A4 (1511 to 1607); <br>
+        0x01AC (1703 to 1903); <br>
+        0x01DC </td>
+        <td>0x0284 (6.0); <br>
+        0x032C (6.1); <br>
+        0x0484 (6.2 to 6.3); <br>
+        0x0494 (10.0); <br>
+        0x049C (1511 to 1903); <br>
+        0x05F4 </td>
+        <td>
+        <pre class="source">ULONG ImagePathHash;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01A4 (5.1); <br>
+        0x0184 (early 5.2); <br>
+        0x0194 (late 5.2) </td>
+        <td>0x02B0 (late 5.2) </td>
+        <td>
+        <pre class="source">ACCESS_MASK GrantedAccess;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>previously at 0x01CC </td>
+      </tr>
+      <tr>
+        <td>0x01A8 (5.1); <br>
+        0x0188 (early 5.2); <br>
+        0x0198 (late 5.2); <br>
+        0x0180 (6.0); <br>
+        0x01A0 (6.1); <br>
+        0x01A4 (6.2 to 10.0); <br>
+        0x01A8 (1511 to 1607); <br>
+        0x01B0 (1703 to 1903); <br>
+        0x01E0 </td>
+        <td>0x02B8 (late 5.2); <br>
+        0x0288 (6.0); <br>
+        0x0330 (6.1); <br>
+        0x0488 (6.2 to 6.3); <br>
+        0x0498 (10.0); <br>
+        0x04A0 (1511 to 1903); <br>
+        0x05F8 </td>
+        <td>
+        <pre class="source">ULONG DefaultHardErrorProcessing;</pre>
+        </td>
+        <td>5.1 and higher <br>
+        </td>
+        <td>previously at 0x01D0 </td>
+      </tr>
+      <tr>
+        <td>0x01AC (5.1); <br>
+        0x018C (early 5.2); <br>
+        0x019C (late 5.2); <br>
+        0x0184 (6.0); <br>
+        0x01A4 (6.1); <br>
+        0x01A8 (6.2 to 10.0); <br>
+        0x01AC (1511 to 1607); <br>
+        0x01B4 (1703 to 1903); <br>
+        0x01E4 </td>
+        <td>0x02BC (late 5.2); <br>
+        0x028C (6.0); <br>
+        0x0334 (6.1); <br>
+        0x048C (6.2 to 6.3); <br>
+        0x049C (10.0); <br>
+        0x04A4 (1511 to 1903); <br>
+        0x05FC </td>
+        <td>
+        <pre class="source">LONG LastThreadExitStatus;</pre>
+        </td>
+        <td>5.1 and higher <br>
+        </td>
+        <td>previously at 0x01BC </td>
+      </tr>
+      <tr>
+        <td>0x01B0 (5.1); <br>
+        0x0190 (early 5.2); <br>
+        0x01A0 (late 5.2); <br>
+        0x0188 (6.0); <br>
+        0x01A8 (6.1) </td>
+        <td>0x02C0 (late 5.2); <br>
+        0x0290 (6.0); <br>
+        0x0338 (6.1) </td>
+        <td>
+        <pre class="source">PEB *Peb;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>previously at 0x01B0; <br>
+        next at 0x0140 and 0x03E8 </td>
+      </tr>
+      <tr>
+        <td>0x01B4 (5.1); <br>
+        0x0194 (early 5.2); <br>
+        0x01A4 (late 5.2); <br>
+        0x018C (6.0); <br>
+        0x01AC (6.1 to 10.0); <br>
+        0x01B0 (1511 to 1607); <br>
+        0x01B8 (1703 to 1903); <br>
+        0x01E8 </td>
+        <td>0x02C8 (late 5.2); <br>
+        0x0298 (6.0); <br>
+        0x0340 (6.1); <br>
+        0x0490 (6.2 to 6.3); <br>
+        0x04A0 (10.0); <br>
+        0x04A8 (1511 to 1903); <br>
+        0x0600 </td>
+        <td>
+        <pre class="source">EX_FAST_REF PrefetchTrace;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01B0 (6.2 to 10.0); <br>
+        0x01B4 (1511 to 1607); <br>
+        0x01BC (1703 to 1903); <br>
+        0x01EC </td>
+        <td rowspan="2">0x0498 (6.2 to 6.3); <br>
+        0x04A8 (10.0); <br>
+        0x04B0 (1511 to 1903); <br>
+        0x0608 </td>
+        <td>
+        <pre class="source">MM_AVL_TABLE *LockedPagesList;</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>previously as <span class="type">PVOID</span> at 0x0184 and 0x0300
+        </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID LockedPagesList;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="alert">There is a plan to write something here. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0238 (5.0); <br>
+        0x01B8 (5.1); <br>
+        0x0198 (early 5.2); <br>
+        0x01A8 (late 5.2); <br>
+        0x0190 (6.0); <br>
+        0x01B0 (6.1); <br>
+        0x01B8 (6.2 to 1607); <br>
+        0x01C0 (1703 to 1903); <br>
+        0x01F0 </td>
+        <td>0x02D0 (late 5.2); <br>
+        0x02A0 (6.0); <br>
+        0x0348 (6.1); <br>
+        0x04A0 (6.2 to 6.3); <br>
+        0x04B0 (10.0); <br>
+        0x04B8 (1511 to 1903); <br>
+        0x0610 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER ReadOperationCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>previously <span class="type">ULONG</span> at 0xF8 (3.10) </td>
+      </tr>
+      <tr>
+        <td>0x0240 (5.0); <br>
+        0x01C0 (5.1); <br>
+        0x01A0 (early 5.2); <br>
+        0x01B0 (late 5.2); <br>
+        0x0198 (6.0); <br>
+        0x01B8 (6.1); <br>
+        0x01C0 (6.2 to 1607); <br>
+        0x01C8 (1703 to 1903); <br>
+        0x01F8 </td>
+        <td>0x02D8 (late 5.2); <br>
+        0x02A8 (6.0); <br>
+        0x0350 (6.1); <br>
+        0x04A8 (6.2 to 6.3); <br>
+        0x04B8 (10.0); <br>
+        0x04C0 (1511 to 1903); <br>
+        0x0618 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER WriteOperationCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>previously <span class="type">ULONG</span> at 0xFC (3.10) </td>
+      </tr>
+      <tr>
+        <td>0x0248 (5.0); <br>
+        0x01C8 (5.1); <br>
+        0x01A8 (early 5.2); <br>
+        0x01B8 (late 5.2); <br>
+        0x01A0 (6.0); <br>
+        0x01C0 (6.1); <br>
+        0x01C8 (6.2 to 1607); <br>
+        0x01D0 (1703 to 1903); <br>
+        0x0200 </td>
+        <td>0x02E0 (late 5.2); <br>
+        0x02B0 (6.0); <br>
+        0x0358 (6.1); <br>
+        0x04B0 (6.2 to 6.3); <br>
+        0x04C0 (10.0); <br>
+        0x04C8 (1511 to 1903); <br>
+        0x0620 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER OtherOperationCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>previously <span class="type">ULONG</span> at 0x0100 (3.10) </td>
+      </tr>
+      <tr>
+        <td>0x0250 (5.0); <br>
+        0x01D0 (5.1); <br>
+        0x01B0 (early 5.2); <br>
+        0x01C0 (late 5.2); <br>
+        0x01A8 (6.0); <br>
+        0x01C8 (6.1); <br>
+        0x01D0 (6.2 to 1607); <br>
+        0x01D8 (1703 to 1903); <br>
+        0x0208 </td>
+        <td>0x02E8 (late 5.2); <br>
+        0x02B8 (6.0); <br>
+        0x0360 (6.1); <br>
+        0x04B8 (6.2 to 6.3); <br>
+        0x04C8 (10.0); <br>
+        0x04D0 (1511 to 1903); <br>
+        0x0628 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER ReadTransferCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>previously 0xE0 (3.10) </td>
+      </tr>
+      <tr>
+        <td>0x0258 (5.0); <br>
+        0x01D8 (5.1); <br>
+        0x01B8 (early 5.2); <br>
+        0x01C8 (late 5.2); <br>
+        0x01B0 (6.0); <br>
+        0x01D0 (6.1); <br>
+        0x01D8 (6.2 to 1607); <br>
+        0x01E0 (1703 to 1903); <br>
+        0x0210 </td>
+        <td>0x02F0 (late 5.2); <br>
+        0x02C0 (6.0); <br>
+        0x0368 (6.1); <br>
+        0x04C0 (6.2 to 6.3); <br>
+        0x04D0 (10.0); <br>
+        0x04D8 (1511 to 1903); <br>
+        0x0630 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER WriteTransferCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>previously 0xE8 (3.10) </td>
+      </tr>
+      <tr>
+        <td>0x0260 (5.0); <br>
+        0x01E0 (5.1); <br>
+        0x01C0 (early 5.2); <br>
+        0x01D0 (late 5.2); <br>
+        0x01B8 (6.0); <br>
+        0x01D8 (6.1); <br>
+        0x01E0 (6.2 to 1607); <br>
+        0x01E8 (1703 to 1903); <br>
+        0x0218 </td>
+        <td>0x02F8 (late 5.2); <br>
+        0x02C8 (6.0); <br>
+        0x0370 (6.1); <br>
+        0x04C8 (6.2 to 6.3); <br>
+        0x04D8 (10.0); <br>
+        0x04E0 (1511 to 1903); <br>
+        0x0638 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER OtherTransferCount;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>previously 0xF0 (3.10) </td>
+      </tr>
+      <tr>
+        <td>0x0268 (5.0); <br>
+        0x01E8 (5.1); <br>
+        0x01C8 (early 5.2); <br>
+        0x01D8 (late 5.2); <br>
+        0x01C0 (6.0); <br>
+        0x01E0 (6.1); <br>
+        0x01E8 (6.2 to 1607); <br>
+        0x01F0 (1703 to 1903); <br>
+        0x0220 </td>
+        <td>0x0300 (late 5.2); <br>
+        0x02D0 (6.0); <br>
+        0x0378 (6.1); <br>
+        0x04D0 (6.2 to 6.3); <br>
+        0x04E0 (10.0); <br>
+        0x04E8 (1511 to 1903); <br>
+        0x0640 </td>
+        <td>
+        <pre class="source">ULONG_PTR CommitChargeLimit;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01EC (6.2 to 1607); <br>
+        0x01F4 (1703 to 1903); <br>
+        0x0224 </td>
+        <td>0x04D8 (6.2 to 6.3); <br>
+        0x04E8 (10.0); <br>
+        0x04F0 (1511 to 1903); <br>
+        0x0648 </td>
+        <td>
+        <pre class="source">ULONG_PTR volatile CommitCharge;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0xD0 and 0x01B8 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x026C (5.0); <br>
+        0x01EC (5.1); <br>
+        0x01CC (early 5.2); <br>
+        0x01DC (late 5.2); <br>
+        0x01C4 (6.0); <br>
+        0x01E4 (6.1); <br>
+        0x01F0 (6.2 to 1607); <br>
+        0x01F8 (1703 to 1903); <br>
+        0x0228 </td>
+        <td rowspan="2">0x0308 (late 5.2); <br>
+        0x02D8 (6.0); <br>
+        0x0380 (6.1); <br>
+        0x04E0 (6.2 to 6.3); <br>
+        0x04F0 (10.0); <br>
+        0x04F8 (1511 to 1903); <br>
+        0x0650 </td>
+        <td>
+        <pre class="source">ULONG_PTR CommitChargePeak;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR volatile CommitChargePeak;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="alert">There is a plan to write something here. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0270 (5.0) </td>
+        <td>
+        <pre class="source">LIST_ENTRY ThreadListHead;</pre>
+        </td>
+        <td>5.0 only <br>
+        </td>
+        <td>next at 0x0190 </td>
+      </tr>
+      <tr>
+        <td>0x0278 (5.0) </td>
+        <td>
+        <pre class="source">RTL_BITMAP *VadPhysicalPagesBitMap;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x027C (5.0) </td>
+        <td>
+        <pre class="source">ULONG VadPhysicalPages;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0280 (5.0) </td>
+        <td>
+        <pre class="source">KSPIN_LOCK AweLock;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>last member in early 5.0 </td>
+      </tr>
+      <tr>
+        <td>0x0284 (5.0) </td>
+        <td>
+        <pre class="source">UNICODE_STRING *pImageFileName;</pre>
+        </td>
+        <td>late 5.0 only </td>
+        <td>last member in late 5.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">pImageFileName</span> is known from the public symbol 
+  files, but only starting with Windows 2000 SP3. Use certainly is made of it in 
+  this service pack but the corresponding code in the original Windows 2000 does 
+  not retain this pointer in the <span class="struct">EPROCESS</span>. It is not 
+  known to the <span class="command">!dso</span> or <span class="command">!strct</span> 
+  commands. Since these are correct for the structure’s size, relative to the kernel’s 
+  use, it is here thought that <span class="member">pImageFileName</span> was at 
+  first just unused space left by the structure’s 8-byte alignment, and then was 
+  added for a service pack. </p>
+  <h3>Appended for Windows XP and Windows Server 2003 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01F0 (5.1); <br>
+        0x01D0 (early 5.2); <br>
+        0x01E0 (late 5.2); <br>
+        0x01C8 (6.0); <br>
+        0x01E8 (6.1) </td>
+        <td>0x0310 (late 5.2); <br>
+        0x02E0 (6.0); <br>
+        0x0388 (6.1) </td>
+        <td>
+        <pre class="source">PVOID AweInfo;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>next at 0x0148 and 0x03F8 </td>
+      </tr>
+      <tr>
+        <td>0x01F4 (5.1); <br>
+        0x01D4 (early 5.2); <br>
+        0x01E4 (late 5.2); <br>
+        0x01CC (6.0); <br>
+        0x01EC (6.1) </td>
+        <td>0x0318 (late 5.2); <br>
+        0x02E8 (6.0); <br>
+        0x0390 (6.1) </td>
+        <td>
+        <pre class="source">SE_AUDIT_PROCESS_CREATION_INFO SeAuditProcessCreationInfo;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>next at 0x0184 and 0x0450 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01F8 (5.1); <br>
+        0x01D8 (early 5.2); <br>
+        0x01E8 (late 5.2); <br>
+        0x01D0 (6.0); <br>
+        0x01F0 (6.1); <br>
+        0x01F4 (6.2 to 1607); <br>
+        0x01FC (1703 to 1809); <br>
+        0x0200 (1903); <br>
+        0x0240 </td>
+        <td rowspan="2">0x0320 (late 5.2); <br>
+        0x02F0 (6.0); <br>
+        0x0398 (6.1); <br>
+        0x04E8 (6.2 to 6.3); <br>
+        0x04F8 (10.0); <br>
+        0x0500 (1511 to 1903); <br>
+        0x0680 </td>
+        <td>
+        <pre class="source">MMSUPPORT Vm;</pre>
+        </td>
+        <td>5.1 to 1511 <br>
+        </td>
+        <td rowspan="2">previously at 0xD0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source"><a href="../mmsupport_full.htm">MMSUPPORT_FULL</a> Vm;</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0238 (early 5.2); <br>
+        0x0230 (late 5.2); <br>
+        0x0218 (6.0); <br>
+        0x025C (6.1); <br>
+        0x0264 (6.2 to 6.3); <br>
+        0x0274 (10.0 to 1511); <br>
+        0x027C (1607); <br>
+        0x0288 (1703 to 1709); <br>
+        0x028C (1803 to 1809); <br>
+        0x0300 (1903); <br>
+        0x0340 </td>
+        <td>0x0358 (6.0); <br>
+        0x0420 (6.1); <br>
+        0x0578 (6.2); <br>
+        0x05C0 (6.3); <br>
+        0x05F0 (10.0); <br>
+        0x05F8 (1511); <br>
+        0x0608 (1607); <br>
+        0x0610 (1703 to 1809); <br>
+        0x0640 (1903); <br>
+        0x07C0 </td>
+        <td>
+        <pre class="source">LIST_ENTRY MmProcessLinks;</pre>
+        </td>
+        <td>5.2 and higher (x86); <br>
+        6.0 and higher (x64) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0378 (late 5.2) </td>
+        <td>
+        <pre class="source">ULONG Spares [2];</pre>
+        </td>
+        <td>late 5.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0264 (6.1) </td>
+        <td>0x0430 (6.1) </td>
+        <td>
+        <pre class="source">PVOID HighestUserAddress;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next at 0x0190 and 0x0468 </td>
+      </tr>
+      <tr>
+        <td>0x0238 (5.1) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG LastFaultCount;</pre>
+        </td>
+        <td>5.1 only <br>
+        </td>
+        <td>previously at 0x018C </td>
+      </tr>
+      <tr>
+        <td>0x023C (5.1); <br>
+        0x0240 (early 5.2); <br>
+        0x0238 (late 5.2); <br>
+        0x0220 (6.0); <br>
+        0x0268 (6.1); <br>
+        0x026C (6.2 to 6.3); <br>
+        0x027C (10.0 to 1511); <br>
+        0x0284 (1607); <br>
+        0x0290 (1703 to 1709); <br>
+        0x0294 (1803 to 1809); <br>
+        0x0308 (1903); <br>
+        0x0348 </td>
+        <td>0x0380 (late 5.2); <br>
+        0x0368 (6.0); <br>
+        0x0438 (6.1); <br>
+        0x0588 (6.2); <br>
+        0x05D0 (6.3); <br>
+        0x0600 (10.0); <br>
+        0x0608 (1511); <br>
+        0x0618 (1607); <br>
+        0x0620 (1703 to 1809); <br>
+        0x0650 (1903); <br>
+        0x07D0 </td>
+        <td>
+        <pre class="source">ULONG ModifiedPageCount;</pre>
+        </td>
+        <td>5.1 and higher <br>
+        </td>
+        <td>previously at 0x0190 </td>
+      </tr>
+      <tr>
+        <td>0x0240 (5.1) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG NumberOfVads;</pre>
+        </td>
+        <td>5.1 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0244 (5.1 to early 5.2); <br>
+        0x023C (late 5.2) </td>
+        <td>0x0384 (late 5.2) </td>
+        <td>
+        <pre class="source">ULONG JobStatus;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>previously at 0x021C </td>
+      </tr>
+      <tr>
+        <td>0x0224 (6.0); <br>
+        0x026C (6.1) </td>
+        <td>0x036C (6.0); <br>
+        0x043C (6.1) </td>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="flags2.htm">Flags2</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+        <td>next at 0xC0 and 0x02F8 </td>
+      </tr>
+      <tr>
+        <td>0x0248 (5.1 to early 5.2); <br>
+        0x0240 (late 5.2); <br>
+        0x0228 (6.0); <br>
+        0x0270 (6.1) </td>
+        <td>0x0388 (late 5.2); <br>
+        0x0370 (6.0); <br>
+        0x0440 (6.1) </td>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="flags.htm">Flags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>next at 0xC4 and 0x02FC </td>
+      </tr>
+      <tr>
+        <td>0x024C (5.1 to early 5.2); <br>
+        0x0244 (late 5.2); <br>
+        0x022C (6.0); <br>
+        0x0274 (6.1); <br>
+        0x0270 (6.2 to 6.3); <br>
+        0x0280 (10.0 to 1511); <br>
+        0x0288 (1607); <br>
+        0x0294 (1703 to 1709); <br>
+        0x0298 (1803 to 1809); <br>
+        0x030C (1903); <br>
+        0x034C </td>
+        <td>0x038C (late 5.2); <br>
+        0x0374 (6.0); <br>
+        0x0444 (6.1); <br>
+        0x058C (6.2); <br>
+        0x05D4 (6.3); <br>
+        0x0604 (10.0); <br>
+        0x060C (1511); <br>
+        0x061C (1607); <br>
+        0x0624 (1703 to 1809); <br>
+        0x0654 (1903); <br>
+        0x07D4 </td>
+        <td>
+        <pre class="source">NTSTATUS ExitStatus;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>previously at 0x6C </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0250 (5.1 to early 5.2); <br>
+        0x0248 (late 5.2); <br>
+        0x0230 (6.0) </td>
+        <td rowspan="2">0x0390 (late 5.2); <br>
+        0x0378 (6.0) </td>
+        <td>
+        <pre class="source">USHORT NextPageColor;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>previously at 0x01A8 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT Spare7;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0252 (5.1 to early 5.2); <br>
+        0x024A (late 5.2); <br>
+        0x0232 (6.0) </td>
+        <td>0x0392 (late 5.2); <br>
+        0x037A (6.0) </td>
+        <td>
+        <pre class="source">union {
+    struct {
+        UCHAR SubSystemMinorVersion;
+        UCHAR SubSystemMajorVersion;
+    };
+    USHORT SubSystemVersion;
+};</pre>
+        </td>
+        <td>5.1 to 6.0 </td>
+        <td>previously at 0x0212 </td>
+      </tr>
+      <tr>
+        <td>0x0254 (5.1 to early 5.2); <br>
+        0x024C (late 5.2); <br>
+        0x0234 (6.0) </td>
+        <td>0x0394 (late 5.2); <br>
+        0x037C (6.0) </td>
+        <td>
+        <pre class="source">UCHAR PriorityClass;</pre>
+        </td>
+        <td>5.1 to 6.0 </td>
+        <td>previously at 0x0211; <br>
+        next at 0x017B and 0x02EF </td>
+      </tr>
+      <tr>
+        <td>0x0255 (5.1) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN WorkingSetAcquiredUnsafe;</pre>
+        </td>
+        <td>5.1 only </td>
+        <td>last member in early 5.1 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0258 (early 5.2); <br>
+        0x0250 (late 5.2); <br>
+        0x0238 (6.0); <br>
+        0x0278 (6.1); <br>
+        0x0274 (6.2 to 6.3); <br>
+        0x0284 (10.0 to 1511); <br>
+        0x028C (1607); <br>
+        0x0298 (1703 to 1709); <br>
+        0x029C (1803 to 1809); <br>
+        0x0310 (1903); <br>
+        0x0350 </td>
+        <td rowspan="2">0x0398 (late 5.2); <br>
+        0x0380 (6.0); <br>
+        0x0448 (6.1); <br>
+        0x0590 (6.2); <br>
+        0x05D8 (6.3); <br>
+        0x0608 (10.0); <br>
+        0x0610 (1511); <br>
+        0x0620 (1607); <br>
+        0x0628 (1703 to 1809); <br>
+        0x0658 (1903); <br>
+        0x07D8 </td>
+        <td>
+        <pre class="source">MM_AVL_TABLE VadRoot;</pre>
+        </td>
+        <td>5.2 to 6.2 <br>
+        </td>
+        <td>previously at 0x011C; <br>
+        last member in early 5.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">RTL_AVL_TREE VadRoot;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0278 (6.3); <br>
+        0x0288 (10.0 to 1511); <br>
+        0x0290 (1607); <br>
+        0x029C (1703 to 1709); <br>
+        0x02A0 (1803 to 1809); <br>
+        0x0314 (1903); <br>
+        0x0354 </td>
+        <td>0x05E0 (6.3); <br>
+        0x0610 (10.0); <br>
+        0x0618 (1511); <br>
+        0x0628 (1607); <br>
+        0x0630 (1703 to 1809); <br>
+        0x0660 (1903); <br>
+        0x07E0 </td>
+        <td>
+        <pre class="source">PVOID VadHint;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x027C (6.3); <br>
+        0x028C (10.0 to 1511); <br>
+        0x0294 (1607); <br>
+        0x02A0 (1703 to 1709); <br>
+        0x02A4 (1803 to 1809); <br>
+        0x0318 (1903); <br>
+        0x0358 </td>
+        <td>0x05E8 (6.3); <br>
+        0x0618 (10.0); <br>
+        0x0620 (1511); <br>
+        0x0630 (1607); <br>
+        0x0638 (1703 to 1809); <br>
+        0x0668 (1903); <br>
+        0x07E8 </td>
+        <td>
+        <pre class="source">ULONG_PTR VadCount;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x028C (6.2); <br>
+        0x0280 (6.3); <br>
+        0x0290 (10.0 to 1511); <br>
+        0x0298 (1607); <br>
+        0x02A4 (1703 to 1709); <br>
+        0x02A8 (1803 to 1809); <br>
+        0x031C (1903); <br>
+        0x035C </td>
+        <td>0x05C0 (6.2); <br>
+        0x05F0 (6.3); <br>
+        0x0620 (10.0); <br>
+        0x0628 (1511); <br>
+        0x0638 (1607); <br>
+        0x0640 (1703 to 1809); <br>
+        0x0670 (1903); <br>
+        0x07F0 </td>
+        <td>
+        <pre class="source">ULONG_PTR volatile VadPhysicalPages;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0290 (6.2); <br>
+        0x0284 (6.3); <br>
+        0x0294 (10.0 to 1511); <br>
+        0x029C (1607); <br>
+        0x02A8 (1703 to 1709); <br>
+        0x02AC (1803 to 1809); <br>
+        0x0320 (1903); <br>
+        0x0360 </td>
+        <td>0x05C8 (6.2); <br>
+        0x05F8 (6.3); <br>
+        0x0628 (10.0); <br>
+        0x0630 (1511); <br>
+        0x0640 (1607); <br>
+        0x0648 (1703 to 1809); <br>
+        0x0678 (1903); <br>
+        0x07F8 </td>
+        <td>
+        <pre class="source">ULONG_PTR VadPhysicalPagesLimit;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0258 (late 5.1) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG Cookie;</pre>
+        </td>
+        <td>late 5.1 only </td>
+        <td>last member in late 5.1 </td>
+      </tr>
+      <tr>
+        <td>0x0270 (late 5.2); <br>
+        0x0258 (6.0) </td>
+        <td>0x03D8 (late 5.2); <br>
+        0x03C0 (6.0) </td>
+        <td>
+        <pre class="source">ULONG Cookie;</pre>
+        </td>
+        <td>late 5.2 to 6.0 </td>
+        <td>next at 0x0130 and 0x0278; <br>
+        last member in late 5.2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows Vista </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x025C (6.0); <br>
+        0x0298 (6.1); <br>
+        0x0294 (6.2); <br>
+        0x0288 (6.3); <br>
+        0x0298 (10.0 to 1511); <br>
+        0x02A0 (1607); <br>
+        0x02AC (1703 to 1709); <br>
+        0x02B0 (1803 to 1809); <br>
+        0x0324 (1903); <br>
+        0x0364 </td>
+        <td>0x03C8 (6.0); <br>
+        0x0488 (6.1); <br>
+        0x05D0 (6.2); <br>
+        0x0600 (6.3); <br>
+        0x0630 (10.0); <br>
+        0x0638 (1511); <br>
+        0x0648 (1607); <br>
+        0x0650 (1703 to 1809); <br>
+        0x0680 (1903); <br>
+        0x0800 </td>
+        <td>
+        <pre class="source">ALPC_PROCESS_CONTEXT AlpcContext;</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>last member in 6.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 7 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x02A8 (6.1); <br>
+        0x02A4 (6.2); <br>
+        0x0298 (6.3); <br>
+        0x02A8 (10.0 to 1511); <br>
+        0x02B0 (1607); <br>
+        0x02BC (1703 to 1709); <br>
+        0x02C0 (1803 to 1809); <br>
+        0x0334 (1903); <br>
+        0x0374 </td>
+        <td>0x04A8 (6.1); <br>
+        0x05F0 (6.2); <br>
+        0x0620 (6.3); <br>
+        0x0650 (10.0); <br>
+        0x0658 (1511); <br>
+        0x0668 (1607); <br>
+        0x0670 (1703 to 1809); <br>
+        0x06A0 (1903); <br>
+        0x0820 </td>
+        <td>
+        <pre class="source">LIST_ENTRY TimerResolutionLink;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02B0 (6.1) </td>
+        <td>0x04B8 (6.1) </td>
+        <td>
+        <pre class="source">ULONG RequestedTimerResolution;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next at 0x02B0 and 0x0608 </td>
+      </tr>
+      <tr>
+        <td>0x02B4 (6.1) </td>
+        <td>0x04BC (6.1) </td>
+        <td>
+        <pre class="source">ULONG ActiveThreadsHighWatermark;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next at 0x02C0 and 0x0628 </td>
+      </tr>
+      <tr>
+        <td>0x02B8 (6.1) </td>
+        <td>0x04C0 (6.1) </td>
+        <td>
+        <pre class="source">ULONG SmallestTimerResolution;</pre>
+        </td>
+        <td>6.1 only </td>
+        <td>next at 0x02B4 and 0x060C </td>
+      </tr>
+      <tr>
+        <td>0x02BC (6.1); <br>
+        0x02AC (6.2); <br>
+        0x02A0 (6.3); <br>
+        0x02B0 (10.0 to 1511); <br>
+        0x02B8 (1607); <br>
+        0x02C4 (1703 to 1709); <br>
+        0x02C8 (1803 to 1809); <br>
+        0x033C (1903); <br>
+        0x037C </td>
+        <td>0x04C8 (6.1); <br>
+        0x0600 (6.2); <br>
+        0x0630 (6.3); <br>
+        0x0660 (10.0); <br>
+        0x0668 (1511); <br>
+        0x0678 (1607); <br>
+        0x0680 (1703 to 1809); <br>
+        0x06B0 (1903); <br>
+        0x0830 </td>
+        <td>
+        <pre class="source">PO_DIAG_STACK_RECORD *TimerResolutionStackRecord;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>last member in 6.1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 8 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x02B0 (6.2); <br>
+        0x02A4 (6.3); <br>
+        0x02B4 (10.0 to 1511); <br>
+        0x02BC (1607); <br>
+        0x02C8 (1703 to 1709); <br>
+        0x02CC (1803 to 1809); <br>
+        0x0340 (1903); <br>
+        0x0380 </td>
+        <td>0x0608 (6.2); <br>
+        0x0638 (6.3); <br>
+        0x0668 (10.0); <br>
+        0x0670 (1511); <br>
+        0x0680 (1607); <br>
+        0x0688 (1703 to 1809); <br>
+        0x06B8 (1903); <br>
+        0x0838 </td>
+        <td>
+        <pre class="source">ULONG RequestedTimerResolution;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x02B0 and 0x04B8 </td>
+      </tr>
+      <tr>
+        <td>0x02B4 (6.2); <br>
+        0x02A8 (6.3); <br>
+        0x02B8 (10.0 to 1511); <br>
+        0x02C0 (1607); <br>
+        0x02CC (1703 to 1709); <br>
+        0x02D0 (1803 to 1809); <br>
+        0x0344 (1903); <br>
+        0x0384 </td>
+        <td>0x060C (6.2); <br>
+        0x063C (6.3); <br>
+        0x066C (10.0); <br>
+        0x0674 (1511); <br>
+        0x0684 (1607); <br>
+        0x068C (1703 to 1809); <br>
+        0x06BC (1903); <br>
+        0x083C </td>
+        <td>
+        <pre class="source">ULONG SmallestTimerResolution;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x02B8 and 0x04C0 </td>
+      </tr>
+      <tr>
+        <td>0x02B8 (6.2); <br>
+        0x02B0 (6.3); <br>
+        0x02C0 (10.0 to 1511); <br>
+        0x02C8 (1607); <br>
+        0x02D0 (1703 to 1709); <br>
+        0x02D8 (1803 to 1809); <br>
+        0x0348 (1903); <br>
+        0x0388 </td>
+        <td>0x0610 (6.2); <br>
+        0x0640 (6.3); <br>
+        0x0670 (10.0); <br>
+        0x0678 (1511); <br>
+        0x0688 (1607); <br>
+        0x0690 (1703 to 1809); <br>
+        0x06C0 (1903); <br>
+        0x0840 </td>
+        <td>
+        <pre class="source">LARGE_INTEGER ExitTime;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously 0xA8 and 0x0170 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0618 (6.2); <br>
+        0x0648 (6.3); <br>
+        0x0678 (10.0); <br>
+        0x0680 (1511); <br>
+        0x0690 (1607); <br>
+        0x0698 (1703 to 1809); <br>
+        0x06C8 (1903); <br>
+        0x0848 </td>
+        <td>
+        <pre class="source">INVERTED_FUNCTION_TABLE *InvertedFunctionTable;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0620 (6.2); <br>
+        0x0650 (6.3); <br>
+        0x0680 (10.0); <br>
+        0x0688 (1511); <br>
+        0x0698 (1607); <br>
+        0x06A0 (1703 to 1809); <br>
+        0x06D0 (1903); <br>
+        0x0850 </td>
+        <td>
+        <pre class="source">EX_PUSH_LOCK InvertedFunctionTableLock;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02C0 (6.2); <br>
+        0x02B8 (6.3); <br>
+        0x02C8 (10.0 to 1511); <br>
+        0x02D0 (1607); <br>
+        0x02D8 (1703 to 1709); <br>
+        0x02E0 (1803 to 1809); <br>
+        0x0350 (1903); <br>
+        0x0390 </td>
+        <td>0x0628 (6.2); <br>
+        0x0658 (6.3); <br>
+        0x0688 (10.0); <br>
+        0x0690 (1511); <br>
+        0x06A0 (1607); <br>
+        0x06A8 (1703 to 1809); <br>
+        0x06D8 (1903); <br>
+        0x0858 </td>
+        <td>
+        <pre class="source">ULONG ActiveThreadsHighWatermark;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x02B4 and 0x04BC </td>
+      </tr>
+      <tr>
+        <td>0x02C4 (6.2); <br>
+        0x02BC (6.3); <br>
+        0x02CC (10.0 to 1511); <br>
+        0x02D4 (1607); <br>
+        0x02DC (1703 to 1709); <br>
+        0x02E4 (1803 to 1809); <br>
+        0x0354 (1903); <br>
+        0x0394 </td>
+        <td>0x062C (6.2); <br>
+        0x065C (6.3); <br>
+        0x068C (10.0); <br>
+        0x0694 (1511); <br>
+        0x06A4 (1607); <br>
+        0x06AC (1703 to 1809); <br>
+        0x06DC (1903); <br>
+        0x085C </td>
+        <td>
+        <pre class="source">ULONG LargePrivateVadCount;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02C8 (6.2); <br>
+        0x02C0 (6.3); <br>
+        0x02D0 (10.0 to 1511); <br>
+        0x02D8 (1607); <br>
+        0x02E0 (1703 to 1709); <br>
+        0x02E8 (1803 to 1809); <br>
+        0x0358 (1903); <br>
+        0x0398 </td>
+        <td>0x0630 (6.2); <br>
+        0x0660 (6.3); <br>
+        0x0690 (10.0); <br>
+        0x0698 (1511); <br>
+        0x06A8 (1607); <br>
+        0x06B0 (1703 to 1809); <br>
+        0x06E0 (1903); <br>
+        0x0860 </td>
+        <td>
+        <pre class="source">EX_PUSH_LOCK ThreadListLock;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02CC (6.2); <br>
+        0x02C4 (6.3); <br>
+        0x02D4 (10.0 to 1511); <br>
+        0x02DC (1607); <br>
+        0x02E4 (1703 to 1709); <br>
+        0x02EC (1803 to 1809); <br>
+        0x035C (1903); <br>
+        0x039C </td>
+        <td>0x0638 (6.2); <br>
+        0x0668 (6.3); <br>
+        0x0698 (10.0); <br>
+        0x06A0 (1511); <br>
+        0x06B0 (1607); <br>
+        0x06B8 (1703 to 1809); <br>
+        0x06E8 (1903); <br>
+        0x0868 </td>
+        <td>
+        <pre class="source">PVOID WnfContext;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x02D0 (6.2); <br>
+        0x02C8 (6.3); <br>
+        0x02D8 (10.0 to 1511); <br>
+        0x02E0 (1607); <br>
+        0x02E8 (1703 to 1709); <br>
+        0x02F0 (1803 to 1809); <br>
+        0x0360 (1903); <br>
+        0x03A0 </td>
+        <td rowspan="3">0x0640 (6.2); <br>
+        0x0670 (6.3); <br>
+        0x06A0 (10.0); <br>
+        0x06A8 (1511); <br>
+        0x06B8 (1607); <br>
+        0x06C0 (1703 to 1809); <br>
+        0x06F0 (1903); <br>
+        0x0870 </td>
+        <td>
+        <pre class="source">ULONG_PTR SectionMappingSize;</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR Spare0;</pre>
+        </td>
+        <td>6.3 to 1607 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">EJOB *ServerSilo;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02D4 (6.2); <br>
+        0x02CC (6.3); <br>
+        0x02DC (10.0 to 1511); <br>
+        0x02E4 (1607); <br>
+        0x02EC (1703 to 1709); <br>
+        0x02F4 (1803 to 1809); <br>
+        0x0364 (1903); <br>
+        0x03A4 </td>
+        <td>0x0648 (6.2); <br>
+        0x0678 (6.3); <br>
+        0x06A8 (10.0); <br>
+        0x06B0 (1511); <br>
+        0x06C0 (1607); <br>
+        0x06C8 (1703 to 1809); <br>
+        0x06F8 (1903); <br>
+        0x0878 </td>
+        <td>
+        <pre class="source">UCHAR SignatureLevel;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02D5 (6.2); <br>
+        0x02CD (6.3); <br>
+        0x02DD (10.0 to 1511); <br>
+        0x02E5 (1607); <br>
+        0x02ED (1703 to 1709); <br>
+        0x02F5 (1803 to 1809); <br>
+        0x0365 (1903); <br>
+        0x03A5 </td>
+        <td>0x0649 (6.2); <br>
+        0x0679 (6.3); <br>
+        0x06A9 (10.0); <br>
+        0x06B1 (1511); <br>
+        0x06C1 (1607); <br>
+        0x06C9 (1703 to 1809); <br>
+        0x06F9 (1903); <br>
+        0x0879 </td>
+        <td>
+        <pre class="source">UCHAR SectionSignatureLevel;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02CE (6.3); <br>
+        0x02DE (10.0 to 1511); <br>
+        0x02E6 (1607); <br>
+        0x02EE (1703 to 1709); <br>
+        0x02F6 (1803 to 1809); <br>
+        0x0366 (1903); <br>
+        0x03A6 </td>
+        <td>0x067A (6.3); <br>
+        0x06AA (10.0); <br>
+        0x06B2 (1511); <br>
+        0x06C2 (1607); <br>
+        0x06CA (1703 to 1809); <br>
+        0x06FA (1903); <br>
+        0x087A </td>
+        <td>
+        <pre class="source">PS_PROTECTION Protection;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x02DF (10.0 to 1511); <br>
+        0x02E7 (1607); <br>
+        0x02EF (1703 to 1709); <br>
+        0x02F7 (1803 to 1809); <br>
+        0x0367 (1903); <br>
+        0x03A7 </td>
+        <td rowspan="3">0x06AB (10.0); <br>
+        0x06B3 (1511); <br>
+        0x06C3 (1607); <br>
+        0x06CB (1703 to 1809); <br>
+        0x06FB (1903); <br>
+        0x087B </td>
+        <td>
+        <pre class="source">UCHAR HangCount;</pre>
+        </td>
+        <td>10.0 to 1703 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR HangCount : 4;
+UCHAR GhostCount : 4;</pre>
+        </td>
+        <td>1709 to 1803 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR HangCount : 3;
+UCHAR GhostCount : 3;
+UCHAR PrefilterException : 1;</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02D6 (6.2); <br>
+        0x02CF (6.3) </td>
+        <td rowspan="2">0x064A (6.2); <br>
+        0x067B (6.3) </td>
+        <td>
+        <pre class="source">UCHAR SpareByte20 [2];</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareByte20 [1];</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02D0 (6.3); <br>
+        0x02E0 (10.0 to 1511); <br>
+        0x02E8 (1607); <br>
+        0x02F0 (1703 to 1709); <br>
+        0x02F8 (1803 to 1809); <br>
+        0x0368 (1903); <br>
+        0x03A8 </td>
+        <td>0x067C (6.3); <br>
+        0x06AC (10.0); <br>
+        0x06B4 (1511); <br>
+        0x06C4 (1607); <br>
+        0x06CC (1703 to 1809); <br>
+        0x06FC (1903); <br>
+        0x087C </td>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="flags3.htm">Flags3</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02E4 (10.0 to 1511); <br>
+        0x02EC (1607); <br>
+        0x02F4 (1703 to 1709); <br>
+        0x02FC (1803 to 1809); <br>
+        0x036C (1903); <br>
+        0x03AC </td>
+        <td>0x06B0 (10.0); <br>
+        0x06B8 (1511); <br>
+        0x06C8 (1607); <br>
+        0x06D0 (1703 to 1809); <br>
+        0x0700 (1903); <br>
+        0x0880 </td>
+        <td>
+        <pre class="source">LONG DeviceAsid;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02D4 (6.3) </td>
+        <td>0x0680 (6.3) </td>
+        <td>
+        <pre class="source">LONG SvmReserved;</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02D8 (6.3); <br>
+        0x02E8 (10.0 to 1511); <br>
+        0x02F0 (1607); <br>
+        0x02F8 (1703 to 1709); <br>
+        0x0300 (1803 to 1809); <br>
+        0x0370 (1903); <br>
+        0x03B0 </td>
+        <td rowspan="2">0x0688 (6.3); <br>
+        0x06B8 (10.0); <br>
+        0x06C0 (1511); <br>
+        0x06D0 (1607); <br>
+        0x06D8 (1703 to 1809); <br>
+        0x0708 (1903); <br>
+        0x0888 </td>
+        <td>
+        <pre class="source">PVOID SvmReserved1;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SvmData;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02DC (6.3); <br>
+        0x02EC (10.0 to 1511); <br>
+        0x02F4 (1607); <br>
+        0x02FC (1703 to 1709); <br>
+        0x0304 (1803 to 1809); <br>
+        0x0374 (1903); <br>
+        0x03B4 </td>
+        <td rowspan="2">0x0690 (6.3); <br>
+        0x06C0 (10.0); <br>
+        0x06C8 (1511); <br>
+        0x06D8 (1607); <br>
+        0x06E0 (1703 to 1809); <br>
+        0x0710 (1903); <br>
+        0x0890 </td>
+        <td>
+        <pre class="source">ULONG_PTR SvmReserved2;</pre>
+        </td>
+        <td>6.3 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">EX_PUSH_LOCK SvmProcessLock;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02F0 (10.0 to 1511); <br>
+        0x02F8 (1607); <br>
+        0x0300 (1703 to 1709); <br>
+        0x0308 (1803 to 1809); <br>
+        0x0378 (1903); <br>
+        0x03B8 </td>
+        <td>0x06C8 (10.0); <br>
+        0x06D0 (1511); <br>
+        0x06E0 (1607); <br>
+        0x06E8 (1703 to 1809); <br>
+        0x0718 (1903); <br>
+        0x0898 </td>
+        <td>
+        <pre class="source">ULONG_PTR SvmLock;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02F4 (10.0 to 1511); <br>
+        0x02FC (1607); <br>
+        0x0304 (1703 to 1709); <br>
+        0x030C (1803 to 1809); <br>
+        0x037C (1903); <br>
+        0x03BC </td>
+        <td>0x06D0 (10.0); <br>
+        0x06D8 (1511); <br>
+        0x06E8 (1607); <br>
+        0x06F0 (1703 to 1809); <br>
+        0x0720 (1903); <br>
+        0x08A0 </td>
+        <td>
+        <pre class="source">LIST_ENTRY SvmProcessDeviceListHead;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02D8 (6.2) </td>
+        <td>0x064C (6.2) </td>
+        <td>
+        <pre class="source">ULONG KeepAliveCounter;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>next at 0x02EC and 0x06B0 </td>
+      </tr>
+      <tr>
+        <td>0x02DC (6.2) </td>
+        <td>0x0650 (6.2) </td>
+        <td>
+        <pre class="source"><a href="../../../api/ntpsapi/process_disk_counters.htm">PROCESS_DISK_COUNTERS</a> *DiskCounters;</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>next at 0x02E8 and 0x06A0 </td>
+      </tr>
+      <tr>
+        <td>0x02E0 (6.2 to 6.3); <br>
+        0x0300 (10.0 to 1511); <br>
+        0x0308 (1607); <br>
+        0x0310 (1703 to 1709); <br>
+        0x0318 (1803 to 1809); <br>
+        0x0388 (1903); <br>
+        0x03C8 </td>
+        <td>0x0658 (6.2); <br>
+        0x0698 (6.3); <br>
+        0x06E0 (10.0); <br>
+        0x06E8 (1511); <br>
+        0x06F8 (1607); <br>
+        0x0700 (1703 to 1809); <br>
+        0x0730 (1903); <br>
+        0x08B0 </td>
+        <td>
+        <pre class="source">ULONGLONG LastFreezeInterruptTime;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>last member in 6.2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 8.1 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x02E8 (6.3); <br>
+        0x0308 (10.0 to 1511); <br>
+        0x0310 (1607); <br>
+        0x0318 (1703 to 1709); <br>
+        0x0320 (1803 to 1809); <br>
+        0x0390 (1903); <br>
+        0x03D0 </td>
+        <td>0x06A0 (6.3); <br>
+        0x06E8 (10.0); <br>
+        0x06F0 (1511); <br>
+        0x0700 (1607); <br>
+        0x0708 (1703 to 1809); <br>
+        0x0738 (1903); <br>
+        0x08B8 </td>
+        <td>
+        <pre class="source">PROCESS_DISK_COUNTERS *DiskCounters;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>previously at 0x02DC and 0x0650 </td>
+      </tr>
+      <tr>
+        <td>0x030C (10.0 to 1511); <br>
+        0x0314 (1607); <br>
+        0x031C (1703 to 1709); <br>
+        0x0324 (1803 to 1809); <br>
+        0x0394 (1903); <br>
+        0x03D4 </td>
+        <td>0x06A8 (6.3); <br>
+        0x06F0 (10.0); <br>
+        0x06F8 (1511); <br>
+        0x0708 (1607); <br>
+        0x0710 (1703 to 1809); <br>
+        0x0740 (1903); <br>
+        0x08C0 </td>
+        <td>
+        <pre class="source">PVOID PicoContext;</pre>
+        </td>
+        <td>6.3 and higher (x64); <br>
+        10.0 and higher (x86) </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x06F8 (10.0); <br>
+        0x0700 (1511); <br>
+        0x0710 (1607); <br>
+        0x0718 (1703 to 1803) </td>
+        <td>
+        <pre class="source">ULONGLONG TrustletIdentity;</pre>
+        </td>
+        <td>10.0 to 1803 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0720 (1709 to 1803); <br>
+        0x0718 (1809); <br>
+        0x0748 (1903); <br>
+        0x08C8 </td>
+        <td>
+        <pre class="source">PVOID EnclaveTable;</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0728 (1709 to 1803); <br>
+        0x0720 (1809); <br>
+        0x0750 (1903); <br>
+        0x08D0 </td>
+        <td>
+        <pre class="source">ULONGLONG EnclaveNumber;</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x0730 (1709 to 1803); <br>
+        0x0728 (1809); <br>
+        0x0758 (1903); <br>
+        0x08D8 </td>
+        <td>
+        <pre class="source">EX_PUSH_LOCK EnclaveLock;</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02EC (6.3); <br>
+        0x0310 (10.0 to 1511); <br>
+        0x0318 (1607) </td>
+        <td>0x06B0 (6.3); <br>
+        0x0700 (10.0); <br>
+        0x0708 (1511); <br>
+        0x0718 (1607) </td>
+        <td>
+        <pre class="source">ULONG KeepAliveCounter;</pre>
+        </td>
+        <td>6.3 to 1607 </td>
+        <td>previously at 0x02D8 and 0x064C </td>
+      </tr>
+      <tr>
+        <td>0x02F0 (6.3); <br>
+        0x0314 (10.0 to 1511); <br>
+        0x031C (1607) </td>
+        <td>0x06B4 (6.3); <br>
+        0x0704 (10.0); <br>
+        0x070C (1511); <br>
+        0x071C (1607) </td>
+        <td>
+        <pre class="source">ULONG NoWakeKeepAliveCounter;</pre>
+        </td>
+        <td>6.3 to 1607 </td>
+        <td>last member in 6.3 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0318 (10.0 to 1511); <br>
+        0x0320 (1607 to 1709); <br>
+        0x0328 (1803 to 1809); <br>
+        0x0398 (1903); <br>
+        0x03D8 </td>
+        <td>0x0708 (10.0); <br>
+        0x0710 (1511); <br>
+        0x0720 (1607 to 1703); <br>
+        0x0738 (1709 to 1803); <br>
+        0x0730 (1809); <br>
+        0x0760 (1903); <br>
+        0x08E0 </td>
+        <td>
+        <pre class="source">ULONG HighPriorityFaultsAllowed;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x031C (10.0 to 1511); <br>
+        0x0324 (1607 to 1709); <br>
+        0x032C (1803 to 1809); <br>
+        0x039C (1903); <br>
+        0x03DC </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID InstrumentationCallback;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0320 (10.0 to 1511); <br>
+        0x0328 (1607 to 1709); <br>
+        0x0330 (1803 to 1809); <br>
+        0x03A0 (1903); <br>
+        0x03E0 </td>
+        <td rowspan="2">0x0710 (10.0); <br>
+        0x0718 (1511); <br>
+        0x0728 (1607 to 1703); <br>
+        0x0740 (1709 to 1803); <br>
+        0x0738 (1809); <br>
+        0x0768 (1903); <br>
+        0x08E8 </td>
+        <td>
+        <pre class="source"><a href="../../../../api/ps/psquery/energy_values.htm">PROCESS_ENERGY_VALUES</a> *EnergyValues;</pre>
+        </td>
+        <td>10.0 to 1607 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PO_PROCESS_ENERGY_CONTEXT *EnergyContext;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0324 (10.0 to 1511); <br>
+        0x032C (1607 to 1709); <br>
+        0x0334 (1803 to 1809); <br>
+        0x03A4 (1903); <br>
+        0x03E4 </td>
+        <td>0x0718 (10.0); <br>
+        0x0720 (1511); <br>
+        0x0730 (1607 to 1703); <br>
+        0x0748 (1709 to 1803); <br>
+        0x0740 (1809); <br>
+        0x0770 (1903); <br>
+        0x08F0 </td>
+        <td>
+        <pre class="source">PVOID VmContext;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0328 (10.0) </td>
+        <td>0x0720 (10.0) </td>
+        <td>
+        <pre class="source">ESILO *Silo;</pre>
+        </td>
+        <td>10.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x032C (10.0) </td>
+        <td>0x0728 (10.0) </td>
+        <td>
+        <pre class="source">LIST_ENTRY SiloEntry;</pre>
+        </td>
+        <td>10.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0338 (10.0); <br>
+        0x0328 (1511); <br>
+        0x0330 (1607 to 1709); <br>
+        0x0338 (1803 to 1809); <br>
+        0x03A8 (1903); <br>
+        0x03E8 </td>
+        <td>0x0738 (10.0); <br>
+        0x0728 (1511); <br>
+        0x0738 (1607 to 1703); <br>
+        0x0750 (1709 to 1803); <br>
+        0x0748 (1809) <br>
+        0x0778 (1903); <br>
+        0x08F8 </td>
+        <td>
+        <pre class="source">ULONGLONG SequenceNumber;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0340 (10.0); <br>
+        0x0330 (1511); <br>
+        0x0338 (1607 to 1709); <br>
+        0x0340 (1803 to 1809); <br>
+        0x03B0 (1903); <br>
+        0x03F0 </td>
+        <td>0x0740 (10.0); <br>
+        0x0730 (1511); <br>
+        0x0740 (1607 to 1703); <br>
+        0x0758 (1709 to 1803); <br>
+        0x0750 (1809); <br>
+        0x0780 (1903); <br>
+        0x0900 </td>
+        <td>
+        <pre class="source">ULONGLONG CreateInterruptTime;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0348 (10.0); <br>
+        0x0338 (1511); <br>
+        0x0340 (1607 to 1709); <br>
+        0x0348 (1803 to 1809); <br>
+        0x03B8 (1903); <br>
+        0x03F8 </td>
+        <td>0x0748 (10.0); <br>
+        0x0738 (1511); <br>
+        0x0748 (1607 to 1703); <br>
+        0x0760 (1709 to 1803); <br>
+        0x0758 (1809); <br>
+        0x0788 (1903); <br>
+        0x0908 </td>
+        <td>
+        <pre class="source">ULONGLONG CreateUnbiasedInterruptTime;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0350 (10.0); <br>
+        0x0340 (1511); <br>
+        0x0348 (1607 to 1709); <br>
+        0x0350 (1803 to 1809); <br>
+        0x03C0 (1903); <br>
+        0x0400 </td>
+        <td>0x0750 (10.0); <br>
+        0x0740 (1511); <br>
+        0x0750 (1607 to 1703); <br>
+        0x0768 (1709 to 1803); <br>
+        0x0760 (1809); <br>
+        0x0790 (1903); <br>
+        0x0910 </td>
+        <td>
+        <pre class="source">ULONGLONG TotalUnbiasedFrozenTime;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0358 (10.0); <br>
+        0x0348 (1511); <br>
+        0x0350 (1607 to 1709); <br>
+        0x0358 (1803 to 1809); <br>
+        0x03C8 (1903); <br>
+        0x0408 </td>
+        <td>0x0758 (10.0); <br>
+        0x0748 (1511); <br>
+        0x0758 (1607 to 1703); <br>
+        0x0770 (1709 to 1803); <br>
+        0x0768 (1809); <br>
+        0x0798 (1903); <br>
+        0x0918 </td>
+        <td>
+        <pre class="source">ULONGLONG LastAppStateUpdateTime;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0360 (10.0); <br>
+        0x0350 (1511); <br>
+        0x0358 (1607 to 1709); <br>
+        0x0360 (1803 to 1809); <br>
+        0x03D0 (1903); <br>
+        0x0410 </td>
+        <td>0x0760 (10.0); <br>
+        0x0750 (1511); <br>
+        0x0760 (1607 to 1703); <br>
+        0x0778 (1709 to 1803); <br>
+        0x0770 (1809); <br>
+        0x07A0 (1903); <br>
+        0x0920 </td>
+        <td>
+        <pre class="source">ULONGLONG LastAppStateUptime : 61;
+ULONGLONG LastAppState : 3;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0368 (10.0); <br>
+        0x0358 (1511); <br>
+        0x0360 (1607 to 1709); <br>
+        0x0368 (1803 to 1809); <br>
+        0x03D8 (1903); <br>
+        0x0418 </td>
+        <td>0x0768 (10.0); <br>
+        0x0758 (1511); <br>
+        0x0768 (1607 to 1703); <br>
+        0x0780 (1709 to 1803); <br>
+        0x0778 (1809); <br>
+        0x07A8 (1903); <br>
+        0x0928 </td>
+        <td>
+        <pre class="source">ULONG_PTR volatile SharedCommitCharge;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x036C (10.0); <br>
+        0x035C (1511); <br>
+        0x0364 (1607 to 1709); <br>
+        0x036C (1803 to 1809); <br>
+        0x03DC (1903); <br>
+        0x041C </td>
+        <td>0x0770 (10.0); <br>
+        0x0760 (1511); <br>
+        0x0770 (1607 to 1703); <br>
+        0x0788 (1709 to 1803); <br>
+        0x0780 (1809); <br>
+        0x07B0 (1903); <br>
+        0x0930 </td>
+        <td>
+        <pre class="source">EX_PUSH_LOCK SharedCommitLock;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0370 (10.0); <br>
+        0x0360 (1511); <br>
+        0x0368 (1607 to 1709); <br>
+        0x0370 (1803 to 1809); <br>
+        0x03E0 (1903); <br>
+        0x0420 </td>
+        <td>0x0778 (10.0); <br>
+        0x0768 (1511); <br>
+        0x0778 (1607 to 1703); <br>
+        0x0790 (1709 to 1803); <br>
+        0x0788 (1809); <br>
+        0x07B8 (1903); <br>
+        0x0938 </td>
+        <td>
+        <pre class="source">LIST_ENTRY SharedCommitLinks;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0378 (10.0); <br>
+        0x0368 (1511); <br>
+        0x0370 (1607 to 1709); <br>
+        0x0378 (1803 to 1809); <br>
+        0x03E8 (1903); <br>
+        0x0428 </td>
+        <td>0x0788 (10.0); <br>
+        0x0778 (1511); <br>
+        0x0788 (1607 to 1703); <br>
+        0x07A0 (1709 to 1803); <br>
+        0x0798 (1809); <br>
+        0x07C8 (1903); <br>
+        0x0948 </td>
+        <td>
+        <pre class="source">union {
+    struct {
+        ULONG_PTR AllowedCpuSets;
+        ULONG_PTR DefaultCpuSets;
+    };
+    struct {
+        ULONG_PTR *AllowedCpuSetsIndirect;
+        ULONG_PTR *DefaultCpuSetsIndirect;
+    };
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>last member in 10.0 to 1511 </td>
+      </tr>
+      <tr>
+        <td>0x0378 (1607 to 1709); <br>
+        0x0380 (1803 to 1809); <br>
+        0x03F0 (1903); <br>
+        0x0430 </td>
+        <td>0x0798 (1607 to 1703); <br>
+        0x07B0 (1709 to 1803); <br>
+        0x07A8 (1809); <br>
+        0x07D8 (1903); <br>
+        0x0958 </td>
+        <td>
+        <pre class="source">PVOID DiskIoAttribution;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x037C (1607) </td>
+        <td>0x07A0 (1607) </td>
+        <td>
+        <pre class="source">ULONG ReadyTime;</pre>
+        </td>
+        <td>1607 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0380 (1607); <br>
+        0x037C (1703 to 1709); <br>
+        0x0384 (1803 to 1809); <br>
+        0x03F4 (1903); <br>
+        0x0434 </td>
+        <td>0x07A8 (1607); <br>
+        0x07A0 (1607 to 1703); <br>
+        0x07B8 (1709 to 1803); <br>
+        0x07B0 (1809); <br>
+        0x07E0 (1903); <br>
+        0x0960 </td>
+        <td>
+        <pre class="source">PVOID DxgProcess;</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>last member in 1607 </td>
+      </tr>
+      <tr>
+        <td>0x0380 (1703 to 1709); <br>
+        0x0388 (1803 to 1809); <br>
+        0x03F8 (1903); <br>
+        0x0438 </td>
+        <td>0x07A8 (1607 to 1703); <br>
+        0x07C0 (1709 to 1803); <br>
+        0x07B8 (1809); <br>
+        0x07E8 (1903); <br>
+        0x0968 </td>
+        <td>
+        <pre class="source">ULONG Win32KFilterSet;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0388 (1703 to 1709); <br>
+        0x0390 (1803 to 1809); <br>
+        0x0400 (1903); <br>
+        0x0440 </td>
+        <td>0x07B0 (1607 to 1703); <br>
+        0x07C8 (1709 to 1803); <br>
+        0x07C0 (1809); <br>
+        0x07F0 (1903); <br>
+        0x0970 </td>
+        <td>
+        <pre class="source">PS_INTERLOCKED_TIMER_DELAY_VALUES volatile ProcessTimerDelay;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0390 (1703 to 1709); <br>
+        0x0398 (1803 to 1809); <br>
+        0x0408 (1903); <br>
+        0x0448 </td>
+        <td>0x07B8 (1607 to 1703); <br>
+        0x07D0 (1709 to 1803); <br>
+        0x07C8 (1809); <br>
+        0x07F8 (1903); <br>
+        0x0978 </td>
+        <td>
+        <pre class="source">ULONG volatile KTimerSets;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0394 (1703 to 1709); <br>
+        0x039C (1803 to 1809); <br>
+        0x040C (1903); <br>
+        0x044C </td>
+        <td>0x07BC (1607 to 1703); <br>
+        0x07D4 (1709 to 1803); <br>
+        0x07CC (1809); <br>
+        0x07FC (1903); <br>
+        0x097C </td>
+        <td>
+        <pre class="source">ULONG volatile KTimer2Sets;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0398 (1703 to 1709); <br>
+        0x03A0 (1803 to 1809); <br>
+        0x0410 (1903); <br>
+        0x0450 </td>
+        <td>0x07C0 (1607 to 1703); <br>
+        0x07D8 (1709 to 1803); <br>
+        0x07D0 (1809); <br>
+        0x0800 (1903); <br>
+        0x0980 </td>
+        <td>
+        <pre class="source">ULONG volatile ThreadTimerSets;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x039C (1703 to 1709); <br>
+        0x03A4 (1803 to 1809); <br>
+        0x0414 (1903); <br>
+        0x0454 </td>
+        <td>0x07C8 (1607 to 1703); <br>
+        0x07E0 (1709 to 1803); <br>
+        0x07D8 (1809); <br>
+        0x0808 (1903); <br>
+        0x0988 </td>
+        <td>
+        <pre class="source">ULONG_PTR VirtualTimerListLock;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03A0 (1703 to 1709); <br>
+        0x03A8 (1803 to 1809); <br>
+        0x0418 (1903); <br>
+        0x0458 </td>
+        <td>0x07D0 (1607 to 1703); <br>
+        0x07E8 (1709 to 1803); <br>
+        0x07E0 (1809); <br>
+        0x0810 (1903); <br>
+        0x0990 </td>
+        <td>
+        <pre class="source">LIST_ENTRY VirtualTimerListHead;</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03A8 (1703 to 1709); <br>
+        0x03B0 (1803 to 1809); <br>
+        0x0420 (1903); <br>
+        0x0460 </td>
+        <td>0x07E0 (1607 to 1703); <br>
+        0x07F8 (1709 to 1803); <br>
+        0x07F0 (1809); <br>
+        0x0820 (1903); <br>
+        0x09A0 </td>
+        <td>
+        <pre class="source">union {
+    WNF_STATE_NAME WakeChannel;
+    PS_PROCESS_WAKE_INFORMATION WakeInfo;
+};</pre>
+        </td>
+        <td>1703 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03D8 (1703) </td>
+        <td>0x0810 (1703) </td>
+        <td>
+        <pre class="source">union {
+    ULONG Flags4;
+    struct {
+        ULONG PicoCreated : 1;
+        ULONG RestrictSetThreadContext : 1;
+    };
+};</pre>
+        </td>
+        <td>1703 only </td>
+        <td>next in <span class="member">Flags2</span>; <br>
+        last member in 1703 </td>
+      </tr>
+      <tr>
+        <td>0x03D8 (1709); <br>
+        0x03E0 (1803 to 1809); <br>
+        0x0450 (1903); <br>
+        0x0490 </td>
+        <td>0x0828 (1709 to 1803); <br>
+        0x0820 (1809); <br>
+        0x0850 (1903); <br>
+        0x09D0 </td>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="mitigationflags.htm">MitigationFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    } MitigationFlagsValues;
+};</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03DC (1709); <br>
+        0x03E4 (1803 to 1809); <br>
+        0x0454 (1903); <br>
+        0x0494 </td>
+        <td>0x082C (1709 to 1803); <br>
+        0x0824 (1809); <br>
+        0x0854 (1903); <br>
+        0x09D4 </td>
+        <td>
+        <pre class="source">union {
+    ULONG <a href="mitigationflags2.htm">MitigationFlags2</a>;
+    struct {
+        /*  bit flags, follow link  */
+    } MitigationFlags2Values;
+};</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03E0 (1709); <br>
+        0x03E8 (1803 to 1809); <br>
+        0x0458 (1903); <br>
+        0x0498 </td>
+        <td>0x0830 (1709 to 1803); <br>
+        0x0828 (1809); <br>
+        0x0858 (1903); <br>
+        0x09D8 </td>
+        <td>
+        <pre class="source">PVOID PartitionObject;</pre>
+        </td>
+        <td>1709 and higher </td>
+        <td>last member in 1709 </td>
+      </tr>
+      <tr>
+        <td>0x03F0 (1803 to 1809); <br>
+        0x0460 (1903); <br>
+        0x04A0 </td>
+        <td>0x0838 (1709 to 1803); <br>
+        0x0830 (1809); <br>
+        0x0860 (1903); <br>
+        0x09E0 </td>
+        <td>
+        <pre class="source">ULONGLONG SecurityDomain;</pre>
+        </td>
+        <td>1803 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03F8 (1809); <br>
+        0x0468 (1903); <br>
+        0x04A8 </td>
+        <td>0x0838 (1809); <br>
+        0x0868 (1903); <br>
+        0x09E8 </td>
+        <td>
+        <pre class="source">ULONGLONG ParentSecurityDomain;</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x03F8 (1803); <br>
+        0x0400 (1809); <br>
+        0x0470 (1903); <br>
+        0x04B0 </td>
+        <td>0x0840 (1803 to 1809); <br>
+        0x0870 (1903); <br>
+        0x09F0 </td>
+        <td>
+        <pre class="source">PVOID CoverageSamplerContext;</pre>
+        </td>
+        <td>1803 and higher </td>
+        <td>last member in 1803 </td>
+      </tr>
+      <tr>
+        <td>0x0404 (1809); <br>
+        0x0474 (1903); <br>
+        0x04B4 </td>
+        <td>0x0848 (1809); <br>
+        0x0878 (1903); <br>
+        0x09F8 </td>
+        <td>
+        <pre class="source">PVOID MmHotPatchContext;</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>last member in 1809 <br>
+        last member in 1903 </td>
+      </tr>
+      <tr>
+        <td>0x04B8 </td>
+        <td>0x0A00 </td>
+        <td>
+        <pre class="source">RTL_AVL_TREE DynamicEHContinuationTargetsTree;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x04BC </td>
+        <td>0x0A08 </td>
+        <td>
+        <pre class="source">EX_PUSH_LOCK DynamicEHContinuationTargetsLock;</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>last member in 2004 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="struct">EPROCESS</span> has 0x40-byte alignment in 1903 and 
+  higher. This is here thought to be incidental, being picked up from cache-alignment 
+  of the <span class="struct"><a href="../mmsupport_shared.htm">MMSUPPORT_SHARED</a></span> 
+  that is inside the <span class="member">Vm</span> member. A side-effect is that 
+  the structure ends with 8 bytes of unused alignment space in the x86 build for 
+  1903 and 0x30 bytes of it in the x64 build for 2004. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 15th June 2016 and was last modified 
+    on 5th <a href="../../../../../../../../new/22/07.htm">August 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14250" -->
+  </div>
+</div>
+
+</body>
+
+</html>

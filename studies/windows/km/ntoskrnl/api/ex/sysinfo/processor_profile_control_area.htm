@@ -1,0 +1,149 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SYSTEM_PROCESSOR_PROFILE_CONTROL_AREA</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>SYSTEM_PROCESSOR_PROFILE_CONTROL_AREA </h1>
+<p>The <span class="struct">SYSTEM_PROCESSOR_PROFILE_CONTROL_AREA</span> structure 
+both provides input to and output from <span class="function"><a href="set.htm">
+ZwSetSystemInformation</a></span> or <span class="function">NtSetSystemInformation</span> 
+when given the information class <span class="constant">SystemProcessorProfileControlArea</span> 
+(0x81). </p>
+<h2>Availability </h2>
+<p>The structure and information class date from version 6.2 and its introduction 
+of Processor Event Based Sampling (PEBS) to Event Tracing for Windows (ETW). </p>
+<h2>Documentation Status </h2>
+<p>Neither the <span class="struct">SYSTEM_PROCESSOR_PROFILE_CONTROL_AREA</span> 
+structure nor the <span class="constant">SystemProcessorProfileControlArea</span> 
+information class is documented. </p>
+<!--webbot bot="Include" U-Include="_include/type_info_urlmon.htm" TAG="BODY" startspan -->
+
+<p>Microsoft does publish the practical equivalent of a C-language definition as 
+type information in public symbol files, though not for the kernel, where the structure 
+is prepared, nor even for low-level user-mode DLLs that interpret the structure, 
+but for various higher-level user-mode DLLs such as URLMON.DLL and only then starting 
+with version 6.2. </p>
+
+<!--webbot bot="Include" endspan i-checksum="38013" -->
+<h2>Layout </h2>
+<p>The <span class="struct">SYSTEM_PROCESSOR_PROFILE_CONTROL_AREA</span> is 0x08 
+or 0x10 bytes in 32-bit and 64-bit Windows, respectively. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source"><a href="../../../inc/api/ntexapi/processor_profile_control_area.htm">PROCESSOR_PROFILE_CONTROL_AREA</a> *ProcessorProfileControlArea;</pre>
+    </td>
+    <td>output </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">BOOLEAN Allocate;</pre>
+    </td>
+    <td>input </td>
+  </tr>
+</table>
+<p>The structure is designed so that <span class="function">NtSetSystemInformation</span> 
+both sets information and receives it. A non-zero <span class="member">Allocate</span> 
+on input tells the function to create a suitable <span class="struct">PROCESSOR_PROFILE_CONTROL_AREA</span> 
+for the current processor and return its address in <span class="member">ProcessorProfileControlArea</span> 
+as output. The reverse is to call with zero for <span class="members">
+<span class="member">Allocate</span></span> on input. The function then clears
+<span class="member">ProcessorProfileControlArea</span> as output. </p>
+<h3>Implementation </h3>
+<p>If <span class="member">Allocate</span> is non-zero and the function cannot get 
+memory for a new control area (cache-aligned in non-paged pool and zero-initialised), 
+it sets <span class="member">ProcessorProfileControlArea</span> to
+<span class="constant">NULL</span> and returns <span class="constant">STATUS_INSUFFICIENT_RESOURCES</span>.
+</p>
+<p>If the current processor does not support Processor Based Event Sampling (PEBS), 
+the function returns <span class="constant">STATUS_NOT_SUPPORTED</span>. Support 
+requires all the following: </p>
+<ul>
+  <li>the processor is from Intel, as recorded in the <span class="member">CpuVendor</span> 
+  member of the <span class="struct">KPRCB</span>; </li>
+  <li>the Model Specific Register <span class="register">
+  <a href="../../../../cpu/msr/misc_enable.htm">IA32_MISC_ENABLE</a></span> has 
+  bit 7 set and bit 12 clear; </li>
+  <li>for 32-bit Windows, the <span class="bit">DSE64</span> bit (2) is set in
+  <a href="../../../../cpu/cpuid/00000001h/ecx.htm"><span class="register">ecx</span> 
+  from <span class="instruction">cpuid</span> leaf 1</a>. </li>
+</ul>
+<p>If <span class="member">Allocate</span> is non-zero and the current processor 
+already has a control area, the function puts the address of that control area in
+<span class="member">ProcessorProfileControlArea</span> as its output, frees the 
+newly allocated control area, and returns <span class="constant">STATUS_ADDRESS_ALREADY_EXISTS</span>. 
+Otherwise, the newly allocated control area is accepted for the processor, and the 
+function succeeds. </p>
+<p>If <span class="member">Allocate</span> is zero on input, the function clears
+<span class="member">ProcessorProfileControlArea</span> to
+<span class="constant">NULL</span> for output. If the current processor does not 
+have a control area, the function returns <span class="constant">STATUS_MEMORY_NOT_ALLOCATED</span>. 
+Otherwise, it detaches the control area from the processor, frees it, and succeeds.
+</p>
+<h4>Caveat </h4>
+<p>See that the function gets the memory before it even knows that the processor 
+is suitable. If you paused at this, and perhaps even more if you immediately thought 
+it inefficient, then pause also at how you would call the function. The call is 
+expected at <span class="constant">PASSIVE_LEVEL</span>. The function does the body 
+of its work at <span class="constant">DISPATCH_LEVEL</span> to ensure that it acts 
+only on the one processor. If the calling thread is not otherwise restricted from 
+being switched to other processors, the successful function can have prepared the 
+returned <span class="struct">PROCESSOR_PROFILE_CONTROL_AREA</span> for some processor 
+other than what the thread was running on before or after the call. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th July 2016 but was not published 
+  until 26th <a href="../../../../../../../new/16/10.htm">October 2016</a>. It was 
+  last modified on 4th January 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1620.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4893" -->
+</div>
+
+</body>
+
+</html>

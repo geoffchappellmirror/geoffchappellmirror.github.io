@@ -1,0 +1,636 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Bug Check From User Mode By Profiling</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>Bug Check From User Mode By Profiling </h1>
+  <div class="Abstract">
+    <p>Two simple coding errors in the Windows kernel can each cause the same buffer 
+    overflow. Both can be directed from user mode without privilege to crash Windows. 
+    One can occur only by supplying invalid parameters. It is in all known Windows 
+    versions before Microsoft fixed it in 2017. The other can occur even with correct 
+    parameters. It dates from Windows 8 and Microsoft fixed it in 2018. </p>
+  </div>
+  <p>Contrived misuse of the <span class="function">NtCreateProfile</span> and
+  <span class="function">NtCreateProfileEx</span> functions can reliably crash Windows 
+  from user mode in all versions up to and including Windows 10 before 2017. Astonishingly, 
+  a second coding error allows that the very same crash can occur without misuse, 
+  though still with difficulty, in Windows 8 and higher. By crash, I mean that the 
+  kernel is brought to a Stop, referred to technically as a bug check and showing 
+  as what is commonly called a Blue Screen Of Death. No privilege is required. Even 
+  a low-integrity user-mode program can bring Windows down. </p>
+  <p>The defect that allows this crash to be arranged by misuse can be seen in a 
+  Windows NT 3.1 kernel from 1993, which means it has been present from the very 
+  beginning of the Windows that is its own operating system. At the other end of 
+  the time scale, I say only that the defect persists at least to the 1607 release 
+  of Windows 10 but is corrected in the 1703 release (if not also in updates of 
+  earlier releases). This is consistent with Microsoft’s having learnt of the bug 
+  via email from me in late December 2016. I do not know from Microsoft which precise 
+  build is the first to correct this defect and I have better things to do than 
+  download and inspect updates in the hope of finding out by myself. </p>
+  <p>Please don’t get me wrong on this. As a service to my readers, I would happily 
+  cite a Microsoft Security Bulletin as credibly definitive, except that I can’t 
+  divine just from their text which (if any) bulletin corresponds to this defect. 
+  I’m glad, of course, that Microsoft fixes its software when told of sufficiently 
+  alarming defects such as crashing all known versions of Windows from a simple 
+  user-mode program with no privilege. I tolerate that Microsoft dishonestly allows 
+  the perception that the discovery, if not also the fix, was Microsoft’s own work 
+  unless whoever reports it goes along more or less completely with Microsoft’s 
+  programme of Coordinated Disclosure. What I can’t abide is that the industry as 
+  a whole tolerates—and is even grateful for—disclosure that is more accurately 
+  (though still generously) described as deflection. We don’t truly have responsible 
+  disclosure—or any sort of disclosure that’s worth having—while Microsoft describes 
+  defects too obscurely to be recognised even by the reporter. In this case, surely 
+  the very least to expect by way of plain description by Microsoft is something 
+  like “a coding error in the kernel’s parameter validation for profiling allows 
+  that an unprivileged user-mode program can crash Windows.” </p>
+  <p>This isn’t the first time that a defect with such consequences has escaped 
+  attention for so long and it won’t be the last. But cases that survive from the 
+  very beginning must by now be extremely rare, such that survival is of itself 
+  arguably more interesting than is the dramatic outcome. It’s not as if this bug 
+  is in code that’s so obscure it has been ignored all the while. No, the code evidently 
+  has been reviewed by Microsoft several times through the decades, and changed, 
+  including specifically to improve security. And the second means of causing the 
+  crash exists only because relevant code was changed. </p>
+  <p>The second path to the same buffer overflow is a side-effect of some reworking, 
+  plausibly intended as a simplification, for Windows 8. It persists at least to 
+  the 1803 release of Windows 10 but is corrected in the 1809 release. This is consistent 
+  with Microsoft’s having overlooked it in my description from 2016 but taken notice 
+  when I told them of it a second time in June 2018. Again I do not know from Microsoft 
+  which precise build is the first to correct the second bug and neither have I 
+  any reference from them to cite. </p>
+  <p>Something distinctive about both bugs is that all the relevant functionality—for 
+  a long-established diagnostics technique known as <a href="index.htm">profiling</a>—is 
+  undocumented. Though there evidently have been eyes on the code, defects have 
+  not been exposed by the harsh light of widespread, general use. Though the relevant 
+  functions can be called successfully by any user-mode program, the intended practice 
+  seems to be that they are called only by specially written diagnostics tools—which, 
+  naturally, don’t misuse the functions. Even in the recent versions that allow 
+  the crash without misuse, the necessary circumstances are so very thin that they 
+  plausibly never have occurred by accident in ordinary use of the expected tools. 
+  Indeed, for both coding errors, the circumstances are so thin and the “moving 
+  parts” just complicated enough and unusual enough that neither defect might ever 
+  have been found by the sorts of automated methods that are typical of searches 
+  for security vulnerabilities. </p>
+  <h2>A Profiling Primer </h2>
+  <p>Although profiling is well-known, at least as functionality that’s operated 
+  through more or less standard tools, the underlying API functions arguably count 
+  as obscure. That I was documenting those functions for their constructive use 
+  by programmers in general is how this way to crash Windows was found. The research 
+  for such documentation and then the writing up is, of course, a very much larger 
+  project than the search for a security vulnerability. Even the relatively few 
+  pages of documentation that have yet resulted from that project far exceed what 
+  you will want to know for understanding the defect that allows this bug check 
+  from user mode. Still, you will need at least a summary. </p>
+  <p>The <span class="function"><a href="create.htm">NtCreateProfile</a></span> 
+  and <span class="function"><a href="createex.htm">NtCreateProfileEx</a></span> 
+  functions—henceforth, I’ll use just the former to stand for both—are undocumented 
+  NTDLL exports that ask the kernel to prepare for a statistical sampling of the 
+  computer’s execution. The sampling is done via a recurring hardware interrupt 
+  which the successful caller of <span class="function">NtCreateProfile</span> starts 
+  and stops by calling <span class="function"><a href="start.htm">NtStartProfile</a></span> 
+  and <span class="function"><a href="stop.htm">NtStopProfile</a></span>. As these 
+  interrupts recur, the kernel, in a function named <span class="function">
+  <a href="../../ke/profobj/profileinterruptwithsource.htm">KeProfileInterruptWithSource</a></span>, 
+  looks at where each is to return to and builds a frequency distribution. This 
+  is the profile. It counts how many times the computer was found to be executing 
+  here versus there. </p>
+  <p>The user-mode caller of <span class="function">NtCreateProfile</span> gets 
+  to specify what execution to sample and where to put the results. Three parameters 
+  are specially relevant. First is a range of address space, here referred to as 
+  the <span class="definition">profiled region</span>, that is all the caller wants 
+  to get execution counts for. Second, because the profiled region may be very large, 
+  e.g., when taking in an overview, it is impractical in general to keep
+  <span class="definition">execution counts</span> for each address in the profiled 
+  region. Anyway, because most instructions are larger than one byte, most byte-by-byte 
+  execution counts would wastefully be zero. Granularity is introduced by treating 
+  the profiled region as an array of buckets, whose size the caller specifies. Third, 
+  the frequency distribution has to go somewhere. The caller supplies an output 
+  buffer that must be large enough to receive one 32-bit execution count for each 
+  of the buckets that span the profiled region. </p>
+  <p>On proceeding to <span class="function">NtStartProfile</span>, hardware interrupts 
+  start to occur. For each one whose return address is within the profiled region, 
+  the kernel’s <span class="function">KeProfileInterruptWithSource</span> computes 
+  which bucket in that region contains the return address and it increments the 
+  corresponding execution count in the output buffer. Vitally important background 
+  here is that although the user-mode caller naturally provides a user-mode address 
+  for the output buffer, <span class="function">NtStartProfile</span> will have 
+  locked that buffer into physical memory and mapped it into system address space, 
+  and it is this mapped address that <span class="function">KeProfileInterruptWithSource</span> 
+  uses when incrementing an execution count. </p>
+  <h2>Defect (Ancient) </h2>
+  <p>You can perhaps guess now what goes wrong. The defect is in the first instance 
+  a slackness in parameter validation by the shared implementation of the
+  <span class="function">NtCreateProfile</span> and <span class="function">NtCreateProfileEx</span> 
+  functions. The misuse that is meant by this article’s opening sentence is that 
+  a caller specifies a profiled region that is spanned by more buckets than are 
+  allowed for in the output buffer. The implementation in all known versions before 
+  2017 defends against this incorrectly. Though flagrant excess gets rejected, not 
+  all excess does. A given size of buffer allows for only so many execution counts. 
+  Each whole <span class="type">ULONG</span> in the buffer supports one bucket for 
+  the profiled region. Take that maximum number of buckets that are supported by 
+  the buffer, multiply by the bucket size, and you have a maximum size that can 
+  safely be permitted for the profiled region. Instead, the defective parameter 
+  validation lets a mischievous caller sneak past with a profiled region that exceeds 
+  that maximum by as much as one byte less than a quarter of a bucket. </p>
+  <p>With that done, the mischievous caller of <span class="function">NtCreateProfile</span> 
+  can trigger this exotic buffer overflow simply by calling
+  <span class="function">NtStartProfile</span> and then executing code, over and 
+  over, in that fragment of a bucket at the end of the profiled region. Eventually, 
+  an interrupt occurs that has its return address in this fragment and
+  <span class="function">KeProfileInterruptWithSource</span> then increments a
+  <span class="type">ULONG</span> execution count that lies at least partly beyond 
+  the output buffer. </p>
+  <p>As with many a buffer overflow, there’s a good chance that nothing much will 
+  happen just from the overflow. It can easily be that the invalid increment changes 
+  nothing that matters to anyone. Even if the invalidly incremented
+  <span class="type">ULONG</span> is in some sort of use, its corruption will most 
+  likely be a problem only for the user-mode caller. Where it becomes a kernel-mode 
+  problem is when there is no valid address beyond the buffer. Remember, the kernel 
+  uses a mapping into system address space. This is where contrivance comes in. 
+  If the user-mode caller supplies a buffer that ends on a page boundary, then the 
+  buffer’s mapping into system address space may be followed by some other mapping 
+  into system address space, including for some other process, but will most likely 
+  be followed by nothing. When <span class="function">KeProfileInterruptWithSource</span> 
+  is induced to try incrementing an execution count immediately beyond the buffer, 
+  it in effect jumps off a cliff and takes Windows with it. </p>
+  <p>The bug check to expect will be <span class="constant">IRQL_NOT_LESS_OR_EQUAL</span> 
+  (0x0A). There’s some predictability to it because the increment causes a page 
+  fault from trying to write to an address that truly is invalid and there’s anyway 
+  no hope of doing anything about it since it happens while handling a hardware 
+  interrupt. A tell-tale sign of this bug check’s occurrence without contrivance 
+  would be that the second bug-check argument will be the distinctive IRQL of a 
+  profile interrupt. This is chosen by the Hardware Abstraction Layer (HAL) and 
+  communicated to the kernel, and so might in principle be variable. On x64 builds, 
+  however, it is reliably <span class="constant">PROFILE_LEVEL</span> (0x0F). For 
+  x86 builds, Microsoft defines <span class="constant">PROFILE_LEVEL</span> as 0x1B, 
+  but all known 32-bit HALs since at least Windows Vista choose 0x1F. </p>
+  <h3>Code Review </h3>
+  <p>The odd—indeed, awkward—phrase “one byte less than a quarter of a bucket” as 
+  the excess that can be sneaked past the parameter validation perhaps hints that 
+  some non-trivial discrete arithmetic has gone wrong or even that the arithmetic 
+  as coded is too clever for its own good. </p>
+  <p>For explanation and assessment, some representation similar to source code—here 
+  claimed as fair use for critical comment—seems unavoidable. The parameter validation 
+  is at the start of <span class="function">NtCreateProfile</span> before version 
+  6.1 but of an internal routine named <span class="routine">ExpProfileCreate</span> 
+  in later versions. Microsoft is known, from a declaration in ZWAPI.H from an Enterprise 
+  edition of the Windows Driver Kit for Windows 10, to use the following as arguments:
+  </p>
+  <ul>
+    <li><span class="source">PVOID ProfileBase</span> for the profiled region’s 
+    start address; </li>
+    <li><span class="source">SIZE_T ProfileSize</span> for the profiled region’s 
+    size; </li>
+    <li><span class="source">ULONG BucketSize</span> for the logarithm base 2 of 
+    the bucket size; </li>
+    <li><span class="source">ULONG BufferSize</span> for the output buffer’s size.
+    </li>
+  </ul>
+  <p>Live with the confusion that the argument named <span class="argument">BucketSize</span> 
+  is not the size but its logarithm. Then the following will be very like what Microsoft 
+  has in its source code up to and including the faulty arithmetic: </p>
+  <pre class="source">ULONG segment = 0;
+
+if (BufferSize == 0) return STATUS_INVALID_PARAMETER_7;     // A
+
+#if defined (_X86_)
+
+if (BucketSize == 0
+        &amp;&amp; ProfileBase &lt; (PVOID) 0x00010000
+        &amp;&amp; BufferSize &gt;= sizeof (ULONG)) {                  // B
+
+    segment = (ULONG) ProfileBase;
+    ProfileBase = NULL;
+
+    ULONG numbuckets = BufferSize / sizeof (ULONG);
+    BucketSize = Log2 (ProfileSize / numbuckets - 1) + 1;   // C
+
+    if (BucketSize &lt; 2) BucketSize = 2;
+}
+
+#endif  // #if defined (_X86_)
+
+if (BucketSize &gt; 0x1F || BucketSize &lt; 2) {
+    return STATUS_INVALID_PARAMETER;
+}
+
+if (ProfileSize &gt;&gt; (BucketSize - 2) &gt; BufferSize) {         // D
+    return STATUS_BUFFER_TOO_SMALL;
+}
+</pre>
+  <p>Here, <span class="routine">Log2</span> is hypothesised as an inline function 
+  that computes a logarithm base 2, the details of which are irrelevant to present 
+  purposes. What is relevant is that the lines I label A and B are not from the 
+  original code. They were added for Windows NT 4.0 SP4. This service pack of Windows 
+  NT 4.0 tightened a lot of parameter validation throughout the kernel, with the 
+  obviously welcome effect of closing off many of the easy pickings for crashing 
+  the earliest Windows versions. See that before the addition of B, a mischievous 
+  user-mode caller could choose <span class="argument">BufferSize</span> to cause 
+  the division at C to fault. </p>
+  <p>Whatever it was that prompted someone to examine this code and add the checks 
+  at A and B, it apparently didn’t cause them to rethink the check at D. The fault 
+  with this check also escaped attention in a review for Windows 8, which only a 
+  few statements further on adds code to check that the <span class="argument">ProfileSource</span> 
+  argument is one that the HAL supports. After that is an addition for Windows 7, 
+  to check the caller’s specification of processors through the
+  <span class="argument">GroupCount</span> and <span class="argument">AffinityArray</span> 
+  arguments to what was then the new function <span class="function">NtCreateProfileEx</span>. 
+  Further beyond, as parameter validation starts to give way to the meat of the 
+  implementation, comes an addition for Windows 8.1, specifically to tighten security, 
+  so that <a href="../restricted_callers.htm">restricted callers</a> cannot profile 
+  kernel-mode execution. </p>
+  <p>None of this is to say that any programmer who revised the code at any time 
+  in all these years ought even to have been looking at D, let alone that they were 
+  negligent not to notice the defect. It is to say, however, that this bug’s long 
+  life is not a case of surviving in code that nobody cared about. </p>
+  <p>Yet survive it has, and there is at least the possibility that reviewers left 
+  it alone because they mistakenly thought it was clever and correct. Indeed, if 
+  we look outside Microsoft for a moment, we can find not just possibility but suggestion, 
+  for the
+  <a href="https://doxygen.reactos.org/d0/ddd/ntoskrnl_2ex_2profile_8c_source.html">
+  open source code for <span class="function">NtCreateProfile</span> in ReactOS</a> 
+  not only shares the defect but introduces it with a comment: </p>
+  <pre class="source">/* Make sure that the buckets can map the range */
+if ((RangeSize &gt;&gt; (BucketSize - 2)) &gt; BufferSize)
+{
+    DPRINT1(&quot;Bucket size too small\n&quot;);
+    return STATUS_BUFFER_TOO_SMALL;
+}</pre>
+  <p>Whether its author devised this arithmetic independently of Microsoft, or reproduced 
+  it and thought it correct, or had doubts but never got round to expressing them, 
+  we may never know. I, for one, have no interest in quizzing anyone about something 
+  they wrote long ago very probably as free work for public benefit. But I am fascinated 
+  to see exactly the same coding error for exactly the same purpose in two supposedly 
+  independent places and I have to wonder if the reason it survived all these years 
+  is that something about its coding actually is natural for a clever programmer 
+  but is easy to get wrong and is then just as easy for source-code reviewers to 
+  overlook. </p>
+  <p>Cleverness comes in because of the attempt to have one bit-shift deal with 
+  both the configurable size of the bucket and the fixed size of the 32-bit execution 
+  count. There certainly is optimisation to be found on this point and good reason 
+  to seek it. When the time comes that <span class="function">KeProfileInterruptWithSource</span> 
+  finds that the interrupt’s return address is in the profiled area, it is highly 
+  desirable that the assignment of this return address to a bucket and the incrementing 
+  of the corresponding execution count in the output buffer be done with the highest 
+  possible efficiency. With <span class="argument">ProfileBase</span>,
+  <span class="argument">BucketSize</span> minus two, and <span class="argument">
+  Buffer</span> remembered from arguments that were given when creating the profile, 
+  the algorithm for locating the correct execution count is simply: </p>
+  <ol>
+    <li>from the interrupt’s return address, subtract <span class="argument">ProfileBase</span> 
+    (to get the byte offset of the return address within the profiled region);
+    </li>
+    <li>shift right by <span class="argument">BucketSize</span> minus two; </li>
+    <li>clear the low two bits (to get the byte offset of the 32-bit execution count 
+    within the output buffer); </li>
+    <li>add to <span class="argument">Buffer</span> (to get the address of the execution 
+    count). </li>
+  </ol>
+  <p>The optimisation that keeps <span class="argument">BucketSize</span> minus 
+  two (instead of keeping <span class="argument">BucketSize</span> and subtracting 
+  two on each occurrence of the interrupt) is as efficient as can be. In the different 
+  circumstance of parameter validation, however, it’s arguably no optimisation at 
+  all. Shifting in the other direction, as with </p>
+  <pre class="source">if (ProfileSize &gt; (ULONGLONG) (BufferSize &amp; ~0x03) &lt;&lt; (BucketSize - 2)) {
+    return STATUS_BUFFER_TOO_SMALL;
+}</pre>
+  <p>gives the correct protection, but has a price. If the source code is not to 
+  be complicated by checking that <span class="argument">BufferSize</span> is not 
+  so large that the shift left overflows, then the shift must be widened to 64 bits, 
+  which Microsoft’s 32-bit compiler has long made clumsy by tending to involve the 
+  C Run-Time helper <span class="function">_allshl</span>. Shifting right, as actually 
+  coded, may have seemed simpler but is only deceptively so. It misses that the 
+  output buffer must provide for an extra execution count if the profiled range 
+  is not a whole number of buckets. Accounting for this, while still shifting by
+  <span class="argument">BucketSize</span> minus two, seems unavoidably clumsy, 
+  e.g., </p>
+  <pre class="source">SIZE_T needed = ProfileSize &gt;&gt; (BucketSize - 2);
+if (ProfileSize &amp; ((1 &lt;&lt; BucketSize) - 1)) {
+    needed += sizeof (ULONG);
+    if (needed &lt; sizeof (ULONG)) return STATUS_ARITHMETIC_OVERFLOW;
+}
+if (needed &gt; BufferSize) return STATUS_BUFFER_TOO_SMALL;</pre>
+  <p>Better is to keep the one-time subtraction of two as the interrupt-time optimisation 
+  but to keep to very pedestrian coding for the parameter validation: </p>
+  <pre class="source">ULONG bucketcount = ProfileSize &gt;&gt; BucketSize;
+if ((ProfileSize &amp; ((1 &lt;&lt; BucketSize) - 1)) == 0) bucketcount ++;
+if (bucketcount &gt; BufferSize / sizeof (ULONG)) return STATUS_BUFFER_TOO_SMALL;</pre>
+  <p>This is very nearly what Microsoft changed to for the 1703 release of Windows 
+  10 to fix this ancient defect in the parameter validation. How the defect came 
+  to be, let alone that it’s from someone being too clever for their own good, can 
+  only be speculated now and from outside Microsoft. It amuses me, if only me, to 
+  imagine a programmer, who might in other circumstances easily be me, devising 
+  an optimisation where it’s time-critical but sticking with it for parameter validation 
+  which isn’t time-critical, only to get it wrong though its correctness is critical. 
+  There’s something cautionary about that, as there must be one way or another about 
+  any bug that survives for so very long. </p>
+  <h2>Demonstration </h2>
+  <p>A small console application that demonstrates this bug check from user mode 
+  by abusing the profiling API is compressed into zip files for easy distribution:
+  </p>
+  <ul>
+    <li><a href="_download/procrash_3_0_i386.zip">x86 executable</a> (4KB compressed 
+    from 8KB); </li>
+    <li><a href="_download/procrash_3_0_amd64.zip">x64 executable</a> (4KB compressed 
+    from 8KB); </li>
+    <li><a href="_download/procrash_3_0_src.zip">source code</a> (8KB compressed 
+    from 18KB). </li>
+  </ul>
+  <p>That said, since there’s just the one source file and one header, they may 
+  as well be presented directly: </p>
+  <ul>
+    <li><a href="procrash.cpp.htm">procrash.cpp</a>; </li>
+    <li><a href="profile.h.htm">profile.h</a>. </li>
+  </ul>
+  <p>The executables are built for execution on Windows Vista and higher. </p>
+  <h3>Execution </h3>
+  <p>Simply run the program, preferably while Windows is not doing anything that 
+  matters to you. </p>
+  <p>That said, to see the program make 64-bit Windows crash you will need to run 
+  the 64-bit build. This is not a necessary constraint for triggering the bug. It’s 
+  just a side-effect of my opting for calling <span class="function">NtCreateProfile</span> 
+  with simple arguments to keep the demonstration’s source code small. </p>
+  <p>If you run the demonstration on a version of Windows 10 that validates the
+  <span class="function">NtCreateProfile</span> parameters correctly, as do the 
+  1703 and later releases (if not also some updates of earlier releases), then run 
+  from a Command Prompt and expect to be told (almost instantly) </p>
+  <pre class="output">Error 0xC0000023 creating profile object </pre>
+  <p>as the program’s unvarnished complaint that its call to
+  <span class="function">NtCreateProfile</span> failed for being given too small 
+  a buffer (in this case, relative to the profiled region). </p>
+  <h3>Building </h3>
+  <p>So that the demonstration is very nearly self-contained, it has just the one 
+  source file and a separate header of declarations and definitions that might ordinarily 
+  come from Microsoft’s headers except that the functionality is low-level and undocumented. 
+  A good proportion of the source file is commenting. It really is a very simple 
+  program! </p>
+  <p>As is natural for a low-level Windows programmer—in my opinion, anyway—the 
+  source code is written to be built with Microsoft’s compiler, linker and related 
+  tools, and with the headers and import libraries such as Microsoft supplies in 
+  the Software Development Kit (SDK). Try building it with tools from someone else 
+  if you want, but you’re on your own as far as I can be concerned. </p>
+  <h4>WDK Build Tool </h4>
+  <p>Perhaps less natural for user-mode programming is that the makefile is written 
+  for building with the Windows Driver Kit (WDK), specifically the WDK for Windows 
+  7. This is the last that supports earlier Windows versions: remember that the 
+  defect that’s demonstrated is as old as any Windows version. It is also the last 
+  WDK that is self-standing in the sense of having its own installation of Microsoft’s 
+  compiler, etc. Better yet, it has the merit of supplying an import library for 
+  MSVCRT.DLL that does not tie the built executables to a particular version of 
+  Visual Studio. If only for me, this merit is so substantial that I’m not about 
+  to give it up lightly for any project! </p>
+  <p>For this particular project, the WDK for Windows 7 also helps by supplying 
+  an import library for NTDLL.DLL. Though Microsoft’s kits for user-mode programming 
+  do nowadays ship with an NTDLL.LIB, they haven’t always. Use of the import library 
+  spares the code from being cluttered with declarations of function pointers and 
+  calls to <span class="function">GetProcAddress</span> for using the several undocumented 
+  functions that the demonstration relies on. </p>
+  <p>To build the executable, open the WDK build environment for the Windows version 
+  you want to target, change to the directory that contains the source files, and 
+  run the WDK’s <span class="command">build</span> tool. </p>
+  <h4>Visual Studio </h4>
+  <p>Try porting the project to an Integrated Development Environment (IDE) such 
+  as Visual Studio if you want. I would even be interested in your experience if 
+  what you get for your troubles is in any sense superior. </p>
+  <h4>Command Line </h4>
+  <p>Alternatively, ignore the makefile and the IDE: just compile the one source 
+  file from the command line however you like, and link however you like. The only 
+  notable extra that I expect you to need, even from an old Visual Studio and SDK, 
+  is the NTDLL.LIB import library. If you don’t have this already, you can get it 
+  from any old driver kit. If you encounter a problem from rolling your own build 
+  via the command line, then please write to me with details of what combination 
+  of tools you used and what errors or warnings they produced, and I will do what 
+  I can to accommodate. </p>
+  <h2>But Wait, There’s More </h2>
+  <p>One of the intellectual pleasures of studying software is also its greatest 
+  frustration when writing up the results. By this I mean the tendency of one topic 
+  to lead to another that leads to another and so on. This applies especially to 
+  kernel-mode software for operating systems, which tends much more than application 
+  software to implement multiple functionalities that are somehow both largely distinct 
+  yet densely interconnected, while allowing numerous entry points from simultaneous 
+  callers with competing interests. </p>
+  <p>Profiling turns out to have much of this to it, with rich interconnectedness 
+  between the kernel and HAL, not just for interrupt handling and for timing in 
+  general, but for such specific points as power management and of course the HAL’s 
+  use of the processor’s performance monitoring counters as sources of profile interrupts. 
+  There is also that Windows has long provided for two styles of profiling. In the 
+  style described above, the kernel quickly builds frequency distributions of execution 
+  that’s detected in profiled regions specified from user mode. The other has the 
+  kernel react to every profile interrupt by tracing an event so that a record of 
+  all execution detected anywhere can be controlled and consumed through Event Tracing 
+  For Windows (ETW). </p>
+  <p>The preceding paragraphs might be just my rationalisation of the sprawl that 
+  dogs my attempt at documenting all the functions that are involved in profiling, 
+  but I also mean them as reintroducing the <span class="function">KeProfileInterruptWithSource</span> 
+  function as a point of interconnection with other functionality, notably with 
+  the ETW style of profiling. The function is called by the HAL to tell the kernel 
+  that a profile interrupt, whose recurrence the kernel set up earlier, has occurred. 
+  The kernel then gets to do whatever it is that the kernel wanted the profile interrupt 
+  for, without the HAL having to care what or why. Over the years, the kernel found 
+  more and more to do. The extras all look to have been added individually to the 
+  code until the function got a rewrite for Windows 8. Would you believe that this 
+  rewrite brought a second simple coding error into play as a second way to cause 
+  this same bug check from user mode? </p>
+  <h3>Defect (New) </h3>
+  <p>Remember that although the buffer overflow starts with parameters that a user-mode 
+  caller gives to <span class="function">NtCreateProfile</span>, the buffer overflow 
+  does not occur inside that call. Indeed, the buffer that overflows doesn’t exist 
+  in system address space until the user-mode caller proceeds to
+  <span class="function">NtStartProfile</span>. Even after that, the buffer isn’t 
+  written to until someone executes code that satisfies the conditions that are 
+  remembered from those parameters. Even then, only when that code happens to get 
+  interrupted does <span class="function">KeProfileInterruptWithSource</span> write 
+  to the buffer. </p>
+  <p>For present purposes, the primary condition for <span class="function">KeProfileInterruptWithSource</span> 
+  to test is that the interrupt is to return to an instruction that lies inside 
+  what was specified as the profiled region. This is described by the user-mode 
+  caller in terms of <span class="argument">ProfileBase</span> and
+  <span class="argument">ProfileSize</span> arguments which are respectively the 
+  region’s start address and its size in bytes. For efficiency while handling the 
+  interrupt, the profiled region is remembered by its start address and its non-inclusive 
+  end address, the latter being the start address plus the size. </p>
+  <p>All known versions remember the profiled region this way, as an inclusive start 
+  and non-inclusive end. Before Windows 8, <span class="function">KeProfileInterruptWithSource</span> 
+  increments an execution count for the interrupt’s return address only if this 
+  address is greater than or equal to the start and is less than the end: </p>
+  <pre class="source">if (start &lt;= p &amp;&amp; p &lt; end) /* increment */</pre>
+  <p>The rewrite for Windows 8 incorrectly inverted this test, such that
+  <span class="function">KeProfileInterruptWithSource</span> skips the increment 
+  if the interrupt’s return address is less than the start or greater than the end:
+  </p>
+  <pre class="source">if (p &lt; start || p &gt; end) /* skip */</pre>
+  <p>If you’re still pondering the significance, you’re at least in company with 
+  Microsoft’s kernel-mode programmers. In Windows 8 and higher, the profiled region 
+  is remembered as an inclusive start and <span class="emphasis">non-inclusive</span> 
+  end, as in all earlier versions, but <span class="function">KeProfileInterruptWithSource</span> 
+  now misinterprets the end as <span class="emphasis">inclusive</span>. If the interrupt’s 
+  return address is exactly—and I really do mean exactly—at the non-inclusive end 
+  of the profiled region, it gets counted for the profile by mistake and an execution 
+  count gets incremented where no execution count is provided for. The practical 
+  effect is that not only has this bug check from user mode survived from ancient 
+  times but Windows 8 and higher allow a second way to get to it! </p>
+  <p>And that’s not all. See that although the first way to this buffer overflow 
+  exists because of an error in validating the parameters that are given to
+  <span class="function">NtCreateProfile</span>, this second way is a sort of opposite: 
+  it requires that the parameters be correct. </p>
+  <p>The two paths to making <span class="function">KeProfileInterruptWithSource</span> 
+  go wrong are similar. Both require a call to <span class="function">NtCreateProfile</span>, 
+  and then a call to <span class="function">NtStartProfile</span>, and then enough 
+  execution in just the right place until caught by a profile interrupt. Both require 
+  that the output buffer’s size be matched closely to the sizes of the profiled 
+  region and bucket. Both require that the output buffer ends at a page boundary. 
+  The old path to the bug exploits some slack that <span class="function">NtCreateProfile</span> 
+  allows in the matching of sizes. The new path does not need to misuse
+  <span class="function">NtCreateProfile</span>. It is enough that the sizes of 
+  the profiled region, the bucket, and the output buffer make an exact fit. As if 
+  to compensate, however, although the execution that induces the invalid increment 
+  could in theory occur by accident in real-world use, it is in practice much harder 
+  to arrange: the interrupt on which it goes wrong must be returning to an instruction 
+  that begins exactly at the non-inclusive end of the profiled region. </p>
+  <p>Either way, the result is the same bug check at the same place in
+  <span class="function">KeProfileInterruptWithSource</span>. The difference is 
+  just in which simple coding error is the cause: in <span class="function">NtCreateProfile</span> 
+  or in <span class="function">KeProfileInterruptWithSource</span> itself. It’s 
+  thankfully rare that any coding error with this consequence goes undetected for 
+  so long, but it must be truly special that a second gets added with exactly the 
+  same consequence. </p>
+  <h2>But Wait, There’s (Even) More </h2>
+  <p>Yes, you read that right: I can think of nothing better than to repeat this 
+  cliché of a heading as my way of stressing the absurdity that this bug’s life 
+  goes on and on. Inspection today, 10th June 2018, confirms that although the 1703 
+  release of Windows 10 fixes the ancient parameter-validation error that is shared 
+  by <span class="function">NtCreateProfile</span> and <span class="function">NtCreateProfileEx</span>, 
+  it does nothing for the newer error in <span class="function">KeProfileInterruptWithSource</span>. 
+  This second error persists at least to the 1709 release, which is presently the 
+  latest that I have downloaded and installed. </p>
+  <p>How does it happen that Microsoft can be told of something as rare as a Bug 
+  Check From User Mode that not only has been there forever but has a second cause 
+  in new versions, yet gives the problem insufficient attention to ensure that both 
+  coding errors get fixed? </p>
+  <h3>Demonstration </h3>
+  <p>One reason may be that I didn’t spell out the independence of the two coding 
+  errors by providing two demonstrations. I simply didn’t think of the second as 
+  anything more than the sort of ungraceful twiddle that any sufficiently interested 
+  reader would try for themselves but which didn’t warrant distracting from the 
+  basic demonstration. I never even thought to formalise it for publication until 
+  June 2018. Perhaps if I had, and had sent it to Microsoft with an early version 
+  of the first in 2016, then the second coding error would have been fixed in 2017 
+  along with the first. But how much hand-holding and spoon-feeding does the mighty 
+  Microsoft Corporation need? </p>
+  <p>To show both coding errors explicitly, the demonstration now has a little clutter 
+  for command-line parsing. Run the program as <span class="command">procrash 1</span>, 
+  which is the default, to demonstrate the ancient coding error by mischievously 
+  asking to profile execution in a region that is too big relative to the buffer 
+  that’s provided for receiving the execution counts. Running the program as
+  <span class="command">procrash 2</span> makes no such mischief. It just arranges 
+  conditions that could occur by chance (but which are admittedly so unlikely to 
+  occur by chance that they plausibly never have for anyone anywhere in the whole 
+  history of Windows). In Windows 8 and higher, this contrivance exposes that the 
+  kernel may profile more execution than it’s asked to and thus write an execution 
+  count where it has no good cause to. </p>
+  <p>To labour the clarification: the two command-line options, 1 and 2, demonstrate 
+  separate coding errors that produce the same bug check from the same place. Before 
+  Windows 8, <span class="command">procrash 2</span> causes no fault. In Windows 
+  8 and higher, the two coding errors coexist until until at least the 1607 release 
+  of Windows 10. Starting with the 1703 release, if not also some updates of earlier 
+  releases, <span class="command">procrash 1</span> causes no fault. Starting with 
+  the 1809 release, and again perhaps some updates of earlier releases,
+  <span class="command">procrash 2</span> also causes no fault. </p>
+  <h3>Coordinated Disclosure As Deflection </h3>
+  <p>I can’t help wondering if Microsoft has in this case been caught by its own 
+  deflections. As noted above, when I read through Microsoft’s own bulletins or 
+  through the <a href="https://cve.mitre.org/cve">Common Vulnerabilities and Exposures</a> 
+  (CVE) lists that seem to be most security researchers’ reference of choice, I 
+  cannot tell just from their text which notifications from early 2017 and mid-2018 
+  correspond to the coding errors that I describe above. </p>
+  <p>Of course, it could be that there never was either a Microsoft Security Bulletin 
+  or a CVE for fixing either coding error. If the defect was assessed as being not 
+  exploitable, it might reasonably get fixed just in the ordinary course of what 
+  seem now to be roughly bi-annual releases. Perhaps faulting the kernel from user 
+  mode, let alone from a low-integrity process, just doesn’t reach the threshold 
+  for disclosure as a security vulnerability. Beyond its obvious nuisance value 
+  for stopping a computer in mid-use and possibly losing data, it arguably isn’t 
+  much help to an attacker except in combination with some other exploit that converts 
+  the kernel’s fault into an escalation of privilege or avoids the fault so that 
+  the kernel is instead induced to corrupt memory that has been mapped into system 
+  address space for some other process. How feasible such exploitation is, I might 
+  imagine but can’t know with confidence: I am not a security researcher and am 
+  far from convinced that it would be anything but unhealthy to think like a malware 
+  writer. </p>
+  <p>Still, I look at the occasional security issue and I look on in despair. Microsoft’s 
+  programme of coordinated disclosure of coding errors and security vulnerabilities 
+  that Microsoft only learns about from the work of others looks to be a very good 
+  deal for Microsoft. It may also be good for Windows users at large, if indeed 
+  it does lessen the opportunity for exploitation before protection is developed 
+  and distributed. Protection of unsuspecting users certainly is to my mind the 
+  one defining merit of coordinated disclosure. The only other merit I can think 
+  of is the simple one that since we all make mistakes in our work it’s nothing 
+  but decent to allow some opportunity to correct mistakes away from the pressures 
+  of public embarrassment and the glare of accusation. This, however, doesn’t speak 
+  for anything like coordinated disclosure, just for some advance notice with a 
+  bit of empathy. With coordinated disclosure, the imperative of protecting unsuspecting 
+  users turns naturally into leverage over the publication timetable and less naturally 
+  into influence over how the problem is eventually perceived. Disclosure is not 
+  just deferred in the hope of some public benefit. It gets neutered because the 
+  earliest and most prominent descriptions in public are controlled by Microsoft 
+  and are shall-we-say oblique. </p>
+  <p>Co-ordinated disclosure risks being as much about delay and deflection as about 
+  truly confronting the problem. The more it veers to the former, the worse a deal 
+  it is for everyone. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 14th
+    <a href="../../../../../../../new/17/01.htm">January 2017</a>, was substantially 
+    revised on 14th <a href="../../../../../../../new/18/06.htm">June 2018</a> and 
+    has been treated as essentially complete since 28th July 2018. It was last modified 
+    on 22nd May 2022, for minor editing, mostly to record when Microsoft fixed the 
+    second path to the buffer overflow. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1722.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5053" -->
+  </div>
+</div>
+
+</body>
+
+</html>

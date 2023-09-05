@@ -1,0 +1,709 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The CPL Icon Loading Vulnerability</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>The CPL Icon Loading Vulnerability </h1>
+  <p>Unless you’re familiar with the technology of shell extensions, you might read 
+  Microsoft’s description of the
+  <a target="_top" href="http://www.microsoft.com/technet/security/bulletin/MS10-046.mspx">
+  Shortcut Icon Loading Vulnerability - CVE-2010-2568</a> as reporting a defect 
+  in the parsing of shortcut (.LNK) files. After all, that’s what it says: “Windows 
+  incorrectly parses shortcuts”. Knowing no better, you might take Microsoft at 
+  its word, perhaps grumbling that Windows can’t easily be inspected because it’s 
+  not open-source. You might form in your mind a scenario in which something that 
+  ought to be rejected as an error in a .LNK file instead goes unnoticed such that 
+  the code for parsing .LNK files misbehaves. You might then think that exploitation 
+  is a matter of contriving the error so that the misbehaviour is predictable in 
+  a way that’s useful to malware. If you’re writing about the particular exploitation 
+  by the Stuxnet worm, you might wave your hands around these thoughts and even 
+  turn out phrases such as “malformed .LNK file”. </p>
+  <p>If you have done anything like that in writing about either Stuxnet or the 
+  CVE-2010-2568 vulnerability, then you have done your readers a disservice. </p>
+  <p>More than that, you deserve to be called out for it. To rephrase an old saw 
+  about advertising budgets: half the computer security industry is wasted, but 
+  who knows which half? One way to identify the dross might be to ask who wrote 
+  “malformed .LNK file” as being essential to this exploitation by Stuxnet. And, 
+  yes, I am serious even though this test would dismiss a few of the industry’s 
+  big beasts, e.g.,
+  <a href="https://home.mcafee.com/VirusInfo/VirusProfile.aspx?key=268481">McAfee</a> 
+  and
+  <a href="https://www.symantec.com/connect/articles/zero-day-vulnerability-windows-w32stuxnet">
+  Symantec</a>, who did much of the running on Stuxnet. </p>
+  <p>It certainly is true that Stuxnet plants a .LNK file on removable media such 
+  that merely browsing the media with the Windows Explorer will load and execute 
+  the Stuxnet component for which a pathname can be seen in the .LNK file. What 
+  simply isn’t true is that this trick depends on the .LNK file to be malformed. 
+  It’s not even true that the .LNK file must be “specially crafted”, which is Microsoft’s 
+  phrase, unless we’re meant to regard every .LNK file as being specially crafted 
+  just for specifying what it’s a shortcut to. </p>
+  <p>To say that most of the computer security industry has described either or 
+  both of the defect and its exploitation wrongly for years is no small claim. You’ll 
+  want not just some abstract argument that goes into Windows internals that you 
+  have hardly any interest in and even less means of verifying. You should have 
+  a demonstration. Stay with me and you’ll create </p>
+  <ul>
+    <li>a CPL module that substitutes for the malware </li>
+    <li>and a .LNK file that loads and executes the CPL module just from being browsed.
+    </li>
+  </ul>
+  <p>But </p>
+  <ul>
+    <li>the .LNK file will be created using nothing but the ordinary Windows user 
+    interface for creating shortcuts </li>
+    <li>and the same surprise execution of the CPL module will be shown without 
+    any .LNK file being involved. </li>
+  </ul>
+  <p>Whatever Windows defect it is that Stuxnet exploits with its shortcut, it’s 
+  demonstrably not that the shortcut is malformed or gets incorrectly parsed—and 
+  Microsoft surely knows this. </p>
+  <h2>Vulnerability Reports </h2>
+  <p>Microsoft’s description of CVE-2010-2568 doesn’t give anything like enough 
+  detail that analysts could reliably find which defect is meant even if they had 
+  the Windows source code to look through. This vulnerability is plausibly not special 
+  in that sense. When analysts pick over the eventual fix to see what has changed, 
+  the theory may be that they are testing whether the fix is sound, but the practical 
+  reality for many of them is that only then do they learn what the supposedly disclosed 
+  vulnerability actually was. To my mind, that’s bad enough for what it says of 
+  the general usefulness of the Common Vulnerabilities and Exposures list, of Microsoft’s 
+  attitude to that list, and of everyone else’s willingness not just to tolerate 
+  such short shrift but to be grateful for Microsoft’s participation. What’s particularly 
+  bad is that Microsoft’s description in this case looks like a knowing deflection. 
+  To describe CVE-2010-2568 as any sort of parsing error is beyond any reasonable 
+  stretch of interpretation. </p>
+  <p>A generous rationalisation of Microsoft’s description is that it is not intended 
+  as identifying any coding error precisely. Microsoft’s aim is instead to report 
+  that because of a recently discovered coding error, Windows has a previously unknown 
+  vulnerability. Microsoft means only to sketch this vulnerability, to warn of risks 
+  from how the vulnerability might be attacked, to present some workarounds, and 
+  eventually to fix the defect. If this can all be done without pinpointing the 
+  defect and exposing it to critical comment before the fix is ready, then so much 
+  the better for Microsoft. But who outside Microsoft should want to play along 
+  with that? </p>
+  <h3>Vulnerability Analysis </h3>
+  <p>At best, shortcut files are involved as no more than a
+  <span class="emphasis">vector</span> for exploiting the defect. Where this vector 
+  leads to in Stuxnet’s exploitation is found easily enough. Among “official” descriptions 
+  to contrast with Microsoft’s, we do at least have
+  <a target="_top" href="http://www.kb.cert.org/vuls/id/940193">Vulnerability Note 
+  VU#940193</a> as recording that the defect is somewhere in the Control Panel. 
+  Any number of malware analysts have fleshed that out by running the Windows Explorer 
+  under a debugger, browsing a directory that contains Stuxnet’s .LNK file, watching 
+  for where <span class="function">LoadLibrary</span> gets called, and reporting 
+  in more or less detail what they see in the call stack. </p>
+  <p>There, however, they tend to leave it. Perhaps that’s all to expect of malware 
+  analysts. What they’re meant to analyse is the malware, not Windows. Yet from 
+  the browsing of Stuxnet’s .LNK file to the execution of Stuxnet’s code, all the 
+  action is in Windows, not in the malware. Between the start and end of this defect’s 
+  exploitation by Stuxnet in particular, there’s potentially a lot to miss about 
+  the defect in general. </p>
+  <h3>The Vulnerability </h3>
+  <p>The defect is in the Control Panel’s support for an age-old, long-documented 
+  and still-supported, but arguably obscure, feature of CPL modules. It’s a particular 
+  case of defect that all implementations of shell folders are susceptible to, but 
+  which is specially dangerous for the Control Panel because this obscure feature 
+  has among its consequences that items in this shell folder may need to have their 
+  supporting code be loaded and executed just to enumerate the items or to query 
+  their properties. This design is not of itself defective, but you would hope it 
+  makes the Control Panel specially defensive about what counts as a Control Panel 
+  item. It mostly is. When you open the Control Panel, all the items it even considers 
+  showing you do at least have to be installed in one way or another.<a class="FootnoteReference" name="FtnRef_1" href="#Ftn_1">1</a> 
+  Unfortunately, when the Control Panel is asked about any one supposed Control 
+  Panel item, it is more than a little bit too trusting that what it is being asked 
+  about actually is an installed Control Panel item. In one case, this credulousness 
+  means that the Control Panel, just for being asked which icon to use for a supposed 
+  Control Panel item, can be induced to load and execute a DLL that it would otherwise 
+  not have considered loading as a CPL module. This is the vulnerability. This is 
+  what Stuxnet exploits. </p>
+  <p>See that Windows is not vulnerable just for loading a DLL to get an icon. True, 
+  an icon can be in a DLL as a resource, but extracting the icon does not itself 
+  get the DLL to execute. You might be amazed that I think to spell that out, but 
+  look on the Internet and you will find seemingly detailed commentary that suggests 
+  the vulnerability is that Windows loads icons from executable modules. So let’s 
+  state clearly that the vulnerability here is not with icons in general as resources 
+  in DLLs. It is instead that the Control Panel in particular can load a CPL module 
+  not just to get an icon from the module’s resources but to ask the module to
+  <span class="emphasis">choose</span> which icon to show—and can be tricked into 
+  loading an attacker’s code as a CPL module. </p>
+  <p>See also that a .LNK file is just one way to get this “which icon” question 
+  delivered to the Control Panel to induce the loading of code for execution. It’s 
+  a very effective way, especially for malware, but to finger the .LNK file as the 
+  vulnerability is, at best, to shoot the messenger. There are other ways to put 
+  the “which icon” question. There are other questions to put. There are other shell 
+  folders to put them to. Looking into this bigger picture may not turn up anything 
+  as devastating as remote code execution just from browsing a shortcut file, but 
+  surely the looking would better be done than not. </p>
+  <h2>Demonstration </h2>
+  <p>Because so many authorities on either the vulnerability itself or its exploitation 
+  by Stuxnet have by now entrenched the idea that the fault is in the .LNK file, 
+  it may be as well to begin the promised demonstration. Let’s forget the typical 
+  path of malware analysis, which would trace the particular way that Stuxnet accomplishes 
+  its trick for Stuxnet’s particular purposes. Let’s instead try to get at the generality 
+  by reproducing only the essence of Stuxnet’s trick in a way that has nothing to 
+  do directly with Stuxnet, or with malware, but which can occur in more or less 
+  ordinary usage. </p>
+  <p>Please do not miss that devising a demonstration such as this is very much 
+  easier if you already know how the relevant part of Windows works.
+  <span class="highlight">A computer security industry that does not invest in knowing 
+  Windows is a security industry that does much of its work in ignorance.</span>
+  </p>
+  <p>What we want to show is that code of our choice can be got running just by 
+  browsing a directory that contains a .LNK file. Of course, we have to get the 
+  code in the right packaging for this to work and we have to make a .LNK file that 
+  matches the code. But to show that there need be nothing remarkable, let alone 
+  wrong, with the .LNK file, we shall create it using nothing more special than 
+  the ordinary user-interface support of the Windows shell. </p>
+  <h3>Make A CPL Module </h3>
+  <p>First, however, we need the code that will be made to run just from browsing 
+  the .LNK file. The right packaging is a CPL module that hosts at least one CPL 
+  item whose icon is always to be resolved dynamically. Every installed CPL module 
+  is executed even before any Control Panel items that are hosted by the module 
+  are ever launched. That each module may turn out to support multiple items is 
+  one reason for this implicit execution. Another is that each item in a module 
+  can have its own icon, display name and description, and these too are all discovered 
+  by executing the module. After one execution though, these properties are typically 
+  cached so the module is never again executed just to rediscover them but only 
+  executes again if one of its Control Panel items actually is launched. A Control 
+  Panel item can, however, override this caching. It can indicate that it wants 
+  the corresponding CPL module to be loaded and called when the item’s icon, display 
+  name or description is next sought. Providing for this is where the Control Panel 
+  has the exploitable bug. </p>
+  <p>In case the point is not sufficiently plain that this behaviour for CPL modules 
+  is not itself a bug, but truly was intended all along as a feature, and even as 
+  a <span class="emphasis">documented</span> feature, it may be as well to reproduce 
+  from Microsoft’s CPL.H file that defines the <span class="constant">CPL_DYNAMIC_RES</span> 
+  constant for programmers:<a class="FootnoteReference" name="FtnRef_2" href="#Ftn_2">2</a>
+  </p>
+  <pre class="source">#define CPL_DYNAMIC_RES 0
+/* This constant may be used in place of real resource IDs for the idIcon,
+*  idName or idInfo members of the CPLINFO structure.  Normally, the system
+*  uses these values to extract copies of the resources and store them in a
+*  cache.  Once the resource information is in the cache, the system does not
+*  need to load a CPL unless the user actually tries to use it.
+*  CPL_DYNAMIC_RES tells the system not to cache the resource, but instead to
+*  load the CPL every time it needs to display information about an item.  This
+*  allows a CPL to dynamically decide what information will be displayed, but
+*  is SIGNIFICANTLY SLOWER than displaying information from a cache.
+*  Typically, CPL_DYNAMIC_RES is used when a control panel must inspect the
+*  runtime status of some device in order to provide text or icons to display.
+*  It should be avoided if possible because of the performance hit to Control Panel.
+*/</pre>
+  <p>Still, though the provision for a CPL module to leave an item’s icon to be 
+  resolved dynamically is ancient, a CPL module that actually does use the provision 
+  isn’t something you’re certain to have already—and any that you do have, such 
+  as a very common one from NVIDIA, won’t be designed to show their execution except 
+  when launching them is deliberate. For a demonstration of surprise execution, 
+  you’ll have to write your own CPL module or trust mine. The following would be 
+  very nearly minimal, given that we want at least some sign that it runs, but with 
+  a few extra lines so that we also have some confirmation of what runs: </p>
+  <pre class="source">#include    &lt;windows.h&gt;
+#include    &lt;cpl.h&gt;
+
+#pragma comment (lib, "kernel32.lib")   // for GetModuleFileName
+#pragma comment (lib, "user32.lib")     // for MessageBox
+
+HINSTANCE g_hinstDll = NULL;
+CHAR g_szDll [MAX_PATH] = "";
+
+CHAR const g_szName [] = "Test";
+
+LONG
+APIENTRY
+CPlApplet (
+    HWND hwndCpl,
+    UINT uMsg,
+    LPARAM lParam1,
+    LPARAM lParam2)
+{
+    static BOOL haverun = FALSE;
+    if (!haverun) {
+        haverun = TRUE;
+        GetModuleFileName (g_hinstDll, g_szDll, RTL_NUMBER_OF (g_szDll));
+        MessageBox (hwndCpl, "Did you want me?", g_szDll, MB_OK);
+    }
+    switch (uMsg) {
+        case CPL_INIT: return TRUE;
+        case CPL_GETCOUNT: return 1;
+        case CPL_INQUIRE: {
+            CPLINFO *info = (CPLINFO *) lParam2;
+            info -&gt; idIcon = CPL_DYNAMIC_RES;
+            info -&gt; idName = CPL_DYNAMIC_RES;
+            info -&gt; idInfo = CPL_DYNAMIC_RES;
+            info -&gt; lData = (LONG_PTR) NULL;
+            return 0;
+        }
+        case CPL_NEWINQUIRE: {
+            NEWCPLINFO *info = (NEWCPLINFO *) lParam2;
+            info -&gt; dwSize = sizeof (*info);
+            info -&gt; hIcon = NULL;
+            memcpy (info -&gt; szName, g_szName, sizeof (g_szName));
+            memcpy (info -&gt; szInfo, g_szName, sizeof (g_szName));
+            info -&gt; szHelpFile [0] = '\0';
+            return 0;
+        }
+        case CPL_DBLCLK: {
+            MessageBox (hwndCpl, "Sorry, this is all I do.", g_szDll, MB_OK);
+            return 0;
+        }
+    }
+    return 0;
+}
+
+DWORD
+WINAPI
+DllMain (
+    HINSTANCE hinstDll,
+    DWORD dwReason,
+    LPVOID lpReserved)
+{
+    if (dwReason == DLL_PROCESS_ATTACH) g_hinstDll = hinstDll;
+    return TRUE;
+}</pre>
+  <p>To make this into a CPL module, compile to taste, and then link with switches 
+  for creating a DLL and for naming the ways that a CPL module can be called:
+  </p>
+  <pre class="input">cl /c /Oxs /W3 test.cpp</pre>
+  <pre class="input">link /dll /entry:DllMain /export:CPlApplet /out:test.cpl test.obj</pre>
+  <p>The output is a small CPL module that will show a message box to ask “Did you 
+  want me?” when the <span class="function">CPlApplet</span> function is first called, 
+  whatever the reason. Should that reason turn out to be that the module’s Control 
+  Panel item actually is being launched, then another message box apologises for 
+  doing next to nothing. The icon for the module’s one Control Panel item will be 
+  a default, because <span class="constant">CPL_INQUIRE</span> is handled by leaving 
+  the icon to <span class="constant">CPL_NEWINQUIRE</span>, which then doesn’t bother 
+  providing one. As I said, it’s close to minimal: </p>
+  <ul>
+    <li><a href="_download/test_1_0_x86.zip">download source code and x86 CPL module</a> 
+    (2KB); </li>
+    <li><a href="_download/test_1_0_x64.zip">download source code and x64 CPL module</a> 
+    (2KB). </li>
+  </ul>
+  <p>Note that this small CPL module is written to work on just about any version 
+  of 32-bit or 64-bit Windows without needing any unusual privilege or permission. 
+  Over two decades of such versions, however, and no end of options for the look 
+  and feel of the Windows shell overall and the Control Panel in particular, there 
+  is bound to be some variation in behaviour. The directions attempt only broad 
+  coverage. Depending especially on what version you test with, you may find that 
+  some steps aren’t needed at all and that others need some adjustment or have slightly 
+  different outcomes. If you find some difference that you believe really ought 
+  to be singled out for detailed explanation, then please write to me about it and 
+  I shall see what I can do. </p>
+  <h3>Add a Manifest </h3>
+  <p>For complete tidiness, it’s as well that we provide a manifest. We don’t need 
+  it for surprise execution, but you should want to test that the Control Panel 
+  item can be launched deliberately. Without a manifest, launching a Control Panel 
+  item may attract a complaint from the Program Compatibility Assistant for fear 
+  of having worked incorrectly without administrative privilege. The following manifest 
+  is close to minimal: </p>
+  <pre class="source">&lt;?xml version="1.0" encoding="UTF-8" standalone="yes"?&gt;
+&lt;assembly xmlns="urn:schemas-microsoft-com:asm.v1" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3" manifestVersion="1.0"&gt;
+  &lt;trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"&gt;
+    &lt;security&gt;
+      &lt;requestedPrivileges&gt;
+        &lt;requestedExecutionLevel level="asInvoker"/&gt;
+      &lt;/requestedPrivileges&gt;
+    &lt;/security&gt;
+  &lt;/trustInfo&gt;
+&lt;/assembly&gt;</pre>
+  <p>Such a manifest can be built into the CPL file as a resource, but the build 
+  (and its description) is less complicated if we simply save the manifest as a 
+  separate file in the same directory as the CPL file and with the same name but 
+  with .manifest appended, e.g., test.cpl.manifest. </p>
+  <h3>Install </h3>
+  <p>If you have sufficient privilege, then perhaps the easiest way to install a 
+  CPL module is to copy it to the Windows System directory. The standard way, however, 
+  is to list the module in the registry. Among the possibilities, the following 
+  ordinarily needs no unusual permission: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Control 
+      Panel\CPLs</span> </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td>anything, e.g., <span class="regvalue">Test</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_SZ</span> or <span class="constant">REG_EXPAND_SZ</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Data: </td>
+      <td><span class="placeholder">path</span>\test.cpl </td>
+    </tr>
+  </table>
+  <p>After editing this into the registry, open the Control Panel, and check that 
+  an item named Test appears. Classic View is best for simplicity, but if you prefer 
+  Category View and want to stick with it, look in the Additional Options category 
+  or under All Control Panel Items. </p>
+  <p>See that merely to get the Test item to show in the Control Panel involves 
+  loading it and calling its <span class="function">CPlApplet</span> function. Indeed, 
+  its “Did you want me?” message box may show multiple times, which means that our 
+  CPL module is not just loaded, but is loaded and unloaded, over and over. Watch 
+  out, by the way, for message boxes that lurk behind the Control Panel or do not 
+  turn up immediately. </p>
+  <h4>Quirks </h4>
+  <p>Less something to watch out for than a problem you would have to work at encountering 
+  is that CPL modules have an unusual constraint on filename length. Starting with 
+  Windows XP SP2, a CPL module will not load, and thus its Control Panel items will 
+  not show, if the total filename, i.e., including the <span class="placeholder">
+  path</span>, exceeds 250 characters (not including a terminating null). This is 
+  because these versions insist that the nine characters of “.manifest” can be added 
+  without exceeding the usual limit of <span class="constant">MAX_PATH</span> characters 
+  (including a terminating null). The manifest file doesn’t have to exist but there 
+  must be room for composing its name.<a class="FootnoteReference" name="FtnRef_3" href="#Ftn_3">3</a>
+  </p>
+  <p>Something else you might do with the filename, e.g., to make mischief for the 
+  directions I present above, doesn’t stop the Test item from showing but does change 
+  the behaviour. If you installed the CPL module on a <span class="placeholder">
+  path</span> that contains a space or if you gave it a filename that contains a 
+  space, then browsing the Control Panel may cause the “Did you want me?” message 
+  box to show just once. Try it. Rename the CPL module to “space test.cpl”, edit 
+  the registry data accordingly, and then close and reopen the Control Panel (or 
+  just Refresh, if the option is available and meaningful). </p>
+  <p>For full appreciation, however, take this diversion a little further. Copy 
+  the CPL module to “space.dll” in the same directory. Now refreshing the Control 
+  Panel gives you multiple message boxes, as when the filename is space-free. But 
+  look at each message box’s title to see what got loaded. (If the full title doesn’t 
+  show for the message box itself, hover over the corresponding button on the task 
+  bar and look instead at the tooltip.) The first message box is for the CPL module 
+  as installed, i.e., as “space test.cpl”. The second (or more) occurs because the 
+  Control Panel decides by itself to run the copy that we made as space.dll. </p>
+  <p>This—which, by the way, may fairly be called a parsing error—is just one example 
+  of how this old, old code for supporting the Control Panel allows all sorts of 
+  fun and games at the margins of expected usage. That I divert you for a sampling 
+  of such quirks is not for amusement. If anything, I’m with you in regarding them 
+  as arcane. They can be tedious to track down and describe accurately, let alone 
+  to make them fun to read about. Fixing them probably isn’t much fun, either. To 
+  the malware writer, however, arbitrage between what the programmer expected and 
+  what the program actually does is bread and butter, if not serious business. Not 
+  all edge cases are exploitable, but a good proportion are, and the Windows shell 
+  abounds with them, both old and new. Dismissing them is a luxury we cannot afford.
+  </p>
+  <h3>Make a Shortcut </h3>
+  <p>With our CPL module installed simply as test.cpl and with the Control Panel 
+  still open, right-click on the Test icon and choose Create Shortcut from the context 
+  menu. If you don’t like to disturb your desktop—and why should you?—then instead 
+  do a Ctrl-Shift drag to create the shortcut at a location of your choice. Either 
+  way, note that even something as seemingly inert as creating a shortcut to this 
+  Control Panel item gets the corresponding CPL module loaded and executed. Indeed, 
+  a Ctrl-Shift drag becomes rather complex (and uncertain) because of the interruptions 
+  from the message box. </p>
+  <p>Play with the shortcut. For instance, ask the Windows Explorer to show the 
+  shortcut’s Properties, and confirm that the shortcut is indeed to the Control 
+  Panel item named Test, rather than to the CPL module that is the file named test.cpl. 
+  Again, this operation that you might think should be inert gets the CPL module 
+  loaded and executed. You can’t even delete the shortcut file, via the Windows 
+  Explorer, without the CPL module getting loaded and executed. </p>
+  <p>The shortcut has recorded that, if only at the time the shortcut was created, 
+  its target is not just a Control Panel item but is one of those inconvenient Control 
+  Panel items that doesn’t want its icon to be cached but means instead to choose 
+  its icon dynamically. Because of this dynamic resolution of the icon, if you browse 
+  the directory that you placed the shortcut in, the CPL module that hosts the target 
+  item must be loaded and executed just to find what icon to show for the shortcut.
+  </p>
+  <p>Be sure to test that last point before proceeding. It is your confirmation 
+  that <span class="highlight">executing this type of CPL module merely for browsing 
+  a shortcut file is ordinary Windows behaviour, with no malware in sight and no 
+  contrivance either.</span> </p>
+  <h4>Quirks </h4>
+  <p>One way you likely will not get this confirmation is if the CPL module’s filename 
+  (including its path) contains a space. If you stayed with the diversion presented 
+  above, so that the CPL module is named “space test.cpl” and the shortcut is to 
+  the Test item as hosted by “space test.cpl”, then browsing the directory that 
+  contains the shortcut file does not cause “space test.cpl” to execute. It does, 
+  however, execute whatever “space.dll” is present! </p>
+  <h3>Uninstall </h3>
+  <p>Though the repeated loading, executing and unloading of a CPL module that reports 
+  dynamic resources is undeniably inefficient, it is not of itself defective. Indeed, 
+  the type of CPL module that we have created to cause all this activity is documented 
+  and supported, admittedly with strong advice against it because of the inefficiency, 
+  but also with a suggestion that the behaviour may be desirable to someone, so 
+  that a Control Panel item’s appearance can change according to the current state 
+  of whatever the item exists to control. What we have here is not a bug. It is 
+  very definitely an intended feature. </p>
+  <p>What <span class="emphasis">would</span> be defective is if any of this loading, 
+  executing and unloading occurred without the shortcut’s target actually being 
+  an installed Control Panel item. You will have guessed already that it does, because 
+  that’s obviously where the demonstration is leading. </p>
+  <p>To uninstall our CPL module, simply delete what we added to the
+  <span class="regkey">CPLs</span> key. You might think that our Test item must 
+  now be gone from the Control Panel. And indeed it is. Refresh the Control Panel, 
+  log off and back on, or even restart Windows. Whatever you do now that our CPL 
+  module is uninstalled, browsing the Control Panel does not show the Test item 
+  and does not execute the test.cpl file. </p>
+  <p>How boring is that? We created a particular type of CPL module, installed it, 
+  created a shortcut to the Control Panel item it hosts, uninstalled it, and can’t 
+  be the slightest bit surprised to find that the Control Panel item doesn’t show 
+  in the Control Panel. You may even be wondering why I put you to all this work.
+  </p>
+  <p>The point, of course, is that we have now reproduced in a controlled way the 
+  essence of Stuxnet’s exploitation. True, we had to write our own CPL module of 
+  a particular type. And we had to create a shortcut file. But we did so using the 
+  ordinary user interface for creating a shortcut to anything. The shortcut is certainly 
+  not a “malformed .LNK file” and neither is it “specially crafted”. All that is 
+  notable about the shortcut is that it specifies as its target a Control Panel 
+  item that was installed but is not now. </p>
+  <h3>Icon Loading With Shortcut File </h3>
+  <p>So, browse to the directory where you left the shortcut. Do this with a Windows 
+  that does not have CVE-2010-2568 fixed and you’ll see that the CPL module still 
+  executes even though it has been uninstalled. In a real exploitation, the effect 
+  would be that the attacker’s CPL module executes even though it was never installed 
+  (on that computer). Thus does the worm get to spread. </p>
+  <p>Obviously, the uninstalled CPL module ought not get executed—certainly not 
+  just from browsing a directory that has a stale shortcut file. Just as obviously, 
+  the shortcut is not to blame for this unwanted behaviour. </p>
+  <p>While the CPL module was installed, the shortcut was perfectly fine. That the 
+  CPL module is not currently installed is not the shortcut’s fault. After all, 
+  the module may still be installed for another user. The demonstration might just 
+  as well have two users. The first installs the module, creates a shortcut to the 
+  item, and leaves the shortcut in a public or shared location. The second does 
+  not install the module, but browses the directory where the first left the shortcut. 
+  That the module gets executed for the second user is unwanted but also means that 
+  the shortcut works properly as a shortcut. The most that can be expected of it 
+  as inert data in a file is that it correctly holds some sort of description of 
+  what may be (or ought once to have been) a Control Panel item. The most that can 
+  be expected of whatever code parses the shortcut is that it delivers this description 
+  intact to the Control Panel for interpretation. Since it does that, the unwanted 
+  behaviour can only be the Control Panel’s. </p>
+  <h3>Icon Loading With No Shortcut File </h3>
+  <p>As we shall see when we progress to the theory, the description that is contained 
+  within the .LNK file and is passed to the Control Panel is binary data that everyone 
+  but the Control Panel is supposed to treat as opaque. Still, if you don’t already 
+  know the theory, you may (and arguably should) think that if the only way this 
+  description can get to the Control Panel is from a .LNK file, then I’m just splitting 
+  hairs and the problem is still in practice that something’s wrong with .LNK files.
+  </p>
+  <p>So, let’s redo the demonstration but with a variation. Again, I assume you 
+  test with a Windows that does not have CVE-2010-2568 fixed. Install our CPL module 
+  and open the Control Panel, but instead of creating a shortcut file, drag our 
+  Control Panel item to the Start Menu. Uninstall the CPL module. Then log off and 
+  back on. </p>
+  <p>That the CPL module executes automatically when you log back on will, by now, 
+  be no surprise. You may think that dragging to the Start Menu created a shortcut 
+  file in one or another directory from which the shell cobbles together the Start 
+  Menu, and restarting the shell automatically browses that directory. That is very 
+  much what happens if you use the Classic Start Menu. More likely, however, you 
+  use the new style of Start Menu. Indeed, since Windows 7 that’s all Microsoft 
+  gives you. Dragging to the new style of Start Menu pins our Control Panel item 
+  to the Start Menu, above the line in the left pane, but will not have created 
+  any shortcut file. The Start Menu’s pinned list does not rely on shortcut files 
+  but is instead recorded in the registry: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\StartPage</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">Favorites</span> </td>
+    </tr>
+  </table>
+  <p>The format of binary data for this value is given separately, under the heading 
+  The Pinned List in <a href="../../windows/shell/explorer/startmenu.htm">The Start 
+  Menu’s Start</a>. When we drag our Control Panel item to the new style of Start 
+  Menu, the very same description that would have got wrapped into a .LNK file instead 
+  gets wrapped into a different format and goes into the registry. </p>
+  <p>Whether the description of the uninstalled Control Panel item is parsed from 
+  a shortcut file or a registry value, two things are plain. First, the description 
+  is delivered correctly: there is no parsing error. Second, it is the Control Panel 
+  that goes wrong: it acts on the description when arguably it ought not. </p>
+  <h2>Shell Namespace </h2>
+  <p>What is this description that can be parsed from a .LNK file or registry value 
+  for delivery to the Control Panel? The answer is a special case of what in general 
+  a .LNK file can be a shortcut to. The general answer is very broad: any item in 
+  the shell namespace. The overall form of the namespace is documented, but since 
+  it evidently isn’t understood by all the malware analysts who have made a “close 
+  inspection” of the bug or its exploitation, a brief review may help. </p>
+  <p>The shell namespace generalises what is more familiar as the directory tree 
+  of a file system. Indeed, a point to the shell namespace is to include the accessible 
+  file systems but to add any number of abstractions of more or less anything for 
+  more or less any purpose. A shell namespace item that can contain other items 
+  is called a shell folder. It is supported by executable code, especially a COM 
+  interface (see below), that defines the folder as a container of items and is 
+  responsible for access to the contained items, some of which may in turn be folders. 
+  This code is specified as loosely as possible to support common behaviour without 
+  constraining the implementation. That different folders can have very different 
+  implementations is primarily what gives the namespace its generality. </p>
+  <h3>PIDLs </h3>
+  <p>Each item’s path in the namespace has a structural form, known properly as 
+  an <span class="struct">ITEMIDLIST</span> but colloquially as a PIDL (especially 
+  in code that has a Pointer to an ID List). A PIDL is a sequence of variable-sized
+  <span class="struct">SHITEMID</span> structures which each represent one item 
+  in the namespace. Successive items have a parent-child relationship. In an absolute 
+  PIDL, the first item is relative to the root of the namespace, i.e., to the desktop, 
+  so that the whole PIDL is unique to one item in the whole namespace. </p>
+  <p>The formal specification of an <span class="struct">SHITEMID</span> is just 
+  a (16-bit) word to be followed immediately by unspecified data. The word gives 
+  the total size in bytes, i.e., of the word and the data. An empty
+  <span class="struct">SHITEMID</span> is just zero as a word. The point to the 
+  unspecified data is that its interpretation is entirely a matter for the shell 
+  folder that contains the item. PIDLs are designed to be shared among all parties 
+  with an interest in a shell namespace item but to be opaque to everyone who isn’t 
+  actually responsible for containing the item within the namespace. </p>
+  <p>Importantly, the sharing of PIDLs is intended to allow that the interest in 
+  a shell namespace item may be expressed at different times, in different Windows 
+  sessions, and even on different computers. As Microsoft’s documentation puts it, 
+  the unspecified data in a PIDL is to be “persistable and transportable”. PIDLs 
+  are designed to be saved for later reference. Where they get persisted to or transported 
+  to can be just about anywhere. How they are saved doesn’t matter either, as long 
+  as they can be recovered (presumably intact). As if to prove the point, there 
+  are shell functions for reading and writing a PIDL to an arbitrary stream (see
+  <span class="function">
+  <a href="../../../studies/windows/shell/shlwapi/api/util/istream/readpidl.htm">
+  IStream_ReadPidl</a></span> and <span class="function">
+  <a href="../../../studies/windows/shell/shlwapi/api/util/istream/writepidl.htm">
+  IStream_WritePidl</a></span>). We have already seen, in the demonstration, that 
+  PIDLs can get saved in binary data for registry values. Through all the years 
+  of 32-bit Windows, PIDLs have plausibly been saved in any number of proprietary 
+  file formats. In ordinary practice, however, the most common storage of PIDLs 
+  in files is provided by the Windows shell in the form of shortcut files, usually 
+  with the .LNK extension for their filenames. </p>
+  <h3>Shortcut Files as PIDL Containers </h3>
+  <p>A .LNK file is the shell’s own container for the convenient saving of an absolute 
+  PIDL for an arbitrary item so the item can easily be accessed another time from 
+  wherever the container has been left. As a container, a .LNK file may have properties 
+  of its own and may also specify ways that the target item is to be accessed, but 
+  the target item itself is specified entirely by the PIDL. </p>
+  <p>The flip side to PIDLs being essentially opaque is that once a .LNK file is 
+  read and its PIDL is extracted in conformance to the .LNK file format, interpreting 
+  the PIDL is no longer the responsibility of whatever code read and interpreted 
+  the .LNK file. Interpretation of a PIDL, no matter where the PIDL came from, is 
+  necessarily and wholly the responsibility of the succession of shell folders that 
+  Microsoft’s documentation makes abundantly plain are the only permitted interpreters 
+  of the unspecified data in a PIDL’s succession of <span class="struct">SHITEMID</span> 
+  structures. </p>
+  <h3>PIDL Creation and Interpretation </h3>
+  <p>For the purpose of this interpretation, the essence of a shell folder is its 
+  implementation of the <span class="interface">IShellFolder</span> interface. It 
+  will not surprise that most of this interface’s methods either produce PIDLs or 
+  accept them. </p>
+  <p>Of particular interest is the <span class="method">EnumObjects</span> method. 
+  It produces an <span class="interface">IEnumIDList</span> interface. Repeated 
+  calls to that interface’s <span class="method">Next</span> method retrieve PIDLs 
+  for items in the folder. Doing this is the essence of browsing the folder. It 
+  is perhaps the primary means by which PIDLs are discovered. The secondary means 
+  would be the <span class="method">ParseDisplayName</span> method. It takes a more-or-less 
+  human-readable name for what its caller presumably hopes is an item in the folder, 
+  or might be creatable as an item in the folder, and produces a PIDL for that item.
+  </p>
+  <p>Whichever way a PIDL was discovered for an item, its main usefulness is that 
+  it can be fed back to its folder through the other <span class="interface">IShellFolder</span> 
+  methods to learn more about the item or even to modify the item. An important 
+  example, particularly in the present context of finding an icon to use for an 
+  item, is the <span class="method">GetUIObjectOf</span> method. At its simplest, 
+  it takes a PIDL for one item and an interface ID and produces the item’s implementation 
+  of the indicated interface. Methods of that interface can then be called to work 
+  on the item. For instance, if the interface is <span class="interface">IExtractIcon</span>, 
+  its <span class="method">GetIconLocation</span> method may tell where to get an 
+  icon for the item. </p>
+  <h3>PIDL Persistance Vulnerability </h3>
+  <p>Now, as a malware analyst or security researcher reading this article, you 
+  might (reasonably) not know enough about Windows to question Microsoft’s description 
+  of a Windows bug, and you might (less reasonably) not let that stop you from saying 
+  you have made a detailed study of that bug’s exploitation, but at least you can 
+  be depended on for your security radar to sound the alarm at this general category 
+  of code that hands out data and assumes it will come back intact, or that it will 
+  have the same meaning by the time it comes back, or that what comes “back” ever 
+  was passed out. You will already be wondering how many shell folders are lax with 
+  PIDLs they might be fed, what can go wrong if any are, and whether anything that 
+  can go wrong is exploitable by malware. You may even be wondering how many of 
+  your colleagues and competitors have thought of this as an under-explored class 
+  of exploitable vulnerabilities. </p>
+  <p>If a shell folder assumes that the PIDLs it can ever receive for methods such 
+  as <span class="method">GetUIObjectOf</span> must have been produced by other 
+  methods, such as <span class="method">EnumObjects</span> and
+  <span class="method">ParseDisplayName</span>, of the same instantiation of that 
+  shell folder, does it give malware an opportunity for mischief or exploitation?
+  </p>
+  <p>I don’t know what answer might be found for this question in general. That 
+  the answer is yes for the particular shell folder known as the Control Panel has 
+  been demonstrated very well by Stuxnet—spectacularly well, even. That a worm can 
+  get onto a computer just from browsing shortcut files on removable media, which 
+  appears not to have been thought of much as a possibility before Stuxnet, should 
+  mean that the answer is not just yes but a resounding yes. Yet there is no resounding, 
+  nor even a simple yes, because as far as I can see, nobody has asked the question 
+  in public until now. If you take one thing from this article, I should want it 
+  to be that Microsoft’s loose talk of parsing shortcut files and malware analysts’ 
+  uninformed talk of malformed .LNK files have deflected attention from where it 
+  is in Windows that gave this malware such alarming and novel opportunity. </p>
+  <div class="Footnotes">
+    <hr>
+    <p><a class="FootnoteReference" name="Ftn_1" href="#FtnRef_1">[1]</a> Of the 
+    surprisingly many ways to install Control Panel items, the only published list 
+    I’m aware of as standing any chance of being comprehensive is my own, under 
+    the heading Control Panel Items in my documentation of the
+    <span class="class">
+    <a href="../../../studies/windows/shell/shell32/classes/controlpanel.htm">ControlPanel</a></span> 
+    class. Note, by the way, the several ways of installing into the Control Panel 
+    without administrative privilege. </p>
+    <p><a class="FootnoteReference" name="Ftn_2" href="#FtnRef_2">[2]</a> Except 
+    that the last sentence was added some time between 2003 and 2006, the reproduced 
+    comment dates from the oldest Win32 Software Development Kit that I still have 
+    installed (from 1995). </p>
+    <p><a class="FootnoteReference" name="Ftn_3" href="#FtnRef_3">[3]</a> Manifests 
+    and activation contexts were new for Windows XP. That the original release and 
+    first service pack do not have the later limit on filename length is a classic 
+    case of a buffer overflow being accidentally harmless. The relevant code copies 
+    the CPL module’s filename to a buffer on the stack, taking care not to exceed 
+    the buffer’s capacity of <span class="constant">MAX_PATH</span> characters. 
+    It then appends “.manifest” without regard for overflow, but the arrangement 
+    of local variables on the stack means that space after the buffer happens to 
+    be not yet in use, and by the time it does get used, the filename for the manifest 
+    is no longer needed. </p>
+  </div>
+  <div class="Footer">
+    <p class="Dates">This page was created on 24th October 2010 and was last modified 
+    on 26th February 2017. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c1017.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010-2017. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="50805" -->
+  </div>
+</div>
+
+</body>
+
+</html>

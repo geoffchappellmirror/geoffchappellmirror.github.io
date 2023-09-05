@@ -1,0 +1,187 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Internal error during DumpSymbolMap</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="22580" endspan -->
+<h1>Internal error during DumpSymbolMap </h1>
+<p>DUMPBIN has an undocumented command-line option <span class="switch">
+<a href="options/map.htm">/map</a></span> that aims to dump a Section Contribution 
+Map from a PDB but which settles for dumping a so-called Symbol Map that is confected 
+from the COFF Symbol Table. However, the code that would build and dump this Symbol 
+Map has perhaps not been treated to the best care that Microsoft’s programmers are 
+surely capable of. One coding error is bad enough to cause a CPU exception, specifically 
+from dereferencing a null pointer. The ordinary consequence is that the program’s 
+top-level exception handler terminates the program after displaying the message
+</p>
+<pre class="output">DUMPBIN : fatal error LNK1000: Internal error during DumpSymbolMap</pre>
+<p>followed by a version number, some exception information and a dump of CPU registers.
+</p>
+<p>This internal error is reliably reproducible with input files that Microsoft 
+has sold by the hundreds of millions and presumably regards as well-formed. A traditional 
+exposition would begin with the details for reproducing the problem and proceed 
+to what was eventually discovered as the explanation. At this site however, the 
+process of discovery mostly works in the other direction: to study the code, see 
+an error, and then deduce how to trigger it. </p>
+<h2>The DumpSymbolMap Function </h2>
+<p>As noted above, the coding error is found on investigating what
+<span class="switch">/map</span> does. Of particular interest is the case where
+</p>
+<ul>
+  <li>DUMPBIN is run with <span class="switch">/map</span> on the command line;
+  </li>
+  <li>The input file is an executable in PE format or a debug (DBG) file; </li>
+  <li>DUMPBIN does not at the time have access to a matching PDB that supplies a 
+  Section Contribution Map. </li>
+</ul>
+<p>Barring early exits due to unrelated errors, these are necessary and sufficient 
+conditions to have DUMPBIN fall back on dumping a Symbol Map, which is done in a 
+function that is plausibly called <span class="function">DumpSymbolMap</span> in 
+Microsoft’s source code. </p>
+<p>The Symbol Map is extracted from the COFF Symbol Table. This is an array of 18-byte 
+structures of two types. An ordinary entry in the Symbol Table has the form of an
+<span class="struct">IMAGE_SYMBOL</span> structure. It may be followed by some number, 
+including zero, of auxiliary entries. The <span class="member">NumberOfAuxSymbols</span> 
+member in the ordinary entry tells how many auxiliary entries follow. Interpretation 
+of the auxiliary entries that follow an ordinary entry depends on other members 
+of the ordinary entry. The <span class="function">DumpSymbolMap</span> function 
+searches for ordinary entries such that </p>
+<ul>
+  <li>the <span class="member">SectionNumber</span> member is non-zero and no greater 
+  than <span class="constant">IMAGE_SYM_SECTION_MAX</span> (0xFEFF); </li>
+  <li>the <span class="member">StorageClass</span> member is
+  <span class="constant">IMAGE_SYM_CLASS_EXTERNAL</span> (0x02). </li>
+</ul>
+<p>For each such <span class="definition">qualifying</span> entry, the
+<span class="member">Value</span> member is taken to be the RVA of a new block in 
+the Symbol Map. If the entry is not the last in the Symbol Table and the next entry 
+has the same <span class="member">SectionNumber</span>, then the block extends up 
+to but not including the RVA given by the <span class="member">Value</span> member 
+of this next entry. Otherwise, the block finishes with the section. </p>
+<p>Note that DUMPBIN takes for granted that the next entry is an ordinary entry, 
+and that if it has the same <span class="member">SectionNumber</span> then it has 
+a higher <span class="member">Value</span>. By extension, it seems assumed that 
+all qualifying entries with the same <span class="member">SectionNumber</span> are 
+arranged in increasing order of <span class="member">Value</span>. Perhaps this 
+is true in all well-formed COFF Symbol Tables, but let’s put aside the interpretation 
+of entries in the COFF Symbol Table and look instead at how the
+<span class="function">DumpSymbolMap</span> function even gets these entries.
+</p>
+<p>There are two cases. In one, the whole of the COFF Symbol Table has already been 
+read and <span class="function">DumpSymbolMap</span> is given the address. In the 
+other, <span class="function">DumpSymbolMap</span> is left to read the entries by 
+itself. It does this one at a time. The coding for this second case has potential 
+for trouble on three points. </p>
+<p>First, the function does nothing about setting the file pointer. It just assumes 
+that the current file position for reading from the input file is at the first entry 
+in the COFF Symbol Table. </p>
+<p>Second, each entry is read into the one 18-byte buffer. If a qualifying entry 
+happens to be preceded by an auxiliary entry, then the function does not actually 
+test the <span class="member">SectionNumber</span> and <span class="member">StorageClass</span> 
+members of an ordinary entry but instead tests whatever the auxiliary entry happens 
+to have in the same places as these members. </p>
+<p>Third, for the computation of size by subtracting the <span class="member">Value</span> 
+member of the qualifying entry from the same member in the next entry, there is 
+yet no next entry that has been read. What would be the pointer to the next entry 
+is NULL. The attempt to use it will produce the CPU exception and thence the LNK1000 
+internal error. The question is: can this fault be triggered in practice or is it 
+just an error in theory, e.g., because the code is vestigial, with no way to execute? 
+To decide, we work backwards. </p>
+<h2>Finding the COFF Symbol Table </h2>
+<p>A necessary condition for the fault is that <span class="function">DumpSymbolMap</span> 
+believes that the input file has a non-zero number of symbols in a COFF Symbol Table 
+that has not yet been read. How might DUMPBIN have determined that there are symbols 
+but not read them? </p>
+<p>Given a DBG file as input, DUMPBIN works from the debug directory, specifically 
+from an entry that has <span class="constant">IMAGE_DEBUG_TYPE_COFF</span> (1) as 
+the <span class="member">Type</span>. In this entry, the <span class="member">PointerToRawData</span> 
+and <span class="member">SizeOfData</span> members locate an
+<span class="struct">IMAGE_COFF_SYMBOLS_HEADER</span>, which in turn has members
+<span class="member">LvaToFirstSymbol</span> and <span class="member">NumberOfSymbols</span> 
+that locate the COFF Symbol Table. DUMPBIN assumes that the necessary members are 
+all meaningful, and loads the table. This may be not very defensive, but it is not 
+unreasonable: assuming the DBG file is well-formed, the way to indicate the absence 
+of a COFF Symbol Table is simply to omit the corresponding entry in the debug directory.
+</p>
+<p>Rather than pursue some possibility that depends on the input file being corrupt, 
+let’s look instead at executables. For these, DUMPBIN works from the file header, 
+specifically from the <span class="member">PointerToSymbolTable</span> and
+<span class="member">NumberOfSymbols</span> members. If both are non-zero, DUMPBIN 
+loads the table from the executable. Note however that Microsoft’s documentation 
+of the <span class="struct">IMAGE_FILE_HEADER</span> structure provides that if 
+the COFF Symbol Table has been separated from the executable into a DBG file, then
+<span class="member">PointerToSymbolTable</span> is zero. It does not insist that
+<span class="member">NumberOfSymbols</span> also be zero. This is what gives us 
+the steps to trigger the fault. </p>
+<h2>Reproduction </h2>
+<p>We need as an input file an executable that was built to have COFF symbols, which 
+have then been separated to a DBG file, by a tool that cleared the
+<span class="member">PointerToSymbolTable</span> member of the file header but left 
+the <span class="member">NumberOfSymbols</span> member alone. We also need, as above, 
+that DUMPBIN have no access to any matching PDB file that can supply a Section Contribution 
+Map. </p>
+<p>Running <span class="command">dumpbin /map</span> with such an executable as 
+input is enough to induce the <span class="function">DumpSymbolMap</span> function 
+to try reading the COFF Symbol Table itself, one entry at a time. Note however that 
+although the COFF Symbol Table was removed to a DBG file, DUMPBIN does not try to 
+read from the there, but still from the executable. Moreover, it reads from wherever 
+the file pointer was left before the <span class="function">DumpSymbolMap</span> 
+function was called. In effect, when <span class="function">DumpSymbolMap</span> 
+searches for a qualifying entry in what it thinks is the COFF Symbol Table, what 
+it searches is not quite random data. We therefore need that the
+<span class="member">NumberOfSymbols</span> be fairly large, to give a good chance 
+that <span class="function">DumpSymbolMap</span> will happen to hit on data that 
+looks like a qualifying entry in what <span class="function">DumpSymbolMap</span> 
+thinks is a COFF Symbol Table. </p>
+<p>Suitable executables are actually numerous, but old. Recent versions of Microsoft’s 
+programming tools do not emit COFF symbols. We have to go back further than Windows 
+2000 in the NT stream of operating systems that Microsoft calls Windows. For the 
+Windows systems based on MS-DOS, Windows 95 is not ideal since the retail versions 
+of most executables appear to have been built without symbols. I have chosen SHELL32.DLL 
+as a “fairly large” executable. For the versions from NT 4.0 (including Service 
+Packs 4, 5 and 6), Windows 98 (including Second Edition), Internet Explorer 4.0 
+and 4.01 (including Service Packs 1 and 2), running </p>
+<pre class="input">dumpbin /map shell32.dll</pre>
+<p>produces the LNK1000 internal error cited above. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 8th October 2005 and was last modified 
+  on 10th June 2009. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c0509.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2005-2009. Geoff Chappell. All rights reserved.
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="57989" endspan -->
+</div>
+
+</body>
+
+</html>

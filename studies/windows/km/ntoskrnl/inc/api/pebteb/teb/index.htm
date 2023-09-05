@@ -1,0 +1,2629 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>TEB</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>TEB </h1>
+  <p>The Thread Environment Block is a thread’s user-mode representation. It has 
+  the highest-level knowledge of a thread in kernel mode and the lowest-level in 
+  user mode. If a thread has no user-mode footprint, it has no
+  <span class="struct">TEB</span>. If only in principle, if anything about a thread 
+  is shared with kernel mode but can be properly managed in user mode without needing 
+  a transition to kernel mode, it goes in the <span class="struct">TEB</span>.
+  </p>
+  <p>That said, not all the <span class="struct">TEB</span> is about sharing with 
+  the kernel. Indeed, there is thankfully less and less of that. It’s one thing 
+  that the kernel creates the <span class="struct">TEB</span> and initialises many 
+  of the members. It’s quite another that the kernel ever uses anything from the
+  <span class="struct">TEB</span> once it has been exposed to—and possibly changed 
+  by—anything in user mode. </p>
+  <h2>Access </h2>
+  <p>Code executing in user mode can easily find the <span class="struct">TEB</span> 
+  for the current thread. While a thread that has a <span class="struct">TEB</span> 
+  executes in user mode, the <span class="register">fs</span> or
+  <span class="register">gs</span> register, for 32-bit and 64-bit code respectively, 
+  addresses this <span class="struct">TEB</span>. </p>
+  <p>The <span class="struct">TEB</span> conveniently holds its own address in its
+  <span class="member">NtTib.Self</span> member. Reading just this one member using 
+  a segment-register override gets a linear address for override-free access to 
+  all the rest of the <span class="struct">TEB</span>. The 32-bit NTDLL even exports 
+  a function, named <span class="function">NtCurrentTeb</span> and declared in WINNT.H, 
+  which does exactly this. For 64-bit Windows, <span class="macro">NtCurrentTeb</span> 
+  is a macro. </p>
+  <h3>Kernel Mode </h3>
+  <p>It is similarly easy for kernel-mode code to find the current thread’s
+  <span class="struct">TEB</span> (if it has one). In kernel mode, the
+  <span class="register">fs</span> and <span class="register">gs</span> registers, 
+  again for 32-bit and 64-bit code respectively, select a segment whose base address 
+  is that of a <span class="struct"><a href="../../../ntos/kpcr.htm">KPCR</a></span>. 
+  Though this structure represents the current processor, not the current thread, 
+  it too has an <span class="member">NtTib</span> member. Though it might be thought, 
+  aided by comments in NTDDK.H, that the <span class="member">Self</span> member 
+  in this <span class="member">NtTib</span> at the beginning of the processor’s
+  <span class="struct">KPCR</span> would point back to that same
+  <span class="struct">NtTib</span>, what it in fact points to is the
+  <span class="member">NtTib</span> at the beginning of the <span class="struct">
+  TEB</span> for the processor’s current thread. </p>
+  <p>This method of finding the <span class="struct">TEB</span> from kernel mode 
+  is reliable outside of the kernel’s own code for switching processors and threads. 
+  At every switch of a processor to another thread the kernel updates the processor’s
+  <span class="struct">KPCR</span> so that its <span class="member">NtTib.Self</span> 
+  points to the incoming thread’s <span class="struct">TEB</span>. Still, this way 
+  of finding the current <span class="struct">TEB</span> from kernel mode is surely 
+  not what Microsoft prefers. It seems to have been designed so that code that works 
+  with the <span class="struct">TEB</span> can work unchanged in both user mode 
+  and kernel mode. This applies most notably to library routines whose names start 
+  with <span class="functionprefix">Rtl</span>. Many exist in, and some are exported 
+  by, both the kernel and NTDLL, and certainly are compiled from the same source 
+  code. </p>
+  <p>Each <span class="struct"><a href="../../../ntos/ke/kthread/index.htm">KTHREAD</a></span>, 
+  which is the kernel’s representation of a thread, has a <span class="member">Teb</span> 
+  member which, of course, holds the address of the thread’s
+  <span class="struct">TEB</span> (again, if the thread has one). This
+  <span class="member">Teb</span> pointer from the <span class="struct">KTHREAD</span> 
+  in kernel-mode address space to the <span class="struct">TEB</span> in user-mode 
+  address space is as old as Windows itself, but because it moves between versions 
+  it was originally not easily usable except by the kernel. This changed in version 
+  5.1, with the introduction of an exported function, named
+  <span class="function">PsGetThreadTeb</span>, that looks up the
+  <span class="member">Teb</span> pointer for an arbitrary thread. Although a
+  <span class="function">PsGetCurrentThreadTeb</span> had to wait for the build 
+  of version 5.2 from Windows Server 2003 SP1, it too gets the
+  <span class="struct">TEB</span> from the <span class="member">Teb</span> in the 
+  current thread’s <span class="struct">KTHREAD</span> (but also checks that the 
+  thread is not a system thread and is not presently attached to the address space 
+  of another process). </p>
+  <h3>Mechanism </h3>
+  <p>As noted above, the updating of the pointer from a processor’s
+  <span class="struct">KPCR</span> to its current thread’s <span class="struct">
+  TEB</span> is done when the processor is switched to that thread (necessarily 
+  in kernel mode). This also is when the kernel prepares for eventual user-mode 
+  access via <span class="register">fs</span> and <span class="register">gs</span>. 
+  This is simpler in 32-bit Windows. Switching a processor to a thread that has 
+  a <span class="struct">TEB</span> changes the base address for the processor’s 
+  GDT selector 0x0038 to be that of the incoming thread’s <span class="struct">TEB</span>. 
+  The magic number 0x0038 is known symbolically as <span class="constant">KGDT_R3_TEB</span>. 
+  Its ring-3 form 0x003B is what the 32-bit kernel loads into
+  <span class="register">fs</span> when starting a thread’s user-mode execution 
+  and in many cases of returning a thread to user-mode execution. In other cases, 
+  the user-mode <span class="register">fs</span> is simply saved on entry to kernel 
+  mode and restored on leaving. See that user-mode code <span class="emphasis">can</span> 
+  load <span class="register">fs</span> with some other selector, and continue executing, 
+  but until it restores the expected selector in <span class="register">fs</span> 
+  it can’t hope that many Windows API functions will get far without faulting.
+  </p>
+  <p>The mechanism is a little more complicated in 64-bit Windows not only because 
+  of the reduced meaningfulness of segment registers for the amd64 architecture 
+  but also because the <span class="struct">TEB</span> exists simultaneously in 
+  32-bit and 64-bit forms. The 32-bit <span class="struct">TEB</span> follows the 
+  64-bit after page alignment. Its address becomes the base address for the GDT 
+  selector 0x0050 (<span class="constant">KGDT_R3_CMTEB</span>) whose ring 3 form 
+  (0x0053) the kernel loads into <span class="register">fs</span>. The address of 
+  the 64-bit <span class="struct">TEB</span> is loaded into the Model Specific Register 
+  0xC0000102 (which Microsoft labels <span class="constant">MSR_GS_SWAP</span>). 
+  This makes it the base address that the processor will use for interpreting
+  <span class="register">gs</span> after the kernel executes the
+  <span class="instruction">swapgs</span> instruction when exiting to user mode.
+  </p>
+  <h3>Other Threads </h3>
+  <p>The <span class="struct">TEB</span> of any thread can be located via a handle 
+  with sufficient access rights. The gatekeeper is the <span class="function">NtQueryInformationThread</span> 
+  function. This is exported by NTDLL in all known Windows versions (but is not 
+  a kernel-mode export before version 5.1). This function’s
+  <span class="constant">ThreadBasicInformation</span> (0x00) case fills a
+  <span class="struct">THREAD_BASIC_INFORMATION</span> structure whose member named
+  <span class="member">TebBaseAddress</span> is, unsurprisingly, the address of 
+  the queried thread’s <span class="struct">TEB</span>. Another of the function’s 
+  information classes, <span class="constant">ThreadDescriptorTableEntry</span> 
+  (0x06), underpins a long-documented API function that gives an alternative on 
+  32-bit Windows: ask <span class="function">GetThreadSelectorEntry</span> about 
+  the <span class="constant">KGDT_R3_TEB</span> selector. </p>
+  <p>Of course, for a thread that is in another process, which is the most useful 
+  case, the address thus obtained is not directly usable. It is meaningful in the 
+  other process’s address space. Just reading from it then requires such functions 
+  as <span class="function">ReadProcessMemory</span> and the corresponding permission. 
+  To do much with what’s read, even for a thread in the same process, may require 
+  synchronisation with or defence against changes being made by arbitrary other 
+  code—and writing to the queried thread’s <span class="struct">TEB</span> certainly 
+  requires such synchronisation. Safe use of another thread’s
+  <span class="struct">TEB</span> is beyond many programers who attempt it, e.g., 
+  for malware and more notably for some of what gets foisted onto consumers as anti-malware 
+  or merely recommended to them as supposedly helpful system tools. </p>
+  <h2>Documentation Status </h2>
+  <p>In an ideal world, the <span class="struct">TEB</span> might be opaque, or 
+  even unknown, outside a handful of kernel-mode and user-mode modules that are 
+  obviously at the very heart of Windows. For many years, in terms of what Microsoft 
+  disclosed formally, this ideal was not far from achieved. The
+  <span class="register">fs</span> and <span class="register">gs</span> registers 
+  are well-known as addressing an <span class="struct">NT_TIB</span> in user mode. 
+  This structure is defined in NTDDK.H and WINNT.H. A comment in NTDDK.H notes that 
+  the <span class="struct">NT_TIB</span> “appears as the first part of the TEB for 
+  all threads which have a user mode component” and WINNT.H either declares as a 
+  function or defines as a macro something named <span class="function">NtCurrentTeb</span> 
+  which produces the address of the current thread’s <span class="struct">TEB</span>.
+  </p>
+  <p>In the real world, however, the <span class="struct">TEB</span> is not entirely 
+  opaque. Various high-level modules supplied with Windows over the years have used 
+  a few members of the <span class="struct">TEB</span>, and this eventually had 
+  to be disclosed. A new header, named WINTERNL.H, for previously internal APIs 
+  was added to the Software Development Kit (SDK) apparently in 2002 as the main 
+  (if insubstantial) outcome of an anti-trust settlement, and remains to this day. 
+  It originally presented a modified <span class="struct">TEB</span> that has just 
+  the <span class="member">TlsSlots</span>, <span class="member">ReservedForOle</span> 
+  and <span class="member">TlsExpansionSlots</span> members, plus padding that gets 
+  these members to the same offsets as in the true structure. It seems unlikely 
+  that Microsoft will change the <span class="struct">TEB</span> in any way that 
+  moves these members. </p>
+  <p>The three members defined in WINTERNL.H may be the only ones that have yet 
+  been disclosed for regulatory compliance, but others are known to Microsoft-written 
+  modules even as far out as Internet Explorer such that the use surely ought to 
+  have compelled disclosure. For instance, had technical advisers appointed by regulators 
+  actually been expert at this sort of work and thought to look, they would have 
+  needed mere seconds to establish that IEFRAME.DLL knows of the
+  <span class="member">ProcessEnvironmentBlock</span> member. That it got missed 
+  by Microsoft is plausibly because of an overlooked macro or inlined routine, but 
+  surely part of the point to having regulators monitor compliance is that they’re 
+  awake to deficiencies of method. Whether it was missed by oversight or not, it’s 
+  put right for WINTERNL.H in the SDK for Windows 8. Better late than never, perhaps.
+  </p>
+  <p>Other high-level knowledge, though not subject to disclosure, is clearly deliberate. 
+  For instance, the 32-bit SHELL32 and SHLWAPI know at least something of the special 
+  meaning that <span class="member">GdiBatchCount</span>, almost at the end of the 
+  structure, has for 32-bit code running on 64-bit Windows. </p>
+  <h2>Layout </h2>
+  <p>Because very many modules written by Microsoft for the lower levels of the 
+  Win32 subsystem know of this or that in the <span class="struct">TEB</span>, it 
+  should not surprise that the <span class="struct">TEB</span> is highly stable 
+  across Windows versions. It must almost certainly stay so for many versions yet. 
+  Many <span class="struct">TEB</span> members, not only at the start but deep into 
+  the structure, and especially if they are known to the kernel, have kept their 
+  offsets through the whole history. Except for a large-scale reorganisation when 
+  version 4.0 moved much of the windowing subsystem from WINSRV.DLL in the CSRSS.EXE 
+  process to WIN32K.SYS in kernel mode, almost all variation of the
+  <span class="struct">TEB</span> is by extension rather than redefinition. The 
+  following changes of size are known: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+      <tr>
+        <td>3.10 </td>
+        <td>0x0F20 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.50 to 3.51 </td>
+        <td>0x0F28 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>4.0 </td>
+        <td>0x0F88 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>5.0 </td>
+        <td>0x0FA4 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>early 5.1 (before SP2) </td>
+        <td>0x0FB4 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.1 (SP2 and higher) </td>
+        <td>0x0FB8 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>early 5.2 (before SP1) </td>
+        <td>0x0FB8 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.2 (SP1 and higher) </td>
+        <td>0x0FBC </td>
+        <td>0x17D8 </td>
+      </tr>
+      <tr>
+        <td>6.0 </td>
+        <td>0x0FF8 </td>
+        <td>0x1828 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0x0FE4 </td>
+        <td>0x1818 </td>
+      </tr>
+      <tr>
+        <td>6.2 to 6.3 </td>
+        <td>0x0FE8 </td>
+        <td>0x1820 </td>
+      </tr>
+      <tr>
+        <td>10.0 to 2004 </td>
+        <td>0x1000 </td>
+        <td>0x1838 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>These sizes, and the offsets, types and names in the tables that follow, are 
+  from Microsoft’s public symbols for the kernel and NTDLL starting with Windows 
+  XP, but are something of a guess for earlier versions since the symbol files for 
+  these do not contain type information for the <span class="struct">TEB</span>. 
+  What’s known of Microsoft’s names and types for earlier versions is instead inferred 
+  from what use is made of the <span class="struct">TEB</span> wherever matching 
+  code can be found. Exhaustively tracking down all such use would be difficult, 
+  if not impossible, even with source code. </p>
+  <p>That said, Microsoft’s names for members in some versions before Windows XP 
+  are known with good confidence from the output of the debugger’s
+  <span class="command"><a href="../../../../../debug/userkdx/dso.htm">!dso</a></span> 
+  command. This is supported by the USEREXTS.DLL and USERKDX.DLL debugger extensions 
+  as supplied with the Device Driver Kit (DDK), though only starting with the kit 
+  for Windows NT 4.0. The command “Dumps Struct field(s)’s offset(s) and value(s)” 
+  for roughly 200 structures, many of which are otherwise undocumented. The tables 
+  it works from give names and offsets, but not types, and although it seems likely 
+  that the tables do reproduce from Microsoft’s private headers for the same version, 
+  it is not obvious that they must. Even if macros ensure that the names in the 
+  table are the same as used for computing the offsets, so that these are all correct, 
+  it is not obvious that all members must be listed. </p>
+  <p>It turns out that the relative uncertainty of debugger output is not the end 
+  of the archaeology. Type information for the <span class="struct">TEB</span> in 
+  versions 3.51 and 4.0 turns up not in symbol files but in statically linked libraries. 
+  Even then, the libraries are not for importing from such obvious sources as NTDLL. 
+  Instead, type information for the <span class="struct">TEB</span> is in a GDISRVL.LIB 
+  from the DDK for Windows NT 3.51 and in the import library SHELL32.LIB from the 
+  DDK for Windows NT 4.0. </p>
+  <p>Before version 3.51, even the structure’s size is uncertain. In all versions, 
+  the kernel obtains the <span class="struct">TEB</span> as whole pages, having 
+  rounded up from a size in bytes. A coding error in the earliest versions has this 
+  size in bytes as just 8, no matter that the kernel itself proceeds to use the
+  <span class="member">Vdm</span> member at offset 0x0F18. That the size is 0x0F20 
+  in version 3.10 seems a good guess, however: a pointer at offset 0x0F1C is known 
+  to be used by RPCRT4.DLL and no use is known of anything beyond in version 3.10; 
+  the <span class="member">DebugSsReserved</span> array that settles at offset 0x0F20 
+  was relocated there for version 3.50, plausibly by moving it to what had been 
+  the structure’s end. </p>
+  <p>Still, even with help from early debugger extensions and type information, 
+  the <span class="struct">TEB</span> is different enough in the first few versions 
+  that these notes would better be regarded as being only for version 4.0 and higher. 
+  Where I touch on the earlier versions, please take it not as an attempt at comprehensiveness 
+  but as a (messy) bonus from my being unable to resist looking into the archaeology.
+  </p>
+  <h3>Original </h3>
+  <p>A run of members at the start of the structure are vital to the basic management 
+  of any thread. Given that they are shared not just between the kernel and NTDLL 
+  but with numerous other user-mode modules, their stability through the whole history 
+  should not surprise, and yet there have been small variations. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">NT_TIB NtTib;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1C </td>
+        <td>0x38 </td>
+        <td>
+        <pre class="source">PVOID EnvironmentPointer;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td>0x40 </td>
+        <td>
+        <pre class="source">CLIENT_ID ClientId;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x28 </td>
+        <td rowspan="2">0x50 </td>
+        <td>unknown pointer to <span class="struct">CSR_QLPC_TEB</span> </td>
+        <td>3.10 only </td>
+        <td>next as structure at 0x01AC </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID ActiveRpcHandle;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x2C </td>
+        <td>0x58 </td>
+        <td>
+        <pre class="source">PVOID ThreadLocalStoragePointer;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x30 </td>
+        <td>0x60 </td>
+        <td>
+        <pre class="source"><a href="../peb/index.htm">PEB</a> *ProcessEnvironmentBlock;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x34 </td>
+        <td>0x68 </td>
+        <td>
+        <pre class="source">ULONG LastErrorValue;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x38 </td>
+        <td rowspan="2">0x6C </td>
+        <td>unknown byte </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG CountOfOwnedCriticalSections;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">EnvironmentPointer</span> is meaningful to OS2.EXE, 
+  i.e., the user-mode “OS2 Subsystem Client” such as distributed with Windows in 
+  versions 3.10 to 5.0 inclusive. What sort of environment it ever pointed to is 
+  beyond my interest. No use of this member is known in any later version. </p>
+  <p>The <span class="member">ClientId</span> provides the simplest special case 
+  of per-thread storage. Each thread in Windows has an identifier. A thread should 
+  be able to learn its own identifier—and that of the process it runs in—almost 
+  trivially. The documented functions <span class="function">GetCurrentProcessId</span> 
+  and <span class="function">GetCurrentThreadId</span> do nothing but pick the respective 
+  identifiers from the <span class="member">ClientId</span>. </p>
+  <p>Version 3.10 holds at offset 0x28 the address of a <span class="struct">CSR_QLPC_TEB</span> 
+  structure. In version 3.51, the structure is instead at offset 0x01AC in the
+  <span class="struct">TEB</span> itself. When a thread in some client process connects 
+  to the CSRSS server, the client thread and a server thread each get this structure. 
+  Each has handles to a shared section and an event pair, a pointer to a view of 
+  the section, and the difference between the threads’ addresses for that view. 
+  The handles and pointers in each are relative to the handle and address spaces 
+  of the respective processes. The section and view are used for passing requests 
+  and callbacks between the client and server. The delta allows that the messages 
+  can contain pointers. The event pair provides synchronisation. This was at the 
+  time important enough that not only is the event pair is its own
+  <a href="../../../ntos/ke/kobjects.htm">kernel object</a> but the waiting and 
+  signalling had dedicated interrupt numbers for getting to the kernel. For the 
+  server thread, the structure begins with a pointer to the CSRSRV DLL’s representation 
+  of the client thread. This pointer is all that survives to version 4.0, when it 
+  becomes the <span class="member">CsrClientThread</span> at offset 0x3C. </p>
+  <p>No other use of the pointer at offset 0x28 is known in any version. Perhaps 
+  it was named <span class="member">ActiveRpcHandle</span> from the start, the name’s 
+  suggestion of a Remote Procedure Call (RPC) having never been meant generally 
+  but always as specific to the calls between a CSRDLL embedded in NTDLL in an arbitrary 
+  client process and CSRSRV in the CSRSS server process. </p>
+  <p>The thread-local storage that is provided through the <span class="member">
+  ThreadLocalStoragePointer</span> has nothing to do with the API functions such 
+  as <span class="function">TlsAlloc</span>. Those are supported through the
+  <span class="member">TlsSlots</span> array and <span class="member">TlsExpansionSlots</span> 
+  pointer much further into the <span class="struct">TEB</span> and through such
+  <span class="struct">PEB</span> members as the <span class="member">TlsBitmap</span>. 
+  The <span class="member">ThreadLocalStoragePointer</span> instead deals with the 
+  thread-local storage that may show in the Thread Local Storage directory of the 
+  module’s Portable Executable (PE) header. Such storage typically exists because 
+  the program has data that is defined with the Microsoft-specific
+  <span class="keyword">__declspec (thread)</span> storage class modifier. Microsoft’s 
+  compiler keeps all such data together in a section named <span class="section">
+  .tls</span>. A C Run-Time (CRT) header defines an <span class="struct">IMAGE_TLS_DIRECTORY</span> 
+  to describe this data and its special requirements. The linker makes this description 
+  available to the loader from the PE header. What the <span class="member">ThreadLocalStoragePointer</span> 
+  points to, once it is set up, is an array of pointers to the thread-local data 
+  for each module that has any. Or so it goes in theory. The practice was much diminished 
+  in the early days, specifically before version 6.0, because this form of thread-local 
+  storage was supported only for modules that are loaded with the process, not for 
+  DLLs that are loaded later. A separate article might well be written about that, 
+  not least because Microsoft, in best Microsoft fashion, has tended to speak of 
+  it only obliquely, hinting for instance that “you will not be able to load the 
+  DLL explicitly using <span class="function">LoadLibrary</span> on versions prior 
+  to Windows Vista” or that the feature “may interfere with delay loading of DLL 
+  imports.” </p>
+  <p>The <span class="member">LastErrorValue</span> is ordinarily a hidden result 
+  of the thread’s most recent call towards the system. The native API functions 
+  that NTDLL calls in the kernel mostly return an <span class="type">NTSTATUS</span> 
+  as their error code. This is also true of most functions that NTDLL exports for 
+  the use of lower-level Win32 DLLs such as KERNEL32. The Win32 API has its own 
+  scheme of error codes, in part inherited from DOS, and its own attitude to reporting 
+  them. Few Win32 API functions, such as implemented in KERNEL32, return their Win32 
+  error code directly. Most instead favour a direct return of successful results, 
+  e.g., of a pointer or handle to a requested resource, or a boolean indicator of 
+  success, and bundle all cases of failure into a return of
+  <span class="constant">NULL</span> or <span class="constant">FALSE</span> or some 
+  other distinctive value. The principle, it seems, is that after a Win32 API function 
+  fails (and in some cases even if the function succeeds), the calling thread that 
+  wants to distinguish causes of failure can retrieve a Win32 error code by calling
+  <span class="function">GetLastError</span>. This documented function merely fetches 
+  the error code from the <span class="member">LastErrorValue</span>. The relevance 
+  of the retrieved error code to any recently called API function depends, of course, 
+  on the API function to have set an error code into place in all cases of failure 
+  and on callers not to do anything that might call some other API function between 
+  the setting and the retrieval. Curiously many programmers, even ones who rate 
+  themselves as good or experienced writers of elegant code, are willing to chance 
+  that the <span class="member">LastErrorValue</span> will remain untouched even 
+  while they call other code, e.g., functions in the C Run Time library. </p>
+  <p>For some pupose that is presently unknown, the version 3.10 implementation 
+  of <span class="function">SetLastError</span> also clears the byte at offset 0x38. 
+  Though symbol files for later versions name this space as <span class="member">
+  CountOfOwnedCriticalSections</span>, no use of it for that purpose or any other 
+  is yet known. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x3C </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID Win32ProcessInfo;</pre>
+        </td>
+        <td>3.50 to 3.51 </td>
+        <td>previously at 0x01B0 </td>
+      </tr>
+      <tr>
+        <td>0x70 </td>
+        <td>
+        <pre class="source">PVOID CsrClientThread;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x40 </td>
+        <td>0x78 </td>
+        <td>
+        <pre class="source">PVOID Win32ThreadInfo;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>previously at 0x01AC </td>
+      </tr>
+      <tr>
+        <td>0x44 (3.50 to 3.51) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID CsrQlpcStack;</pre>
+        </td>
+        <td>3.50 to 3.51 </td>
+        <td>previously at 0x06F0 </td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x3C (3.10); <br>
+        0x48 (3.50 to 3.51); <br>
+        0x44 (4.0); <br>
+        0x44 </td>
+        <td rowspan="3">&nbsp;</td>
+        <td>
+        <pre class="source">UCHAR SpareBytes [0x88];</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareBytes [0x7C];</pre>
+        </td>
+        <td>3.50 to 3.51 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG Win32ClientInfo [0x1F];</pre>
+        </td>
+        <td>4.0 only </td>
+        <td>previously at 0x01C0; <br>
+        next at 0x06CC </td>
+      </tr>
+      <tr>
+        <td>0x80 </td>
+        <td>
+        <pre class="source">ULONG User32Reserved [0x1A];</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xAC </td>
+        <td>0xE8 </td>
+        <td>
+        <pre class="source">ULONG UserReserved [5];</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>previously at 0x0700 </td>
+      </tr>
+      <tr>
+        <td>0xC0 </td>
+        <td>0x0100 </td>
+        <td>
+        <pre class="source">PVOID WOW32Reserved;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>previously at 0x0708 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>What the <span class="member">Win32ProcessInfo</span> and
+  <span class="member">Win32ThreadInfo</span> point to are respectively a
+  <span class="struct">
+  <a href="../../../../../win32k/structs/processinfo/index.htm">PROCESSINFO</a></span> 
+  and a <span class="struct">
+  <a href="../../../../../win32k/structs/threadinfo/index.htm">THREADINFO</a></span> 
+  structure. In version 4.0 and higher, WIN32K.SYS in kernel mode creates these 
+  in kernel-mode address space. Yes, despite Microsoft’s attention in recent years 
+  to stanch the leaking of kernel-mode addresses into user-mode space, the
+  <span class="member">Win32ThreadInfo</span> pointer holds an undisguised kernel-mode 
+  address even as late as the original release of Windows 10. Microsoft’s names 
+  for the <span class="struct">PROCESSINFO</span> and <span class="struct">THREADINFO</span> 
+  and their members are publicly available as type information in the symbol file 
+  for WIN32K in Windows 7 (but apparently neither before nor since). </p>
+  <p>The <span class="member">CsrQlpcStack</span> addresses a server thread’s view 
+  of the section that is used for communicating with the client thread. How it differs 
+  from the <span class="member">MessageStack</span> pointer in the
+  <span class="struct">CSR_QLPC_TEB</span> that the same versions have as the
+  <span class="member">CsrQlpcTeb</span> at offset 0x01AC is not yet known. </p>
+  <p>In version 4.0, the first 0x60 bytes of the 0x7C-byte <span class="member">
+  Win32ClientInfo</span> are shared between WIN32K.SYS and USER32.DLL, certainly 
+  as a <span class="struct">CLIENTINFO</span> structure. It is here supposed that
+  <span class="member">User32Reserved</span> as known in all later symbol files 
+  preserves the size that the <span class="struct">CLIENTINFO</span> had grown to 
+  during development for version 5.0 before its further growth (to 0x84 bytes) required 
+  its relocation if <span class="member">CurrentLocale</span> (immediately below) 
+  was not to be disturbed. But who’s ever to know? </p>
+  <table class="Struct">
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td>0xC4 </td>
+        <td>0x0108 </td>
+        <td>
+        <pre class="source">ULONG CurrentLocale;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0xC8 </td>
+        <td>0x010C </td>
+        <td>
+        <pre class="source">ULONG FpSoftwareStatusRegister;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">CurrentLocale</span> is exactly what the documented 
+  functions <span class="function">GetThreadLocale</span> and
+  <span class="function">SetThreadLocale</span> get and set. See that for all the 
+  reworking of preceding members in the earliest versions, someone seems to have 
+  been determined that <span class="member">CurrentLocale</span> keeps the same 
+  offset through the whole history. Possibly what’s distinctive about it for this 
+  purpose is that it’s known to the kernel, which sets it into place during the 
+  kernel-mode part of the thread’s initial execution. </p>
+  <p>Although the <span class="member">FpSoftwareStatusRegister</span> is shown 
+  as having been there forever, no use is yet known of it in any version. Conspicuously, 
+  it is not used by the code that the kernel and NTDLL retained for floating-point 
+  emulation up to and including Windows Vista (but which does use much of the reserved 
+  area that follows). </p>
+  <h4>System Reservation </h4>
+  <p>The first that names from symbol files show of a version dependence in order 
+  of increasing offsets is that a relatively large reservation, for system use according 
+  to the name, gets partly reassigned for Windows 10—though only to change what 
+  it’s reserved for. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td>0xCC </td>
+        <td>0x0110 </td>
+        <td>
+        <pre class="source">PVOID ReservedForDebuggerInstrumentation [0x10];</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="5">0xCC (3.10 to 6.3); <br>
+        0x010C </td>
+        <td rowspan="5">0x0110 (3.10 to 6.3); <br>
+        0x0190 </td>
+        <td>
+        <pre class="source">PVOID SystemReserved1 [0x36];</pre>
+        </td>
+        <td>3.10 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SystemReserved1 [0x26];</pre>
+        </td>
+        <td>10.0 to 1511 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SystemReserved1 [0x24];</pre>
+        </td>
+        <td>1607 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SystemReserved1 [0x1E];</pre>
+        </td>
+        <td>1703 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SystemReserved1 [0x1A];</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0174 </td>
+        <td>0x0280 </td>
+        <td>
+        <pre class="source">CHAR PlaceholderCompatibilityMode;</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0175 </td>
+        <td>0x0281 </td>
+        <td>
+        <pre class="source">BOOLEAN PlaceholderHydrationAlwaysExplicit;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0175 (1709 to 1803); <br>
+        0x0176 </td>
+        <td rowspan="2">0x0281 (1709 to 1803); <br>
+        0x0282 </td>
+        <td>
+        <pre class="source">CHAR PlaceholderReserved [11];</pre>
+        </td>
+        <td>1709 to 1803 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">CHAR PlaceholderReserved [10];</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0180 </td>
+        <td>0x028C </td>
+        <td>
+        <pre class="source">DWORD ProxiedProcessId;</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0184 </td>
+        <td>0x0290 </td>
+        <td>
+        <pre class="source">ACTIVATION_CONTEXT_STACK ActivationStack;</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x019C </td>
+        <td>0x02B8 </td>
+        <td>
+        <pre class="source">UCHAR WorkingOnBehalfOfTicket [8];</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01A4 (3.10 to 4.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID Spare1;</pre>
+        </td>
+        <td>3.10 to 4.0 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01A8 (3.10 to 4.0); <br>
+        0x01A4 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID Spare2;</pre>
+        </td>
+        <td>3.10 to 3.51 </td>
+      </tr>
+      <tr>
+        <td>0x02C0 </td>
+        <td>
+        <pre class="source">LONG ExceptionCode;</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x02C4 </td>
+        <td>
+        <pre class="source">UCHAR Padding0 [4];</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Before version 6.1, the preceding space is not reserved in any sense of being 
+  kept for future use: the first 0xA0 bytes of it actually were in use, by both 
+  the kernel and NTDLL, to support floating-point emulation. No structure for this 
+  is known from symbol files. The known labelling as <span class="member">SystemReserved1</span> 
+  even while the area was in use is here taken as original. </p>
+  <p>According to type information from .LIB files in early DDKs, the reserved space 
+  was anyway followed by two spares. The second of these was put to use as the
+  <span class="member">ExceptionCode</span> when version 4.0 introduced the
+  <span class="function">KiRaiseUserExceptionDispatcher</span> function. NTDLL exports 
+  this function not to be imported by other user-mode modules but to be found by 
+  the kernel. The kernel-mode <span class="function">KeRaiseUserException</span>, 
+  also introduced with version 4.0, puts the exception code into the
+  <span class="struct">TEB</span> and then re-targets the kernel’s exit from ring 
+  0 so that whatever system service was in progress does not return as expected 
+  but is instead picked up by <span class="function">KiRaiseUserExceptionDispatcher</span>. 
+  This stub then has NTDLL proceed as if for an exception raised in user mode by 
+  a call to the NTDLL function <span class="function">RtlRaiseException</span>. 
+  The original purpose of this machinery was to help with debugging user-mode closure 
+  of handles. Hardly any programs, mine included, check the success or failure of 
+  their calls to such functions as <span class="function">CloseHandle</span>—yes, 
+  even though failure can mean a loss of data that had not yet been written to the 
+  file. If the 0x00400000 bit is set in the <span class="variable">NtGlobalFlag</span> 
+  or if the current process is being debugged, then a user-mode caller of
+  <span class="function">NtClose</span> who presents either an invalid handle or 
+  one that is protected from being closed can learn of it from having to deal with 
+  an exception. It is not known what version 5.0 gained from shifting the
+  <span class="member">ExceptionCode</span>, except presumably to give up on whatever
+  <span class="member">Spare1</span> had been intended for. </p>
+  <h4>Before WIN32K.SYS </h4>
+  <p>The first system reservation (and its two spares) was originally followed by 
+  a highly variable region that seems better to present version by version. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="1"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x01AC (3.10) </td>
+        <td>
+        <pre class="source">PVOID Win32ThreadInfo;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next at 0x40 </td>
+      </tr>
+      <tr>
+        <td>0x01B0 (3.10) </td>
+        <td>
+        <pre class="source">PVOID Win32ProcessInfo;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next at 0x3C </td>
+      </tr>
+      <tr>
+        <td>0x01B4 (3.10) </td>
+        <td>unaccounted 0x28 bytes </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01AC (3.50 to 3.51) </td>
+        <td>
+        <pre class="source">PVOID CsrQlpcTeb [5];</pre>
+        </td>
+        <td>3.50 to 3.51 </td>
+        <td>previously as pointer at 0x28 </td>
+      </tr>
+      <tr>
+        <td>0x01C0 (3.50 to 3.51) </td>
+        <td>
+        <pre class="source">PVOID Win32ClientInfo [5];</pre>
+        </td>
+        <td>3.50 to 3.51 </td>
+        <td>next at 0x44 </td>
+      </tr>
+      <tr>
+        <td>0x01DC (3.10) </td>
+        <td>
+        <pre class="source">HANDLE DbgSsReserved [2];</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next at 0x0F20 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Although the <span class="member">Win32ThreadInfo</span> in version 3.10 is 
+  ordinarily a pointer, it can also hold 1 or 2 as indications of progress during 
+  the user-mode startup of the thread. </p>
+  <p>The <span class="member">CsrQlpcTeb</span> member actually is a
+  <span class="struct">CSR_QLPC_TEB</span> structure, but apparently everything 
+  about this except its size is meant to be a CSRSS implementation detail. This 
+  is the same structure that version 3.10 allocates from the heap and points to 
+  from offset 0x28. The <span class="member">CsrQlpcTeb</span> and
+  <span class="member">Win32ClientInfo</span> are together an exact fit for 0x28 
+  bytes that version 3.10 has at offset 0x01B4 but is not known to use. </p>
+  <p>The <span class="member">DbgSsReserved</span> array supports the thread as 
+  a debugger of other processes. The early implementation—before version 5.1 introduced 
+  a debug object in kernel mode—used a port, named \DbgUiApiPort, that is created 
+  by SMSS.EXE. The first of the handles is to a semaphore to wait on for notification 
+  that data is available from the port, the second is to the port. By version 3.51 
+  the array moved to what was then the end of the structure. </p>
+  <h4>Activation Context Stack </h4>
+  <p>With the relocation of windowing functionality from the user-mode CSRSS to 
+  the kernel-mode WIN32K for version 4.0, the preceding members were either discontinued 
+  or shifted forwards. The space they occupied became explicitly spare (as
+  <span class="member">SpareBytes1</span>). When activation contexts were introduced 
+  for Windows XP, some of the start of these spare bytes got used for an
+  <span class="struct">ACTIVATION_CONTEXT_STACK</span> structure. This soon changed, 
+  however. In the Windows versions that have both x86 and x64 builds, the
+  <span class="struct">TEB</span> has just a pointer to an <span class="struct">
+  ACTIVATION_CONTEXT_STACK</span>. At first, this just returned almost all the bytes 
+  of the <span class="member">ActivationContextStack</span> to being spare. Except 
+  that Windows Vista defined a member at the end, these spare bytes remained spare 
+  until Windows 10 put some to use for the instrumentation callback that can be 
+  set through the <span class="constant">ProcessInstrumentationCallback</span> case 
+  of <span class="function">NtSetInformationProcess</span>. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="1"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x01A8 </td>
+        <td>
+        <pre class="source">ACTIVATION_CONTEXT_STACK ActivationContextStack;</pre>
+        </td>
+        <td>5.1 to early 5.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ACTIVATION_CONTEXT_STACK *ActivationContextStackPointer;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01AC </td>
+        <td>
+        <pre class="source">ULONG_PTR InstrumentationCallbackSp;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01B0 </td>
+        <td>
+        <pre class="source">ULONG_PTR InstrumentationCallbackPreviousPc;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01B4 </td>
+        <td>
+        <pre class="source">ULONG_PTR InstrumentationCallbackPreviousSp;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01B8 </td>
+        <td>
+        <pre class="source">BOOLEAN InstrumentationCallbackDisabled;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="7">0x01AC (4.0); <br>
+        0x01A8 (5.0); <br>
+        0x01BC (5.1 to early 5.2); <br>
+        0x01AC (late 5.2 to 6.3); <br>
+        0x01B9 </td>
+        <td>
+        <pre class="source">UCHAR SpareBytes1 [0x28];</pre>
+        </td>
+        <td>4.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareBytes1 [0x2C];</pre>
+        </td>
+        <td>5.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareBytes1 [0x18];</pre>
+        </td>
+        <td>5.1 to early 5.2 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareBytes1 [0x28];</pre>
+        </td>
+        <td>late 5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareBytes1 [0x24];</pre>
+        </td>
+        <td>6.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareBytes [0x24];</pre>
+        </td>
+        <td>6.1 to 6.3 &nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareBytes [0x17];</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01D0 </td>
+        <td>
+        <pre class="source">ULONG TxFsContext;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>It may be just coincidence that the 64-bit <span class="struct">TEB</span> 
+  places the <span class="member">GdiTebBatch</span> member (see below) exactly 
+  as if there had been space for a whole <span class="struct">ACTIVATION_CONTEXT_STACK</span>. 
+  However, all known x64 builds have just a pointer to the <span class="struct">
+  ACTIVATION_CONTEXT_STACK</span> and then spare bytes that get reduced and renamed 
+  until all that’s left of them is padding caused by an alignment requirement. Note 
+  that the members that are added for Windows 10 have a slightly different order 
+  for the different processors. The x86 builds keep all four members together, again 
+  carving them from the beginning of previously spare bytes, and leaving some still 
+  spare. Space is tighter in the x64 builds, such that the single-byte
+  <span class="member">InstrumentationCallbackDisabled</span> only fits by squeezing 
+  into the alignment requirement after the older <span class="member">TxFsContext</span>.
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="1"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td>0x02C8 </td>
+        <td>
+        <pre class="source">ACTIVATION_CONTEXT_STACK *ActivationContextStackPointer;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x02D0 </td>
+        <td>
+        <pre class="source">UCHAR SpareBytes1 [0x1C];</pre>
+        </td>
+        <td>late 5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareBytes1 [0x18];</pre>
+        </td>
+        <td>6.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR SpareBytes [0x18];</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR InstrumentationCallbackSp;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02D8 </td>
+        <td>
+        <pre class="source">ULONG_PTR InstrumentationCallbackPreviousPc;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02E0 </td>
+        <td>
+        <pre class="source">ULONG_PTR InstrumentationCallbackPreviousSp;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02E8 </td>
+        <td>
+        <pre class="source">ULONG TxFsContext;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02EC </td>
+        <td>
+        <pre class="source">BOOLEAN InstrumentationCallbackDisabled;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x02ED </td>
+        <td>
+        <pre class="source">BOOLEAN UnalignedLoadStoreExceptions;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x02EC (6.3); <br>
+        0x02ED (10.0 to 1803); <br>
+        0x02EE </td>
+        <td>
+        <pre class="source">UCHAR Padding1 [4];</pre>
+        </td>
+        <td>6.3 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Padding1 [3];</pre>
+        </td>
+        <td>10.0 to 1803 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Padding1 [2];</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>GDI Support </h4>
+  <p>Space in roughly the middle of the <span class="struct">TEB</span>, after what 
+  was originally a large system reservation, seems to have been dedicated from the 
+  start to supporting GDI32. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="3">0x01E4 (3.10); <br>
+        0x01D4 (3.50 to 4.0) </td>
+        <td rowspan="3">&nbsp;</td>
+        <td>
+        <pre class="source">PVOID SystemReserved2 [0x0143];</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SystemReserved2 [0x0142];</pre>
+        </td>
+        <td>3.50 to 3.51 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SystemReserved2 [0x0A];</pre>
+        </td>
+        <td>4.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x01FC (4.0); <br>
+        0x01D4 </td>
+        <td>0x02F0 </td>
+        <td>
+        <pre class="source">GDI_TEB_BATCH GdiTebBatch;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x06DC (3.50 to 4.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG gdiRgn;</pre>
+        </td>
+        <td>3.50 to 4.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x06E0 (3.50 to 4.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG gdiPen;</pre>
+        </td>
+        <td>3.50 to 4.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x06E4 (3.50 to 4.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG gdiBrush;</pre>
+        </td>
+        <td>3.50 to 4.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x06E8 (3.50 to 4.0); <br>
+        0x06B4 </td>
+        <td>0x07D8 </td>
+        <td>
+        <pre class="source">CLIENT_ID RealClientId;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x06F0 (3.10 to 4.0); <br>
+        0x06BC </td>
+        <td rowspan="2">0x07E8 </td>
+        <td>
+        <pre class="source">PVOID CsrQlpcStack;</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>next at 0x44 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID GdiCachedProcessHandle;</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x06F4 (3.10 to 4.0); <br>
+        0x06C0 </td>
+        <td>0x07F0 </td>
+        <td>
+        <pre class="source">ULONG GdiClientPID;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x06F8 (3.10 to 4.0); <br>
+        0x06C4 </td>
+        <td>0x07F4 </td>
+        <td>
+        <pre class="source">ULONG GdiClientTID;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x06FC (3.10 to 4.0); <br>
+        0x06C8 </td>
+        <td>0x07F8 </td>
+        <td>
+        <pre class="source">PVOID GdiThreadLocalInfo;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0700 (3.10 to 3.51) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID User32Reserved0;</pre>
+        </td>
+        <td>3.10 to 3.51 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0704 (3.10 to 3.51) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID User32Reserved1;</pre>
+        </td>
+        <td>3.10 to 3.51 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x0708 (3.10 to 3.51); <br>
+        0x0700 (4.0); <br>
+        0x06CC </td>
+        <td rowspan="4">0x0800 </td>
+        <td>
+        <pre class="source">PVOID UserReserved [0x013B];</pre>
+        </td>
+        <td>3.10 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID UserReserved [3];</pre>
+        </td>
+        <td>3.51 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID UserReserved [5];</pre>
+        </td>
+        <td>4.0 only </td>
+        <td>next at 0xAC </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR Win32ClientInfo [0x3E];</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>previously at 0x44 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>What <span class="member">GdiThreadLocalInfo</span> points to in version 3.10 
+  is a 0x2C-byte structure whose first member points to local thread information 
+  from the server. In version 3.51, <span class="member">GdiThreadLocalInfo</span> 
+  points directly to this same local thread information. The information is also 
+  pointed to from offset 0x0C in the 0x14-byte structure that version 3.10 points 
+  to from offset 0x28 and version 3.51 embeds at offset 0x01AC. Yes, this was all 
+  very much in flux back then! No use is known of the <span class="member">GdiThreadLocalInfo</span> 
+  in version 4.0 and higher. </p>
+  <p>The collection of members at offset 0x06FC in versions 3.10 to 3.51 may be 
+  an early form of <span class="struct">CLIENTINFO</span>. Certainly, the first 
+  of the reserved members is a counter that USER32 and GDI32 use the same way as 
+  the <span class="member">cSpins</span> member of the <span class="struct">CLIENTINFO</span> 
+  in later versions. Version 3.51 has the second reserved member point to a
+  <span class="struct">SERVERINFO</span>. </p>
+  <p>It seems at least plausible that the pointer at 0x0704 in version 3.51 was 
+  defined also for version 3.10 but not yet used. In both versions, USER32 obtains 
+  the pointer from the server and both saves it to a global variable and then passes 
+  it to a called routine. In version 3.51, this routine saves the pointer in the
+  <span class="struct">TEB</span>. Version 3.10 saves just to the global variable.
+  </p>
+  <p>The bytes leading up to but not including <span class="member">UserReserved</span> 
+  are used by KERNEL32 in versions 3.10 to 5.0 as a safety stack for
+  <span class="function">ExitThread</span> on its way to calling
+  <span class="function">NtTerminateThread</span>. See that this does not allow 
+  much safety when version 5.0 moves <span class="member">UserReserved</span> nearer 
+  to the front of the <span class="struct">TEB</span>. This move seems to have happened 
+  as some sort of exchange with the (growing) allowance for the
+  <span class="member">Win32ClientInfo</span>. </p>
+  <h4>Graphics Library </h4>
+  <p>The several members that follow, whose names all begin with
+  <span class="member">gl</span>, are meaningful to OPENGL32.DLL and GLSRV.DLL. 
+  The oldest versions yet known to me of either are from Windows NT 3.51, but I 
+  suspect that the many functions that are supported by the <span class="member">
+  glDispatchTable</span> have an earlier existence somewhere or were at least planned 
+  even if not yet implemented. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0714 (3.51 to 4.0); <br>
+        0x07C4 </td>
+        <td rowspan="3">0x09F0 </td>
+        <td>
+        <pre class="source">PVOID glDispatchTable [0x0133];</pre>
+        </td>
+        <td>3.51 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID glDispatchTable [0x0118];</pre>
+        </td>
+        <td>4.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID glDispatchTable [0xE9];</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0B74 (4.0); <br>
+        0x0B68 </td>
+        <td rowspan="2">0x1138 </td>
+        <td>
+        <pre class="source">ULONG_PTR glReserved1 [0x1A];</pre>
+        </td>
+        <td>4.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR glReserved1 [0x1D];</pre>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0BDC </td>
+        <td>0x1220 </td>
+        <td>
+        <pre class="source">PVOID glReserved2;</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0BE0 </td>
+        <td>0x1228 </td>
+        <td>
+        <pre class="source">PVOID glSectionInfo;</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0BE4 </td>
+        <td>0x1230 </td>
+        <td>
+        <pre class="source">PVOID glSection;</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0BE8 </td>
+        <td>0x1238 </td>
+        <td>
+        <pre class="source">PVOID glTable;</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0BEC </td>
+        <td>0x1240 </td>
+        <td>
+        <pre class="source">PVOID glCurrentRC;</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0BF0 </td>
+        <td>0x1248 </td>
+        <td>
+        <pre class="source">PVOID glContext;</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">glDispatchTable</span> in version 3.51 is filled to 
+  capacity with pointers to functions, leaving no space for what is known to be 
+  later labelled <span class="member">glReserved1</span>. The pointer that is later 
+  labelled <span class="member">glReserved2</span> appears to be unused in version 
+  3.51, but presumably had no need of a numbered suffix. As later versions introduced 
+  ever more functions to point to, the <span class="member">glDispatchTable</span> 
+  apparently could not be expanded. No later version fills the reduced
+  <span class="member">glDispatchTable</span>. </p>
+  <h3>Stable At The End </h3>
+  <p>Far into the <span class="struct">TEB</span> is a sequence of members that 
+  (so far) retain their positions all the way from Windows NT 3.1 to Windows 10.
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0BF4 </td>
+        <td>0x1250 </td>
+        <td>
+        <pre class="source">ULONG LastStatusValue;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x1254 </td>
+        <td>
+        <pre class="source">UCHAR Padding2 [4];</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0BF8 </td>
+        <td>0x1258 </td>
+        <td>
+        <pre class="source">UNICODE_STRING StaticUnicodeString;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0C00 </td>
+        <td>0x1268 </td>
+        <td>
+        <pre class="source">WCHAR StaticUnicodeBuffer [MAX_PATH + 1];</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x1472 </td>
+        <td>
+        <pre class="source">UCHAR Padding3 [6];</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E0C </td>
+        <td>0x1478 </td>
+        <td>
+        <pre class="source">PVOID DeallocationStack;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E10 </td>
+        <td>0x1480 </td>
+        <td>
+        <pre class="source">PVOID TlsSlots [0x40];</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F10 </td>
+        <td>0x1680 </td>
+        <td>
+        <pre class="source">LIST_ENTRY TlsLinks;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F18 </td>
+        <td>0x1690 </td>
+        <td>
+        <pre class="source">PVOID Vdm;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F1C </td>
+        <td>0x1698 </td>
+        <td>
+        <pre class="source">PVOID ReservedForNtRpc;</pre>
+        </td>
+        <td>all </td>
+        <td>last member in 3.10 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">LastStatusValue</span> is whatever was last given 
+  to the ancient <span class="function">RtlNtStatusToDosError</span> function. This 
+  is nowadays documented as a kernel export. It is also an undocumented NTDLL export. 
+  The difference between that function and <span class="function">RtlNtStatusDosErrorNoTeb</span>, 
+  which is similarly ancient as a kernel export and has always existed in NTDLL 
+  but is exported only in version 5.1 and higher, is precisely that the latter does 
+  not affect the <span class="member">LastStatusValue</span> in the
+  <span class="struct">TEB</span>. Both functions convert an <span class="type">
+  NTSTATUS</span> to a Win32 error code, but as a look-up only: the
+  <span class="member">LastErrorValue</span> is left alone. The strong suggestion 
+  is that an <span class="type">NTSTATUS</span> should not be looked up through 
+  plain <span class="function">RtlNtStatusToDosError</span> without the intention 
+  of proceeding to set a Win32 error code either from that <span class="type">NTSTATUS</span> 
+  or from another. In version 5.1 and higher, NTDLL exports another undocumented 
+  function, informatively named <span class="function">RtlSetLastWin32ErrorAndNtStatusFromNtStatus</span>, 
+  that goes all the way. It is not known why saving an <span class="type">NTSTATUS</span> 
+  as the <span class="member">LastStatusValue</span> should change it from signed 
+  to unsigned. </p>
+  <p>The <span class="member">StaticUnicodeString</span> and its
+  <span class="member">Buffer</span> seem to be provided as a convenience for pretty 
+  much any API function that has temporary need of a pathname-sized buffer. </p>
+  <p>The <span class="member">TlsLinks</span> member presumably is defined in all 
+  versions, but I don’t know how it’s used in any version. </p>
+  <p>The <span class="member">ReservedForNtRpc</span> member is used by RPCRT4.DLL 
+  from the very beginning to hold per-thread data. From inspecting RPCRT4 binaries 
+  for routines that access this member and matching with symbol files for RPCRT4 
+  to get the C++ decorated names of these routines, it can be known that RPCRT4 
+  versions 4.0 through to 10.0 model this per-thread data as a class named
+  <span class="class">THREAD</span>. </p>
+  <h3>Appended for Windows NT 3.50 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0F20 </td>
+        <td>0x16A0 </td>
+        <td>
+        <pre class="source">HANDLE DbgSsReserved [2];</pre>
+        </td>
+        <td>3.50 and higher </td>
+        <td>previously at 0x01DC; <br>
+        last member in 3.50 to 3.51 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>That <span class="member">DbgSsReserved</span> is an array of two handles may 
+  be vestigial from the original implementation in which a thread that becomes a 
+  debugger connects to a named port that’s created by the SMSS process. In version 
+  5.1 and higher, the connection is instead to a kernel-mode debug object. A handle 
+  to the debug object is kept as the array’s second element, but the first is thought 
+  to be unused. </p>
+  <h3>Appended for Windows NT 4.0 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0F28 </td>
+        <td rowspan="2">0x16B0 </td>
+        <td>
+        <pre class="source">ULONG HardErrorsAreDisabled;</pre>
+        </td>
+        <td>4.0 to 5.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG HardErrorMode;</pre>
+        </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x16B4 </td>
+        <td>
+        <pre class="source">UCHAR Padding4 [4];</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="alert">Yes, there is a plan to write something here about the
+  <span class="member">HardErrorMode</span>. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td rowspan="4">0x0F2C </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">PVOID Instrumentation [0x10];</pre>
+        </td>
+        <td>4.0 to early 5.2 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x16B8 </td>
+        <td>
+        <pre class="source">PVOID Instrumentation [0x0E];</pre>
+        </td>
+        <td>late 5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Instrumentation [0x09];</pre>
+        </td>
+        <td>6.0 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Instrumentation [0x0B];</pre>
+        </td>
+        <td>6.0 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td>0x0F50 </td>
+        <td>0x1710 </td>
+        <td>
+        <pre class="source">GUID ActivityId;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F64 (late 5.2); <br>
+        0x0F60 </td>
+        <td>0x1728 (late 5.2); <br>
+        0x1720 </td>
+        <td>
+        <pre class="source">PVOID SubProcessTag;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0F64 </td>
+        <td rowspan="2">0x1728 </td>
+        <td>
+        <pre class="source">PVOID EtwLocalData;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID PerflibData;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F68 </td>
+        <td>0x1730 </td>
+        <td>
+        <pre class="source">PVOID EtwTraceData;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="alert">Yes, there is a plan to write something here about user-mode 
+  event tracing. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td>0x0F6C </td>
+        <td>0x1738 </td>
+        <td>
+        <pre class="source">PVOID WinSockData;</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F70 </td>
+        <td>0x1740 </td>
+        <td>
+        <pre class="source">ULONG GdiBatchCount;</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>No use of the next four bytes is yet known in version 4.0. Version 5.0 uses 
+  the first as a boolean, version 5.1 defines two more booleans and an 8-bit processor 
+  number, version 6.0 returns the three booleans to being explicitly spare, and 
+  then version 6.1 widens the processor number to all four bytes. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0F74 (4.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG Spare2;</pre>
+        </td>
+        <td>4.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0F74 (5.0 to 6.0) </td>
+        <td rowspan="2">0x1744 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">BOOLEAN InDbgPrint;</pre>
+        </td>
+        <td>5.0 to 5.2 </td>
+        <td>next as bit field in <span class="member">SameTebFlags</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN SpareBool0;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0F75 (5.0 to 6.0) </td>
+        <td rowspan="3">0x1745 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">BOOLEAN SpareB1;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN FreeStackOnTermination;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN SpareBool1;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0F76 (5.0 to 6.0) </td>
+        <td rowspan="3">0x1746 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">BOOLEAN SpareB2;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN HasFiberData;</pre>
+        </td>
+        <td>5.1 to 5.2 </td>
+        <td>next as bit field in <span class="member">SameTebFlags</span> </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN SpareBool2;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0F77 (5.0 to 6.0) </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">BOOLEAN SpareB3;</pre>
+        </td>
+        <td>5.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1747 (5.2 to 6.0) </td>
+        <td>
+        <pre class="source">UCHAR IdealProcessor;</pre>
+        </td>
+        <td>5.1 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F74 </td>
+        <td>0x1744 </td>
+        <td>
+        <pre class="source">union {
+    PROCESSOR_NUMBER CurrentIdealProcessor;
+    ULONG IdealProcessorValue;
+    struct {
+        UCHAR ReservedPad0;
+        UCHAR ReservedPad1;
+        UCHAR ReservedPad2;
+        UCHAR IdealProcessor;
+    };
+};</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The booleans do not all disappear, however. The <span class="member">InDbgPrint</span> 
+  member guards the NTDLL function <span class="function">vDbgPrintExWithPrefix</span>—and 
+  thus a family of functions such as <span class="function">DbgPrint</span> and
+  <span class="function">DbgPrintEx</span>—against non-trivial re-entry by the same 
+  thread. Version 6.0 reworks this boolean as the <span class="member">DbgInDebugPrint</span> 
+  bit field in the <span class="member">SameTebFlags</span> at offsets 0x0FCA and 
+  0x17EE. A non-zero <span class="member">HasFiberData</span> records that the thread 
+  has been converted to a fiber and that the <span class="member">Version</span> 
+  member of the <span class="member">NtTib</span> is instead the
+  <span class="member">FiberData</span>. It continues in version 6.0 as the
+  <span class="member">DbgHasFiberData</span> bit field, again in the
+  <span class="member">SameTebFlags</span>. </p>
+  <p>The <span class="member">FreeStackOnTermination</span> member does not continue 
+  to version 6.0. It was anyway a relic of an ancient defence during thread termination. 
+  Before version 5.1, if the <span class="function">ExitThread</span> function is 
+  to exit from just the current thread, it switches to a user-mode stack in the
+  <span class="struct">TEB</span> itself, frees what virtual memory had been in 
+  use for the stack, and proceeds to <span class="function">NtTerminateThread</span>. 
+  How useful this can have been is unclear. The kernel seems unlikely to need much 
+  of a user-mode stack, but version 5.0 sets the stack pointer strikingly low in 
+  the <span class="struct">TEB</span>, specifically to offset 0xAC. Version 5.1 
+  leaves the stack alone but instead sets <span class="member">FreeStackOnTermination</span> 
+  and the kernel then frees whatever virtual memory contains the user-mode stack.
+  </p>
+  <p>The kernel sets the <span class="member">IdealProcessor</span> in the
+  <span class="struct">TEB</span> first while readying the thread for its first 
+  user-mode execution and subsequently whenever its ideal processor gets changed 
+  through the <span class="function">NtSetInformationThread</span> cases
+  <span class="constant">ThreadIdealProcessor</span> (0x0D) or
+  <span class="constant">ThreadIdealProcessorEx</span> (0x21). Note that the kernel 
+  export <span class="function">KeSetIdealProcessorThread</span> does not itself 
+  set <span class="member">IdealProcessor</span> in the <span class="struct">TEB</span>.
+  </p>
+  <p>The 4-byte union models accurately that what the kernel sets for the ideal 
+  processor in version 6.1 and higher is something of a muddle. The kernel does 
+  indeed set a <span class="struct">PROCESSOR_NUMBER</span> with a 16-bit
+  <span class="member">Group</span> and 8-bit <span class="member">Number</span> 
+  as the first three bytes, but where zero might be expected for
+  <span class="member">Reserved</span> as the fourth byte, the kernel duplicates 
+  the <span class="member">Number</span>. This has the merit of keeping an 8-bit
+  <span class="member">IdealProcessor</span> at the same offset since version 5.1 
+  and higher. As late as version 10.0, NTDLL still has code that uses it there!
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0F78 </td>
+        <td rowspan="2">0x1748 </td>
+        <td>
+        <pre class="source">ULONG Spare3;</pre>
+        </td>
+        <td>4.0 to early 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG GuaranteedStackBytes;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x174C </td>
+        <td>
+        <pre class="source">UCHAR Padding5 [4];</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0F7C </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG Spare4;</pre>
+        </td>
+        <td>4.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1750 </td>
+        <td>
+        <pre class="source">PVOID ReservedForPerf;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F80 </td>
+        <td>0x1758 </td>
+        <td>
+        <pre class="source">PVOID ReservedForOle;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F84 </td>
+        <td>0x1760 </td>
+        <td>
+        <pre class="source">ULONG WaitingOnLoaderLock;</pre>
+        </td>
+        <td>4.0 and higher </td>
+        <td>last member in 4.0 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x1764 </td>
+        <td>
+        <pre class="source">UCHAR Padding6 [4];</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The particular critical section that’s known as the NTDLL loader lock causes 
+  no end of anxiety to some programmers but arguably not enough to some others. 
+  As suggested by its name, <span class="member">WaitingOnLoaderLock</span> is ordinarily 
+  zero but is incremented while NTDLL doesn’t just “spin” for a contended critical 
+  section but actually does wait and it turns out that the critical section is the 
+  loader lock. </p>
+  <h3>Appended for Windows 2000 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0F88 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">struct _Wx86ThreadState {
+    ULONG *CallBx86Eip;
+    PVOID DeallocationCpu;
+    UCHAR UseKnownWx86Dll;
+    CHAR OleStubInvoked;
+} Wx86Thread;</pre>
+        </td>
+        <td>5.0 to early 5.2 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x1768 </td>
+        <td>
+        <pre class="source">ULONG_PTR SparePointer1;</pre>
+        </td>
+        <td>late 5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SavedPriorityState;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0F8C </td>
+        <td rowspan="2">0x1770 </td>
+        <td>
+        <pre class="source">ULONG_PTR SoftPatchPtr1;</pre>
+        </td>
+        <td>late 5.2 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR ReservedForCodeCoverage;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0F90 </td>
+        <td rowspan="2">0x1778 </td>
+        <td>
+        <pre class="source">ULONG_PTR SoftPatchPtr2;</pre>
+        </td>
+        <td>late 5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID ThreadPoolData;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>No use is yet known of <span class="member">Wx86Thread</span>. Whatever it 
+  was for, and whenever it was first defined, it was anyway discarded when Windows 
+  got both 32-bit and 64-bit builds. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0F94 </td>
+        <td>0x1780 </td>
+        <td>
+        <pre class="source">PVOID *TlsExpansionSlots;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x1788 </td>
+        <td>
+        <pre class="source">PVOID DeallocationBStore;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x1790 </td>
+        <td>
+        <pre class="source">PVOID BStoreLimit;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0F98 </td>
+        <td rowspan="2">0x1798 </td>
+        <td>
+        <pre class="source">ULONG ImpersonationLocale;</pre>
+        </td>
+        <td>5.0 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG MuiGeneration;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F9C </td>
+        <td>0x179C </td>
+        <td>
+        <pre class="source">ULONG IsImpersonating;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FA0 </td>
+        <td>0x17A0 </td>
+        <td>
+        <pre class="source">PVOID NlsCache;</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>last member in 5.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows XP </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0FA4 </td>
+        <td>0x17A8 </td>
+        <td>
+        <pre class="source">PVOID pShimData;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0FA8 </td>
+        <td rowspan="3">0x17B0 </td>
+        <td>
+        <pre class="source">ULONG HeapVirtualAffinity;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT HeapVirtualAffinity;</pre>
+        </td>
+        <td>6.2 to 1803 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG HeapData;</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FAA (6.2 to 1803) </td>
+        <td>0x17B2 </td>
+        <td>
+        <pre class="source">USHORT LowFragHeapDataSlot;</pre>
+        </td>
+        <td>6.2 to 1803 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x17B4 </td>
+        <td>
+        <pre class="source">UCHAR Padding7 [4];</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FAC </td>
+        <td>0x17B8 </td>
+        <td>
+        <pre class="source">PVOID CurrentTransactionHandle;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FB0 </td>
+        <td>0x17C0 </td>
+        <td>
+        <pre class="source">TEB_ACTIVE_FRAME *ActiveFrame;</pre>
+        </td>
+        <td>5.1 and higher </td>
+        <td>last member in early 5.1 </td>
+      </tr>
+      <tr>
+        <td>0x0FB4 </td>
+        <td>0x17C8 </td>
+        <td>
+        <pre class="source">PVOID FlsData;</pre>
+        </td>
+        <td>5.2 and higher </td>
+        <td>last member in early 5.2 </td>
+      </tr>
+      <tr>
+        <td>0x0FB4 (late 5.1); <br>
+        0x0FB8 (late 5.2) </td>
+        <td>0x17D0 (late 5.2) </td>
+        <td>
+        <pre class="source">BOOLEAN SafeThunkCall;</pre>
+        </td>
+        <td>late 5.1 and late 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FB5 (late 5.1); <br>
+        0x0FB9 (late 5.2) </td>
+        <td>0x17D1 (late 5.2) </td>
+        <td>
+        <pre class="source">BOOLEAN BooleanSpare [3];</pre>
+        </td>
+        <td>late 5.1 and late 5.2 </td>
+        <td>last member in late 5.1 <br>
+        last member in late 5.2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows Vista </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+      <tr>
+        <td>0x0FB8 </td>
+        <td>0x17D0 </td>
+        <td>
+        <pre class="source">PVOID PreferredLanguages;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0FBC </td>
+        <td>0x17D8 </td>
+        <td>
+        <pre class="source">PVOID UserPrefLanguages;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0FC0 </td>
+        <td>0x17E0 </td>
+        <td>
+        <pre class="source">PVOID MergedPrefLanguages;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0FC4 </td>
+        <td>0x17E8 </td>
+        <td>
+        <pre class="source">ULONG MuiImpersonation;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0FC8 </td>
+        <td>0x17EC </td>
+        <td>
+        <pre class="source">union {
+    USHORT volatile CrossTebFlags;
+    struct {
+        USHORT SpareCrossTebBits : 16;
+    };
+};</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0FCA </td>
+        <td>0x17EE </td>
+        <td>
+        <pre class="source">union {
+    USHORT <a href="sametebflags.htm">SameTebFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0FCC </td>
+        <td>0x17F0 </td>
+        <td>
+        <pre class="source">PVOID TxnScopeEnterCallback;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0FD0 </td>
+        <td>0x17F8 </td>
+        <td>
+        <pre class="source">PVOID TxnScopeExitCallback;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0FD4 </td>
+        <td>0x1800 </td>
+        <td>
+        <pre class="source">PVOID TxnScopeContext;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0FD8 </td>
+        <td>0x1808 </td>
+        <td>
+        <pre class="source">ULONG LockCount;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The remaining additions for Windows Vista were all discarded immediately afterwards, 
+  such that the <span class="struct">TEB</span> shrinks for Windows 7. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0FDC (6.0) </td>
+        <td>0x180C (6.0) </td>
+        <td>
+        <pre class="source">ULONG ProcessRundown;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FE0 (6.0) </td>
+        <td>0x1810 (6.0) </td>
+        <td>
+        <pre class="source">ULONGLONG LastSwitchTime;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FE8 (6.0) </td>
+        <td>0x1820 (6.0) </td>
+        <td>
+        <pre class="source">ULONGLONG TotalSwitchOutTime;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FF0 (6.0) </td>
+        <td>0x1828 (6.0) </td>
+        <td>
+        <pre class="source">LARGE_INTEGER WaitReasonBitMap;</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>last member in 6.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 7 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0FDC </td>
+        <td rowspan="2">0x180C </td>
+        <td>
+        <pre class="source">ULONG SpareUlong0;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LONG WowTebOffset;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FE0 </td>
+        <td>0x1810 </td>
+        <td>
+        <pre class="source">PVOID ResourceRetValue;</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>last member in 6.1 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 8 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0FE4 </td>
+        <td>0x1818 </td>
+        <td>
+        <pre class="source">PVOID ReservedForWdf;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>last member in 6.2 <br>
+        last member in 6.3 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+      <tr>
+        <td>0x0FE8 </td>
+        <td>0x1820 </td>
+        <td>
+        <pre class="source">ULONGLONG ReservedForCrt;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0FF0 </td>
+        <td>0x1828 </td>
+        <td>
+        <pre class="source">GUID EffectiveContainerId;</pre>
+        </td>
+        <td>10.0 and higher </td>
+        <td>last member in 10.0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 30th
+    <a href="../../../../../../../../new/16/04.htm">April 2016</a> and was last 
+    modified on 2nd April 2023. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1623.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14266" -->
+  </div>
+</div>
+
+</body>
+
+</html>

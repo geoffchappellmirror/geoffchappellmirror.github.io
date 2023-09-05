@@ -1,0 +1,190 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DPA_SaveStream</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>DPA_SaveStream </h1>
+<p>This function saves items from a DPA to a stream. </p>
+<h2>Declaration </h2>
+<pre class="source">HRESULT
+DPA_SaveStream (
+    HDPA pdpa,
+    PFNDPASTREAM pfn,
+    IStream *pstm,
+    PVOID pvInstData);</pre>
+<!--webbot bot="Include" u-include="_include/scb.htm" tag="BODY" startspan -->
+
+<p>The callback function has the prototype: </p>
+<pre class="source">typedef HRESULT (*PFNDPASTREAM) (
+    DPASTREAMINFO *pinfo,
+    IStream *pstm,
+    PVOID pvInstData);</pre>
+
+<!--webbot bot="Include" i-checksum="33265" endspan -->
+<!--webbot bot="Include" U-Include="_include/sinfo.htm" TAG="BODY" startspan -->
+
+<p>The information structure for the callback function has the form: </p>
+<pre class="source">typedef struct _DPASTREAMINFO {
+    int iPos;
+    PVOID pvItem;
+} DPASTREAMINFO; </pre>
+
+<!--webbot bot="Include" i-checksum="49578" endspan -->
+<h3>Parameters </h3>
+<p>The <span class="argument">pdpa</span> argument provides a handle to the DPA.
+</p>
+<p>The <span class="argument">pfn</span> argument provides the address of a callback 
+function that writes successive items to the stream. </p>
+<p>The <span class="argument">pstm</span> argument provides the address of an
+<span class="interface">IStream</span> interface for access to the stream. </p>
+<p>The <span class="argument">pvInstData</span> argument provides a caller-specific 
+context for each invocation of the callback function. </p>
+<h3>Return Value </h3>
+<p>The function returns <span class="constant">S_OK</span> (zero) for success, with 
+all items saved to the given stream. It returns <span class="constant">S_FALSE</span> 
+(1) for a partial success in which only some items were saved to the given stream. 
+Any other value is an error code to describe a failure. </p>
+<h2>Behaviour </h2>
+<p>The function writes to the given stream, at its current seek position, a 12-byte
+<span class="struct">DPASTREAMHEADER</span> structure: </p>
+<pre class="source">typedef struct _DPASTREAMHEADER {
+    DWORD dwSize;
+    DWORD dwVersion;
+    int cpItems;
+} DPASTREAMHEADER; </pre>
+<p>Should the function succeed, the <span class="member">dwSize</span> member will 
+record the size of the stream, measured in bytes, counting the header and whatever 
+arbitrary-sized items that follow, and the <span class="member">cpItems</span> member 
+will record the number of those items. The <span class="member">dwVersion</span> 
+member is always 1. At the outset however, the function does not know how much data 
+or how many items will get written successfully to the stream. It therefore writes 
+this header the first time as a dummy, with zero as both the size and the count.
+</p>
+<p>The function then calls the callback function repeatedly to get the DPA’s items 
+written sequentially to the stream. When this is done, even with only partial success, 
+the function notes how much data was written to the stream, and for how many items. 
+It rewrites the header at the beginning of the stream, this time with the known
+<span class="member">dwSize</span> and <span class="member">cpItems</span>, then 
+returns to the end of the stream. </p>
+<h3>Callback Function </h3>
+<p>Each invocation of the callback function is responsible for saving one item. 
+The 0-based index for this item is provided as the <span class="member">iPos</span> 
+member of a <span class="struct">DPASTREAMINFO</span> structure. The address of 
+the item is provided as the <span class="member">pvItem</span> member. This may 
+be NULL, for an empty item. Also provided as arguments to the callback function 
+are the <span class="argument">pstm</span> and <span class="argument">pvInstData</span> 
+arguments, as given to to the <span class="function">DPA_SaveStream</span> function.
+</p>
+<p>The callback function returns <span class="constant">S_OK</span> to indicate 
+success at saving the desired item. <span class="function">DPA_SaveStream</span> 
+then advances to the next item. A successful save of the last item in the DPA results 
+in <span class="function">DPA_SaveStream</span> declaring a full success, returning
+<span class="constant">S_OK</span>. </p>
+<p>The callback function returns any negative error code to report its failure at 
+saving the desired item and to direct that <span class="function">DPA_SaveStream</span> 
+not ask to save any more items. This causes <span class="function">DPA_SaveStream</span> 
+to declare a partial success, returning <span class="constant">S_FALSE</span>.
+</p>
+<p>Behaviour if the callback function returns any positive value may best be treated 
+as undefined. </p>
+<h3>Error Details </h3>
+<p>In version 6.10 and higher, the function returns <span class="constant">E_INVALIDARG</span> 
+is the <span class="argument">pdpa</span> argument is NULL. Earlier versions check 
+that <span class="argument">pdpa</span> is plausibly a DPA handle (meaning specifically 
+that it must be an address at which the bytes of a <span class="struct">
+<a href="dpa.htm">DPA</a></span> structure are writable). </p>
+<p>Historically, the function also returns <span class="constant">E_INVALIDARG</span> 
+if either the <span class="argument">pfn</span> or <span class="argument">pstm</span> 
+arguments are not valid as addresses for reading at least one byte. These checks 
+are removed entirely in versions 5.82 and 6.0 starting from Windows XP SP2. 
+However, less strict defences are reinstated in the version 
+5.82 from Windows Vista and higher, and in version 6.10 and higher: the function 
+returns <span class="constant">E_INVALIDARG</span> if either
+<span class="argument">pfn</span> or <span class="argument">pstm</span> is NULL.
+</p>
+<p>The function returns error codes from the given stream’s <span class="method">
+Seek</span> or <span class="method">Write</span> methods, if these fail when noting 
+the stream’s initial seek position or when first writing the header or when noting 
+the stream’s seek position after items have been written. </p>
+<h2>Availability </h2>
+<p>The <span class="function">DPA_SaveStream </span>function is exported from COMCTL32.DLL 
+as ordinal 10 in version 4.71 and higher. The implementation for version 6.10 
+and higher is built into a statically linked library and thence is also exported 
+from the Internet Explorer module IERTUTIL.DLL as ordinal 88 in version 7.0 and 
+higher. </p>
+<!--webbot bot="Include" U-Include="../../_include/undoc471.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 1997, it was still not 
+documented by Microsoft in the MSDN Library at least as late as the CD edition 
+dated January 2004. </p>
+
+<!--webbot bot="Include" i-checksum="43173" endspan -->
+<!--webbot bot="Include" U-Include="../../_include/doc05.htm" TAG="BODY" startspan -->
+
+<p>Microsoft documented this function for the MSDN on-line in April 2005, apparently 
+after a contributor to a
+<a target="_top" href="http://blogs.msdn.com/dmassy/archive/2005/03/22/400689.aspx">
+blog by Dave Massy</a> (at Microsoft) cited this function as a counter-example to 
+Massy’s claim that Internet Explorer uses no Windows API functions that were not 
+by then documented by Microsoft. This article now follows Microsoft’s nomenclature as 
+much as possible. </p>
+
+<!--webbot bot="Include" i-checksum="60158" endspan -->
+<p>Microsoft’s name for the <span class="struct">DPASTREAMINFO</span> structure 
+has long been knowable even without formal documentation from Microsoft. The
+<span class="function">DPA_SaveStream</span> function is called from BROWSEUI.DLL, 
+SHDOCVW.DLL and SHELL32.DLL, almost certainly from one source file used for all 
+three executables. The callback function is written in C++ and the decorated name, 
+as seen in Microsoft’s symbol files for these DLLs, therefore includes the name 
+of the information structure. </p>
+<p>The <span class="struct">DPASTREAMHEADER</span> structure and its members are 
+not documented, and the names used here are invented. Indeed, the naming of the
+<span class="member">dwVersion</span> member as providing some sort of version number 
+is mere supposition. That the header is left undocumented is not unreasonable if 
+the point is made clear that the stream written by <span class="function">DPA_SaveStream</span> 
+is to be interpreted only by <span class="function"><a href="loadstream.htm">DPA_LoadStream</a></span>, 
+for the internal structure of the header would then be an implementation detail 
+of this pair of DPA functions. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 9th April 2005 and was last modified 
+  on 15th March 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c0510.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2005-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="4693" endspan -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,137 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Bug Check 0x0100: LOADER_BLOCK_MISMATCH</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <h1>Bug Check 0x0100: Loader Block Mismatch </h1>
+  <p>The <span class="constant">LOADER_BLOCK_MISMATCH</span> bug check reports that 
+  the loader and kernel disagree about their combination. </p>
+  <table>
+    <tr>
+      <td>Bug Check Code </td>
+      <td><span class="constant">LOADER_BLOCK_MISMATCH</span> </td>
+    </tr>
+    <tr>
+      <td>1st Argument </td>
+      <td>major version of loader parameter block </td>
+    </tr>
+    <tr>
+      <td>2nd Argument </td>
+      <td>minor version of loader parameter block </td>
+    </tr>
+    <tr>
+      <td>3rd Argument </td>
+      <td>size of loader parameter block </td>
+    </tr>
+    <tr>
+      <td>4th Argument </td>
+      <td>size of loader parameter extension; <br>
+      else zero </td>
+    </tr>
+  </table>
+  <p>A <span class="struct">
+  <a href="../ntoskrnl/inc/api/arc/loader_parameter_block.htm">LOADER_PARAMETER_BLOCK</a></span> 
+  is received from the loader as the kernel’s one argument for initialisation, and 
+  contains a pointer to a separate <span class="struct">
+  <a href="../ntoskrnl/inc/api/arc/loader_parameter_extension/index.htm">LOADER_PARAMETER_EXTENSION</a></span>. 
+  Both structures are clearly vital but both vary between Windows versions. This 
+  bug check means that at least one of the structures does not fit the kernel’s 
+  expectations. Probably, the loader and kernel are from different Windows versions 
+  or even from different builds. The point to this bug check is much reduced, however, 
+  since the kernel does not try to validate the loader until it gets round to initialising 
+  the Executive’s understanding of the boot processor. If the structures truly are 
+  mismatched, surely disaster will have struck long before. </p>
+  <p>This bug check is supported by making a significant change to the previous 
+  layout of the <span class="struct">LOADER_PARAMETER_BLOCK</span>. Version 6.1 
+  introduces <span class="member">OsMajorVersion</span>, <span class="member">OsMinorVersion</span> 
+  and <span class="member">Size</span> members at the beginning, and later versions 
+  keep them. Earlier versions begin with a <span class="struct">LIST_ENTRY</span>, 
+  which is extremely unlikely to fit the version numbers and size by accident. The
+  <span class="struct">LOADER_PARAMETER_EXTENSION</span> has long begun with its
+  <span class="member">Size</span> (but lost its own <span class="member">MajorVersion</span> 
+  and <span class="member">MinorVersion</span> in version 6.1, perhaps from moving 
+  them to the loader block). The location of the <span class="member">Extension</span> 
+  member that points from the one structure to the other varies with the Windows 
+  version. </p>
+  <p>The <span class="member">OsMajorVersion</span> and <span class="member">OsMinorVersion</span> 
+  in the supposed loader block are Windows version numbers. They must agree exactly 
+  with the one Windows version that the kernel is built for. The
+  <span class="member">Size</span> must be exactly that of the
+  <span class="struct">LOADER_PARAMETER_BLOCK</span> in this Windows version. If 
+  the kernel dislikes what it finds at the beginning of the supposed loader block, 
+  the 4th argument is zero, it being unsafe even to look for the supposed extension. 
+  Conversely, a non-zero 4th argument implies that the block itself has the correct 
+  version numbers and size, and the mismatch is with the extension. Before the 1607 
+  release of Windows 10, the extension is checked only for its
+  <span class="member">Size</span>. Later releases also check a new member that 
+  has a varying position near to the end of the extension. This
+  <span class="member">MajorRelease</span> is an NTDDI version number such as defined 
+  in SDKDDKVER.H, e.g., 0x0A000005 for the 1803 release. It looks to have been introduced 
+  because although the different releases of Windows 10 all have 10 and 0 as their 
+  major and minor version numbers, the <span class="struct">LOADER_PARAMETER_EXTENSION</span> 
+  varies as much from one Windows 10 release to the next as it did for successive 
+  minor versions in days gone by. </p>
+  <h2>Availability </h2>
+  <p>The <span class="constant">LOADER_BLOCK_MISMATCH</span> bug check can occur 
+  in version 6.1 and higher. It replaces one case that version 6.0 added to the 
+  much older <span class="constant"><a href="79.htm">MISMATCHED_HAL</a></span>.
+  </p>
+  <p>Microsoft’s documentation in the Windows Driver Kit (WDK) for Windows 7, dated 
+  June 2009, and in the contemporaneous Debugging Tools for Windows, is completely 
+  wrong about the arguments, apparently as a cut-and-paste error from documentation 
+  of <span class="constant">MISMATCHED_HAL</span>. The parameters are still wrong 
+  ten years later, on 25th December 2019, in Microsoft’s online documentation
+  <a href="https://docs.microsoft.com/windows-hardware/drivers/debugger/bug-check-0x0100---loader-block-mismatch">
+  Bug Check 0x0100: LOADER_BLOCK_MISMATCH</a>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 2nd May 2016 and was last modified 
+    on 1st January 2020. </p>
+    <!--webbot bot="Include" U-Include="../_include/c1620.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="48944" -->
+  </div>
+</div>
+
+</body>
+
+</html>

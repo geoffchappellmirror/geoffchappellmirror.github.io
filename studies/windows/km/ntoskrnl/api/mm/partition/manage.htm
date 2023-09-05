@@ -1,0 +1,264 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>NtManagePartition</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+  <h1>NtManagePartition </h1>
+  <p>This function performs a variety of operations on one or two memory partitions.
+  </p>
+  <h2>Declaration </h2>
+  <pre class="source">NTSTATUS 
+NtManagePartition (
+    HANDLE TargetHandle, 
+    HANDLE SourceHandle, 
+    <a href="../../../inc/api/ntpsapi/partition_information_class.htm">PARTITION_INFORMATION_CLASS</a> PartitionInformationClass, 
+    PVOID PartitionInformation, 
+    ULONG PartitionInformationLength);</pre>
+  <p>but slightly different before Version 1709: </p>
+  <pre class="source">NTSTATUS 
+NtManagePartition (
+    HANDLE TargetHandle, 
+    HANDLE SourceHandle, 
+    <a href="../../../inc/api/ntmmapi/memory_partition_information_class.htm">MEMORY_PARTITION_INFORMATION_CLASS</a> PartitionInformationClass, 
+    PVOID PartitionInformation, 
+    ULONG PartitionInformationLength);</pre>
+  <h3>Parameters </h3>
+  <p>The <span class="argument">SourceHandle</span> and <span class="argument">TargetHandle</span> 
+  arguments specify which partitions to operate on, as source and target. All operations 
+  require a target. Some, presently just one, require a source. For others, supplying 
+  a source is an error. </p>
+  <p>The operation is selected by the <span class="argument">PartitionInformationClass</span> 
+  argument. </p>
+  <p>The <span class="argument">PartitionInformation</span> and
+  <span class="argument">PartitionInformationLength</span> arguments are respectively 
+  the address and size (in bytes) of a buffer that either provides information to 
+  the function or receives it as output. What the function interprets of the buffer 
+  or puts into it depends on the information class. </p>
+  <h3>Return Value </h3>
+  <p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+  else a negative error code. </p>
+  <h2>Availability </h2>
+  <p>The <span class="function">NtManagePartition</span> function and its alias
+  <span class="function">ZwManagePartition</span> are exported by name from NTDLL 
+  in version 10.0 and higher. In kernel mode, where <span class="function">ZwManagePartition</span> 
+  is a stub and <span class="function">NtManagePartition</span> is the implementation, 
+  neither is exported until the 1607 release of Windows 10 exports the stub. </p>
+  <p>For all practical effect before Version 1703, the functions are available only 
+  in 64-bit Windows: the functions are exported in 32-bit Windows but the 32-bit kernel’s implementation 
+  in the early versions of Windows 10 trivially returns <span class="constant">STATUS_NOT_SUPPORTED</span>. </p>
+  <h2>Documentation Status </h2>
+  <p>Neither <span class="function">NtManagePartition</span> nor its alias is documented. 
+  As <span class="function">ZwManagePartition</span>, it is declared in a header 
+  named ZWAPI.H which Microsoft published, possibly by mistake, in the Windows 
+  Driver Kit (WDK) for the original and 1511 editions of Windows 10. </p>
+  <h2>Behaviour </h2>
+  <p>The following implementation notes are from inspection of the kernel from the 
+  original release of Windows 10. </p>
+  <h3>User-Mode Defences </h3>
+  <p>If executing for a user-mode request, the function has some general defensiveness 
+  about addresses passed as arguments. Failure at any of these defences is failure 
+  for the function, typically showing as a return of <span class="constant">STATUS_DATATYPE_MISALIGNMENT</span> 
+  or <span class="constant">STATUS_ACCESS_VIOLATION</span>. </p>
+  <p>If an information buffer is given, meaning here that <span class="argument">
+  PartitionInformationLength</span> is non-zero, then its address
+  <span class="argument">PartitionInformation</span> must have 8-byte alignment 
+  and the whole buffer must be in user-mode address space. </p>
+  <h3>Invalid Information Classes </h3>
+  <p>The <span class="argument">PartitionInformationClass</span> is the primary 
+  determinant of what the function is to do. A table below lists the valid information 
+  classes. For all others, the function can do nothing buf fail. The error code 
+  is <span class="constant">STATUS_INVALID_INFO_CLASS</span>. </p>
+  <h3>Privilege </h3>
+  <p>The information classes <span class="constant">SystemMemoryPartitionMoveMemory</span> 
+  (1) and <span class="constant">SystemMemoryPartitionInitialAddMemory</span> 
+  (4) require <span class="constant">SeLockMemoryPrivilege</span>. If the caller 
+  does not have this privilege, the function fails, returning
+  <span class="constant">STATUS_PRIVILEGE_NOT_HELD</span>. </p>
+  <h3>Information Buffer </h3>
+  <p>Each information class has a corresponding fixed-size structure for its input 
+  or output, shown in the table below. If the <span class="argument">PartitionInformationLength</span> 
+  is not exactly the size of this corresponding structure, the function fails, returning
+  <span class="constant">STATUS_INFO_LENGTH_MISMATCH</span>. </p>
+  <table>
+    <tbody>
+      <tr>
+        <th>Information Class </th>
+        <th>Structure </th>
+        <th>Input or Output </th>
+      </tr>
+      <tr>
+        <td><span class="constant">SystemMemoryPartitionInformation</span> (0)
+        </td>
+        <td><span class="struct">
+        <a href="../../../inc/api/ntmmapi/memory_partition_configuration_information.htm">
+        MEMORY_PARTITION_CONFIGURATION_INFORMATION</a></span> </td>
+        <td>output </td>
+      </tr>
+      <tr>
+        <td><span class="constant">SystemMemoryPartitionMoveMemory</span> (1)
+        </td>
+        <td><span class="struct">
+        <a href="../../../inc/api/ntmmapi/memory_partition_transfer_information.htm">
+        MEMORY_PARTITION_TRANSFER_INFORMATION</a></span> </td>
+        <td>simple input </td>
+      </tr>
+      <tr>
+        <td><span class="constant">SystemMemoryPartitionAddPagefile</span> (2)
+        </td>
+        <td><span class="struct"><a href="../../../inc/api/ntmmapi/memory_partition_pagefile_information.htm">MEMORY_PARTITION_PAGEFILE_INFORMATION</a></span>
+        </td>
+        <td>complex input </td>
+      </tr>
+      <tr>
+        <td><span class="constant">SystemMemoryPartitionCombineMemory</span> (3)
+        </td>
+        <td><span class="struct"><a href="../../../inc/api/ntmmapi/memory_partition_page_combine_information.htm">MEMORY_PARTITION_PAGE_COMBINE_INFORMATION</a></span>
+        </td>
+        <td>simple input; <br>
+        output </td>
+      </tr>
+      <tr>
+        <td><span class="constant">SystemMemoryPartitionInitialAddMemory</span> 
+        (4) </td>
+        <td><span class="struct"><a href="../../../inc/api/ntmmapi/memory_partition_initial_add_information.htm">MEMORY_PARTITION_INITIAL_ADD_INFORMATION</a></span>
+        </td>
+        <td>simple input; <br>
+        output </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>For those information classes that expect input that contains no pointers, 
+  designated simple input above, the function captures the input immediately. If 
+  executing for a user-mode request, occurrence of an exception while capturing 
+  the input is fatal to the function, which returns the exception code as its own 
+  result. </p>
+  <h3>Target Partition </h3>
+  <p>All information classes require a target partition to operate on. The given
+  <span class="argument">TargetHandle</span> must resolve to a partition object. 
+  For most information classes, the handle must allow <span class="constant">MEMORY_PARTITION_MODIFY_ACCESS</span> 
+  (0x0002). For <span class="constant">SystemMemoryPartitionInformation</span>, the 
+  required permission is <span class="constant">MEMORY_PARTITION_QUERY_ACCESS</span> 
+  (0x0001). Failure to reference the target partition is failure for the function.
+  </p>
+  <h3>Source Partition </h3>
+  <p>For most information classes, the selected operation works on only the 
+  target partition. 
+  Supplying a <span class="argument">SourceHandle</span> is an error, specifically
+  <span class="constant">STATUS_INVALID_PARAMETER_2</span>. </p>
+  <p>A source partition is required for <span class="constant">SystemMemoryPartitionMoveMemory</span>. 
+  The <span class="argument">SourceHandle</span> must resolve to a partition object 
+  and allow <span class="constant">MEMORY_PARTITION_MODIFY_ACCESS</span>. Failure 
+  to reference the source partition is failure for the function. </p>
+  <h3>Valid Information Classes </h3>
+  <p>All remaining behaviour is highly particular to the information class. </p>
+  <h4>SystemMemoryPartitionInformation </h4>
+  <p>The whole point to <span class="constant">SystemMemoryPartitionInformation</span> 
+  is to fill the information buffer with a <span class="struct">MEMORY_PARTITION_CONFIGURATION_INFORMATION</span>, 
+  thus giving the caller some description of the target partition. </p>
+  <p>If executing for a user-mode request, occurrence of an exception while writing 
+  to the buffer is fatal for the function, which returns the exception code as its 
+  own result. If executing for a kernel-mode request (not that this seems possible 
+  at present), an unhandled exception during this write is left unhandled, which 
+  will typically be fatal to Windows. </p>
+  <h4>SystemMemoryPartitionMoveMemory </h4>
+  <p>The operation selected by <span class="constant">SystemMemoryPartitionMoveMemory</span> 
+  is the moving of pages from a Non-Uniform Memory Access (NUMA) node at the source 
+  partition to the target partition. The information buffer supplies a
+  <span class="struct">MEMORY_PARTITION_TRANSFER_INFORMATION</span> structure which 
+  specifies the number of pages and the node. </p>
+  <p>Success is trivial if the <span class="member">NumberOfPages</span> is zero. 
+  If the <span class="member">NumaNode</span> is invalid or if the
+  <span class="member">Flags</span> are not zero, the function fails, returning
+  <span class="constant">STATUS_INVALID_PARAMETER</span>. Note, however, that
+  <span class="member">NumaNode</span> can be 0xFFFFFFFF to mean the node for the 
+  current thread’s ideal processor. </p>
+  <h4>SystemMemoryPartitionAddPagefile </h4>
+  <p>When given <span class="constant">SystemMemoryPartitionAddPagefile</span> as 
+  the information class, the function is to create a paging file for the target 
+  partition. It becomes essentially the <span class="function">
+  <a href="../modwrite/create.htm">NtCreatePagingFile</a></span> function but without 
+  being tied to the system partition. What would be individual arguments for
+  <span class="function">NtCreatePagingFile</span> are instead supplied to
+  <span class="function">NtManagePartition</span> as a <span class="struct">MEMORY_PARTITION_PAGEFILE_INFORMATION</span> 
+  structure in the information buffer. </p>
+  <h4>SystemMemoryPartitionCombineMemory </h4>
+  <p>For <span class="constant">SystemMemoryPartitionCombineMemory</span> the function 
+  is to combine identical pages on the target partition. The information buffer 
+  supplies a <span class="struct">MEMORY_PARTITION_PAGE_COMBINE_INFORMATION</span> 
+  structure for both input and output. </p>
+  <p>As input, the structure provides the function with a <span class="member">StopHandle</span> 
+  and <span class="member">Flags</span>. Among the flags, only 0x01 is presently 
+  valid. If any other is set or if the 0x01 flag is set but the target partition 
+  is not the system partition, the function fails, returning
+  <span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+  <p>As output, the structure’s <span class="member">TotalNumberOfPages</span> receives 
+  the number of pages that have been combined as identical. </p>
+  <h4>SystemMemoryPartitionInitialAddMemory </h4>
+  <p>The information class SystemMemoryPartitionInitialAddMemory directs the function 
+  to assign one block of physically contiguous pages to the target partition. The 
+  information buffer supplies a <span class="struct">MEMORY_PARTITION_INITIAL_ADD_INFORMATION</span> 
+  structure for both input and output. </p>
+  <p>As input, the structure provides the function with the page number of the block’s 
+  first page and with the number of pages. If this <span class="member">NumberOfPages</span> 
+  is zero or if the <span class="member">Flags</span> are not zero, the function 
+  fails, returning <span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 15th July 2016 and was last modified 
+    on 14th <a href="../../../../../../../new/22/07.htm">August 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4925" -->
+  </div>
+</div>
+
+</body>
+
+</html>

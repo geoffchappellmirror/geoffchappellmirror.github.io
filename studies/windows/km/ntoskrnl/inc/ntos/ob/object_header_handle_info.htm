@@ -1,0 +1,174 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>OBJECT_HEADER_HANDLE_INFO</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>OBJECT_HEADER_HANDLE_INFO </h1>
+  <p>The <span class="struct">OBJECT_HEADER_HANDLE_INFO</span> structure 
+  (formally <span class="struct">_OBJECT_HEADER_HANDLE_INFO</span>) is one 
+  of several structures that may precede an <span class="struct">
+  <a href="object_header/index.htm">OBJECT_HEADER</a></span> in a memory block that 
+  contains an Object Manager object. It is the definitive record of which processes 
+  have opened how many handles to the object. </p>
+  <h2>Access </h2>
+  <p>The point to making a separate structure of the <span class="struct">OBJECT_HEADER_HANDLE_INFO</span> 
+  is, of course, that the Object Manager does not maintain these handle counts for 
+  all types of object. For such objects, the memory overhead is reduced by having 
+  the <span class="struct">OBJECT_HEADER</span> record just the absence. </p>
+  <p>This saving was first implemented in version 3.50. For this and many versions 
+  after, the <span class="struct">OBJECT_HEADER_HANDLE_INFO</span> is located by 
+  the byte-sized <span class="member">HandleInfoOffset</span> member of the
+  <span class="struct">OBJECT_HEADER</span>. If this is zero, then the object has 
+  no <span class="struct">OBJECT_HEADER_HANDLE_INFO</span>. Otherwise, it is the 
+  offset in bytes from the start of the <span class="struct">OBJECT_HEADER_HANDLE_INFO</span> 
+  to the start of the <span class="struct">OBJECT_HEADER</span>. A programmer might 
+  write this as </p>
+  <pre class="source">OBJECT_HEADER_HANDLE_INFO *
+OBJECT_HEADER_TO_HANDLE_INFO_EXISTS (
+    OBJECT_HEADER *ObjectHeader)
+{
+    return (OBJECT_HEADER_HANDLE_INFO *) 
+        ((PCHAR) ObjectHeader - ObjectHeader -&gt; HandleInfoOffset);
+}</pre>
+  <pre class="source">OBJECT_HEADER_HANDLE_INFO *
+OBJECT_HEADER_TO_HANDLE_INFO (
+    OBJECT_HEADER *ObjectHeader)
+{
+    return ObjectHeader -&gt; HandleInfoOffset != 0
+        ? OBJECT_HEADER_TO_HANDLE_INFO_EXISTS (ObjectHeader)
+        : NULL;
+}</pre>
+  <p>The location algorithm changed for version 6.1. It had by then been realised 
+  that if the various information structures that can precede the
+  <span class="struct">OBJECT_HEADER</span> are always laid out in the same order, 
+  then the offset to any one of them can be computed from knowing which others are 
+  present. This knowledge costs only one bit for each of the possible information 
+  structures. The <span class="struct">OBJECT_HEADER</span> has these bits as the 
+  single-byte <span class="member"><a href="object_header/infomask.htm">InfoMask</a></span>. 
+  The kernel has as an internal variable an array of pre-computed offsets for the 
+  possible combinations of <span class="member">InfoMask</span> bits. The bit that 
+  tells if an <span class="struct">OBJECT_HEADER_HANDLE_INFO</span> is present is 
+  0x04. The only information structures that can sit between the
+  <span class="struct">OBJECT_HEADER_HANDLE_INFO</span> and the
+  <span class="struct">OBJECT_HEADER</span> are the <span class="struct">
+  <a href="object_header_name_info.htm">OBJECT_HEADER_NAME_INFO</a></span> and
+  <span class="struct"><a href="object_header_creator_info.htm">OBJECT_HEADER_CREATOR_INFO</a></span>, 
+  which are represented by the 0x02 and 0x01 bits. Public symbol files for the kernel, 
+  starting with Windows 8, suggest strongly that Microsoft’s programmers have the 
+  computation as something very like </p>
+  <pre class="source">OBJECT_HEADER_HANDLE_INFO *
+OBJECT_HEADER_TO_HANDLE_INFO_EXISTS (
+    OBJECT_HEADER *ObjectHeader)
+{
+    return (OBJECT_HEADER_HANDLE_INFO *) ((PCHAR) ObjectHeader 
+        - ObpInfoMaskToOffset [ObjectHeader -&gt; InfoMask &amp; 0x07]);
+}</pre>
+  <pre class="source">OBJECT_HEADER_HANDLE_INFO *
+OBJECT_HEADER_TO_HANDLE_INFO (
+    OBJECT_HEADER *ObjectHeader)
+{
+    return ObjectHeader -&gt; InfoMask &amp; 0x04
+        ? OBJECT_HEADER_TO_HANDLE_INFO_EXISTS (ObjectHeader)
+        : NULL;
+}</pre>
+  <h2>Layout </h2>
+  <p>The <span class="struct">OBJECT_HEADER_HANDLE_INFO</span> structure is 0x08 
+  or 0x10 bytes in 32-bit and 64-bit Windows, respectively. Microsoft’s names and 
+  types are known from type information in public symbol files for the kernel, starting 
+  with Windows 2003 SP1. That these names apply at least as far back as version 
+  4.0 is known with slightly less certainty from the output of the
+  <span class="command"><a href="../../../../debug/userexts/dso.htm">!dso</a></span> 
+  command as implemented by the debugger extension USEREXTS.DLL from the Windows 
+  NT 4.0 Device Driver Kit (DDK). </p>
+  <p>Though the <span class="struct">OBJECT_HEADER_HANDLE_INFO</span> is formally 
+  a structure, its one member is an unnamed union: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">union {
+    <a href="object_handle_count_database.htm">OBJECT_HANDLE_COUNT_DATABASE</a> *HandleCountDataBase;
+    <a href="object_handle_count_entry.htm">OBJECT_HANDLE_COUNT_ENTRY</a> SingleEntry;
+};</pre>
+        </td>
+        <td>3.50 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>In general, the database is a separate memory allocation of a count of processes 
+  and an array of entries, one per process. </p>
+  <p>A frequent particular case, not least for being certain as an initial case, 
+  is that the object is opened by just one process. The database has just the one 
+  entry and might never need another. This is accommodated efficiently by making 
+  that the whole database is the <span class="member">SingleEntry</span>. This state 
+  is indicated by a set <span class="constant">OBJ_FLAG_SINGLE_HANDLE_ENTRY</span> 
+  (0x40) in the <span class="member"><a href="object_header/flags.htm">Flags</a></span> 
+  in the <span class="struct">OBJECT_HEADER</span>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 17th June 2020 but was not published 
+    until 30th <a href="../../../../../../../new/20/06.htm">June 2020</a>. It was 
+    last modified on 23rd <a href="../../../../../../../new/22/07.htm">August 2022</a>.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c2022.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4221" -->
+  </div>
+</div>
+
+</body>
+
+</html>

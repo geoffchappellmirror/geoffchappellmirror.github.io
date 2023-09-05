@@ -1,0 +1,198 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>A Shim Database (SDB) De-Compiler</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="63592" -->
+<h1>A Shim Database (SDB) De-Compiler </h1>
+<p>Given that <a href="index.htm">Shim Database (SDB) Files</a> are compiled from 
+XML and that Microsoft’s Shim Database Compiler, ShimDBC.exe, turns out to be readily 
+available, it’s only natural to wonder if SDB files can feasibly be de-compiled 
+to something like the XML they were compiled from. Done properly, a de-compiler 
+would expose SDB files not just to relatively easy inspection but to editing and 
+re-compiling. </p>
+<p>To do it properly, in all its imaginable generality, would be a huge amount of 
+work—far beyond my unpaid resources and a substantial commitment even for a software 
+company with good revenues to subsidise development of tools that might not themselves 
+have direct commercial value. An SDB file can contain something like 260 different 
+tags, some of which change meaning depending on which tags enclose them and on the 
+type of SDB file, e.g., for drivers or applications. The way that any one tag in 
+an SDB file can have originated in XML is sometimes far from direct. There’s even 
+a case where absence of a tag in an SDB file requires particular XML. </p>
+<p>Even with a complete understanding of the XML schema, a de-compiler would be 
+at least as substantial an undertaking as the compiler—which, by the way, is most 
+of the 500KB or so of code and data in the Compatibility Administrator from the 
+freely downloadable Application Compatibility Toolkit. But, of course, nobody outside 
+Microsoft who has ever been known to have looked at SDB files with a view to publishing 
+what they find has anything like that complete understanding. Indeed, the work you 
+read in and around these pages appears to be the first serious attempt by anyone 
+anywhere to deduce what XML Microsoft uses in its preparation of SDB files. The 
+problem of developing a de-compiler is therefore not the exercise in programming, 
+large though it would be relative to one man’s reasonable effort, but the far bigger 
+one in reverse engineering, just to know what XML to de-compile to. </p>
+<p>Tools that have yet been published for representing SDB files as XML—indeed, 
+some are described as converting SDB to XML—have not got anywhere near to the XML 
+that Microsoft evidently uses. That’s not to say their authors are incompetent, 
+just that they didn’t have the evidence to work from. The existing tools were almost 
+certainly developed without reference to Microsoft’s compiler. That we do have Microsoft’s 
+compiler means there is straightforward experimental confirmation of any de-compiler’s 
+output: does it re-compile for an exact match? Yet I doubt very much that a successful 
+de-compiler could be developed just by experimental methods and guesswork, however 
+inspired, about what to de-compile to. I’m biased, with a very strong inclination 
+to theoretical methods—what most call static analysis—with experiments just for 
+confirming positives and negatives deduced through theory, but I can’t see a successful 
+de-compiler getting written except from careful and complete study of the compiler’s 
+(binary) code. Even assuming you could assemble the possibly rare skill for such 
+work, and keep the talent motivated, you’d be naive in the extreme to hope for your 
+fully capable, general-purpose Shim Database De-Compiler in only a few man-months.
+</p>
+<p>I certainly don’t have that capacity, but my recent interest in the implications 
+of <a href="../../../km/ntoskrnl/api/kshim/ksecore/index.htm">driver shims</a> for 
+the integrity of kernel-mode drivers did lead naturally to rendering the
+<a href="../../../km/ntoskrnl/api/kshim/drvmain.htm">DRVMAIN.SDB</a> file into XML. 
+For this file, which is specific to the kernel’s loading of drivers and support 
+of devices, relatively few SDB tags are meaningful and only a manageably small subset 
+of those actually do appear in the file as distributed with Windows 8.1. Having 
+worked out how just these SDB tags that appear in this one SDB file get compiled, 
+I did of course soon have a quick-and-dirty tool to automate what I might otherwise 
+have done by hand. Relax, I’m certainly not about to foist that on you. I don’t 
+regard such things as publishable, which is why there are hardly any file-dumping 
+or investigative tools at this website. But with a bee in my bonnet about the embarrassingly 
+poor state of knowledge of SDB files even after so many years, and even after a 
+few have thought well enough of their work on the topic to present at conferences, 
+I have inevitably felt the need to put some money where my mouth is. And so I re-developed 
+the one-time tool with at least some eye for generalisation. </p>
+<p>The resulting program is still only good for driver databases, notably the DRVMAIN.SDB 
+that ships with Windows, and even then for not many Windows versions (because, for 
+instance, some tags change interpretations in ways that I don’t see how to account 
+for just from the one compiler version that I studied). Still, even with its very 
+limited aim, people have asked to see what tool produced my XML rendering of DRVMAIN.SDB, 
+and though I certainly do not think that presenting source code for a tool, no matter 
+how well annotated or polished, or even useful, is anything like the same as documenting 
+a file format, I have to agree that this tool does at least demonstrate something 
+that seems not to have been imagined as feasible, and might easily never exist in 
+any better form. </p>
+<p>For the particular SDB files it has yet been designed to handle, SHIMDBDC.EXE 
+(named in contrast to Microsoft’s SHIMDBC.EXE) de-compiles to XML that is definitive 
+in the sense that it can then be fed back to Microsoft’s compiler to recreate the 
+SDB files byte for byte excepting only those bytes that tell when the file was compiled. 
+Within limits, the round trip works the other way too: you can edit the XML, compile 
+it to an SDB file and then de-compile it to recover the XML. </p>
+<p>For Microsoft’s Shim Database Compiler (SHIMDBC.EXE), download Microsoft’s Application 
+Compatbility Toolkit (ACT), lately rebadged as the Assessment and Deployment Kit 
+(ADK), and “extract” it from the Compatibility Administrator. For directions, with 
+details for one version, see my article <span class="citation">Where Is ShimDBC.exe?</span> 
+which is published separately as <a href="../../../../../external/pocorgtfo.htm">PoC||GTFO 
+13:9</a>. </p>
+<h2>Download </h2>
+<p>For distribution, the Shim Database De-Compiler is compressed into zip files 
+both with and without source code: </p>
+<ul>
+  <li><a href="_download/shimdbdc_1_0_x86.zip">x86 executable</a> (14KB compressed 
+  from 26KB); </li>
+  <li><a href="_download/shimdbdc_1_0_src.zip">source code</a> (119KB); </li>
+  <li><a href="_download/shimdbdc_1_0.zip">x86 executable with symbol file and 
+  source code</a> (220KB). </li>
+</ul>
+<h3>Source Code </h3>
+<p>Source code is provided in a tree of subdirectories that I have extracted from 
+my larger build tree. Notable subdirectories that contain source code are: </p>
+<ul>
+  <li>tools\sdb\src\shimdbdc which has all the source files that are specific to 
+  the de-compiler; </li>
+  <li>tools\sdb\src\apphelp which has source files for building a “fake” import 
+  library for APPHELP.DLL since Microsoft does not provide a real one. </li>
+</ul>
+<p>The COMMON subdirectory extracts from headers and library code that I have developed 
+over very many years for all my programming. The root directory has a README.TXT 
+file. </p>
+<h4>Building </h4>
+<p>As is natural for a low-level Windows programmer—in my opinion, anyway—all the 
+source code is written to be built with Microsoft’s compiler, linker and related 
+tools, and with the headers and import libraries such as Microsoft supplies in the 
+Software Development Kit (SDK). Try building it with something else if you want, 
+but you’re on your own. </p>
+<p>Perhaps less natural for what is, in operating-system terms, a very ordinary 
+console application, all the makefiles are written to be built with the Windows 
+Driver Kit (WDK) for Windows 7. This is the last that supports Windows XP and the 
+last that is self-standing in the sense of having its own installation of Microsoft’s 
+compiler, etc. It also has the merit of supplying an import library for MSVCRT.DLL 
+that does not tie the built executables to a particular version of Visual Studio.
+</p>
+<p>To build the executables, open one of the WDK’s build environments, change to 
+the root directory of this source tree, and run the WDK’s BUILD utility. Try porting 
+it to an Integrated Development Environment such as Visual Studio if you want. I 
+would even be interested in your experience if what you get for your troubles is 
+in any sense superior. </p>
+<p>To have the SHIMDBDC.EXE binary and symbol files get collected into the tools\sdb\bin 
+subdirectory, undefine the environment variable <span class="env">NO_BINPLACE</span> 
+before running BUILD. For details, refer to the PROJECT.MK file in the root directory 
+of the source tree. </p>
+<h4>Reading </h4>
+<p>An indirect merit of using the WDK comes from human preparation of makefiles. 
+Among the many reasons that I have never seen Visual Studio as being worth my time 
+to grapple with, even now that it explicitly supports driver programming, is that 
+its automated generation of makefiles hides the build details not just to help the 
+programmer but to frustrate the reviewer. Makefiles provide naturally for commenting, 
+i.e., to describing what’s in the various source files and why they are built in 
+any particular way. I strongly recommend that you start your reading with the SOURCES 
+file—essentially a makefile inclusion—in each directory that contains source files.
+</p>
+<p>Please note that tab characters in my source files are intended to expand to 
+multiples of eight. This is the traditional handling and was long the standard until 
+someone at Microsoft decided that Visual Studio’s text editor would better expand 
+tabs to multiples of four by default. Traditional handling means that if you’re 
+short of a text editor you can <span class="command">type</span> these source files 
+at the Command Prompt or just <span class="command">print</span> them and they’ll 
+look “right”. If, however, your preferred text editor defaults to expanding tabs 
+any other way, then please adjust its settings before reading my code—else don’t 
+curse me as having no sense of lining things up. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 21st
+  <a href="../../../../../new/16/10.htm">October 2016</a> and was last modified 
+  on 25th October 2016. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c16.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="47199" -->
+</div>
+
+</body>
+
+</html>

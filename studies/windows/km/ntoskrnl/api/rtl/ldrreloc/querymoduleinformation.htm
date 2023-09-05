@@ -1,0 +1,144 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RtlQueryModuleInformation</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>RtlQueryModuleInformation </h1>
+  <p>The <span class="function">RtlQueryModuleInformation</span> function produces 
+  an array of one or another sort of structure for each of the loaded kernel-mode 
+  modules. </p>
+  <h2>Declaration </h2>
+  <pre class="source">NTSTATUS 
+RtlQueryModuleInformation (
+    ULONG *InformationLength, 
+    ULONG SizePerModule, 
+    PVOID InformationBuffer);</pre>
+  <p>Names and types for the arguments in the preceding declaration are confected 
+  for this article, Microsoft’s being unknown. </p>
+  <h3>Parameters </h3>
+  <p>The <span class="argument">InformationLength</span> argument provides the address 
+  of a variable that may matter for both input and output. On input, the variable 
+  provides the size, in bytes, of the buffer that is to receive the module information. 
+  This size is ignored if no buffer is provided, i.e., if <span class="argument">
+  InformationBuffer</span> is <span class="constant">NULL</span>. On output, the 
+  variable tells how much information, in bytes, the successful function has put 
+  into the buffer or may tell how much the failed function might have put into the 
+  buffer (had the buffer been large enough). </p>
+  <p>The <span class="argument">SizePerModule</span> argument selects the type of 
+  information that is sought. It is specifically the size, in bytes, of the structure 
+  that the function is to produce for each loaded module. The supported structures 
+  are <span class="struct">
+  <a href="../../../inc/api/ntldr/rtl_module_basic_info.htm">RTL_MODULE_BASIC_INFO</a></span> 
+  and <span class="struct">
+  <a href="../../../inc/api/ntldr/rtl_module_extended_info.htm">RTL_MODULE_EXTENDED_INFO</a></span>.
+  </p>
+  <p>The <span class="argument">InformationBuffer</span> argument provides the address 
+  of the buffer that is to receive information about the loaded modules. This argument 
+  can be <span class="constant">NULL</span> to mean that there is no buffer (and 
+  the module information is not wanted but the size is). </p>
+  <h3>Return Value </h3>
+  <p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+  else a negative error code. </p>
+  <p>Of particular importance are the cases in which module information might be 
+  provided but is too large for the given buffer, including because there is no 
+  buffer. If <span class="argument">InformationBuffer</span> is
+  <span class="constant">NULL</span>, then because the caller did not ask for module 
+  information and is not denied anything that was asked for, the function succeeds. 
+  If <span class="argument">InformationBuffer</span> is not
+  <span class="constant">NULL</span>, the caller asked for module information which 
+  the function cannot deliver, and the function therefore fails, returning
+  <span class="constant">STATUS_BUFFER_TOO_SMALL</span>. Either way, a size that 
+  would have sufficed will have been set into the variable at the address given 
+  by <span class="argument">InformationLength</span>. </p>
+  <p>Be aware that a size that would have sufficed on one call to the function need 
+  not still suffice on another, no matter how soon. This is not just the usual theoretical 
+  point, but a practical one: kernel-mode modules get loaded and unloaded, such 
+  that a change in their number between calls is, if not actually likely, then at 
+  least unsurprising. </p>
+  <h2>Availability </h2>
+  <p>The <span class="function">RtlQueryModuleInformation</span> is exported by 
+  name from both the kernel and NTDLL in version 6.0 and higher. A function with 
+  the same name is exported by name from NTDLL in version 3.10 only, but it is very 
+  different and is left for another time. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="function">RtlQueryModuleInformation</span> is not documented.
+  </p>
+  <h2>Behaviour </h2>
+  <p>If <span class="argument">SizePerModule</span> is not the size of either supported 
+  structure, the function fails, returning <span class="constant">STATUS_INVALID_PARAMETER_2</span>. 
+  If the <span class="argument">InformationBuffer</span> is not suitably aligned 
+  for the supported structures, the function fails, returning
+  <span class="constant">STATUS_INVALID_PARAMETER_3</span>. </p>
+  <p>The function extracts the desired module information from more detailed data 
+  that it obtains through the <span class="constant">SystemModuleInformation</span> 
+  case of <span class="function"><a href="../../ex/sysinfo/query.htm">ZwQuerySystemInformation</a></span>, 
+  first with a minimal buffer on the stack. If no information buffer is provided, 
+  the function calls <span class="function">ZwQuerySystemInformation</span> just 
+  the once, to learn how many modules are loaded and to calculate how large an information 
+  buffer the caller would have sufficed for successful extraction. More typically, 
+  the function calls <span class="function">ZwQuerySystemInformation</span> again 
+  but with a dynamically allocated buffer, repeating with larger buffers until the 
+  called function succeeds. Failure of the called function for any reason other 
+  than needing a larger buffer is failure for <span class="function">RtlQueryModuleInformation</span>. 
+  If the function fails to get an indicated amount of memory for this buffer, it 
+  fails, returning <span class="constant">STATUS_INSUFFICIENT_RESOURCES</span>.
+  </p>
+  <p>When <span class="function">ZwQuerySystemInformation</span> succeeds, the function 
+  learns how many modules are loaded and how much module information it might put 
+  in the given buffer. If the given buffer is large enough, the function extracts 
+  the wanted information. Otherwise it fails, returning <span class="constant">STATUS_BUFFER_TOO_SMALL</span>. 
+  Either way, the variable at <span class="argument">InformationLength</span> receives 
+  the size. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 9th
+    <a href="../../../../../../../new/16/11.htm">November 2016</a> and was last 
+    modified on 29th January 2023. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1623.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4941" -->
+  </div>
+</div>
+
+</body>
+
+</html>

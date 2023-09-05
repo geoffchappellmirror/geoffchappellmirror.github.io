@@ -1,0 +1,2560 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Internet Explorer Registry API</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>Internet Explorer Registry API </h1>
+<p>As with any large program, Internet Explorer has many registry settings. Some 
+are used so widely within Internet Explorer that Microsoft has developed library 
+code to standardise their handling. In Windows Vista, this library code is statically 
+linked into approximately a dozen executables. Version 8.0 has dynamic linking to 
+functions that are exported from IERTUTIL: </p>
+<ul>
+  <li><span class="function"><a href="deletevalue.htm">IERegDeleteValue</a></span>
+  </li>
+  <li><span class="function">IERegEnumKeys</span> </li>
+  <li><span class="function">IERegEnumValues</span> </li>
+  <li><span class="function"><a href="getbool.htm">IERegGetBool</a></span> </li>
+  <li><span class="function">IERegGetBoolEx</span> </li>
+  <li><span class="function">IERegGetBufferSizeSz</span> </li>
+  <li><span class="function">IERegGetBufferSizeTz</span> </li>
+  <li><span class="function">IERegGetBufferSizeWz</span> </li>
+  <li><span class="function"><a href="getdw.htm">IERegGetDw</a></span> </li>
+  <li><span class="function"><a href="getdwex.htm">IERegGetDwEx</a></span> </li>
+  <li><span class="function">IERegGetSz</span> </li>
+  <li><span class="function">IERegGetSzEx</span> </li>
+  <li><span class="function">IERegGetTz</span> </li>
+  <li><span class="function">IERegGetTzEx</span> </li>
+  <li><span class="function"><a href="getwz.htm">IERegGetWz</a></span> </li>
+  <li><span class="function">IERegGetWzEx</span> </li>
+  <li><span class="function">IERegResolve</span> </li>
+  <li><span class="function">IERegSetDw</span> </li>
+  <li><span class="function">IERegSetSz</span> </li>
+  <li><span class="function">IERegSetTz</span> </li>
+  <li><span class="function">IERegSetWz</span> </li>
+</ul>
+<p>Each function takes as its first argument an index that represents an Internet 
+Explorer registry setting. There is also a common set of possible error codes:
+</p>
+<table>
+  <tr>
+    <th>Error Code </th>
+    <th>Interpretation </th>
+  </tr>
+  <tr>
+    <td>0x80040700 </td>
+    <td>value neither found nor defaulted </td>
+  </tr>
+  <tr>
+    <td>0x80040701 </td>
+    <td>wrong data type </td>
+  </tr>
+  <tr>
+    <td>0x80040702 </td>
+    <td>value has too much data for buffer </td>
+  </tr>
+  <tr>
+    <td>0x80040703 </td>
+    <td>error in registry operation </td>
+  </tr>
+  <tr>
+    <td>0x80040704 </td>
+    <td>index out of range </td>
+  </tr>
+  <tr>
+    <td>0x80040705 </td>
+    <td>placeholder required for index, but not supplied or not usable </td>
+  </tr>
+</table>
+<h2>Preference and Policy Branches </h2>
+<p>Each setting may be stored at the same position relative to as many as four keys 
+depending on whether it is to represent a user’s preference or be imposed by administrative 
+policy. The following table lists these keys in order of decreasing precedence.
+</p>
+<table>
+  <tr>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies</span> </td>
+    <td>administrative policy for all users </td>
+  </tr>
+  <tr>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Policies</span> </td>
+    <td>administrative policy for current user </td>
+  </tr>
+  <tr>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software</span> </td>
+    <td>preference for current user, can be configured by current user </td>
+  </tr>
+  <tr>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software</span> </td>
+    <td>administrative preference for all users, can be overridden by current user
+    </td>
+  </tr>
+</table>
+<p>The merit in reproducing a value in multiple locations lies in the combination 
+of applicability and access. A setting in either of the <span class="regkey">HKEY_LOCAL_MACHINE</span> 
+branches is intended for all users, but the same setting in either of the
+<span class="keyword">HKEY_CURRENT_USER</span> branches is meant just for the current 
+user. Indeed, what the system presents as <span class="regkey">HKEY_CURRENT_USER</span> 
+is different for different users. A setting that is stored beneath either of the
+<span class="regkey">Software\Policies</span> keys or in either of the
+<span class="regkey">HKEY_LOCAL_MACHINE</span> branches typically cannot be modified 
+except with administrative privilege. </p>
+<p>The first branch therefore sets a machine-wide policy, with no exception. The 
+second branch allows an administrator to write different policies for particular 
+users, but the machine-wide policy has precedence. Though a user can typically write 
+the setting in the <span class="regkey">HKEY_CURRENT_USER\Software</span> key, there 
+may be no effect since all policies apply before all preferences. Note the reversal 
+of machine and user branches in moving from policies to preferences. The last branch 
+also applies machine-wide, like the first, but it has little force: users are free 
+to override it in their <span class="regkey">HKEY_CURRENT_USER\Software</span> branch.
+</p>
+<p>Not all settings are recognised in all locations. The functions read a setting 
+by iterating through the setting’s allowed locations in order of decreasing precedence 
+and accepting whatever is found first. Each setting has an expected type. If a registry 
+value is found for a setting but does not have the expected type, it is ignored. 
+Some settings are defined with a default, some not. The functions for reading a 
+setting generally do not care which of the allowed locations a setting is found 
+from or whether the setting is defaulted. The functions that write or delete a setting 
+operate only in the preference branches. </p>
+<h2>The Supported Settings </h2>
+<p>In the IERTUTIL from Windows 7, there are 83 of these common registry settings. 
+All are recognised in at least one of the <span class="regkey">Policies</span> branches, 
+so that they are all settable as policies. Most are recognised in all four branches, 
+so that they can also be set as preferences. </p>
+<p>As policies, most have user-interface support through the INETRES.ADMX administrative 
+template loaded by the Group Policy Object Editor. Bear in mind that for the Group 
+Policy Object Editor, settings are always policies. They are described from the perspective 
+of an administrator forcing some behaviour, not of a user exercising a preference. 
+For rather many, the text in the administrative template seems to be the whole of 
+Microsoft’s documentation, not just of the registry implementation but even of the 
+corresponding feature. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x01 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\Url History</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\Url History</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\Url History</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\Url History</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DaysToKeep</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>20 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DaysToKeep</span> setting has user-interface support 
+through Internet Properties in the Control Panel, as “Days to keep pages in history” 
+in the “Temporary Internet Files and History Settings” dialog (reached from the 
+General tab). It has user-interface support as a policy, too, through the Group 
+Policy Object Editor, as “Days to keep pages in History” in the Properties for
+</p>
+<blockquote>
+  Disable “Configuring History”
+</blockquote>
+<p>in the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x02 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ProxyServer</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td><span class="regsz">proxy.acme.com</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ProxyServer</span> setting has no known user-interface 
+support. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x03 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Explorer\AutoComplete</span>
+    <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Explorer\AutoComplete</span>
+    <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoComplete</span>
+    <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoComplete</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">AutoSuggest</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td><span class="regsz">yes</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">AutoSuggest</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Turn off the auto-complete feature for 
+web addresses” in the Internet Explorer administrative template. It is there said 
+to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x04 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Use FormSuggest</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td><span class="regsz">no</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Use FormSuggest</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Disable AutoComplete for forms” 
+in the Internet Expolorer administrative template. It is there said to require “at 
+least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x05 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">FormSuggest Passwords</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td><span class="regsz">yes</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">FormSuggest Passwords</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn on the auto-complete feature 
+for user names and passwords on forms” in the Internet Explorer administrative template. 
+It is there said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x06 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">FormSuggest Pw Ask</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td><span class="regsz">yes</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">FormSuggest Pw Ask</span> setting has user-interface 
+support through the Group Policy Object Editor, as the “Prompt me to save passwords” 
+checkbox in the Properties for “Turn on the auto-complete feature for user names 
+and passwords on forms” in the Internet Explorer administrative template. It is 
+there said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x07 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Start Page</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td><span class="regsz">about:blank</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Start Page</span> value has user-interface support 
+through Internet Properties in the Home Page edit box on the General tab. It has 
+user-interface support as a policy, too, through the Group Policy Object Editor, 
+as the Home Page textbox in the Properties for “Disable changing home page settings” 
+in the Internet Explorer administrative template. It is there said to require “at 
+least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x08 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\SQM</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\SQM</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\SQM</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\SQM</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableCustomerImprovementProgram</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableCustomerImprovementProgram</span> setting has 
+user-interface support through the Group Policy Object Editor, as “Prevent participation 
+in the Customer Experience Improvement Program” in the Internet Explorer administrative 
+template. It is there said to require “at least Internet Explorer 7.0” and be “not 
+supported on Windows Vista”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x09 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableDeleteBrowsingHistory</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableDeleteBrowsingHistory</span> setting has user-interface 
+support through the Group Policy Object Editor, as </p>
+<blockquote>
+  Turn off “Delete Browsing History” functionality
+</blockquote>
+<p>in the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x0A </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Feeds</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">BackgroundSyncStatus</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">BackgroundSyncStatus</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off background sync for 
+feeds” in the RSS Feeds administrative template (shown under Windows Components). 
+It is there said to require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x0B </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Feed Discovery</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Feed Discovery</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Feed Discovery</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Feed Discovery</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Enabled</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>1 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Enabled</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Turn off feed discovery” in the RSS 
+Feeds administrative template (shown under Windows Components). It is there said 
+to require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x0C </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Feeds</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableFeedPane</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableFeedPane</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off the feed list” in the 
+RSS Feeds administrative template (shown under Windows Components). It is there 
+said to require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x0D </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Feeds</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableAddRemove</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableAddRemove</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off addition and removal 
+of feeds” in the RSS Feeds administrative template (shown under Windows Components). 
+It is there said to require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x0E </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Feeds</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Feeds</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableEnclosureDownload</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableEnclosureDownload</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off downloading of enclosures” 
+in the RSS Feeds administrative template (shown under Windows Components). It is 
+there said to require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x0F </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">PreventIgnoreCertErrors</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">PreventIgnoreCertErrors</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Prevent ignoring certificate 
+errors” in the Internet Control Panel category of the Internet Explorer administrative 
+template. It is there said to require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x10 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Security\P3Global</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Security\P3Global</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\Internet 
+    Explorer\Security\P3Global</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\Internet 
+    Explorer\Security\P3Global</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Enabled</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Enabled</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Turn off Profile Assistant” in the Advanced 
+Page category (shown under Internet Control Panel) of the Internet Explorer administrative 
+template. It is there said to require “only Internet Explorer 6.0 in Windows 2003 
+Service Pack 1”. Note that the user interface inverts the setting: enabling the 
+setting, i.e., to turn off the Profile Assistant, sets 0 as the data for the registry 
+value. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x11 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Update_Check_Interval</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>30 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Update_Check_Interval</span> setting has user-interface 
+support through the Group Policy Object Editor, as the “Update check interval (in 
+days)” textbox in the Properties for “Turn off configuring the update check interval 
+(in days)” in the “Periodic check for updates to Internet Explorer and Internet 
+Tools” category (shown under Component Updates, in turn under Internet Settings) 
+of the Internet Explorer administrative template. It is there said to require “at 
+least Internet Explorer 7.0”. The administrative template enforces the range 1 to 
+365 inclusive. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x12 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Update_Check_Page</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Update_Check_Page</span> setting has user-interface 
+support through the Group Policy Object Editor, as the “URL to be displayed for 
+updates” textbox in the Properties for “Turn off changing the URL to be displayed 
+for checking updates to Internet Explorer and Internet Tools” in the “Periodic check 
+for updates to Internet Explorer and Internet Tools” category (shown under Component 
+Updates, in turn under Internet Settings) of the Internet Explorer administrative 
+template. It is there said to require “at least Internet Explorer 7.0”. The administrative 
+template’s suggestion for the value is “http://www.microsoft.com/isapi/redir.dll?Prd=ie&amp;Pver=5.0&amp;Ar=ie5update”.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x13 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion</span>
+    <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">IEAKUpdateUrl</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">IEAKUpdateUrl</span> setting has user-interface support 
+through the Group Policy Object Editor, as the Cipher Strength Update Information 
+URL textbox in the Properties for “Prevent the configuration of cipher strength 
+update information URLs” in the “Help Menu &gt; About Internet Explorer” category (shown 
+under Component Updates, in turn under Internet Settings) of the Internet Explorer 
+administrative template. It is there said to require “at least Internet Explorer 
+7.0”. The administrative template’s suggestion for the value is “http://www.microsoft.com/isapi/redir.dll?prd=ie&amp;ar=128bit”.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x14 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">UrlEncoding</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">UrlEncoding</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Turn off sending URLs as UTF-8 (requires 
+restart)” in the URL Encoding category (shown under Internet Settings) of the Internet 
+Explorer administrative template. It is there said to require “at least Internet 
+Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x15 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Connection Wizard</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Connection Wizard</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableICW</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableICW</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Turn on the Internet Connection Wizard 
+Auto Detect” in the Internet Connection Wizard Settings category (shown under “Advanced 
+settings”, in turn under Internet Settings) of the Internet Explorer administrative 
+template. It is there said to require “at least Internet Explorer 7.0” but be “not 
+supported on Windows Vista”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x16 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Friendly http errors</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Friendly http errors</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off friendly http error 
+messages” in the Browsing category (shown under “Advanced settings”, in turn under 
+Internet Settings) of the Internet Explorer administrative template. It is there 
+said to require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x17 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Error Dlg Displayed On Every Error</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td><span class="regsz">no</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Error Dlg Displayed On Every Error</span> setting 
+has user-interface support through the Group Policy Object Editor, as “Turn on the 
+display of a notification about every script error” in the Browsing category (shown 
+under “Advanced settings”, in turn under Internet Settings) of the Internet Explorer 
+administrative template. It is there said to require “at least Internet Explorer 
+7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x18 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Use_DlgBox_Colors</span>&nbsp; </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Use_DlgBox_Colors</span> setting has user-interface 
+support through Internet Properties, as “Use Windows colors” in the Colors dialog 
+(reached from the General tab). It has user-interface support as a policy, too, 
+through the Group Policy Object Editor, as “Prevent the use of Windows colors” in 
+the General Colors category (shown under “Display settings”, in turn under Internet 
+Settings) of the Internet Explorer administrative template. It is there said to 
+require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x19 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Text Color</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Text Color</span> setting has user-interface support 
+through Internet Properties, as “Text” in the Colors dialog (reached from the General 
+tab). It has user-interface support as a policy, too, through the Group Policy Object 
+Editor, as the “Text color” textbox in the Properties for “Prevent users from configuring 
+text color” in the General Colors category (shown under “Display settings”, in turn 
+under Internet Settings) of the Internet Explorer administrative template. It is 
+there said to require “at least Internet Explorer 7.0”. The administrative template 
+describes the string data as comma-separated decimals making an RGB value, and suggests 
+“0,0,0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x1A </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Background Color</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Background Color</span> setting has user-interface 
+support through Internet Properties, as “Background” in the Colors dialog (reached 
+from the General tab). It has user-interface support as a policy, too, through the 
+Group Policy Object Editor, as the “Background color” textbox in the Properties 
+for “Prevent users from configuring background color” in the General Colors category 
+(shown under “Display settings”, in turn under Internet Settings) of the Internet 
+Explorer administrative template. It is there said to require “at least Internet 
+Explorer 7.0”. The administrative template describes the string data as comma-separated 
+decimals making an RGB value, and suggests “192,192,192”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x1B </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Anchor Color Visited</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Anchor Color Visited</span> setting has user-interface 
+support through Internet Properties, as “Visited” in the Colors dialog (reached 
+from the General tab). It has user-interface support as a policy, too, through the 
+Group Policy Object Editor, as the “Visited link color” textbox in the Properties 
+for “Prevent users from configuring the color of links that have already been clicked” 
+in the Link Colors category (shown under “Display settings”, in turn under Internet 
+Settings) of the Internet Explorer administrative template. It is there said to 
+require “at least Internet Explorer 7.0”. The administrative template describes 
+the string data as comma-separated decimals making an RGB value, and suggests “96,100,32”.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x1C </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Anchor Color</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Anchor Color</span> setting has user-interface support 
+through Internet Properties, as “Unvisited” in the Colors dialog (reached from the 
+General tab). It has user-interface support as a policy, too, through the Group 
+Policy Object Editor, as the “Link color” textbox in the Properties for “Prevent 
+users from configuring the color of links that have not yet been clicked” in the 
+Link Colors category (shown under “Display settings”, in turn under Internet Settings) 
+of the Internet Explorer administrative template. It is there said to require “at 
+least Internet Explorer 7.0”. The administrative template describes the string data 
+as comma-separated decimals making an RGB value, and suggests “0,0,255”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x1D </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Anchor Color Hover</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Anchor Color Hover</span> setting has user-interface 
+support through Internet Properties, as “Hover” in the Colors dialog (reached from 
+the General tab). It has user-interface support as a policy, too, through the Group 
+Policy Object Editor, as the “Hover color” textbox in the Properties for “Prevent 
+users from configuring the hover color” in the Link Colors category (shown under 
+“Display settings”, in turn under Internet Settings) of the Internet Explorer administrative 
+template. It is there said to require “at least Internet Explorer 7.0”. The administrative 
+template describes the string data as comma-separated decimals making an RGB value, 
+and suggests “255,0,0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x1E </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Settings</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Use Anchor Hover Color</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Use Anchor Hover Color</span> setting has user-interface 
+support through Internet Properties, as “Use hover color” in the Colors dialog (reached 
+from the General tab). It has user-interface support as a policy, too, through through 
+the Group Policy Object Editor, as “Turn on the hover color option” in the Link 
+Colors category (shown under “Display settings”, in turn under Internet Settings) 
+of the Internet Explorer administrative template. It is there said to require “at 
+least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x1F </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Explorer\AutoComplete</span>
+    <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoComplete</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Use AutoComplete</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Use AutoComplete</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off inline AutoComplete 
+in Windows Explorer” in the AutoComplete category (shown under Internet Settings) 
+of the Internet Explorer administrative template. It is there said to require “only 
+Internet Explorer 4.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x20 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Explorer\AutoComplete</span>
+    <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\AutoComplete</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Append Completion</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Append Completion</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn on inline AutoComplete 
+for Web addresses” in the AutoComplete category (shown under Internet Settings) 
+of the Internet Explorer administrative template. It is there said to require “only 
+Internet Explorer 4.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x21 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">AutoSearch</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>6 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">AutoSearch</span> setting has user-interface support 
+through the Group Policy Object Editor, as the “When searching from the address 
+bar” dropbox in the Properties for “Prevent configuration of search from the Address 
+bar” in the Searching category (shown under “Advanced settings”, in turn under Internet 
+Settings) of the Internet Explorer administrative template. It is there said to 
+require “at least Internet Explorer 7.0”. The administrative template offers two 
+interpretations: </p>
+<ul>
+  <li>0, meaning “Do not search from the address bar” </li>
+  <li>4, meaning “Just display the results in the main window” </li>
+</ul>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x22 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ForceCodeDownloadLog</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ForceCodeDownloadLog</span> setting has no known user-interface 
+support. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x23 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">CodeBaseSearchPath</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">CodeBaseSearchPath</span> setting has user-interface 
+support through the Group Policy Object Editor, as the Path textbox in the Properties 
+for “Prevent setting of the code download path for each machine” in the Code Download 
+category (shown under Corporate Settings) of the Internet Explorer administrative 
+template. It is there said to require “at least Internet Explorer 7.0”. The administrative 
+template’s suggestion for the value is “CODEBASE;&lt;http://activex.microsoft.com/objects/ocget.dll&gt;” 
+as the string data. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x24 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Display Inline Images</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Display Inline Images</span> setting has user-interface 
+support through Internet Properties, as “Show pictures” in the Multimedia gropu 
+on the Advanced tab. It has user-interface support as a policy, too, through the 
+Group Policy Object Editor, as “Turn off picture display” in the Multimedia category 
+(shown under “Advanced settings”, in turn under Internet Settings) of the Internet 
+Explorer administrative template. It is there said to require “at least Internet 
+Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x25 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Connection Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Connection Settings</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Disable changing connection 
+settings” in the Internet Explorer administrative template. It is there said to 
+require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x26 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Connwiz Admin Lock</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Connwiz Admin Lock</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Disable Internet Connection 
+Wizard” in the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 5.0”. The administrative template offers only the per-user 
+policy. The machine-wide policy is instead absorbed into “Disable changing connection 
+settings”, such that enabling the policy, i.e., disabling users from changing connection 
+settings, sets both <span class="regvalue">Connection Settings</span> and
+<span class="regvalue">Connwiz Admin Lock</span> to 1. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x27 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">AutoConfig</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">AutoConfig</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Disable changing Automatic Configuration 
+settings” in the Internet Explorer administrative template. It is there said to 
+require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x28 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Proxy</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Proxy</span> setting has user-interface support through 
+the Group Policy Object Editor, as “Disable changing proxy settings” in the Internet 
+Explorer administrative template. It is there said to require “at least Internet 
+Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x29 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Security</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Security</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Security</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Security</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableSecuritySettingsCheck</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableSecuritySettingsCheck</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off the Security Settings 
+Check feature” in the Internet Explorer administrative template. It is there said 
+to require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x2A </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Security</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Security</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Security</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Security</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableFixSecuritySettings</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableFixSecuritySettings</span> setting has user-interface 
+support through the Group Policy Object Editor, as </p>
+<blockquote>
+  Prevent “Fix Settings” functionality
+</blockquote>
+<p>in the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x2B </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\User Agent</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\User Agent</span> <br></td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Version</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Version</span> setting has user-interface support 
+through the Group Policy Object Editor, as the “Enter IE Version String” textbox 
+in the Properties for Customize User Agent String in the Internet Explorer administrative 
+template. It is there said to require “at least Internet Explorer 7.0”. The administrative 
+template requires a non-empty string, without offering a suggestion. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x2C </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableRIED</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableRIED</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Do not allow resetting Internet Explorer 
+settings” in the Advanced Page category (shown under Internet Control Panel) of 
+the Internet Explorer administrative template. It is there said to require “at least 
+Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x2D </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">History</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">History</span> setting has user-interface support 
+through the Group Policy Object Editor, as </p>
+<blockquote>
+  Disable “Configuring History”
+</blockquote>
+<p>in the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x2E </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Settings</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Prevent the deletion of temporary Internet 
+files and cookies” in the Internet Explorer administrative template. It is there 
+said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x2F </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableDeleteForms</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableDeleteForms</span> setting has user-interface 
+support through the Group Policy Object Editor, as </p>
+<blockquote>
+  Turn off “Delete Forms” functionality
+</blockquote>
+<p>in the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x30 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableDeletePasswords</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableDeletePasswords</span> setting has user-interface 
+support through the Group Policy Object Editor, as </p>
+<blockquote>
+  Turn off “Delete Passwords” functionality
+</blockquote>
+<p>in the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x31 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">EnableSearchPane</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">EnableSearchPane</span> setting has no known user-interface 
+support. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x32 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">AutoDetect</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>1 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">AutoDetect</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Turn on automatic detection of the intranet” 
+in the Security Page category (shown under Internet Control Panel) of the Internet 
+Explorer administrative template. It is there said to require “at least Internet 
+Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x33 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">IntranetName</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">IntranetName</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Intranet Sites: Include all local (intranet) 
+sites not listed in other zones” in the Security Page category (shown under Internet 
+Control Panel) of the Internet Explorer administrative template. It is there said 
+to require “at least Internet Explorer 6.0 in Windows XP Service Pack 2 or Windows 
+Server 2003 Service Pack 1”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x34 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ProxyByPass</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ProxyByPass</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Intranet Sites: Include all sites that 
+bypass the proxy server” in the Security Page category (shown under Internet Control 
+Panel) of the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 6.0 in Windows XP Service Pack 2 or Windows Server 2003 
+Service Pack 1”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x35 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\ZoneMap</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">UNCAsIntranet</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">UNCAsIntranet</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Intranet Sites: Include all network 
+paths (UNCs)” in the Security Page category (shown under Internet Control Panel) 
+of the Internet Explorer administrative template. It is there said to require “at 
+least Internet Explorer 6.0 in Windows XP Service Pack 2 or Windows Server 2003 
+Service Pack 1”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x36 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">GeneralTab</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">GeneralTab</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Disable the General page” in the Internet 
+Control Panel category of the Internet Explorer administrative template. It is there 
+said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x37 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">SecurityTab</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">SecurityTab</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Disable the Security page” in the Internet 
+Control Panel category of the Internet Explorer administrative template. It is there 
+said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x38 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">PrivacyTab</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">PrivacyTab</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Disable the Privacy page” in the Internet 
+Control Panel category of the Internet Explorer administrative template. It is there 
+said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x39 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ContentTab</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ContentTab</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Disable the Content page” in the Internet 
+Control Panel category of the Internet Explorer administrative template. It is there 
+said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x3A </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ConnectionsTab</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ConnectionsTab</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Disable the Connections page” in the 
+Internet Control Panel category of the Internet Explorer administrative template. 
+It is there said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x3B </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ProgramsTab</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ProgramsTab</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Disable the Programs page” in the Internet 
+Control Panel category of the Internet Explorer administrative template. It is there 
+said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x3C </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">AdvancedTab</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">AdvancedTab</span> setting has user-interface support 
+through the Group Policy Object Editor, as “Disable the Advanced page” in the Internet 
+Control Panel category of the Internet Explorer administrative template. It is there 
+said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x3D </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Restrictions</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Restrictions</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">RestrictPopupExceptionList</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">RestrictPopupExceptionList</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off Managing Pop-up Allow 
+list” in the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x3E </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Restrictions</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Restrictions</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisablePopupFilterLevel</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisablePopupFilterLevel</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off managing Pop-up filter 
+level” in the Internet Explorer administrative template. It is there said to require 
+“at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x3F </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\ExtensionPolicy\<span class="placeholder">policy</span></span>
+    <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\ExtensionPolicy\<span class="placeholder">policy</span></span>
+    <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Low 
+    Rights\ExtensionPolicy\<span class="placeholder">policy</span></span> <br>
+    <span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet Explorer\Low 
+    Rights\ExtensionPolicy\<span class="placeholder">policy</span></span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Flags</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p class="alert">RESOLUTION OF PLACEHOLDER YET TO BE DESCRIBED </p>
+<p>The <span class="regvalue">Flags</span> setting has no known user-interface support.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x40 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\ExtensionPolicy\<span class="placeholder">policy</span></span>
+    <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\ExtensionPolicy\<span class="placeholder">policy</span></span>
+    <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Low 
+    Rights\ExtensionPolicy\<span class="placeholder">policy</span></span> <br>
+    <span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet Explorer\Low 
+    Rights\ExtensionPolicy\<span class="placeholder">policy</span></span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Info</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p class="alert">RESOLUTION OF PLACEHOLDER YET TO BE DESCRIBED </p>
+<p>The <span class="regvalue">Info</span> setting has no known user-interface support.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x41 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Toolbars\Restrictions</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Toolbars\Restrictions</span> <br></td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">NoNavBar</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">NoNavBar</span> setting has user-interface support 
+through the Group Policy Object Editor, as Enforce Full Screen Mode in the Internet 
+Explorer administrative template. It is there said to require “at least Internet 
+Explorer 7.0”. </p>
+<p>This setting is just one of several involved in what the administrative template 
+describes as enforcing full-screen mode: both <span class="regvalue">NoNavBar</span> 
+and <span class="regvalue">NoCommandBar</span> are set to 1, and
+<span class="regvalue">AlwaysShowMenus</span> to 0. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x42 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Toolbars\Restrictions</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Toolbars\Restrictions</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">NoCommandBar</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">NoCommandBar</span> setting has user-interface support 
+through the Group Policy Object Editor, as Enforce Full Screen Mode in the Internet 
+Explorer administrative template. It is there said to require “at least Internet 
+Explorer 7.0”. </p>
+<p>This setting is just one of several involved in what the administrative template 
+describes as enforcing full-screen mode: both <span class="regvalue">NoNavBar</span> 
+and <span class="regvalue">NoCommandBar</span> are set to 1, and
+<span class="regvalue">AlwaysShowMenus</span> to 0. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x43 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\ExtensionPolicy</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\ExtensionPolicy</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Low Rights\ExtensionPolicy</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Low Rights\ExtensionPolicy</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Flags</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">Flags</span> setting has no known user-interface support.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x44 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\ElevationPolicy</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\ElevationPolicy</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Low Rights\ElevationPolicy</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Low Rights\ElevationPolicy</span> </td>
+  </tr>
+</table>
+<p class="alert">SUBKEY ENUMERATION YET TO BE DESCRIBED </p>
+<p>This setting has no known user-interface support. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x45 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\DragDrop</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\DragDrop</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Low Rights\DragDrop</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Low Rights\DragDrop</span> </td>
+  </tr>
+</table>
+<p class="alert">SUBKEY ENUMERATION YET TO BE DESCRIBED </p>
+<p>This setting has no known user-interface support. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x46 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\RunDll32Policy</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\RunDll32Policy</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Low Rights\RunDll32Policy</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Low Rights\RunDll32Policy</span> </td>
+  </tr>
+</table>
+<p class="alert">SUBKEY ENUMERATION YET TO BE DESCRIBED </p>
+<p>&nbsp;This setting has no known user-interface support. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x47 </td>
+  </tr>
+  <tr>
+    <td>Keys </td>
+    <td><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\International\Scripts</span> </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">IEFontSize</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>2 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">IEFontSize</span> setting has user-interface support 
+through the Group Policy Object Editor, as the Default Size dropbox in the Properties 
+for “Prevent users from choosing default text size” in the “Display settings” category 
+(shown under “Internet settings”) of the Internet Explorer administrative template. 
+It is there said to require “at least Internet Explorer 7.0”. The administrative 
+template sets the data according to the following scheme: </p>
+<ul>
+  <li>0 for Smallest; </li>
+  <li>1 for Smaller; </li>
+  <li>2 for Medium; </li>
+  <li>3 for Larger; </li>
+  <li>4 for Largest. </li>
+</ul>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x48 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ProxySettingsPerUser</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>1 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ProxySettingsPerUser</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Make proxy settings per-machine 
+(rather than per-user)” in the Internet Explorer administrative template. It is 
+there said to require “at least Internet Explorer 5.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x49 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\New Windows\Allow</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\New Windows\Allow</span> <br></td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue"><span class="placeholder">site</span></span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+</table>
+<p class="alert">VALUE ENUMERATION YET TO BE DESCRIBED </p>
+<p>This setting has user-interface support through the Group Policy Object Editor, 
+as “Enter the list of sites here” in the Properties for “Pop-up allow list” in the 
+Internet Explorer administrative template. It is there said to require “at least 
+Internet Explorer 6.0 in Windows XP Service Pack 2 or Windows Server 2003 Service 
+Pack 1”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x4A </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableFirstRunCustomize</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableFirstRunCustomize</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Prevent performance of First 
+Run Customize settings” in the Internet Explorer administrative template. It is 
+there said to require “at least Internet Explorer 7.0”. The administrative template 
+sets the data according to the following scheme: </p>
+<ul>
+  <li>1, to go directly to the home page, </li>
+  <li>2, to go directly to the “Welcome To IE” page. </li>
+</ul>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x4B </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Toolbars\Restrictions</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Toolbars\Restrictions</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Toolbars\Restrictions</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Toolbars\Restrictions</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DisableToolbarUpgrader</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DisableToolbarUpgrader</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Turn off toolbar upgrade tool” 
+in the Toolbars category of the Internet Explorer administrative template. It is 
+there said to require “at least Internet Explorer 7.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x4C </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Low Rights</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Low Rights</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ProtectedModeOffForAllZones</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ProtectedModeOffForAllZones</span> setting has no 
+known user-interface support. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x4D </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\LowWritableRegKeys</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Low Rights\LowWritableRegKeys</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Low Rights\LowWritableRegKeys</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Low Rights\LowWritableRegKeys</span> </td>
+  </tr>
+</table>
+<p class="alert">SUBKEY ENUMERATION YET TO BE DESCRIBED </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x4E </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\XMLNamespace</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\XMLNamespace</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\XMLNamespace</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\XMLNamespace</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+</table>
+<p class="alert">VALUE ENUMERATION YET TO BE DESCRIBED </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x4F </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\DOMStorage</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\DOMStorage</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">TotalLimit</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>100,000,000 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">TotalLimit</span> setting has no known user-interface 
+support. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x50 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\DOMStorage</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\DOMStorage</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">DomainLimit</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>10,000,000 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DomainLimit</span> setting has no known user-interface 
+support. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x51 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Windows\AxInstaller</span>
+    <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet Explorer\Windows\AxInstaller</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">OnlyUseAXISforActiveXInstall</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">OnlyUseAXISforActiveXInstall</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Only use the ActiveX Installer 
+Service for installation of ActiveX Controls” in the Internet Explorer administrative 
+template. It is there said to require “at least Internet Explorer 8.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x52 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Security\ActiveX</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Security\ActiveX</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">BlockNonAdminActiveXInstall</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">BlockNonAdminActiveXInstall</span> setting has user-interface 
+support through the Group Policy Object Editor, as “Disable Per-User Installation 
+of ActiveX Controls” in the Internet Explorer administrative template. It is there 
+said to require “at least Internet Explorer 8.0”. </p>
+<table class="Registry">
+  <tr>
+    <td>Index: </td>
+    <td>0x53 </td>
+  </tr>
+  <tr>
+    <td>Keys: </td>
+    <td><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel <br>HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> <br><span class="regvalue">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Control Panel</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">AllowList</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">AllowList</span> setting has no known user-interface 
+support. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 7th April 2010 and was last modified 
+  on 14th April 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c10.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="61781" endspan -->
+</div>
+
+</body>
+
+</html>

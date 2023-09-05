@@ -1,0 +1,163 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>PrcbPad12a in the KPRCB (amd64)</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<h1>PrcbPad12a in the KPRCB (amd64) </h1>
+<p>The 1703 release of Windows 10 rearranged the x64 <span class="struct">
+<a href="index.htm">KPRCB</a></span> structure’s architecturally defined section. 
+Moving the cache-aligned <span class="member">ProcessorState</span> member from 
+near to the start of this section to what was then its end created a gap of 0x30 
+bytes immediately after this member’s new position to meet the peculiar alignment 
+requirement of the <span class="member">LockQueue</span> that starts the non-architectural 
+section. This space was at first defined as <span class="member">PrcbPad12</span> 
+at offset 0x06C0. It started getting used in the 1803 release, at which time some 
+odd things happen—odd enough to make a separate page about it. </p>
+<p>Ordinarily, when padding gets brought into actual use, it shifts and shrinks 
+until it’s all used. For this padding, however, the different
+<span class="struct">KPRCB</span> definitions show different use. The necessary 
+background is that the kernel and some few other modules have the full definition 
+from AMD64_X.H, but most other modules for which the public symbol files have any 
+type information for the <span class="struct">KPRCB</span> have it for only a reduced 
+definition from NTHAL.H or NTOSP.H. Of these three headers, only NTOSP.H is known 
+to have ever been published, and only then for the original and 1511 releases of 
+Windows 10. </p>
+<p>By the 1809 release of Windows 10, eight bytes of what had been
+<span class="member">PrcbPad12</span> are carved out for use, but the reduced
+<span class="struct">KPRCB</span> definition shows them only as
+<span class="member">PrcbPad12a</span>: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th><span class="struct">KPRCB</span> Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0x06D0 </td>
+    <td>
+    <pre class="source">ULONG64 PrcbPad12a;</pre>
+    </td>
+    <td>1809 and higher (reduced) </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    struct {
+        /*  meaningful members, see below  */
+    };
+    ULONG64 PrcbPad12a;
+};</pre>
+    </td>
+    <td>1809 and higher (full) </td>
+  </tr>
+</table>
+<p>The full definition has <span class="member">PrcbPad12a</span> in union with 
+meaningful members: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th><span class="struct">KPRCB</span> Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x06D0 </td>
+    <td>
+    <pre class="source">UCHAR BpbRetpolineExitSpecCtrl;</pre>
+    </td>
+    <td>1809 and higher </td>
+  </tr>
+  <tr>
+    <td>0x06D1 </td>
+    <td>
+    <pre class="source">UCHAR BpbTrappedRetpolineExitSpecCtrl;</pre>
+    </td>
+    <td>1809 and higher </td>
+  </tr>
+  <tr>
+    <td>0x06D2 </td>
+    <td>
+    <pre class="source">union {
+    UCHAR BpbTrappedBpbState;
+    struct {
+        UCHAR BpbTrappedCpuIdle : 1;               // 0x01
+        UCHAR BpbTrappedFlushRsbOnTrap : 1;        // 0x02
+        UCHAR BpbTrappedIbpbOnReturn : 1;          // 0x04
+        UCHAR BpbTrappedIbpbOnTrap : 1;            // 0x08
+        UCHAR BpbTrappedIbpbOnRetpolineExit : 1;   // 0x10
+        UCHAR BpbtrappedBpbStateReserved : 3;
+    };
+};</pre>
+    </td>
+    <td>1809 and higher </td>
+  </tr>
+  <tr>
+    <td>0x06D3 </td>
+    <td>
+    <pre class="source">union {
+    UCHAR BpbRetpolineState;
+    struct {
+        UCHAR BpbRunningNonRetpolineCode : 1;      // 0x01
+        UCHAR BpbIndirectCallsSafe : 1;            // 0x02
+        UCHAR BpbRetpolineEnabled : 1;             // 0x04
+        UCHAR BpbRetpolineStateReserved : 5;
+    };
+};</pre>
+    </td>
+    <td>1809 and higher </td>
+  </tr>
+  <tr>
+    <td>0x06D4 </td>
+    <td>
+    <pre class="source">ULONG PrcbPad12b;</pre>
+    </td>
+    <td>1809 and higher </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 2nd January 2021. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1821.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14490" -->
+</div>
+
+</body>
+
+</html>

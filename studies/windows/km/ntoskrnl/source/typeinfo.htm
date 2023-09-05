@@ -1,0 +1,356 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Type Information in Public Symbol Files</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/km.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="63592" -->
+<div class="Main">
+  <h1>Type Information in Public Symbol Files </h1>
+  <div class="Abstract">
+    <p>PDB files that Microsoft publishes for the kernel, NTDLL and others do not 
+    have private symbols, but they have more than just the public symbols. They 
+    also have type information. </p>
+    <p>These files might be partially stripped from private to public, perhaps by 
+    some undocumented tool or switch. Instead, the files are fully stripped and 
+    then the type information is added by a particular use of the compiler and a 
+    separate source file. </p>
+    <p>The difference is not without consequences for which types show in the public 
+    symbol files and even for whether their type information is correct. That this 
+    is Microsoft’s technique seems to have evaded publication for two decades.
+    </p>
+  </div>
+  <p>The Program Database (PDB) file has been the supplier of symbolic detail for 
+  all debugging in Windows for two decades. To go by Microsoft’s documentation, 
+  a PDB can be full or stripped. To go by the PDB files that Microsoft publishes 
+  to the world as debugging support for Windows, whether in packages of symbol files 
+  for all Windows binaries or downloaded individually from Microsoft’s public symbol 
+  server, there’s something between full and stripped. The public symbol files for 
+  the kernel, NTDLL.DLL and increasingly many Windows binaries have more detail 
+  than is expected of a stripped PDB even though they have nothing like the detail 
+  of a full PDB. They seem to have been stripped only part-way, specifically so 
+  that they retain type information. </p>
+  <p>This started for the Windows kernel in Windows XP, chronologically, but in 
+  Windows 2000 SP3 if ordering by version numbers. It was concurrent with a reworking 
+  of Microsoft’s debuggers around a common Debugger Engine (DBGENG.DLL). The point 
+  to the type information is that it frees debugger extensions from needing built-in 
+  knowledge of the debugging target’s user-defined types (meaning classes, structures, 
+  unions and enumerations). </p>
+  <p>Imagine a debugger extension that would helpfully report all instances that 
+  the target presently has of some structure, as Microsoft’s
+  <span class="command">!process</span> command does of all the kernel’s
+  <span class="struct"><a href="../inc/ntos/ps/eprocess/index.htm">EPROCESS</a></span> 
+  structures. With just the DBG symbol files of the first few Windows versions and 
+  even with the stripped PDB files that Microsoft supplied with the original Windows 
+  2000, the debugger extension can locate the named variable that is the head of 
+  some list of these structures, but even just to follow the list requires knowledge 
+  of where in one structure is its link to the next—which these symbol files do 
+  not provide. Offsets of important members of important structures were instead 
+  hard-coded into the debugger extensions. </p>
+  <p>This close coupling of debugger extensions to particular builds of the debugging 
+  targets will have had wide-ranging effects, all unwelcome and all avoidable. After 
+  all, the names of structures, and the names, types and offsets of their members, 
+  are in the full PDB. The only problem is that so is much else that “you would 
+  not want to ship to your customers.” This quote is how Microsoft has put it in 
+  documentation of the linker’s <span class="switch">/pdbstripped</span> switch 
+  since 2001. Microsoft’s solution is a stripped PDB that somehow retains just enough 
+  about the user-defined types so that debugger extensions can get those names, 
+  types and offsets from the PDB instead of needing them to have been built in.
+  </p>
+  <p>Now, I could easily be missing something, but it seems to me twenty years later 
+  that <span class="highlight">nobody has ever explained in public how Microsoft 
+  creates these PDB files that look like they’re only partially stripped</span>. 
+  It may even be a revelation that they actually are stripped, fully, and that their 
+  type information is added (back) in. This article tells how it’s done. </p>
+  <p>More precisely, this article tells how you can do it for your binaries and 
+  the symbol files you create for them. I can’t know with complete certainty how 
+  Microsoft does it for the Windows kernel or for anything else. I don’t have any 
+  of their source code or makefiles except for what they publish as programming 
+  samples, none of which (as far as I know) have ever shown how to create anything 
+  other than full or stripped PDB files. Everything I say here for how Microsoft 
+  does it is inferred from information that Microsoft leaves behind in—wait for 
+  it—stripped PDB files. The evidence and the inference trail are presented separately 
+  and are linked to after this page presents the technique. </p>
+  <p>To be clear: that type information can be added to PDB files is not news. The 
+  technique will have been known to plenty of low-level programmers for decades 
+  and has occasionally been presented in public. For instance, an OSR thread from 
+  as long ago as 2007 deals with a particular instance of
+  <a href="https://community.osr.com/discussion/112619/your-debugger-is-not-using-the-correct-symbols">
+  Your debugger is not using the correct symbols</a> by giving quick directions 
+  that “will add the type _LIST_ENTRY which !process apparently needs.” What may 
+  be news is only that this technique is not just for desperate hacking but is on 
+  a larger scale what Microsoft has used all along for the public symbols to have 
+  any types at all. </p>
+  <h2>Demonstration </h2>
+  <p>Let’s first work through the creation of full and stripped PDB files, and the 
+  problems of each, and then how I think Microsoft creates the public symbol files. 
+  For these purposes, it suffices just to have as our debugging target a very simple 
+  console application that does something barely non-trivial with a user-defined 
+  type. We’ll never run the program but we will pretend that we’ve deployed it somewhere 
+  and that we support debugging it to follow what data the program works with. We’ll 
+  build our source code in a directory named <span class="placeholder">build</span> 
+  and we’ll deploy the executable and symbol file to a directory named
+  <span class="placeholder">deploy</span>. To be minimally realistic, let’s have 
+  a header named TEST.H that defines one user-named type and declares some routines 
+  for working with this type: </p>
+  <pre class="source">typedef struct _TEST {
+    int x;
+} TEST;
+
+TEST *CreateTest (void);
+void DestroyTest (TEST *);</pre>
+  <p>Also minimally realistic is that these routines are implemented in a separate 
+  source file. Since the immediate cause of this article is about type information 
+  in symbol files for the kernel specifically, and since almost all of the kernel 
+  is written in C (even in 2020), let’s have our implementation in C too, as TEST.C:
+  </p>
+  <pre class="source">#include &lt;windows.h&gt;
+
+#include "test.h"
+
+void InitialiseTest (TEST *Test)
+{
+    Test -&gt; x = 0;
+}
+
+TEST *CreateTest (void)
+{
+    TEST *p = (TEST *) HeapAlloc (GetProcessHeap (), 0, sizeof (TEST));
+    if (p != NULL) InitialiseTest (p);
+    return p;
+}
+
+void DestroyTest (TEST *Test)
+{
+    HeapFree (GetProcessHeap (), 0, Test);
+}</pre>
+  <p>For our program, MAIN.C does nothing but create an instance of our simple type 
+  just to destroy it: </p>
+  <pre class="source">#include "test.h"
+
+void __cdecl main (void)
+{
+    TEST *p = CreateTest ();
+    if (p != NULL) DestroyTest (p);
+}</pre>
+  <p>This is all we need for a binary that we can easily load into a debugger and 
+  is just far enough from trivial for making some useful observations. Compile and 
+  link to taste, but remember that switches are needed for creating a PDB and that 
+  Whole Program Optimization is better avoided for so slight a demonstration because 
+  it might easily leave too little to see: </p>
+  <pre class="input">cd <span class="placeholder">build</span></pre>
+  <pre class="input">cl /c /Gy /Oxs /W4 /Zi main.c test.c</pre>
+  <pre class="input">link /debug /incremental:no /opt:ref /out:test.exe /release main.obj test.obj</pre>
+  <p>This gets us a full PDB. But, wait, this is too silly even for a small demonstration: 
+  despite the optimisations, the executable is nearly 300KB and the PDB is over 
+  5MB. Talk about bloat! Since we have no need to bring in so much material from 
+  the statically linked C Run Time (CRT), add the <span class="switch">/MD</span> 
+  switch when compiling. Now the executable is more like 10KB and the PDB is down 
+  to mere hundreds. Sadly, it’s still silly because for all of Microsoft’s talk 
+  of a Universal CRT what Visual Studio gives us is an executable that will run 
+  only on computers that have the right version of Visual Studio installed (or at 
+  least of its redistributables), but that story’s for another time. </p>
+  <h3>Too Much </h3>
+  <p>To simulate deployment, copy test.exe and test.pdb from the
+  <span class="placeholder">build</span> directory to the
+  <span class="placeholder">deploy</span> directory. To simulate what a debugger 
+  extension might tell of a larger program’s use of data, load
+  <span class="placeholder">deploy</span>\test.exe into WinDbg and try some commands.
+  </p>
+  <p>First see that <span class="command">dt test!TEST</span> lists what we defined 
+  for our <span class="struct">TEST</span> structure. A debugger extension clearly 
+  would have what it needs. But the price is that the debugger tells of too much 
+  else. Typical output of <span class="command">x test!*Test</span> shows not just 
+  the addresses of all three routines that work on <span class="struct">TEST</span> 
+  but also the types of their arguments. With the optimisations I chose, the
+  <span class="routine">InitializeTest</span> routine exists in the binary only 
+  as inlined instructions, but the debugger helpfully shows where. Similarly,
+  <span class="command">dt test!CreateTest</span> shows the return type,
+  <span class="command">u test!CreateTest</span> reports the line number and source 
+  file, and <span class="command">dv /i /t /v test!CreateTest</span> tells the name 
+  and type of the routine’s local variable even though its value never leaves the
+  <span class="register">eax</span> register that it’s returned in by
+  <span class="function">HeapAlloc</span>. </p>
+  <p>Such detail is all very well for our own debugging—and many programmers would 
+  be all at sea without it—but it’s much too much to reveal to the world. If you’re 
+  concerned about your program being reverse-engineered to be ripped off, then you 
+  may begin to sense that <span class="highlight">publishing a full PDB is not much 
+  different from publishing your source code</span>. What we want for our debugger 
+  extension is a PDB that tells less about the routines but keeps what this full 
+  PDB shows for the structure. </p>
+  <h3>Too Little </h3>
+  <p>A stripped PDB goes too far. To see, let’s rebuild but also make a stripped 
+  PDB. Ideally, we build both: a full PDB for our private use and a stripped PDB 
+  to publish. If we had a full PDB already and needed a stripped PDB later, we could 
+  use some such tool as BINPLACE (long supplied with the DDK) or the relatively 
+  new PDBCOPY (from the Debugging Tools for Windows). Even if freshly building the 
+  full PDB, we might still find such tools convenient, perhaps for needing less 
+  editing of makefiles. Whatever our method, create subdirectories
+  <span class="placeholder">build</span>\private and <span class="placeholder">build</span>\public 
+  for the two PDB files. For this simple demonstration, if not always, the easiest 
+  method by far is to build the two in the one execution of the linker. Just change 
+  the command ever so slightly to: </p>
+  <pre class="input">link /debug /incremental:no /opt:ref /out:test.exe <span class="addition">/pdb:private\test.pdb /pdbstripped:public\test.pdb</span> /release main.obj test.obj</pre>
+  <p>This gets us a full PDB in the private subdirectory and a stripped PDB in the 
+  public subdirectory. Note that the stripped PDB is very much smaller: barely 100KB. 
+  To simulate deployment, copy test.exe and public\test.pdb to the
+  <span class="placeholder">deploy</span> directory. Now load
+  <span class="placeholder">deploy</span>\test.exe into WinDbg and retry those commands. 
+  We do indeed give away very little about our code. The <span class="command">x 
+  test!*Test</span> command shows the addresses and names of the two instantiated 
+  routines but adds that it has “no parameter info”. The inlined routine doesn’t 
+  show at all. Unassembly doesn’t show line numbers or reveal anything about our 
+  source tree. So far, so good, but we also have nothing about the structure:
+  </p>
+  <pre class="input">dt test!TEST</pre>
+  <pre class="output">Symbol test!TEST not found.</pre>
+  <p>How can we—how does Microsoft—stop the stripping from going so far? </p>
+  <h3>Just Right </h3>
+  <p>The answer is that we don’t. What we do instead is deceptively simple. We create 
+  the type information independently and then stuff it in to the stripped PDB. Write 
+  TYPEINFO.C as a separate source file that knows the structure from the header 
+  and which uses it in some simple way: </p>
+  <pre class="source">#include "test.h"
+
+TEST test;</pre>
+  <p>The particular way we use the definition doesn’t matter, as long as it’s enough 
+  that the compiler needs the type. Here, the otherwise useless variable that has
+  <span class="struct">TEST</span> as its type will never waste space in any executable 
+  because we’ll never build an executable from this source file. All we do is compile 
+  it: </p>
+  <pre class="input">cl /c <span class="essential">/Fdpublic\test.pdb</span> /Gy /MD /Oxs /W4 /Zi typeinfo.c</pre>
+  <p>The key, of course, is that we don’t leave the compiler to its default for 
+  the PDB output. Neither do we tell it to create a PDB just from this compilation. 
+  Instead, we have it <span class="emphasis">merge</span> the PDB output from this 
+  compilation into the stripped PDB that already exists for the executable. I leave 
+  it to you to ponder whether Microsoft’s documentation says the compiler’s
+  <span class="switch">/Fd</span> switch can do such merging. </p>
+  <p>To see what we get from our gymnastics, overwrite the deployed test.pdb with 
+  this new public\test.pdb, reload <span class="placeholder">deploy</span>\test.exe 
+  into the debugger and retry those commands. The public symbols in the stripped 
+  PDB haven’t changed and so the commands that use them give the same minimal outcome 
+  as before, just as we want. All that’s new is the type information from compiling 
+  the separate source file. The <span class="command">dt test!TEST</span> command 
+  behaves just as it did with the full PDB. That this is now what we get from the 
+  less-than-full PDB is again exactly what we want. </p>
+  <h2>Really? </h2>
+  <p>The PDB from the preceding demonstration is undeniably a mongrel. On one side 
+  of its ancestry are public symbols from compiling and linking the executable. 
+  On the other, its type information is the private output of a separate compilation.
+  </p>
+  <p>Note the implication: <span class="highlight">type information in public symbol 
+  files can be wrong</span>. Even if rare, which indeed it is for public symbols 
+  from Microsoft, being wrong would have consequences. Programmers (outside Microsoft) 
+  and reverse engineers (for good and bad) all treat the public symbol files for 
+  the kernel as gospel for what is built into the kernel and actually is used by 
+  the kernel in real-world execution. Belief in this is more reason than faith, 
+  if the public symbol files are build products from compiling and linking the kernel. 
+  If instead the public symbol files are the build products of a separate compilation, 
+  then it becomes possible that they are based on definitions that are not exactly 
+  what was used for the real compilation. It all seems a little suspect. Can it—or 
+  anything like it—really be how Microsoft builds the public symbol files? </p>
+  <p>The answer is certainly yes. Microsoft’s technique is a tiny bit more elaborate 
+  and there are some fine points that don’t look to be knowable with certainty, 
+  but the demonstration has the essence of what Microsoft does for both the Windows 
+  kernel and other binaries. </p>
+  <p>Sufficient clues are left behind in the public symbol files for Windows 8 and 
+  higher as a side-effect of improvements for Visual Studio 2012. In particular, 
+  the symbol files that have any type information at all each have in their PDB 
+  stream 4 a record with leaf index <span class="constant">LF_BUILDINFO</span> (0x1603) 
+  that describes the compilation of this separate source file. What the demonstration 
+  has as TYPEINFO.C is instead named <a href="ntsym.htm">ntsym.c</a> when building 
+  type information for the Windows kernel. It’s named differently for other binaries, 
+  e.g., halsym.c for the HAL and syminfo.c for NTDLL. All these names have been 
+  in plain sight for years, just waiting for someone to realise what they mean and 
+  take the trouble to write about it. </p>
+  <p>Curiously enough, none of these names turn up with any obvious relevance in 
+  the plain sight of an Internet search with Google. I am perhaps too close to seeing 
+  the subject only from how I myself have arrived at it, but I’d have thought that 
+  since these files are evidently central to how Microsoft gets type information 
+  into public symbol files, anyone who has yet written on the subject surely would 
+  have mentioned at least one of these filenames. Yet the only pages that Google 
+  finds today, 22nd November 2020, for “ntsym.c” in quotes and which are obviously 
+  on this subject are two of mine (from earlier in the year when I first started 
+  writing about what the public symbols tell of Microsoft’s source code). For “syminfo.c” 
+  Google finds some leaked source code for Windows XP. Presumably, Microsoft had 
+  the foresight to remove these files from the Windows Research Kernel (WRK), else 
+  they’d show in very many more searches and their role in how the public symbol 
+  files have type information would be widely circulated folklore (the WRK, though 
+  distributed for non-commercial academic research and teaching, having been widely 
+  copied and depended on, typically without citation, for work that plainly is commercial, 
+  not academic). </p>
+  <p>I myself confess to having not known until recently that this is Microsoft’s 
+  technique for getting type information into the kernel’s public symbols. That 
+  I can write about it now is because I resolved in late 2020 to commit time to 
+  a careful review of what exactly Microsoft’s public symbol files tell the world 
+  about such things as the layout of Microsoft’s source code, which structures are 
+  defined in which headers and how widely those headers are used. Only when I got 
+  into the meat of this review did I realise that new information in PDB files for 
+  Windows 8 and higher not only tells new things about the
+  <a href="inc/index.htm">Windows Kernel Header Files</a> but also can answer two 
+  things that had puzzled me, off and on for many years, about the type information 
+  in public symbol files. </p>
+  <p>Broadly speaking, I see two such puzzles. </p>
+  <p>First, as already noted, type information in Microsoft’s public symbol files 
+  for the kernel and similar binaries is sometimes wrong. For some structures, offsets 
+  of some members as given in the symbol file do not match what the code in the 
+  matching binary shows of the structure’s use. This first came to my attention 
+  in the type information for such structures as <span class="struct">
+  <a href="../../win32k/structs/processinfo/index.htm">PROCESSINFO</a></span> and
+  <span class="struct"><a href="../../win32k/structs/threadinfo/index.htm">THREADINFO</a></span>, 
+  as revealed in the public symbol files for the Windows 7 WIN32K.SYS. </p>
+  <p>Second, Microsoft’s public symbol files sometimes have too much type information. 
+  For instance, the public symbol files for a user-mode binary may tell about kernel-mode 
+  structures that the binary has no possible access to, as for NTDLL.DLL and the
+  <span class="struct"><a href="../inc/ntos/kprcb.htm">KPRCB</a></span>. </p>
+  <p><span class="alert">WRITING IN PROGRESS</span> </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 22nd
+    <a href="../../../../../new/20/11.htm">November 2020</a> and was last modified 
+    on 28th February 2023. Will I ever finish this page! </p>
+    <!--webbot bot="Include" U-Include="../../_include/c2023.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4627" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,637 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Windows Product Suite</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/x86specific.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">If only for now, this article is specific to 32-bit Windows 
+  (i386 or x86). </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="58497" -->
+<h1>The Product Suite </h1>
+<p>Windows comes in an ever-increasing variety of editions. A long-standing identifier 
+is the product suite, which is most familiar to Windows programmers as the
+<span class="member">wSuiteMask</span> member of the <span class="struct">OSVERSIONINFOEX</span> 
+structure that is filled by the user-mode function <span class="function">GetVersionEx</span>. 
+Kernel-mode programmers have easy access to the product suite through the very similar 
+function <span class="function">RtlGetVersion</span>. Both functions pick their 
+16-bit product suite from the 32-bit <span class="member">SuiteMask</span> member 
+at offset 0x02D0 of the <span class="struct">
+<a href="../../../inc/api/ntexapi_x/kuser_shared_data/index.htm">KUSER_SHARED_DATA</a></span> 
+structure that the kernel makes addressable at 0xFFDF0000 in kernel mode and 0x7FFE0000 
+in user mode. The kernel’s own record of the product suite can be read more obscurely 
+through <span class="function">ExVerifySuite</span>. </p>
+<h2>Discovery </h2>
+<p>The product suite is a combination of bit flags. It is first determined from 
+the following registry value: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\ProductOptions</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">ProductSuite</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_MULTI_SZ</span> </td>
+  </tr>
+</table>
+<p>From as far back as Windows 2000, the kernel allows 256 bytes for the data and 
+parses it only if it has the expected type. The builds of Windows NT 4.0 that query 
+this value get however much memory is needed but do not fuss over the data type. 
+Each recognised string in the data corresponds to one bit in the suite mask: </p>
+<table>
+  <tr>
+    <th>String From Registry Data </th>
+    <th>Suite Mask </th>
+    <th>Applicable Versions </th>
+  </tr>
+  <tr>
+    <td><span class="regsz">Small Business</span> </td>
+    <td>0x0001 (<span class="constant">VER_SUITE_SMALLBUSINESS</span>) </td>
+    <td>4.0 from Windows NT 4.0 SP3, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">Enterprise</span> </td>
+    <td>0x0002 (<span class="constant">VER_SUITE_ENTERPRISE</span>) </td>
+    <td>4.0 from Windows NT 4.0 SP3, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">BackOffice</span> </td>
+    <td>0x0004 (<span class="constant">VER_SUITE_BACKOFFICE</span>) </td>
+    <td>4.0 from Windows NT 4.0 SP3, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">CommunicationServer</span> </td>
+    <td>0x0008 (<span class="constant">VER_SUITE_COMMUNICATIONS</span>) </td>
+    <td>4.0 from Windows NT 4.0 SP3, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">Terminal Server</span> </td>
+    <td>0x0010 (<span class="constant">VER_SUITE_TERMINAL</span>) </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">Small Business(Restricted)</span> </td>
+    <td>0x0020 (<span class="constant">VER_SUITE_SMALLBUSINESS_RESTRICTED</span>)
+    </td>
+    <td>4.0 from Windows NT 4.0 SP4, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">EmbeddedNT</span> </td>
+    <td>0x0040 (<span class="constant">VER_SUITE_EMBEDDEDNT</span>) </td>
+    <td>4.0 from Windows NT 4.0 SP4, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">DataCenter</span> </td>
+    <td>0x0080 (<span class="constant">VER_SUITE_DATACENTER</span>) </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">Personal</span> </td>
+    <td>0x0200 (<span class="constant">VER_SUITE_PERSONAL</span>) </td>
+    <td>5.0 from Windows 2000 SP1, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">Blade</span> </td>
+    <td>0x0400 (<span class="constant">VER_SUITE_BLADE</span>) </td>
+    <td>5.0 from Windows 2000 SP1, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">Embedded(Restricted)</span> </td>
+    <td>0x0800 (<span class="constant">VER_SUITE_EMBEDDED_RESTRICTED</span>)
+    </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">Security Appliance</span> </td>
+    <td>0x1000 (<span class="constant">VER_SUITE_SECURITY_APPLIANCE</span>) </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">Storage Server</span> </td>
+    <td>0x2000 (<span class="constant">VER_SUITE_STORAGE_SERVER</span>) </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">Compute Server</span> </td>
+    <td>0x4000 (<span class="constant">VER_SUITE_COMPUTE_SERVER</span>) </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">WH Server</span> </td>
+    <td>0x8000 (<span class="constant">VER_SUITE_WH_SERVER</span>) </td>
+    <td>5.2 from Windows Server 2003 SP2, <br>
+    6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regsz">PhoneNT</span> </td>
+    <td>0x00010000 </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p>Strings that are not in the list are ignored. Note that
+<span class="constant">VER_SUITE_SINGLEUSERTS</span> (0x0100) is not learnt from 
+the <span class="regvalue">ProductSuite</span> value. </p>
+<p>Although Windows NT 4.0 SP3 has the first kernel that is known to read the
+<span class="regvalue">ProductSuite</span> value, its KERNEL32 function
+<span class="function">GetVersionEx</span> supports only the
+<span class="struct">OSVERSIONINFO</span> structure not the <span class="struct">
+OSVERSIONINFOEX</span> that is needed for learning the suite mask. Support for learning 
+the suite mask through <span class="function">GetVersionEx</span> begins with Windows 
+NT 4.0 SP4, as does the storage in the <span class="struct">KUSER_SHARED_DATA</span>.
+</p>
+<p>Unsurprisingly, the possible product suites did eventually outgrow the 16-bit 
+allowance in the <span class="struct">OSVERSIONINFOEX</span> structure. Less unsurprising 
+is that the continuation to 32 bits seems to be undocumented. The only known way 
+to retrieve it in user mode, short of looking directly in the
+<span class="struct">KUSER_SHARED_DATA</span>, is through the NTDLL function
+<span class="function">RtlGetVersion</span>, and only then by supplying a further-extended
+<span class="struct">OSVERSIONINFOEX</span> to fill in. Give the size as 0x0124 
+(for the Unicode form), and the 32-bit suite mask is filled in at offset 0x011C.
+</p>
+<h3>License Value </h3>
+<p>The kernel interprets the <span class="regvalue">ProductSuite</span> value during 
+phase 0 of initialisation. Starting with Windows Vista, however, the suite mask 
+that is obtained this way is not entirely believed. If the
+<a href="../slmem/productpolicy.htm">license value</a> <span class="licvalue">Kernel-ProductInfo</span> 
+is present and has 4 bytes of <span class="constant">REG_DWORD</span> data, then 
+the suite mask is reappraised (still in phase 0). The effective outcome is that 
+the following are all cleared from the <span class="regvalue">ProductSuite</span> 
+value: </p>
+<ul>
+  <li><span class="constant">VER_SUITE_SMALLBUSINESS</span>; </li>
+  <li><span class="constant">VER_SUITE_ENTERPRISE</span>; </li>
+  <li><span class="constant">VER_SUITE_SMALLBUSINESS_RESTRICTED</span> (6.0 from 
+  Windows Vista SP1, and higher); </li>
+  <li><span class="constant">VER_SUITE_EMBEDDEDNT</span> (6.1 from Windows 7 SP1, 
+  and higher); </li>
+  <li><span class="constant">VER_SUITE_DATACENTER</span>; </li>
+  <li><span class="constant">VER_SUITE_PERSONAL</span>; </li>
+  <li><span class="constant">VER_SUITE_BLADE</span>; </li>
+  <li><span class="constant">VER_SUITE_STORAGE_SERVER</span>; </li>
+  <li><span class="constant">VER_SUITE_WH_SERVER</span> (6.0 from Windows Vista 
+  SP1, and higher); </li>
+</ul>
+<p>and are instead selected from the <span class="licvalue">Kernel-ProductInfo</span>:
+</p>
+<table>
+  <tr>
+    <th>Kernel-ProductInfo </th>
+    <th>Suite </th>
+    <th>Applicable Versions </th>
+  </tr>
+  <tr>
+    <td>0x01 (<span class="constant">PRODUCT_ULTIMATE</span>) <br>
+    </td>
+    <td>none </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x02 (<span class="constant">PRODUCT_HOME_BASIC</span>) </td>
+    <td><span class="constant">VER_SUITE_PERSONAL</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x03 (<span class="constant">PRODUCT_HOME_PREMIUM</span>) </td>
+    <td><span class="constant">VER_SUITE_PERSONAL</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x04 (<span class="constant">PRODUCT_ENTERPRISE</span>) </td>
+    <td>none </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x05 (<span class="constant">PRODUCT_HOME_BASIC_N</span>) </td>
+    <td><span class="constant">VER_SUITE_PERSONAL</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x06 (<span class="constant">PRODUCT_BUSINESS</span>) </td>
+    <td>none </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x07 (<span class="constant">PRODUCT_STANDARD_SERVER</span>) </td>
+    <td>none </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x08 (<span class="constant">PRODUCT_DATACENTER_SERVER</span>) </td>
+    <td><span class="constant">VER_SUITE_DATACENTER</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x09 (<span class="constant">PRODUCT_SMALLBUSINESS_SERVER</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_SMALLBUSINESS</span> </td>
+    <td>6.0 before Windows Vista SP1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">VER_SUITE_SMALLBUSINESS</span> <br>
+    <span class="constant">VER_SUITE_SMALLBUSINESS_RESTRICTED</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x0A (<span class="constant">PRODUCT_ENTERPRISE_SERVER</span>) </td>
+    <td><span class="constant">VER_SUITE_ENTERPRISE</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0B (<span class="constant">PRODUCT_STARTER</span>) </td>
+    <td><span class="constant">VER_SUITE_PERSONAL</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0C (<span class="constant">PRODUCT_DATACENTER_SERVER_CORE</span>) </td>
+    <td><span class="constant">VER_SUITE_DATACENTER</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0D (<span class="constant">PRODUCT_STANDARD_SERVER_CORE</span>) </td>
+    <td>none </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0E (<span class="constant">PRODUCT_ENTERPRISE_SERVER_CORE</span>) </td>
+    <td><span class="constant">VER_SUITE_ENTERPRISE</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0F (<span class="constant">PRODUCT_ENTERPRISE_SERVER_IA64</span>) </td>
+    <td><span class="constant">VER_SUITE_ENTERPRISE</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x10 (<span class="constant">PRODUCT_BUSINESS_N</span>) </td>
+    <td>none </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x11 (<span class="constant">PRODUCT_WEB_SERVER</span>) </td>
+    <td><span class="constant">VER_SUITE_BLADE</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x12 (<span class="constant">PRODUCT_CLUSTER_SERVER</span>) </td>
+    <td>none </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x13 (<span class="constant">PRODUCT_HOME_SERVER</span>)
+    </td>
+    <td>none </td>
+    <td>6.0 before Windows Vista SP1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">VER_SUITE_WH_SERVER</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x14 (<span class="constant">PRODUCT_STORAGE_EXPRESS_SERVER</span>) </td>
+    <td><span class="constant">VER_SUITE_STORAGE_SERVER</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x15 (<span class="constant">PRODUCT_STORAGE_STANDARD_SERVER</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_STORAGE_SERVER</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x16 (<span class="constant">PRODUCT_STORAGE_WORKGROUP_SERVER</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_STORAGE_SERVER</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x17 (<span class="constant">PRODUCT_STORAGE_ENTERPRISE_SERVER</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_STORAGE_SERVER</span> </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x18 (<span class="constant">PRODUCT_SERVER_FOR_SMALLBUSINESS</span>)
+    </td>
+    <td>none </td>
+    <td>6.0 before Windows Vista SP1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">VER_SUITE_SMALLBUSINESS</span> <br>
+    <span class="constant">VER_SUITE_SMALLBUSINESS_RESTRICTED</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x19 (<span class="constant">PRODUCT_SMALLBUSINESS_SERVER_PREMIUM</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_SMALLBUSINESS</span> </td>
+    <td>6.0 before Windows Vista SP1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">VER_SUITE_SMALLBUSINESS</span> <br>
+    <span class="constant">VER_SUITE_SMALLBUSINESS_RESTRICTED</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x1A (<span class="constant">PRODUCT_HOME_PREMIUM_N</span>)</td>
+    <td><span class="constant">VER_SUITE_PERSONAL</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x1B (<span class="constant">PRODUCT_ENTERPRISE_N</span>) </td>
+    <td>none </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x1C (<span class="constant">PRODUCT_ULTIMATE_N</span>) </td>
+    <td>none </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x1D (<span class="constant">PRODUCT_WEB_SERVER_CORE</span>) </td>
+    <td><span class="constant">VER_SUITE_BLADE</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x1E (<span class="constant">PRODUCT_MEDIUMBUSINESS_SERVER_MANAGEMENT</span>)
+    </td>
+    <td>none </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x1F (<span class="constant">PRODUCT_MEDIUMBUSINESS_SERVER_SECURITY</span>)
+    </td>
+    <td>none </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x20 (<span class="constant">PRODUCT_MEDIUMBUSINESS_SERVER_MESSAGING</span>)
+    </td>
+    <td>none </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x21 (<span class="constant">PRODUCT_SERVER_FOUNDATION</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_SMALLBUSINESS</span> <br>
+    <span class="constant">VER_SUITE_SMALLBUSINESS_RESTRICTED</span> </td>
+    <td>6.0 from Windows Vista SP1 </td>
+  </tr>
+  <tr>
+    <td>none </td>
+    <td>6.0 from Windows Vista SP2, and higher </td>
+  </tr>
+  <tr>
+    <td>0x22 (<span class="constant">PRODUCT_HOME_PREMIUM_SERVER</span>) </td>
+    <td><span class="constant">VER_SUITE_WH_SERVER</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x23 (<span class="constant">PRODUCT_SERVER_FOR_SMALLBUSINESS_V</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_SMALLBUSINESS</span> <br>
+    <span class="constant">VER_SUITE_SMALLBUSINESS_RESTRICTED</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x24 (<span class="constant">PRODUCT_STANDARD_SERVER_V</span>) </td>
+    <td>none </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x25 (<span class="constant">PRODUCT_DATACENTER_SERVER_V</span>) </td>
+    <td><span class="constant">VER_SUITE_DATACENTER</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x26 (<span class="constant">PRODUCT_ENTERPRISE_SERVER_V</span>) </td>
+    <td><span class="constant">VER_SUITE_ENTERPRISE</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x27 (<span class="constant">PRODUCT_DATACENTER_SERVER_CORE_V</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_DATACENTER</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x28 (<span class="constant">PRODUCT_STANDARD_SERVER_CORE_V</span>) </td>
+    <td>none </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x29 (<span class="constant">PRODUCT_ENTERPRISE_SERVER_CORE_V</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_ENTERPRISE</span> </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x2A (<span class="constant">PRODUCT_HYPERV</span>) </td>
+    <td>none </td>
+    <td>6.0 from Windows Vista SP1, and higher </td>
+  </tr>
+  <tr>
+    <td>0x2B (<span class="constant">PRODUCT_STORAGE_EXPRESS_SERVER_CORE</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_STORAGE_SERVER</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x2C (<span class="constant">PRODUCT_STORAGE_STANDARD_SERVER_CORE</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_STORAGE_SERVER</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x2D (<span class="constant">PRODUCT_STORAGE_WORKGROUP_SERVER_CORE</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_STORAGE_SERVER</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x2E (<span class="constant">PRODUCT_STORAGE_ENTERPRISE_SERVER_CORE</span>)
+    </td>
+    <td><span class="constant">VER_SUITE_STORAGE_SERVER</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x3B (<span class="constant">PRODUCT_ESSENTIALBUSINESS_SERVER_MGMT</span>)
+    </td>
+    <td>none </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x3C (<span class="constant">PRODUCT_ESSENTIALBUSINESS_SERVER_ADDL</span>)
+    </td>
+    <td>none </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x3D (<span class="constant">PRODUCT_ESSENTIALBUSINESS_SERVER_MGMTSVC</span>)
+    </td>
+    <td>none </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x3E (<span class="constant">PRODUCT_ESSENTIALBUSINESS_SERVER_ADDLSVC</span>)
+    </td>
+    <td>none </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x41 (<span class="constant">PRODUCT_EMBEDDED</span>) </td>
+    <td>none </td>
+    <td>6.1 before Windows 7 SP1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">VER_SUITE_EMBEDDEDNT</span> </td>
+    <td>6.1 from Windows 7 SP1, and higher </td>
+  </tr>
+</table>
+<p>Whether there have been practical implications from the cases where different 
+builds of ostensibly the same product are assessed differently as suites is not 
+known. The possibility must be at least suspected as having caused trouble, however. 
+Some of the suite masks act as indicators of a lesser capability: it could be distressing 
+to pick this up from a Service Pack upgrade. </p>
+<h3>Terminal Server </h3>
+<p>Recognition of Windows as a Terminal Server becomes an issue in phase 2 of the 
+kernel’s initialisation. Though the defined bits for the product suite allow for
+<span class="constant">VER_SUITE_TERMINAL</span> (0x0010) among the ones that are 
+recognised by the applicable service packs of Windows NT 4.0, the first support 
+in a Windows version examined for this study is from Windows 2000. Broadly speaking, 
+the kernel may in phase 2 interpret more registry values to override
+<span class="constant">VER_SUITE_TERMINAL</span> from the <span class="regvalue">
+ProductSuite</span> or to set <span class="constant">VER_SUITE_SINGLEUSERTS</span> 
+(0x0100). The general trend, as Terminal Server has become an everyday Windows feature, 
+has favoured setting both. </p>
+<p>In version 5.0, if <span class="constant">VER_SUITE_TERMINAL</span> is set from 
+the earlier registry evaluation, the kernel clears it in phase 2 unless the following 
+registry value has non-zero data: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Terminal 
+    Server</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">TSEnabled</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>In effect, to have the suite mask show a Terminal Server on Windows 2000 you 
+must have both <span class="regsz">Terminal Server</span> in the
+<span class="regvalue">ProductSuite</span> value and a non-zero
+<span class="regvalue">TSEnabled</span>. In versions 5.1 and 5.2, if
+<span class="regvalue">TSEnabled</span> has non-zero data, then the kernel forces
+<span class="constant">VER_SUITE_TERMINAL</span> to be set: you thus get a Terminal 
+Server from either registry value. In version 6.0 and higher, the kernel simply 
+sets <span class="constant">VER_SUITE_TERMINAL</span> regardless of registry values.
+</p>
+<p>If the kernel thinks to set <span class="constant">VER_SUITE_SINGLEUSERTS</span>, 
+the registry value that decides the matter is: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\Terminal 
+    Server</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">TSAppCompat</span> </td>
+  </tr>
+  <tr>
+    <td>Default: </td>
+    <td>1 in 5.0 to 5.2; <br>
+    0 in 6.0 and higher </td>
+  </tr>
+</table>
+<p>The value is surely meant to have <span class="constant">REG_DWORD</span> data, 
+and is documented as such (in the Microsoft Knowledge Base article
+<a target="_top" href="http://support.microsoft.com/kb/243215">Examining the Terminal 
+Server Key in HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control</a>), with 0 to 
+specify a Remote Administration Server and 1 an Application Server. Zero, including 
+if defaulted, means that only one interactive session is permitted at a time. Indicating 
+this as a restriction of <span class="constant">VER_SUITE_TERMINAL</span> seems 
+to be the point to <span class="constant">VER_SUITE_SINGLEUSERTS</span>. The algorithm 
+varies with the versions, however, such that it looks to have been possible in versions 
+5.1 and 5.2 for <span class="constant">VER_SUITE_TERMINAL</span> to be set while
+<span class="constant">VER_SUITE_SINGLEUSERTS</span> remains clear only because 
+the kernel did not evaluate it. Whether this has ever mattered in practice is not 
+known. </p>
+<p>In version 5.0, if <span class="constant">VER_SUITE_TERMINAL</span> is known 
+from both <span class="regvalue">ProductSuite</span> and <span class="regvalue">
+TSEnabled</span>, then <span class="constant">VER_SUITE_SINGLEUSERTS</span> gets 
+set too if <span class="regvalue">TSAppCompat</span> is zero. In versions 5.1 and 
+5.2, if <span class="constant">VER_SUITE_TERMINAL</span> is known from
+<span class="regvalue">TSEnabled</span>, then <span class="constant">VER_SUITE_SINGLEUSERTS</span> 
+gets set too if <span class="regvalue">TSAppCompat</span> is zero. In version 6.0 
+and higher, the kernel sets <span class="constant">VER_SUITE_TERMINAL</span> unless
+<span class="regvalue">TSAppCompat</span> is non-zero. </p>
+<h2>Storage </h2>
+<p>This completes the identification of the product suite. The kernel saves it as 
+the <span class="member">SuiteMask</span> in the <span class="struct">KUSER_SHARED_DATA</span> 
+and also writes it as multi-string data for the <span class="regvalue">ProductSuite</span> 
+value. Of course, this will ordinarily mean writing the same data back to the registry 
+as was read earlier. The <span class="constant">REG_MULTI_SZ</span> strings are 
+always written in increasing order of the bit flags. Two of the defined flags are 
+skipped: <span class="constant">VER_SUITE_SINGLEUSERTS</span> which is not learnt 
+from this registry value; and <span class="constant">VER_SUITE_WH_SERVER</span> 
+for reasons unknown. Failure to write the <span class="regvalue">ProductSuite</span> 
+value is fatal to Windows, causing the bug check <span class="constant">
+<a href="../../../../bugchecks/9a.htm">SYSTEM_LICENSE_VIOLATION</a></span> (0x9A).
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 10th March 2009 and was last modified 
+  on 11th June 2016 (except for correcting a one-character typing error on 30th 
+  May 2020). </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c0916.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009-2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5301" -->
+</div>
+
+</body>
+
+</html>

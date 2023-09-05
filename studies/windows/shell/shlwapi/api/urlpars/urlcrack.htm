@@ -1,0 +1,443 @@
+﻿<html>
+
+<head>
+<meta name="GENERATOR" content="Microsoft FrontPage 12.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>UrlCrackW</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js">
+</script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55064" -->
+<!--webbot bot="Include" U-Include="../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+<h1>UrlCrackW </h1>
+<p>This function breaks a URL into components: a scheme, user name, password, 
+host name, port number, URL path and extra information. </p>
+<h2>Declaration </h2>
+<pre class="source">BOOL
+UrlCrackW (
+    LPWSTR lpszUrl,
+    DWORD dwUrlLength,
+    DWORD dwFlags,
+    SHURL_COMPONENTSW *lpUrlComponents);</pre>
+<p>Since the <span class="struct">SHURL_COMPONENTSW</span> structure appears to 
+be used only for this function, its format is as well given here: </p>
+<pre class="source">typedef struct {
+    DWORD dwStructSize;
+    LPWSTR lpszScheme;
+    DWORD dwSchemeLength;
+    SHINTERNET_SCHEME nScheme;          // enum, see below
+    LPWSTR lpszHostName;
+    DWORD dwHostNameLength;
+    SHINTERNET_PORT nPort;              // WORD
+    LPWSTR lpszUserName;
+    DWORD dwUserNameLength;
+    LPWSTR lpszPassword;
+    DWORD dwPasswordLength;
+    LPWSTR lpszUrlPath;
+    DWORD dwUrlPathLength;
+    LPWSTR lpszExtraInfo;
+    DWORD dwExtraInfoLength;
+} SHURL_COMPONENTSW;</pre>
+<p>The same applies to the <span class="enum">SHINTERNET_SCHEME</span> 
+enumeration:
+</p>
+<pre class="source">typedef enum {
+    SHINTERNET_SCHEME_UNKNOWN           = -1,
+    SHINTERNET_SCHEME_FTP               = 1,
+    SHINTERNET_SCHEME_GOPHER,           // 2
+    SHINTERNET_SCHEME_HTTP,             // 3
+    SHINTERNET_SCHEME_HTTPS,            // 4
+    SHINTERNET_SCHEME_FILE,             // 5
+    SHINTERNET_SCHEME_NEWS,             // 6
+    SHINTERNET_SCHEME_MAILTO,           // 7
+    SHINTERNET_SCHEME_SOCKS,            // 8
+    SHINTERNET_SCHEME_JAVASCRIPT,       // 9
+    SHINTERNET_SCHEME_VBSCRIPT,         // 10
+    SHINTERNET_SCHEME_RES,              // 11
+} SHINTERNET_SCHEME;</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">lpszUrl</span> argument is the address of the URL 
+that is to be cracked. Beware that this URL may be corrupted by the function.
+</p>
+<p>The <span class="argument">dwUrlLength</span> argument is either a count of 
+Unicode characters for the URL (not needing a terminating null), else is zero to 
+denote that the URL is a null-terminated Unicode string. </p>
+<p>The <span class="argument">dwFlags</span> argument provides bit flags that 
+vary the treatment of escape sequences. Valid flags are <span class="constant">
+ICU_DECODE</span> 
+(0x10000000) and <span class="constant">ICU_ESCAPE</span> (0x80000000). </p>
+<p>The <span class="argument">lpUrlComponents</span> argument is the address of 
+a <span class="struct">SHURL_COMPONENTSW</span> structure that describes what 
+components are wanted and where they are to be returned, and which receives 
+information about them. The <span class="member">dwStructSize</span> member 
+should be set in advance to the size of the structure. Among the other members 
+are pointer-and-length pairs, one for each component other than the port number. 
+These too must be set in advance, as described in the next paragraphs. No 
+initialisation is required for the
+<span class="member">nScheme</span> and <span class="member">nPort</span> 
+members.
+</p>
+<h4>Pointers and Lengths </h4>
+<p>In general, a pointer-and-length pair in the <span class="struct">
+URL_COMPONENTSW</span> 
+structure describe a buffer for receipt of the corresponding component. The 
+length is counted in Unicode characters. The buffer should allow sufficient 
+space for the component as a null-terminated Unicode string. A length of zero 
+ensures that the buffer will be considered too small for receipt of the 
+component. </p>
+<p>The pointer may be NULL and the length zero to indicate that there is no 
+buffer and that the corresponding component is not wanted. </p>
+<p>The code provides explicitly for the pointer to be NULL with the length 
+non-zero. However, the ensuing behaviour (as detailed below) is bizarre and this 
+case is dismissed here as ill-defined. </p>
+<h3>Return Value </h3>
+<p>The function returns TRUE for success and FALSE for failure. If the function 
+fails, an error code is set for retrieval through <span class="function">
+GetLastError</span>.
+</p>
+<p>On success, the components of the given URL are returned through members of 
+the
+<span class="struct">URL_COMPONENTSW</span> structure. For each 
+pointer-and-length pair that described a buffer on input, the buffer now 
+contains a copy of the corresponding component as a null-terminated Unicode 
+string, and the length member is updated to the size of this component, in 
+Unicode characters, but not counting the terminating null. </p>
+<p>Failure with <span class="constant">ERROR_INSUFFICIENT_BUFFER</span> as the 
+error code indicates that a successful return would have been possible except 
+that at least one of the buffers described by a pointer-and-length pair was too 
+small to receive the corresponding component (and its terminating null). The 
+length member for each such component is updated to show what length would have 
+sufficed. Other components are returned as if for success. </p>
+<h2>Behaviour </h2>
+<p>This function has very nearly the same prototype as the long-standing and 
+long-documented WININET function <span class="function">InternetCrackUrl</span>. 
+The implementation is very nearly identical except that <span class="function">
+InternetCrackUrl</span> 
+has ANSI as the native character set (with a Unicode form converting to and from 
+ANSI) while <span class="function">UrlCrackW</span> has Unicode as native (with 
+no ANSI form). However, there are differences, such that <span class="function">
+UrlCrackW</span> cannot sensibly be deemed semi-documented by reference to the 
+documentation of <span class="function">InternetCrackUrl</span>, not that the 
+latter is anyway accurate or comprehensive. </p>
+<h3>Parameter Validation </h3>
+<p>The function requires the following of its parameters, else it fails, with
+<span class="constant">ERROR_INVALID_PARAMETER</span> as the error code: </p>
+<ul>
+  <li><span class="argument">lpszUrl</span> must be non-NULL </li>
+  <li>if <span class="argument">dwUrlLength</span> is non-zero, then the
+  <span class="argument">dwUrlLength</span> words at the address
+  <span class="argument">lpszUrl</span> must be readable </li>
+  <li>if <span class="argument">dwUrlLength</span> is zero, then a Unicode 
+  string must be readable at the address <span class="argument">lpszUrl</span> </li>
+  <li>the 3Ch bytes of a <span class="struct">SHURL_COMPONENTSW</span> structure 
+  must be writable at the address <span class="argument">lpUrlComponents</span>
+  </li>
+  <li>the <span class="member">dwStructSize</span> member at
+  <span class="argument">lpUrlComponents</span> must have the value 3Ch </li>
+  <li><span class="argument">dwFlags</span> must have no bits set other than
+  <span class="constant">ICU_DECODE</span> or <span class="constant">ICU_ESCAPE</span>
+  </li>
+  <li>for each of the (six) pointer-and-length pairs in the <span class="struct">
+  SHURL_COMPONENTSW</span> structure, if the pointer is non-NULL and the length 
+  is non-zero, then that length, counted in Unicode characters, must be writable 
+  at that address </li>
+  <li>if either the <span class="constant">ICU_DECODE</span> or
+  <span class="constant">ICU_ESCAPE</span> flag is set, then at least one of the 
+  (six) pointer-and-length pairs must have a non-NULL pointer and non-zero 
+  length
+  </li>
+</ul>
+<h3>URL Syntax </h3>
+<p>The URL that is to be cracked consists of the non-null Unicode characters at 
+the address <span class="argument">lpszUrl</span>, up to a maximum of
+<span class="argument">dwUrlLength</span> characters if <span class="argument">
+dwUrlLength</span> 
+is non-zero. This URL is parsed as a sequence of components and separators, 
+according to the following sketch but with numerous special cases: </p>
+<ul>
+  <li>the scheme, whose text is returned through the <span class="member">
+  lpszScheme</span> 
+  and <span class="member">dwSchemeLength</span> members&nbsp; </li>
+  <li>a colon and possibly two slashes </li>
+  <li>the user name, whose text is returned through the <span class="member">
+  lpszUserName</span> 
+  and <span class="member">dwUserNameLength</span> members&nbsp; </li>
+  <li>a colon </li>
+  <li>the password, whose text is returned through the <span class="member">
+  lpszPassword</span> 
+  and <span class="member">dwPasswordLength</span> members </li>
+  <li>an @ sign </li>
+  <li>the host name, whose text is returned through the <span class="member">
+  lpszHostName</span> 
+  and <span class="member">dwHostNameLength</span> members </li>
+  <li>a colon </li>
+  <li>the port number, whose 16-bit evaluation is returned through the
+  <span class="member">nPort</span> member </li>
+  <li>a slash </li>
+  <li>the path, whose text (typically including the preceding slash) is returned 
+  through the <span class="member">lpszUrlPath</span> and <span class="member">
+  dwUrlPathLength</span> 
+  members </li>
+  <li>a question mark or hash sign </li>
+  <li>extra information, whose text (including the preceding question mark or 
+  hash sign) is returned through the <span class="member">lpszExtraInfo</span> 
+  and
+  <span class="member">dwExtraInfoLength</span> members </li>
+</ul>
+<p>Each component may be explicitly empty, e.g., when there are no characters 
+between the relevant separators. Each component may be implicitly empty, because 
+the URL fits some case that simply doesn’t provide for that component. Either 
+way, an empty component is treated as having been found but with zero as its 
+length. </p>
+<h4>Scheme </h4>
+<p>Characters up to but not including the first colon name the scheme. Eleven 
+schemes have specific support: </p>
+<blockquote>
+  <p><span class="urlscheme">file</span>, <span class="urlscheme">ftp</span>,
+  <span class="urlscheme">gopher</span>, <span class="urlscheme">http</span>,
+  <span class="urlscheme">https</span>, <span class="urlscheme">javascript</span>,
+  <span class="urlscheme">mailto</span>, <span class="urlscheme">news</span>,
+  <span class="urlscheme">res</span>, <span class="urlscheme">socks</span> and
+  <span class="urlscheme">vbscript</span> </p>
+</blockquote>
+<p>Recognition is insensitive to case. Each has a corresponding value in the
+<span class="enum">SHINTERNET_SCHEME</span> enumeration, as returned through the
+<span class="member">nScheme</span> member. For other schemes, this member 
+receives the value <span class="constant">SHINTERNET_SCHEME_UNKNOWN</span> (-1). </p>
+<p>The function fails, with <span class="constant">
+ERROR_INTERNET_UNRECOGNIZED_SCHEME</span> 
+as the error code, in any of the following conditions: </p>
+<ul>
+  <li>the URL has no colon </li>
+  <li>the scheme is <span class="urlscheme">file</span>, <span class="urlscheme">
+  ftp</span>, <span class="urlscheme">gopher</span>, <span class="urlscheme">
+  http</span>,
+  <span class="urlscheme">https</span> or <span class="urlscheme">res</span>, 
+  but is not followed by a colon, two slashes and at least one more character </li>
+  <li>the scheme is <span class="urlscheme">javascript</span>,
+  <span class="urlscheme">mailto</span>, <span class="urlscheme">socks</span> or
+  <span class="urlscheme">vbscript</span>, but is followed by a colon, two 
+  slashes and at least one more character </li>
+</ul>
+<p>(It may help to enumerate some special cases, if only to confirm that they 
+are not omitted. For a URL whose first character is a colon, the scheme is empty 
+and counts as unknown, not as an error. For the <span class="urlscheme">news</span> 
+scheme and for all unknown schemes, two slashes after the colon are permitted 
+but not required.) </p>
+<p>If the scheme is followed by a colon, two slashes and at least one more 
+character, then the colon and two slashes are discarded as separators, and the 
+next component begins after the two slashes. Otherwise, the next component 
+begins immediately after the colon. </p>
+<h4>User Name and Password </h4>
+<p>The <span class="urlscheme">file</span> and <span class="urlscheme">res</span> 
+schemes do not provide for a user name or password. Neither do the
+<span class="urlscheme">news</span> scheme or any unknown schemes unless the 
+colon that follows them is given with two slashes and at least one more 
+character. </p>
+<p>In the general case however, a user name and password are indicated if an @ 
+sign occurs before a slash or before the URL ends. Among the characters up to 
+but not including the @ sign, the user name extends up to but not including the 
+first colon. If a colon is present, the password consists of whatever characters 
+follow the colon. A second colon causes the function to fail, with <span class="constant">
+ERROR_INTERNET_INVALID_URL</span> 
+as the error code. </p>
+<p>Escape sequences in the user name and password are decoded, irrespective of
+<span class="argument">dwFlags</span>. An invalid escape sequence causes the 
+function to fail, with <span class="constant">ERROR_INTERNET_INVALID_URL</span> 
+as the error code. Note that the components are identified first and then 
+decoded, so that escape sequences allow for inclusion of slashes, colons and @ 
+signs which would not otherwise be possible for these components. Note also that 
+this decoding corrupts the input URL at <span class="argument">lpszUrl</span> 
+unless either
+<span class="constant">ICU_DECODE</span> or <span class="constant">ICU_ESCAPE</span> 
+is set in <span class="argument">dwFlags</span>, or the user name and password 
+happen to contain no percent signs. </p>
+<p>The @ sign is discarded, and the next component begins immediately after. </p>
+<h4>Host Name and Port Number </h4>
+<p>The <span class="urlscheme">file</span> scheme does not provide for a host 
+name or port number. Neither do the <span class="urlscheme">news</span> scheme 
+or any unknown schemes unless the colon that follows them is given with two 
+slashes and at least one more character. </p>
+<p>The <span class="urlscheme">res</span> scheme does not provide for a port 
+number. All characters up to but not including a slash (else to the URL’s end) 
+form the host name. </p>
+<p>Otherwise, a host name and port number are drawn from the characters up to 
+but not including a slash else to the URL’s end. Within this range, the host 
+name extends up to but not including the first colon. If a colon is present, the 
+port number consists of whatever characters follow the colon. A second colon 
+causes the function to fail, with <span class="constant">
+ERROR_INTERNET_INVALID_URL</span> as the error code. </p>
+<p>Escape sequences in the host name and port number are decoded, irrespective 
+of
+<span class="argument">dwFlags</span>. An invalid escape sequence causes the 
+function to fail, with <span class="constant">ERROR_INTERNET_INVALID_URL</span> 
+as the error code. Note that the components are identified first and then 
+decoded, so that escape sequences allow for inclusion of slashes and colons 
+which would not otherwise be possible for these components. Note also that this 
+decoding corrupts the input URL at <span class="argument">lpszUrl</span> unless 
+either <span class="constant">ICU_DECODE</span> 
+or <span class="constant">ICU_ESCAPE</span> is set in <span class="argument">
+dwFlags</span>, or the host name and port number happen to contain no percent 
+signs. </p>
+<p>If the port number is not empty, it must be a sequence of decimal digits, 
+evaluating to a maximum of 65535, else the function fails, with <span class="constant">
+ERROR_INTERNET_INVALID_URL</span> 
+as the error code. Note that the port number is evaluated only after decoding 
+escape sequences, so that although an escaped decimal digit may be unlikely in 
+practice, it causes no error. </p>
+<p>If the host name and port number are followed by a slash, then the slash is 
+not discarded but is instead the first character of the next component. (Without 
+a slash, there is no next component.) </p>
+<h4>Path </h4>
+<p>Whatever remains becomes the path, up to but not including the first question 
+mark or hash sign. In general, the path leads with the slash that separates it 
+from the host name or port number. The only exceptions are the cases that do not 
+provide for a host name or port number: thus, the <span class="urlscheme">file</span> 
+scheme always, and the <span class="urlscheme">news</span> and all unknown 
+schemes unless followed by a colon, two slashes and at least one more character. </p>
+<p>Escape sequences in the path are decoded if <span class="constant">ICU_ESCAPE</span> 
+is set in <span class="argument">dwFlags</span>. An invalid escape sequence 
+causes the function to fail, with <span class="constant">
+ERROR_INTERNET_INVALID_URL</span> 
+as the error code. Note that this decoding is done before separating the path 
+from extra information. Thus, when parsing with the <span class="constant">
+ICU_ESCAPE</span> 
+flag set, escape sequences do not let the path contain a question mark or hash 
+sign.
+</p>
+<p>If a URL has the <span class="urlscheme">file</span> scheme, the path begins 
+with the character after the colon and double slash (as noted above) but is 
+further transformed by the <span class="function">PathCreateFromUrl</span> 
+function, so that the path as returned is the so-called MS-DOS path. Details of 
+this transformation fall outside the scope of this article: refer to Microsoft’s 
+documentation of
+<span class="function">PathCreateFromUrl</span>. </p>
+<h4>Extra Information </h4>
+<p>Whatever remains is the so-called extra information, necessarily beginning 
+with either a question mark or hash sign. </p>
+<p>Escape sequences in the extra information are decoded if
+<span class="constant">ICU_ESCAPE</span> is set in <span class="argument">
+dwFlags</span>. An invalid escape sequence causes the function to fail, with
+<span class="constant">ERROR_INTERNET_INVALID_URL</span> as the error code. Note 
+that this decoding is done before the extra information is separated from the 
+path. Thus, when parsing with the <span class="constant">ICU_ESCAPE</span> flag 
+set, the extra information begins with the first question mark or hash sign 
+after the start of the path, even if escaped. </p>
+<h3>Component Return </h3>
+<p>For each component other than the port number, the <span class="struct">
+SHURL_COMPONENTSW</span> 
+structure whose address is given by the <span class="argument">lpUrlComponents</span> 
+argument provides a pointer and a length (counted in Unicode characters). 
+Several modes of return operate depending on whether the input pointer is or is 
+not NULL and the input length is or is not zero. </p>
+<h4>No Interest </h4>
+<p>If the pointer is NULL and the length is zero, the caller has indicated no 
+interest in the corresponding component. No information is returned about this 
+component.
+</p>
+<h4>Buffer Given </h4>
+<p>A non-NULL pointer gives the address of a buffer into which the function is 
+to copy the corresponding component as a Unicode string with a terminating null. 
+The length on input is given as the size of this buffer, in Unicode characters. </p>
+<p>If the buffer is large enough for the component, as found, plus a terminating 
+null, then the component is copied to the buffer as a null-terminated Unicode 
+string. The length member is set to the number of characters in the component, 
+not counting the terminating null. If <span class="constant">ICU_DECODE</span> 
+is set in
+<span class="argument">dwFlags</span>, then escape sequences in this returned 
+component are decoded. Note that the length member is set first and may then 
+exceed the number of characters in the component as actually returned. </p>
+<p>If the buffer is too small for the component, as found, plus a terminating 
+null, then nothing is copied to the buffer. The length member is set to the 
+number of characters in the component, plus one for the terminating null. The 
+occurrence of this condition for any component causes the function to fail, with
+<span class="constant">ERROR_INSUFFICIENT_BUFFER</span> as the error code, but 
+only after processing the return of all components. </p>
+<p>It is permitted that the length on input be given as zero. The effect is that 
+the buffer must be too small, so that the length member must be set to the 
+length that would suffice. </p>
+<h4>Pointer Wanted </h4>
+<p>If the pointer is given as NULL and the length as non-zero, then the function 
+updates both the pointer and length, apparently intending to describe the 
+component as found in the input URL. </p>
+<p>Note however that if either the <span class="constant">ICU_DECODE</span> or
+<span class="constant">ICU_ESCAPE</span> bit is set in <span class="argument">
+dwFlags</span>, then the returned pointer is not meaningful. Instead of pointing 
+into the input URL, it points into a temporary copy that the function made of 
+the URL and which is formally invalid by the time the function returns. </p>
+<h4>Port Number </h4>
+<p>The port number is returned in the <span class="member">nPort</span> member, 
+as a 16-bit numeric evaluation. An empty port number is evaluated as zero, 
+except that if the URL has the <span class="urlscheme">ftp</span>,
+<span class="urlscheme">gopher</span>, <span class="urlscheme">http</span> or
+<span class="urlscheme">https</span> scheme, an empty port number is defaulted 
+to 21, 70, 80 or 443 respectively. </p>
+<h2>Availability </h2>
+<p>The <span class="function">UrlCrackW </span>function is exported from 
+SHLWAPI.DLL as ordinal 480 in version 5.50 and higher. </p>
+<!--webbot bot="Include" U-Include="../_include/undoc550.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 2000, it was still not 
+documented by Microsoft in the MSDN Library at least as late as the CD edition 
+dated January 2004. </p>
+
+<!--webbot bot="Include" endspan i-checksum="41429" -->
+<p>Most symbolic names in this article are inventions, pending knowledge of 
+Microsoft’s nomenclature. They are however modelled very closely on 
+documentation of the WININET function <span class="function">InternetCrackUrl</span>. 
+That SHLWAPI renames WININET’s
+<span class="enum">INTERNET_SCHEME</span> to <span class="enum">
+SHINTERNET_SCHEME</span> 
+is known for certain from Microsoft’s symbol file for SHLWAPI, and it is 
+surmised here that similar renaming applies throughout. </p>
+<h3>Use By Microsoft </h3>
+<p>A known use of this function by Microsoft is for Internet Explorer, 
+specifically for MSHTML.DLL to support the <span class="object">location</span> 
+scripting object and the <span class="interface">IHTMLLocation</span> interface. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 4th March 2007 and was last modified 
+  on 16th March 2007 (except for a small correction on 9th September 2018). </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c07.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2007. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62613" -->
+</div>
+
+</body>
+
+</html>

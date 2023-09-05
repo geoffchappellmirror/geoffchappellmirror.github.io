@@ -1,0 +1,180 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>InfoMask in the OBJECT_HEADER</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>InfoMask in the Object Header </h1>
+  <p>Though an <span class="struct"><a href="index.htm">OBJECT_HEADER</a></span> 
+  immediately precedes every object, it too has structures ahead of it. The
+  <span class="struct">OBJECT_HEADER</span> has what’s needed more or less immediately 
+  for almost every operation on almost every object, including to point the way 
+  to these other structures that are useful only for some operations and some objects.
+  </p>
+  <p>Originally, the <span class="struct">OBJECT_HEADER</span> is preceded only 
+  by an <span class="struct">OBJECT_CREATE_INFORMATION</span>, but this structure 
+  is relatively large and wastes on two counts. First, not all of it needs to be 
+  kept for the whole of any object’s life, at least not in the form given. Second, 
+  not all of it is even given for every object. Version 3.50 substantially reduced 
+  the overhead by being selective about what’s retained. The
+  <span class="struct">OBJECT_CREATE_INFORMATION</span> is in a separate memory 
+  allocation, to be freed eventually, and many of its original members are instead 
+  in four other structures that can be present as header’s headers. The
+  <span class="struct">OBJECT_HEADER</span> then has four single-byte members which 
+  are each the negative offset to the corresponding header, else are zero. One byte 
+  for each of these is also wasteful. The header’s headers all have known sizes 
+  and though not all need be present, whichever are present have a known order. 
+  The offsets to each from any one <span class="struct">OBJECT_HEADER</span> can 
+  therefore be computed just from knowing which headers are present. This requires 
+  just one bit per header. Thus was born the <span class="member">InfoMask</span> 
+  in the <span class="struct">OBJECT_HEADER</span> for Windows 7 and higher: </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask"><col class="Description"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask </th>
+        <th>Decription </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01 </td>
+        <td>object has <span class="struct">
+        <a href="../object_header_creator_info.htm">OBJECT_HEADER_CREATOR_INFO</a></span>
+        </td>
+        <td>6.1 and higher &nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td>object has <span class="struct">
+        <a href="../object_header_name_info.htm">OBJECT_HEADER_NAME_INFO</a></span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>object has <span class="struct">
+        <a href="../object_header_handle_info.htm">OBJECT_HEADER_HANDLE_INFO</a></span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>object has <span class="struct">
+        <a href="../object_header_quota_info.htm">OBJECT_HEADER_QUOTA_INFO</a></span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td>object has <span class="struct">
+        <a href="../object_header_process_info.htm">OBJECT_HEADER_PROCESS_INFO</a></span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td>object has <span class="struct">
+        <a href="../object_header_audit_info.htm">OBJECT_HEADER_AUDIT_INFO</a></span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40 </td>
+        <td>object has <span class="struct">
+        <a href="../object_header_handle_revocation_info.htm">OBJECT_HEADER_HANDLE_REVOCATION_INFO</a></span>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>A set bit signifies that the corresponding header is present. Exactly where 
+  the corresponding header is present before the <span class="struct">OBJECT_HEADER</span> 
+  depends on which lower bits are set. This is because the increasing numerical 
+  values of the bits is also the order of the corresponding headers backwards from 
+  the <span class="struct">OBJECT_HEADER</span>. </p>
+  <p>Microsoft’s names for the <span class="member">InfoMask</span> bits are not 
+  known—not even from the NTOSP.H in early editions of the Windows Driver Kit (WDK) 
+  for Windows 10, which otherwise helps with disclosures of macro definitions for 
+  the <span class="member">TraceFlags</span> and <span class="member">Flags</span>. 
+  Macro definitions surely do exist, but they will not be needed outside a handful 
+  of source files that are private to the Object Manager. The details of locating 
+  any of the headers from an <span class="struct">OBJECT_HEADER</span> would be 
+  easily contained in internal routines, and public symbol files for the kernel 
+  confirm that the following exist as inlined routines in the applicable versions 
+  as long ago as Windows 8: </p>
+  <pre class="source">OBJECT_HEADER_QUOTA_INFO *
+OBJECT_HEADER_TO_QUOTA_INFO_EXISTS (
+    OBJECT_HEADER *);</pre>
+  <pre class="source">OBJECT_HEADER_PROCESS_INFO *
+OBJECT_HEADER_TO_PROCESS_INFO_EXISTS (
+    OBJECT_HEADER *);</pre>
+  <pre class="source">OBJECT_HEADER_HANDLE_INFO *
+OBJECT_HEADER_TO_HANDLE_INFO_EXISTS (
+    OBJECT_HEADER *);</pre>
+  <pre class="source">OBJECT_HEADER_NAME_INFO *
+OBJECT_HEADER_TO_NAME_INFO_EXISTS (
+    OBJECT_HEADER *);</pre>
+  <pre class="source">OBJECT_HEADER_AUDIT_INFO *
+OBJECT_HEADER_TO_AUDIT_INFO_EXISTS (
+    OBJECT_HEADER *);</pre>
+  <pre class="source">OBJECT_HEADER_HANDLE_REVOCATION_INFO *
+OBJECT_HEADER_TO_HANDLE_REVOCATION_INFO_EXISTS (
+    OBJECT_HEADER *);</pre>
+  <p>Indeed, starting with the 1511 release, these routines, without the EXISTS 
+  suffix, are in plain sight, being not inlined. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 21st June 2020 but was not published 
+    until 30th <a href="../../../../../../../../new/20/06.htm">June 2020</a>. It 
+    was last modified on 22nd August 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c2022.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="13546" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,267 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>AssocProgidElement</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>AssocProgidElement </h1>
+<p>Instances of the ProgID type of <a href="index.htm">assocation element</a> are 
+created by passing the corresponding CLSID to the <span class="function">
+<a href="createelement.htm">AssocCreateElement</a></span> function: </p>
+<table>
+  <tr>
+    <td><span class="constant">CLSID_AssocProgidElement</span> </td>
+    <td><span class="clsid">{9016D0DD-7C41-46CC-A664-BF22F7CB186A}</span> </td>
+  </tr>
+</table>
+<p>As with all assocation elements, the ProgID element implements the
+<span class="interface">
+<a href="../../../shlwapi/interfaces/iassociationelement.htm">IAssociationElement</a></span>,
+<span class="interface"><a href="../../interfaces/iobjectwithquerysource.htm">IObjectWithQuerySource</a></span> 
+and <span class="interface"><a href="../../interfaces/ipersiststring2.htm">IPersistString2</a></span> 
+interfaces. A ProgID element is a significant elaboration of the basic
+<a href="shell.htm">shell element</a>. </p>
+<h2>Initialisation String </h2>
+<p>When a ProgID element is initialised through its <span class="method">SetString</span> 
+method, the registry key that is used as the query source is: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CLASSES_ROOT\<span class="placeholder">MappedProgID</span></span>
+    </td>
+  </tr>
+</table>
+<p>where <span class="placeholder">MappedProgID</span> is generated from the initialisation 
+string and from potentially many consultations of the registry. The first step is 
+to obtain the basic ProgID. The algorithm for this has two distinct cases to it. 
+In each, a list of candidate ProgIDs is found from various places in the registry 
+and one more registry setting chooses from the list. SHELL32 presently provides 
+for as many as 16 candidates. </p>
+<h3>File Associations </h3>
+<p>If the initialisation string is a file extension (meaning simply that it begins 
+with a period), then the candidate ProgIDs are drawn from three sources. A ProgID 
+may be specified as the default value of the given extension’s own subkey of
+<span class="regkey">HKEY_CLASSES_ROOT</span>: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CLASSES_ROOT\.<span class="placeholder">ext</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td>default </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> or <span class="constant">REG_EXPAND_SZ</span>
+    </td>
+  </tr>
+</table>
+<p>where .<span class="placeholder">ext</span> is the initialisation string. More 
+ProgIDs may be listed in a subkey: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CLASSES_ROOT\.<span class="placeholder">ext</span>\OpenWithProgIds</span>
+    </td>
+  </tr>
+</table>
+<p>Each value in this key names a candidate ProgID. Data for the value is immaterial. 
+All that matters is the name of the value. Yet more ProgIDs may be specified in 
+the key: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.<span class="placeholder">ext</span>\OpenWithProgIds</span>
+    </td>
+  </tr>
+</table>
+<p>Each value in this key names a candidate ProgID provided that it is a readable 
+subkey of <span class="regkey">HKEY_CLASSES_ROOT</span>. Again, whether the value 
+even has data is immaterial. </p>
+<p>The chosen ProgID is the data from the following registry value: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.<span class="placeholder">ext</span>\UserChoice</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Progid</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> or <span class="constant">REG_EXPAND_SZ</span>
+    </td>
+  </tr>
+</table>
+<p>If this value has no string data, then the first candidate is chosen by 
+default. If there are no candidates, the ultimate default is
+<span class="progid">Unknown</span>. </p>
+<p>Note that the string data for this value is ordinarily chosen as the ProgID even 
+if it is not among the candidate ProgIDs. The way this happens in the code is that 
+the <span class="regkey">UserChoice</span> ProgID is added to the list and therefore 
+is among the candidates (given that the list does not overflow). But if it is always 
+to be in the list, then why build the list? This code is new for Windows Vista and 
+is plainly not complete: its analysis may need to be revisited to see how the code 
+settles in later versions. </p>
+<h3>URL Associations </h3>
+<p>If the initialisation string does not begin with a period, then the initialisation 
+string is itself the first candidate ProgID. More may be named as values in the 
+key: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\Shell\RegisteredApplications\UrlAssocations\<span class="placeholder">InitString</span>\OpenWithProgIds</span>
+    </td>
+  </tr>
+</table>
+<p>The chosen ProgID is the data from the following registry value: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\<span class="placeholder">InitString</span>\UserChoice</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Progid</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> or <span class="constant">REG_EXPAND_SZ</span>
+    </td>
+  </tr>
+</table>
+<p>If this value has no string data, then the first candidate is chosen by default. 
+If there are no candidates, the ultimate default is <span class="progid">Unknown</span>. 
+(As for file associations, the string data for this value is ordinarily chosen 
+as the ProgID even if it is not among the candidate ProgIDs.) </p>
+<h3>ProgID Key </h3>
+<p>The chosen ProgID must yet be mapped to a subkey of <span class="regkey">HKEY_CLASSES_ROOT</span>. 
+The ProgID key, which serves as the query source for the ProgID element, is </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CLASSES_ROOT\<span class="placeholder">MappedProgID</span></span>
+    </td>
+  </tr>
+</table>
+<p>in which <span class="placeholder">MappedProgID</span> is in general the string 
+data from the following registry value: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CLASSES_ROOT\<span class="placeholder">ChosenProgID</span>\CurVer</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td>default </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> or <span class="constant">REG_EXPAND_SZ</span>
+    </td>
+  </tr>
+</table>
+<p>If this value cannot be read or is empty, then the mapped ProgID is just the 
+chosen ProgID. This trivial mapping is also applied, regardless of any
+<span class="regkey">CurVer</span> subkey, if the ProgID is <span class="progid">Excel.Sheet.8</span>. (This 
+special case appears first in the SHELL32 version 6.00 from Windows XP SP1.) A more 
+general case of trivial mapping expresses a preference that the ProgID key should 
+have a <span class="regkey">shell</span> subkey that can be opened for reading. 
+If this preference is not met when using the mapped ProgID but would be without 
+the mapping, then the mapping is abandoned and the ProgID key uses the chosen ProgID 
+instead. </p>
+<h2>Queries </h2>
+<p>For most queries, a ProgID element is just a basic shell element with a different 
+query source. However, two queries are defined just for ProgID elements and three 
+others behave differently. </p>
+<p>When the initialisation string for a ProgID element is a file extension, the 
+element has a secondary query source which is used for any query whose
+<span class="enum"><a href="query.htm">ASSOCQUERY</a></span> value has the 0x80000000 
+bit set, if put to the <span class="method">QueryString</span> or
+<span class="method">QueryGuid</span> methods. At present, just two queries are 
+defined for this handling: </p>
+<table>
+  <tr>
+    <th>Query </th>
+    <th>Key </th>
+    <th>Value </th>
+  </tr>
+  <tr>
+    <td>0x80070002 </td>
+    <td><span class="regkey">HKEY_CLASSES_ROOT\.<span class="placeholder">ext</span></span>
+    </td>
+    <td><span class="regvalue">Content Type</span> </td>
+  </tr>
+  <tr>
+    <td>0x81470002 </td>
+    <td><span class="regkey">HKEY_CLASSES_ROOT\<span class="placeholder">MappedProgID</span>\ShellEx\<span class="placeholder">extra</span></span>
+    <br>
+    <span class="regkey">HKEY_CLASSES_ROOT\.<span class="placeholder">ext</span>\ShellEx\<span class="placeholder">extra</span></span>
+    </td>
+    <td>default </td>
+  </tr>
+</table>
+<p>where <span class="argument">extra</span> is provided as the second argument 
+to the query method. Query 0x80070002 is valid only for ProgID elements and can 
+be answered only from the extension key. For query 0x81470002, the special handling 
+is a fall-back. If the query cannot be answered from the ProgID key it is answered 
+instead from the extension key. </p>
+<p>Query 0x00020014 is defined for ProgID elements such that
+<span class="method">QueryExists</span> succeeds if a ProgID element has a file-extension 
+key as a secondary source. </p>
+<p>Two other queries have fall-backs when put to a ProgID element through
+<span class="method">QueryString</span>. If query 0x00170000 cannot be answered 
+from the <span class="regvalue">FriendlyTypeName</span> value in the ProgID key, 
+as usual for other association elements, it is answered instead from the default 
+value in the ProgID key. If query 0x00070004 cannot be answered from the
+<span class="regkey">Progid</span> subkey of the ProgID key, it is answered instead 
+with the (unmapped) ProgID as determined above from the initialisation string.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 7th July 2009 and was last modified 
+  on 24th July 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="50766" endspan -->
+</div>
+
+</body>
+
+</html>

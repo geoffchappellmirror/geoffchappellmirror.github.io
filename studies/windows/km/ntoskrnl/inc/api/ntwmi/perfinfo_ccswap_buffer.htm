@@ -1,0 +1,324 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>PERFINFO_CCSWAP_BUFFER</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>PERFINFO_CCSWAP_BUFFER </h1>
+  <p>The <span class="struct">PERFINFO_CCSWAP_BUFFER</span> is one of many types 
+  of fixed-size header that begin the data for an event as held in the trace buffers 
+  or flushed to an Event Trace Log (ETL) file for an NT Kernel Logger session. The 
+  event is specifically <span class="constant">PERFINFO_LOG_TYPE_CONTEXTSWAP_BATCH</span> 
+  (0x0525). It was introduced for Windows Vista. </p>
+  <h2>Usage </h2>
+  <p>The <span class="constant">PERFINFO_LOG_TYPE_CONTEXTSWAP_BATCH</span> event 
+  exists to trace context swaps, of course, but to do so without the expense of 
+  logging an event on every context swap. Here, context swap means a change of thread: 
+  a processor switches from running an old thread to a new thread. </p>
+  <p>For each processor, 
+  the kernel accumulates data on successive thread switches that occur on that processor 
+  and writes this <span class="definition">batch</span> as one event if the latest 
+  thread switch satisfies any of several conditions. How these might vary 
+  through successive versions is not (presently) accounted here. For the 
+  original Windows 10, the conditions are </p>
+  <ul>
+    <li>data has accumulated for too many threads; </li>
+    <li>too much time (more than 500 timer ticks) has passed since the batch started;
+    </li>
+    <li>the batch is already too large to add data for this latest thread switch;
+    </li>
+    <li>too much time has passed since the last thread switch on the same processor;
+    </li>
+    <li>this is to be the last thread switch to trace, since tracing of this event 
+    has stopped. </li>
+  </ul>
+  <p>This anyway is just a summary. The implementation is a little more complicated since the 
+  kernel not only tracks each processor separately but also may record each context 
+  switch in multiple batches to account for different clock types that are in use 
+  by trace sessions that are enabled for the event. </p>
+  <p>For any particular NT Kernel Logger session to be sent this event, the
+  <a href="perfinfo_groupmask.htm">group masks</a> <span class="constant">PERF_CONTEXT_SWITCH</span> 
+  (0x20000004) and <span class="constant">PERF_COMPACT_CSWITCH</span> (0x20000100) 
+  must both be enabled. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="struct">PERFINFO_CCSWAP_BUFFER</span> is not documented. A 
+  C-language definition is published in the NTWMI.H header from some editions of 
+  the Windows Driver Kit (WDK) for Windows 10. </p>
+  <h2>Layout </h2>
+  <p>Data for the <span class="constant">PERFINFO_LOG_TYPE_CONTEXTSWAP_BATCH</span> 
+  event comprises: </p>
+  <ul>
+    <li>a <span class="struct"><a href="traceheaders/perfinfo_trace_header.htm">
+    PERFINFO_TRACE_HEADER</a></span>, possibly with extended data items; </li>
+    <li>the <span class="struct">PERFINFO_CCSWAP_BUFFER</span>; </li>
+    <li>a sequence of <span class="struct">PERFINFO_CCSWAP</span> structures (in 
+    full or compressed form), one for each thread switch. </li>
+  </ul>
+  <h3>Trace Header </h3>
+  <p>In the <span class="struct">PERFINFO_TRACE_HEADER</span>, the
+  <span class="member">Size</span> is the total in bytes of the trace header and 
+  all the event data. The <span class="member">HookId</span> is
+  <span class="constant">PERFINFO_LOG_TYPE_CONTEXTSWAP_BATCH</span> , which identifies 
+  the event. </p>
+  <p>The <span class="member">Marker</span> is, at its most basic, 0xC0100002 (32-bit 
+  or 0xC0110002 (64-bit). Additional flags may be set to indicate that extended 
+  data items are inserted between the trace header and the event data. Ordinarily, 
+  however, the event data follows as the trace header’s <span class="member">Data</span> 
+  array. </p>
+  <h3>Event Data </h3>
+  <p>The event data itself begins with a fixed-size header. This
+  <span class="struct">PERFINFO_CCSWAP_BUFFER</span> is 0x58 bytes in both 32-bit 
+  and 64-bit Windows: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">LONGLONG FirstTimeStamp;</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">ULONG TidTable [0x10];</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>0x48 </td>
+        <td>
+        <pre class="source">SCHAR ThreadBasePriority [0x10];</pre>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">FirstTimeStamp</span> tells when this batch started. 
+  The unit of measurement depends on the trace session’s clock type. Data for each 
+  thread switch records only the difference in time from the preceding thread switch.
+  </p>
+  <p>The <span class="member">TidTable</span> lists the thread ID for every threads 
+  that has been seen as the old thread in any thread switches since this batch started. 
+  Data for each thread switch identifies the old thread by indexing into this list. 
+  When a thread switch occurs and the old thread is not the idle thread, it is added 
+  to the list. If the list is full, the existing batch becomes an event and a new 
+  batch is started. </p>
+  <p>The <span class="member">ThreadBasePriority</span> array gives the base priority 
+  of each thread at the time it was first switched away from. Data for each thread 
+  switch may indicate the old thread’s priority as an increment from this base priority.
+  </p>
+  <h4>Thread Switch </h4>
+  <p>The fixed-size header is followed by however much data has accumulated about 
+  thread switches since the last batch was logged as an event. The total size allowed 
+  for a batch is 0x0400 bytes. When a thread switch occurs and there is not at least 
+  eight bytes remaining, the existing batch becomes an event and a new batch is 
+  started. </p>
+  <p>The full form for the data that describes each thread switch is the 8-byte
+  <span class="struct">PERFINFO_CCSWAP</span>: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">ULONG DataType : 2;             // 0x00000003
+ULONG TimeDelta : 30;           // 0xFFFFFFFC</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>
+        <pre class="source">ULONG OldThreadIdIndex : 4;     // 0x0000000F
+ULONG OldThreadStateWr : 6;     // 0x000003F0
+ULONG OldThreadPriority : 5;    // 0x00007C00
+ULONG NewThreadWaitTime : 17;   // 0xFFFF8000</pre>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>To save space, however, the data can be present in any of three reduced forms 
+  (see below), distinguished by the <span class="member">DataType</span>: </p>
+  <ul>
+    <li><span class="constant">PerfCSwapIdleShort</span> (0) for a
+    <span class="struct">PERFINFO_CCSWAP_IDLE_SHORT</span>; </li>
+    <li><span class="constant">PerfCSwapIdle</span> (1) for a
+    <span class="struct">PERFINFO_CCSWAP_IDLE</span>; </li>
+    <li><span class="constant">PerfCSwapLite</span> (2) for a
+    <span class="struct">PERFINFO_CCSWAP_LITE</span>; </li>
+    <li><span class="constant">PerfCSwapFull</span> (3) for a
+    <span class="struct">PERFINFO_CCSWAP</span>. </li>
+  </ul>
+  <p>The <span class="member">TimeDelta</span> tells how much time, in the units 
+  of the trace session’s clock type, has passed since the preceding thread switch. 
+  If too much time passes between thread switches, such that the delta will not 
+  fit the allowed 30 bits, the existing batch becomes an event and a new batch is 
+  started. </p>
+  <p>The <span class="member">OldThreadIdIndex</span> identifies the outgoing thread 
+  indirectly. It is the thread’s 0-based index into the header’s
+  <span class="member">TidTable</span>. Note that a thread can come and go multiple 
+  times in one batch. </p>
+  <p>The <span class="member">OldThreadStateWr</span> is a compound of the outgoing 
+  thread’s <span class="member">WaitReason</span> and <span class="member">State</span>, 
+  as read from the <span class="struct">
+  <a href="../../ntos/ke/kthread/index.htm">KTHREAD</a></span>. The former tells 
+  why the outgoing thread is to wait. It takes its values from the documented
+  <span class="enum">KWAIT_REASON</span> enumeration, from zero up to but not including
+  <span class="constant">MaximumWaitReason</span>, which is currently 0x27. Values 
+  of <span class="member">OldThreadStateWr</span> that are not below this are instead 
+  a biased <span class="member">State</span>, specifically the
+  <span class="member">State</span> plus <span class="constant">MaximumWaitReason</span>. 
+  The <span class="member">State</span> takes its values from the undocumented
+  <span class="enum">KTHREAD_STATE</span> enumeration (with a current maximum of 
+  9). Note that for a <span class="member">WaitReason</span> to be shown, the old 
+  thread’s <span class="member">State</span> must be <span class="constant">Waiting</span> 
+  (5). </p>
+  <p>The <span class="member">NewThreadWaitTime</span> tells how long the incoming 
+  thread was waiting, in timer ticks. </p>
+  <h4>Compression </h4>
+  <p>When the new thread has been waiting no more than 1 tick and the
+  <span class="member">TimeDelta</span> will fit in 17 bits and the old thread (as 
+  will almost always be true) has not increased its priority by more than 7 from 
+  the base priority that is recorded for it in the header’s <span class="member">
+  ThreadBasePriority</span> array, all that might go into the 8-byte
+  <span class="struct">PERFINFO_CCSWAP</span> can instead fit in the 4-byte
+  <span class="struct">PERFINFO_CCSWAP_LITE</span>: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">ULONG DataType : 2;             // 0x00000003
+ULONG OldThreadIndex : 4;       // 0x0000003C
+ULONG OldThreadPriInc : 3;      // 0x000001C0
+ULONG OldThreadStateWr : 6;     // 0x00007E00
+ULONG TimeDelta : 17;           // 0xFFFF8000</pre>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">OldThreadPriInc</span> is the increase in the old 
+  thread’s priority over the recorded base priority. </p>
+  <h4>Idle Thread </h4>
+  <p>A different saving applies when the old thread is the idle thread, i.e., the 
+  one whose Thread ID is zero. This thread does not figure in the header’s
+  <span class="member">ThreadId</span> array. Data for a thread switch away from 
+  the idle thread is in general a 4-byte <span class="struct">PERFINFO_CCSWAP_IDLE</span>:
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">ULONG DataType : 2;
+ULONG TimeDelta : 30;</pre>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>However, it too can be compressed, to the 2-byte <span class="struct">PERFINFO_CCSWAP_IDLE_SHORT</span>, 
+  if only a little time has passed since the last thread switch: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">USHORT DataType : 2;
+USHORT TimeDelta : 14;</pre>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 17th
+    <a href="../../../../../../../new/16/12.htm">December 2016</a> and was last 
+    modified on 18th December 2016. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4925" -->
+  </div>
+</div>
+
+</body>
+
+</html>

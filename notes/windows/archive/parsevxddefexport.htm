@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Internal Error During ParseVxdDefExport</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Internal Error During ParseVxdDefExport </h1>
+  <h2>Problem </h2>
+  <p>Attempts to build even some startlingly simple projects using common versions 
+  of Microsoft’s COFF linker may fail with either of the following error messages 
+  (depending on whether the build is of a VxD or not): </p>
+  <p class="output">LINK : error : Internal error during ParseVxDDefExport </p>
+  <p class="output">LINK : error : Internal error during ParseAnExport </p>
+  <h2>Analysis </h2>
+  <p>This internal error means that an exception has occurred after entry to the
+  <span class="function">ParseVxDDefExport</span> or <span class="function">ParseAnExport</span> 
+  function but before the linker gets round to recording that it has progressed 
+  to some other function. (Strictly speaking, these <span class="function">ParseVxDDefExport</span> 
+  and <span class="function">ParseAnExport</span> functions are known by those names 
+  only for the purpose of reporting errors. Whether the functions are called by 
+  those names in Microsoft’s source code is of no interest here.) </p>
+  <h3>Cause </h3>
+  <p>An <span class="keyword">
+  <a href="../../../studies/msvc/link/lib/def/exports.htm">EXPORTS</a></span> statement 
+  in a module definition file introduces a series of <span class="keyword">EXPORTS</span> 
+  definitions, possibly (and indeed, typically) spread over more than one line. 
+  In a valid <span class="keyword">EXPORTS</span> definition, the first argument 
+  extends up to but not including the first space, tab or equals sign. The general 
+  idea is that if this first argument is a recognised statement keyword then it 
+  is not in fact the first argument of a new definition in the current
+  <span class="keyword">EXPORTS</span> statement but is instead the start of the 
+  next statement. </p>
+  <p>A special case is made for the <span class="keyword">
+  <a href="../../../studies/msvc/link/lib/def/version.htm">VERSION</a></span> keyword 
+  so that an <span class="keyword">EXPORTS</span> statement may contain a definition 
+  that begins with <span class="keyword">VERSION</span> and which acts to qualify 
+  the <span class="keyword">EXPORTS</span> statement. This feature is meaningful 
+  when the target platform for the build is the Motorola 680x0 family (as set through
+  <span class="switch">/machine:m68k</span> option on the command line). </p>
+  <p>Support for this feature as a special case when building for other platforms 
+  seems to be an error. When the linker starts parsing an <span class="keyword">
+  EXPORTS</span> statement, it prepares for this feature only if building for the 
+  Motorola machines. However, the linker recognises the special case of a
+  <span class="keyword">VERSION</span> within an <span class="keyword">EXPORTS</span> 
+  for all machines. A line that the programmer intends as a
+  <span class="keyword">VERSION</span> statement (that happens to be placed after 
+  an <span class="keyword">EXPORTS</span> statement) is therefore interpreted as 
+  a Motorola <span class="keyword">VERSION</span> within an
+  <span class="keyword">EXPORTS</span>. </p>
+  <h4>Syntax </h4>
+  <p>The <span class="keyword">VERSION</span> definition in an
+  <span class="keyword">EXPORTS</span> statement for the Motorola machines admits 
+  one or two arguments. An empty definition is valid but trivial. If there is to 
+  be an argument, then the <span class="keyword">VERSION</span> tag must be followed 
+  immediately by a space or tab. An overview of the syntax is: </p>
+  <pre class="source"><span class="keyword">VERSION</span> [<span class="placeholder">version1</span>[<span class="terminal">...</span><span class="placeholder">version2</span>]] </pre>
+  <p>Each argument may be preceded by white space. The series of three periods that 
+  separates the two arguments may not be preceded by white space. The line must 
+  end with the arguments. Even trailing white space is invalid. Each argument has 
+  the form: </p>
+  <pre class="source">[<span class="placeholder">i</span>][<span class="terminal">.</span><span class="placeholder">j</span>[<span class="terminal">.</span><span class="placeholder">k</span>][<span class="placeholder">l</span>[<span class="placeholder">m</span>]]] </pre>
+  <p>where <span class="placeholder">i</span> may consist of one or two decimal 
+  digits; <span class="placeholder">j</span>, <span class="placeholder">k</span> 
+  and <span class="placeholder">m</span> are each one decimal digit; and
+  <span class="placeholder">l</span> is one of the lower-case letters a, b, d or 
+  r. </p>
+  <h3>Consequences </h3>
+  <p>If the line intended as a <span class="keyword">VERSION</span> statement happens 
+  to be valid syntactically as a <span class="keyword">VERSION</span> within an
+  <span class="keyword">EXPORTS</span> for the Motorola, then because the linker 
+  has not prepared for the Motorola case, there is no structure to receive the results 
+  of the parsing and the linker writes through a null pointer when trying to save 
+  the <span class="keyword">VERSION</span> information. This CPU exception is reported 
+  as the internal error. </p>
+  <p>If the line intended as a <span class="keyword">VERSION</span> statement happens 
+  not to be valid syntactically as a <span class="keyword">VERSION</span> within 
+  an <span class="keyword">EXPORTS</span> for the Motorola, then the consequence 
+  is fatal error LNK1118, which is simply a report of the syntax error. </p>
+  <h3>Applicable Versions </h3>
+  <p>This problem applies to the LINK.EXE version 2.60.5046 supplied with the Windows 
+  95 DDK and to versions 3.00.5270, 3.10.6038 and 4.20.6164 from Microsoft Visual 
+  C++ 4.0, 4.1 and 4.2 respectively. </p>
+  <p>In LINK.EXE version 5.00.7022 supplied with Microsoft Visual C++ version 5.0, 
+  the <span class="function">ParseDefExports</span> function has no code for recognising 
+  the Motorola <span class="keyword">VERSION</span> within an
+  <span class="keyword">EXPORTS</span>, and so the problem goes away. </p>
+  <h2>Work-Around </h2>
+  <p>To side-step this bug, take care not to place a <span class="keyword">VERSION</span> 
+  statement immediately after an <span class="keyword">EXPORTS</span> statement.
+  </p>
+  <p>Even now that Microsoft has detected the bug and corrected it for new versions, 
+  it should be borne in mind that it is not always possible for programmers to insist 
+  on particular versions of development tools. This applies especially when source 
+  code is written for others—for instance, when a consultant or contractor starts 
+  a project that may thereafter be maintained by the client, or when sample code 
+  is written for the instruction of and possible adaptation by unknown readers. 
+  In the absence of any good reason to insist on Visual C++ 5.0 (or higher), the 
+  greater benefit must come from adopting the work-around as standard practice.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 10th May 1999 and was last modified 
+    on 16th September 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9908.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1999-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63783" -->
+  </div>
+</div>
+
+</body>
+
+</html>

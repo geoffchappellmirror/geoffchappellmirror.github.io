@@ -1,0 +1,174 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>C++ Keywords: __identifier</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="22580" endspan -->
+<h1>C++ Keywords: __identifier </h1>
+<h2>Syntax </h2>
+<blockquote>
+  <p><span class="keyword">__identifier ( </span><span class="placeholder">token</span><span class="keyword"> 
+  )</span> </p>
+</blockquote>
+<p>It is an error (C2760) to follow <span class="keyword">__identifier</span> with 
+any sequence of tokens except a left parenthesis, an arbitrary
+<span class="placeholder">token</span> and a right parenthesis. </p>
+<p>If the <span class="placeholder">token</span> is not one of various acceptable 
+keywords (see below), it must be either an identifier or a string literal. Anything 
+else is an error (<a href="../../cl/c1xx/errors/c2745.htm">C2745</a>). Note that 
+any text that tokenises as an unacceptable keyword causes this error, even if the 
+text is otherwise valid as a C++ identifier. </p>
+<p>Depending on such things as prevailing command-line options (especially on
+<span class="switch"><a href="../../cl/cl/options/z$e.htm">/Ze</a></span>), some 
+of the acceptable keywords may have multiple forms as text, most notably with different 
+numbers of leading underscores, that are all defined as keywords and which tokenise 
+indistinguishably. Provision of such a keyword as the <span class="placeholder">
+token</span> causes a warning (<a href="../../cl/c1xx/warnings/c4932.htm">C4932</a>).
+</p>
+<h2>Behaviour </h2>
+<p>The <span class="keyword">__identifier</span> keyword acts as an operator in 
+the token stream. It takes as its one argument a <span class="placeholder">token</span>, 
+which it returns re-tokenised as an identifer. The sequence of tokens from
+<span class="keyword">__identifier</span> up to and including the closing parenthesis 
+is replaced in the token stream by the one <span class="placeholder">token</span>, 
+but now converted to an identifier. </p>
+<h3>Keywords </h3>
+<p>This conversion is especially useful for text that is valid as a C++ identifier 
+but is recognised as special to the compiler, such that tokenisation renders it 
+as one of the many tokens that are each dedicated to some keyword, rather than as 
+an identifier token. A side-effect of this distinct tokenisation of keywords is 
+that the text of a keyword is not ordinarily available as an identifier, e.g., for 
+labelling code or data. The practical effect of the <span class="keyword">__identifier</span> 
+construction is to make the text usable as an identifier after all. </p>
+<p>That said, there are several caveats. </p>
+<p>First, the keyword is tokenised before <span class="keyword">__identifier</span> 
+gets to work on it. Errors and warnings that arise from this tokenisation are not 
+avoided and may affect the behaviour, and indeed the capability, of
+<span class="keyword">__identifier</span>. This applies particularly to disabled 
+keywords. For example, </p>
+<pre class="source">int __identifier (near);</pre>
+<p>does not even get to try converting <span class="keyword">near</span> to an identifier, 
+because the tokenisation of <span class="keyword">near</span> causes a warning (C4226) 
+that the keyword is obsolete, and the keyword is then discarded from the token stream.
+</p>
+<h3>Identifiers </h3>
+<p>The re-tokenisation performed by <span class="keyword">__identifier</span> is 
+trivial if the argument is already tokenised as an identifier. </p>
+<p>The product documentation notes that “use of the <span class="keyword">__identifier</span> 
+keyword for identifiers that are not keywords is permitted, but strongly discouraged 
+as a matter of style.” This admonition might carry more weight were Microsoft better 
+at documenting all the circumstances in which a given identifier may or may not 
+happen to be defined as a keyword. Consider for instance: when is
+<span class="keyword">bool</span> an identifier, such that its use with
+<span class="keyword">__identifier</span> is strongly discouraged style? The product 
+documentation is clear enough that the <span class="switch">/noBool</span> option 
+leaves <span class="keyword">bool</span> as an identifier, but you will look a long 
+time to find that <span class="switch">/Ze</span> does too. </p>
+<h3>String Literals </h3>
+<p>Conversion is nearly trivial if the given token is a string literal. The practical 
+consequences, however, are arguably not trivial at all, since this mechanism allows 
+the construction of identifiers that violate the standard restrictions on acceptable 
+characters. For instance, the following compiles without complaint: </p>
+<pre class="source">char * __identifier (&quot;Function with unusual name&quot;) (void)
+{
+    return __FUNCDNAME__;
+}</pre>
+<p>as does </p>
+<pre class="source">#include    &lt;stdio.h&gt;
+
+extern char * __identifier (&quot;Function with unusual name&quot;) (void);
+
+void main (void)
+{
+    char *p = __identifier (&quot;Function with unusual name&quot;) ();
+    printf (&quot;Decorated name is:  %s\n&quot;, p);
+}</pre>
+<p>and the two object files even link without complaint, there being evidently no 
+problem to either the compiler or linker to work with a symbol (here, the decorated 
+name <span class="symbol">?Function with unusual name@@YAPADXZ</span>) that contains 
+spaces. </p>
+<p>This unusual effect from allowing a string literal as the argument for
+<span class="keyword">__identifier</span> may be why the support is not mentioned 
+by the product documentation. That said, the support is no accident or oversight: 
+it is explicitly provided for in the compiler’s code. </p>
+<p>Indeed, this undocumented support for string literals provides a way to produce 
+an identifier from a keyword whose bare use with <span class="keyword">__identifier</span> 
+causes an error or warning. For instance, imagine a programmer who is concerned 
+that source code may be compiled with different options once it gets into the hands 
+of others, e.g., clients or students. Alternatively, imagine that this programmer 
+is actually required (by company policy or the specification of a client) to support 
+compilation with <span class="switch">/Za</span>. Now suppose that this programmer’s 
+particular work item is to use object code that defines a function named
+<span class="function">compl</span>, with some such definition as </p>
+<pre class="source">void compl (void);</pre>
+<p>provided in a header file. The use of <span class="function">compl</span> to 
+name a function is a problem because the <span class="switch">/Za</span> option 
+turns <span class="keyword">compl</span> into a keyword. The object code, supplied 
+in a library, was written elsewhere and is unchangeable, as is the name of the
+<span class="function">compl</span> function, but the header can be edited. A rewrite 
+to </p>
+<pre class="source">void __identifier (compl) (void);</pre>
+<p>though consistent with the product documentation, is no solution, because
+<span class="keyword">compl</span>, as a keyword, tokenises to an operator and is 
+not convertible to an identifier. However, the undocumented </p>
+<pre class="source">void __identifier (&quot;compl&quot;) (void);</pre>
+<p>fits the bill perfectly. </p>
+<p>Note that the preceding example does not differ very much from the scenario proposed 
+in the product documentation. There, the function that must be accessed in unchangeable 
+code has the name of a C++ keyword because it was written in another language, not 
+because it was written in C++ but without concern for being compiled under an option 
+that Microsoft perhaps provides only grudgingly. </p>
+<h2>Documentation Status </h2>
+<p>The product documentation states that “the main purpose of this keyword is to 
+allow managed classes to access and use external classes that may use a C++ keyword 
+as an identifier” and indeed, the page that the documentation offers as details 
+for this keyword is placed in the <span class="citation">Managed Extensions for 
+C++ Reference</span>. </p>
+<p>As actually implemented in the product, the <span class="keyword">__identifier</span> 
+keyword has no particular dependence on the use of managed code. The accompanying 
+documentation’s only acknowledgement of this seems to be the absence of the footnote 
+“Applicable to Managed Extensions for C++ only” where the keyword appears in the 
+master list of <span class="citation">C++ Keywords</span> in the
+<span class="citation">C++ Language Reference</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 20th October 2006 and was last modified 
+  on 9th June 2009. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c0609.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2006-2009. Geoff Chappell. All rights reserved.
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="58117" endspan -->
+</div>
+
+</body>
+
+</html>

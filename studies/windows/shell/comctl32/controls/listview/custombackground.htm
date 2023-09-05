@@ -1,0 +1,111 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Custom Backgrounds in List-View Controls</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>Custom Backgrounds in List-View Controls </h1>
+<p>As noted in the <a href="background.htm">overview of List-View backgrounds</a>, 
+a List-View control that has no background colour delegates its simple background 
+to its parent window. For the parent, this is an opportunity to customise the control’s 
+background. For instance, someone might like to make a chequerboard of the rows 
+and columns in Details view, and even then to let that be watermarked. There is 
+no stopping some people with decorations, and it is arguably the business of a software 
+platform to help, or at least not to get in the way. It should not surprise if programmers 
+have taken to implementing <span class="message">WM_ERASEBKGND</span> in the parent 
+window with the idea of doing quite elaborate drawing in the control. They may need 
+care, however. </p>
+<p>The parent window, like any window, may receive a <span class="message">WM_ERASEBKGND</span> 
+message for all sorts of reasons, most notably to draw its own background. The message 
+comes with no formal indication of why it has been sent, and the ideal is presumably 
+that the parent needn’t care. It can redraw all of its background, using the device 
+context (DC) that comes as a message parameter, and leave it to the DC to determine 
+how much of this redrawing gets to show. The parent window’s natural expectation 
+therefore is to use its own client-area coordinates when working with a DC from 
+a <span class="message">WM_ERASEBKGND</span> message (or <span class="message">WM_PAINT</span>, 
+etc). Indeed, this expectation is so natural that Microsoft’s documentation seems 
+nowhere to mention that a DC sent with such messages might have window coordinates 
+that are not already aligned with the target window’s client area, and no code samples 
+in the SDK check for the possibility. </p>
+<p>When a <span class="message">WM_ERASEBKGND</span> has come from a List-View control 
+that has no background colour and wants its background drawn by its parent, the 
+DC that is sent with the message has been prepared for the control. Its device-coordinate 
+origin is, naturally enough, at the top left of the control’s client area. The problem 
+for the parent is that until version 6.0, this DC’s window coordinates are also 
+aligned to the control, not to the parent. </p>
+<p>This is surely a coding error, and must be in the running for some sort of prize 
+for having been left so long. Especially embarrassing is that COMCTL32 versions 
+from as long ago as the original Windows 95 have a routine (named
+<span class="symbol">CCForwardEraseBackground</span> according to Microsoft’s published 
+symbol files) that deals with exactly this problem that forwarding a
+<span class="message">WM_ERASEBKGND</span> message to a parent window requires a 
+temporary adjustment of the DC’s window coordinates to fit the parent’s expectation. 
+The code in this routine is unchanged all the way to version 6.10 for Windows Vista. 
+Copies, without the CC prefix to their names, have found their way elsewhere, including 
+into Internet Explorer. What seems to have happened is that when this routine was 
+coded for COMCTL32 version 4.0, nobody noticed that List-View controls were already 
+forwarding <span class="message">WM_ERASEBKGND</span> (since at least version 3.50) 
+and were just as much affected by what this routine addresses. I can’t help observing 
+that it would have been more easily noticed, even by Microsoft’s own programmers, 
+were it documented. Even today, I can’t find formal documentation that a List-View 
+control with no background colour sends <span class="message">WM_ERASEBKGND</span> 
+to its parent window. </p>
+<p>Starting with version 6.0, when a <span class="message">WM_ERASEBKGND</span> 
+message is sent from a List-View control to its parent window, the DC that is sent 
+with the message has window coordinates aligned to the parent’s client area. This 
+is true also of the <span class="message">WM_PRINTCLIENT</span> message that is 
+sent if the List-View has the <span class="constant">LVS_EX_TRANSPARENTBKGND</span> 
+extended style (in versions 6.10 and higher). </p>
+<p>If the change for version 6.0 is thought to be a bug fix, then why is it not 
+applied to version 5.82? After all, this version is distributed simultaneously with 
+versions 6.0 and 6.10, and although the version number seems fixed at 5.82, the 
+code is obviously not frozen. Are successive builds of version 5.82 not to benefit 
+from Microsoft’s continuing discovery of bugs? Anyway, versions 5.82 and 6.0 were 
+first released simultaneously, for Windows XP. What can Microsoft be playing at 
+with fixing bugs in one but not the other? Perhaps the question is best dismissed 
+by inferring that the change must not be regarded by Microsoft as fixing a defect. 
+Yet the change is made, and can affect the programmers to whom Microsoft promotes 
+Windows as a platform for software development, so ought it not be documented as 
+an intended difference? </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 6th May 2008 and was last modified on 
+  21st November 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0810.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="55263" endspan -->
+</div>
+
+</body>
+
+</html>

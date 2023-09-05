@@ -1,0 +1,1340 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Dynamic VxD Loading in Windows for Workgroups 3.11</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>The Windows for Workgroups 3.11 VXDLDR </h1>
+  <p>Windows for Workgroups 3.11 uses VXDLDR.386 to load files with the D32 extension 
+  in the SYSTEM subdirectory, to make an I/O subsystem of VxDs managed by IOS.386. 
+  This article begins with the structures and interfaces that support the Windows 
+  for Workgroups 3.11 VXDLDR. An appendix details those elements of the LE file 
+  header that are actually relevant to VXDLDR when loading VxDs. </p>
+  <p>Microsoft did not publish documentation for the Windows for Workgroups 3.11 
+  VXDLDR. Strictly speaking, the article is therefore not alternative documentation. 
+  It was first written in 1994 and made available on Compuserve in WINSDK library 
+  17 as a Word document titled <span class="citation">Dynamic VxD Loading (VXDLDR.386)</span>. 
+  The intention was to demonstrate to VxD programmers that high-quality technical 
+  details of significant new system components could be discovered independently 
+  of the system’s manufacturer and to encourage interest in extending the documentation 
+  project to other new components such as IOS.386 and IFSMGR.386. In the interests 
+  of standardisation and readability now that the document must be meaningful to 
+  programmers who know of VXDLDR only from the Windows 95 DDK, the version that 
+  follows was updated in 1997 to use symbols from header files that Microsoft provides 
+  with the Windows 95 DDK. It has been further edited in 2008 for conversion to 
+  HTML and for consistency with other pages at this website. </p>
+  <h2>Dynamic VxD Loading (VXDLDR.386) </h2>
+  <p>Windows for Workgroups 3.11 introduces the means to load specially-constructed 
+  VxDs as components of a subsystem of drivers that is largely disjoint from the 
+  set of VxDs that the real mode portion of WIN386 loads in response to
+  <span class="inikey">device</span> entries in the SYSTEM.INI configuration file. 
+  A side-effect is that these special VxDs can be loaded and unloaded after normal 
+  system initialisation. It is important to note however that the VxDs managed by 
+  VXDLDR must supply two control functions especially for this purpose: it is not 
+  as if VXDLDR can just load any old VxD that some program decides it would have 
+  liked WIN386 to have loaded for initialisation by the VMM. </p>
+  <p>Another, telling, indication that VXDLDR is intended to enable a normal VxD 
+  to build a subsystem of other drivers is that VxDs loaded by VXDLDR do not appear 
+  in the linked list of Driver Descriptor Blocks (DDBs) built by the VMM. Instead, 
+  VXDLDR builds a separate descriptor block for each VxD it loads, and links these 
+  in a list whose first entry may be located through a VXDLDR service. This descriptor 
+  block is a <span class="struct">DeviceInfo</span> structure: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>dword </td>
+      <td>address of <span class="struct">DeviceInfo</span> structure for next most 
+      recently loaded VxD; or 00000000h </td>
+    </tr>
+    <tr>
+      <td>04h </td>
+      <td>byte </td>
+      <td>driver status: 00h inactive, 01h active </td>
+    </tr>
+    <tr>
+      <td>05h </td>
+      <td>dword </td>
+      <td>address of Driver Descriptor Block </td>
+    </tr>
+    <tr>
+      <td>09h </td>
+      <td>word </td>
+      <td>VxD ID </td>
+    </tr>
+    <tr>
+      <td>0Bh </td>
+      <td>dword </td>
+      <td>address of driver name as ASCIIZ string </td>
+    </tr>
+    <tr>
+      <td>0Fh </td>
+      <td>4 bytes </td>
+      <td>signature: XVLD </td>
+    </tr>
+    <tr>
+      <td>13h </td>
+      <td>dword </td>
+      <td>number of objects in driver </td>
+    </tr>
+    <tr>
+      <td>17h </td>
+      <td>dword</td>
+      <td>address of array of <span class="struct">ObjectInfo</span> structures 
+      for successive objects </td>
+    </tr>
+  </table>
+  <p>The status flag at offset 04h is set only after the driver has completed its 
+  initialisation, meaning that it has not only been loaded but also that its control 
+  function for initialisation has been called and that VXDLDR has released the driver’s 
+  discardable objects from memory. This status flag may be cleared again if the 
+  driver is unloaded: when VXDLDR unloads a driver, it does not remove the
+  <span class="struct">DeviceInfo</span> structure. </p>
+  <p>The driver’s Descriptor Block is accessible from the <span class="struct">DeviceInfo</span> 
+  structure. Note that DDBs for drivers loaded by VXDLDR are not linked to DDBs 
+  for other VxDs (as would usually be done through the <span class="member">DDB_Next</span> 
+  field). A side-effect is that the usual int 20h mechanism is unavailable for calling 
+  services in dynamically loadable VxDs. </p>
+  <p>The VxD ID recorded in the <span class="struct">DeviceInfo</span> structure 
+  is taken from offset C0h in the LE Header when the VxD is loaded. The VxD ID in 
+  the VxD’s DDB is irrelevant to VXDLDR, though presumably, the linker ensures that 
+  the two IDs agree. </p>
+  <p>It is not actually necessary for the dynamically load-able VxD to have a VxD 
+  ID. It may instead be referred to by name—for instance, when calling relevant 
+  VXDLDR services. The driver name is stored in a separate heap allocation from 
+  the <span class="struct">DeviceInfo</span> structure. The name is taken from the 
+  executable file’s Resident Names Table, the location of which is indicated by 
+  the field at offset 58h in the LE Header. </p>
+  <p>It is arguable that the fields from offset 0Fh onwards in the
+  <span class="struct">DeviceInfo</span> structure are for VXDLDR’s internal use. 
+  The signature at offset 0Fh is used to verify that an address passed to the relevant 
+  VXDLDR services is in fact that of a <span class="struct">DeviceInfo</span> structure. 
+  The other fields point the way to the record of objects that have been loaded 
+  into memory. It happens that the array addressed by the field at offset 17h is 
+  actually placed immediately after the <span class="struct">DeviceInfo</span> structure—but 
+  the existence of a pointer to its location suggests that this arrangement should 
+  not be relied upon (and so, the position of the <span class="struct">ObjectInfo</span> 
+  array is not shown above as part of the <span class="struct">DeviceInfo</span>).
+  </p>
+  <p>The <span class="struct">ObjectInfo</span> structure has the following format:
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>dword </td>
+      <td>address of object; or 00000000h if object not present </td>
+    </tr>
+    <tr>
+      <td>04h </td>
+      <td>dword </td>
+      <td>size of object </td>
+    </tr>
+    <tr>
+      <td>08h </td>
+      <td>dword </td>
+      <td>type of object </td>
+    </tr>
+    <tr>
+      <td>0Ch </td>
+      <td>dword </td>
+      <td>00000000h if object loaded from this instance of the driver; <br>
+      00000001h if object is resident and persists from an earlier instance of the 
+      driver </td>
+    </tr>
+  </table>
+  <p>The object type given at offset 08h is important since some types require special 
+  treatment when the driver is loaded or unloaded: </p>
+  <table>
+    <tr>
+      <th>Type </th>
+      <th colspan="6">Description </th>
+    </tr>
+    <tr>
+      <td>00000001h </td>
+      <td>nondiscardable </td>
+      <td>no I/O privilege </td>
+      <td>32-bit </td>
+      <td>swappable </td>
+      <td>preload </td>
+      <td>code </td>
+    </tr>
+    <tr>
+      <td>00000002h </td>
+      <td>nondiscardable </td>
+      <td>no I/O privilege </td>
+      <td>32-bit </td>
+      <td>swappable </td>
+      <td>preload </td>
+      <td>shared data </td>
+    </tr>
+    <tr>
+      <td>00000003h </td>
+      <td>nondiscardable </td>
+      <td>no I/O privilege </td>
+      <td>32-bit </td>
+      <td>swappable </td>
+      <td>loadoncall </td>
+      <td>code </td>
+    </tr>
+    <tr>
+      <td>00000004h </td>
+      <td>nondiscardable </td>
+      <td>no I/O privilege </td>
+      <td>32-bit </td>
+      <td>swappable </td>
+      <td>loadoncall </td>
+      <td>shared data </td>
+    </tr>
+    <tr>
+      <td>00000005h </td>
+      <td>nondiscardable </td>
+      <td>no I/O privilege </td>
+      <td>32-bit </td>
+      <td>resident </td>
+      <td>&nbsp;</td>
+      <td>code </td>
+    </tr>
+    <tr>
+      <td>00000006h </td>
+      <td>nondiscardable </td>
+      <td>no I/O privilege </td>
+      <td>32-bit </td>
+      <td>resident </td>
+      <td>&nbsp;</td>
+      <td>shared data </td>
+    </tr>
+    <tr>
+      <td>00000007h </td>
+      <td>nondiscardable </td>
+      <td>no I/O privilege </td>
+      <td>16-bit </td>
+      <td>swappable </td>
+      <td>preload </td>
+      <td>code </td>
+    </tr>
+    <tr>
+      <td>00000008h </td>
+      <td>nondiscardable </td>
+      <td>I/O privilege </td>
+      <td>32-bit </td>
+      <td>swappable </td>
+      <td>preload </td>
+      <td>code </td>
+    </tr>
+    <tr>
+      <td>00000009h </td>
+      <td>nondiscardable </td>
+      <td>I/O privilege </td>
+      <td>32-bit </td>
+      <td>swappable </td>
+      <td>loadoncall </td>
+      <td>code </td>
+    </tr>
+    <tr>
+      <td>00000011h </td>
+      <td>discardable </td>
+      <td>no I/O privilege </td>
+      <td>32-bit </td>
+      <td>swappable </td>
+      <td>&nbsp;</td>
+      <td>code </td>
+    </tr>
+    <tr>
+      <td>00000012h </td>
+      <td>discardable </td>
+      <td>no I/O privilege </td>
+      <td>32-bit </td>
+      <td>swappable </td>
+      <td>&nbsp;</td>
+      <td>shared data </td>
+    </tr>
+    <tr>
+      <td>00000013h </td>
+      <td>discardable </td>
+      <td>no I/O privilege </td>
+      <td>16-bit </td>
+      <td>swappable </td>
+      <td>preload </td>
+      <td>code </td>
+    </tr>
+    <tr>
+      <td>00000014h </td>
+      <td>discardable </td>
+      <td>I/O privilege </td>
+      <td>32-bit </td>
+      <td>swappable </td>
+      <td>&nbsp;</td>
+      <td>code </td>
+    </tr>
+    <tr>
+      <td>FFFFFFFFh </td>
+      <td>&nbsp;</td>
+      <td>no I/O privilege </td>
+      <td>16-bit </td>
+      <td>swappable </td>
+      <td>loadoncall </td>
+      <td>code </td>
+    </tr>
+  </table>
+  <p>Note especially that a driver is invalid if even one of its objects falls outside 
+  the descriptions in this list. Also, types 3 and 4 are not permitted for the object 
+  that contains the DDB. Objects of type FFFFFFFFh are neither loaded nor assigned 
+  any memory. Types 5 and 6 denote resident objects that are left in memory if the 
+  driver is unloaded and are not refreshed if the driver is reloaded. </p>
+  <h3>Control Functions </h3>
+  <p>Two control functions are defined to manage the initialisation and deactivation 
+  of VxDs designed to be loaded by VXDLDR. At the very least, the driver must expect 
+  to be called to process the <span class="constant">Sys_Dynamic_Device_Init</span> 
+  control, this being its first chance to execute after being loaded into memory 
+  by VXDLDR. The driver will receive the <span class="constant">Sys_Dynamic_Device_Exit</span> 
+  control only if an attempt is made to unload the driver. The attempt may be refused 
+  simply by setting the carry flag, as if the control function were unrecognised.
+  </p>
+  <h4>Control Function 001Bh: Sys_Dynamic_Device_Init </h4>
+  <p>Input: </p>
+  <table>
+    <tr>
+      <td>EAX </td>
+      <td>0000001Bh </td>
+    </tr>
+  </table>
+  <p>Success: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+  </table>
+  <p>Failure: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>set </td>
+    </tr>
+  </table>
+  <p>VXDLDR preserves all general registers across this call: it does not expect 
+  the driver to preserve any registers, nor to return values in them. </p>
+  <p>Observe that this control function is not only of interest to drivers designed 
+  to be loaded by VXDLDR. When a subsystem driver is loaded, it is possible to specify 
+  that VXDLDR should not issue control function 001Bh, but instead leave this to 
+  the caller—to the VxD that is building the subsystem. (See VXDLDR Service 0001h 
+  for details.) </p>
+  <h4>Control Function 001Ch: Sys_Dynamic_Device_Exit </h4>
+  <p>Input: </p>
+  <table>
+    <tr>
+      <td>EAX </td>
+      <td>0000001Ch </td>
+    </tr>
+  </table>
+  <p>Success: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+  </table>
+  <p>Failure: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>set </td>
+    </tr>
+  </table>
+  <p>VXDLDR preserves all general registers across this call: it does not expect 
+  the driver to preserve any registers, nor to return values in them. </p>
+  <h3>VxD Services </h3>
+  <p>In addition to the necessary Get Version service, VXDLDR provides two services 
+  (numbers 0001h and 0002h, with names <span class="constant">VXDLDR_LoadDevice</span> 
+  and <span class="constant">VXDLDR_UnloadDevice</span>) to load and unload subsystem 
+  drivers. These three core services are also available to V86 and PM clients, as 
+  discussed later. </p>
+  <p>Two more services are provided to allow the calling driver to separate the 
+  loading of the subsystem driver’s objects from the initialisation of that driver. 
+  Thus, the caller who specifies that the <span class="constant">VXDLDR_LoadDevice</span> 
+  service should only load the driver (but not also initialise it) takes on the 
+  responsibility of also calling the driver’s control function 001Bh and then afterwards, 
+  of calling VXDLDR Service 0003h or 0004h, depending on whether the driver’s initialisation 
+  has succeeded or failed. These two services are named <span class="constant">VXDLDR_DevInitSucceeded</span> 
+  and <span class="constant">VXDLDR_DevInitFailed</span> respectively. They direct 
+  VXDLDR to clean up appropriately. When <span class="constant">VXDLDR_LoadDevice</span> 
+  both loads and initialises, these two extra services are still called—but internally 
+  by VXDLDR. </p>
+  <p>Finally, VXDLDR Service 0005h (named <span class="constant">VXDLDR_GetDeviceList</span>) 
+  returns the address of the first <span class="struct">DeviceInfo</span> structure, 
+  so that the caller may determine which drivers have been installed. </p>
+  <h4>VXDLDR Service 0000h: VXDLDR_Get_Version </h4>
+  <p>Success: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+    <tr>
+      <td>eax </td>
+      <td>00000100h </td>
+    </tr>
+  </table>
+  <p>Failure: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>set </td>
+    </tr>
+    <tr>
+      <td>eax </td>
+      <td>00000000h </td>
+    </tr>
+  </table>
+  <p>As is true for all virtual device drivers, not just VXDLDR, the failure response 
+  to service 0000h is determined by the VMM when its int 20h handler cannot find 
+  the DDB for the target VxD. </p>
+  <h4>VXDLDR Service 0001h: VXDLDR_LoadDevice </h4>
+  <p>Input: </p>
+  <table>
+    <tr>
+      <td rowspan="2">EAX </td>
+      <td colspan="2">bit flags: </td>
+    </tr>
+    <tr>
+      <td>00000001h </td>
+      <td>initialise driver (as well as loading it) </td>
+    </tr>
+    <tr>
+      <td>EDX </td>
+      <td colspan="2">address of ASCIIZ pathname for file containing VxD </td>
+    </tr>
+  </table>
+  <p>Success: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+    <tr>
+      <td>eax </td>
+      <td>address of VxD Descriptor Block (DDB) </td>
+    </tr>
+    <tr>
+      <td>edx </td>
+      <td>address of <span class="struct">DeviceInfo</span> structure </td>
+    </tr>
+  </table>
+  <p>Failure: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td colspan="2">set </td>
+    </tr>
+    <tr>
+      <td rowspan="8">eax </td>
+      <td colspan="2">error code: </td>
+    </tr>
+    <tr>
+      <td>00000001h </td>
+      <td>memory allocation error </td>
+    </tr>
+    <tr>
+      <td>00000002h </td>
+      <td>DOS busy </td>
+    </tr>
+    <tr>
+      <td>00000003h </td>
+      <td>file not found </td>
+    </tr>
+    <tr>
+      <td>00000004h </td>
+      <td>error reading from file or moving file pointer </td>
+    </tr>
+    <tr>
+      <td>00000005h </td>
+      <td>driver already loaded and active </td>
+    </tr>
+    <tr>
+      <td>00000006h </td>
+      <td>unsuitable file format </td>
+    </tr>
+    <tr>
+      <td>00000007h </td>
+      <td>driver initialisation failure </td>
+    </tr>
+  </table>
+  <p>If VXDLDR has already received the <span class="constant">Init_Complete</span> 
+  control, then this service, which relies on executing int 21h functions for file 
+  operations, cannot be processed if DOS is in a critical section or if either the 
+  critical error or In DOS flag is non-zero. </p>
+  <p>The VxD file must be a DOS executable. The first two bytes of the file must 
+  be the letters ‘MZ’. The material that constitutes the VxD is defined by an LE 
+  Header, whose properties, as imposed by or understood by VXDLDR, are shown in 
+  the Appendix. </p>
+  <p>In the simplest case, the LE Header is located directly: the dword at offset 
+  3Ch in the executable file gives the offset from the start of the file to the 
+  LE Header. As an alternative however, the dword at offset 3Ch may point to an 
+  NE Header in which the LE component is identified as a resource of type 0014h, 
+  with 0001h as the resource ID. Apart from this brief discussion, the details of 
+  this possible inclusion of a VxD as a resource are not discussed here. The only 
+  difference of any consequence once the LE Header has been located as a resource 
+  (instead of directly) is that the field at offset 80h in the LE Header is taken 
+  with respect to the start of the resource rather than the start of the whole file.
+  </p>
+  <p>If the driver is already loaded, then this service proceeds only if the earlier 
+  instance is really just an unloaded driver that has left resident objects behind. 
+  The earlier instance is sought by progressing through the <span class="struct">
+  DeviceInfo</span> structures looking for a driver whose name matches the one given 
+  in the new driver’s Resident Names Table (located via the field at offset 58h 
+  in the LE Header). The format of the Resident Name is a single byte that counts 
+  the characters in the name that follows. Only this number of characters are compared—which 
+  has the side-effect that a driver may seem to be installed already if its name 
+  just happens to be a shortening of the name of a driver that really is installed.
+  </p>
+  <p>A driver is deemed invalid if it contains any object not covered by the types 
+  given earlier. Also, the object that contains the DDB may not have type 3 or 4. 
+  Objects of type ‑1 are ignored: they are not loaded into memory, but neither does 
+  their existence invalidate the driver. Resident objects may persist from a deactivated 
+  instance of the same driver. The coding assumes that the driver carries no more 
+  than one object of each supported resident type (5 and 6, for code and data respectively).
+  </p>
+  <p>The pages that comprise an object may be either physical or virtual. In the 
+  latter case, the pages are part of the driver’s image in memory but do not appear 
+  in the file: VXDLDR sets aside the appropriate amount of memory and fills it with 
+  zeros. The presence of virtual pages that are not marked for initialisation with 
+  zeros causes the driver to be invalidated. </p>
+  <p>Physical pages are read from the file; curiously, VXDLDR does not check the 
+  success or failure of its int 21h calls during this step. Physical pages require 
+  run-time relocations, also called fixups. An unrecognised fixup results in the 
+  rejection of the driver. The present implementation of VXDLDR contains code that 
+  seems intended to support external fixups where the target is imported from another 
+  module, but this code almost certainly doesn’t work. </p>
+  <p>Once the driver’s image in memory is properly formed, a
+  <span class="struct">DeviceInfo</span> structure is built for the driver (or refreshed, 
+  if one exists already from a deactivated instance). VXDLDR then sets the
+  <span class="constant">DDB_DYNAMIC_VXD</span> bit in the <span class="member">
+  DDB_Flags</span> field at offset 0Ah in the driver’s DDB—which enables the driver 
+  to determine, when it is eventually called, whether it has been loaded normally 
+  or by VXDLDR. </p>
+  <p>The remaining housekeeping, at least as much as the loading of the new driver 
+  is concerned, is to tell the debugger that new material has been loaded. Thus, 
+  if the debugger is running, it is notified of the address, size, etc of each object 
+  via int 41h function 0150h (which is roughly equivalent to the int 68h function 
+  50h that the real-mode portion of WIN386.EXE uses after loading objects for VxDs 
+  specified by device statements in SYSTEM.INI). There seems to be a slight problem 
+  with the notification, however, in that VXDLDR decides an object’s identity as 
+  code or data by testing bit 0 of the object type at offset 08h in the
+  <span class="struct">ObjectInfo</span> record: the notion that odd-numbered types 
+  correspond to code and even-numbered types to data is nearly true, but not wholly 
+  true. </p>
+  <p>The driver is now loaded and must now, if it is ever to do anything useful, 
+  be given the chance to execute some code. Initialisation consists of calling the 
+  driver’s <span class="constant">Sys_Dynamic_Device_Init</span> control and then 
+  the appropriate VXDLDR service to tidy up: this is <span class="constant">VXDLDR_DevInitSucceeded</span> 
+  if the control function indicates success by clearing the carry flag or
+  <span class="constant">VXDLDR_DevInitFailed</span> if the driver fails the control 
+  function. Depending on the flags passed in <span class="register">EAX</span> to
+  <span class="constant">VXDLDR_LoadDevice</span>, these final steps may be taken 
+  either by VXDLDR as part of this service (as if to make this a load-and-initialise 
+  service) or they may be left to the caller. </p>
+  <h4>VXDLDR Service 0002h: VXDLDR_UnloadDevice </h4>
+  <p>Input: </p>
+  <table>
+    <tr>
+      <td>BX </td>
+      <td>VxD ID; or 0000h to use name </td>
+    </tr>
+    <tr>
+      <td>EDX </td>
+      <td>address of driver name as ASCIIZ string, if VxD ID not supplied </td>
+    </tr>
+  </table>
+  <p>Success: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+  </table>
+  <p>Failure: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td colspan="2">set </td>
+    </tr>
+    <tr>
+      <td rowspan="3">eax </td>
+      <td colspan="2">error code: </td>
+    </tr>
+    <tr>
+      <td>00000007h </td>
+      <td>driver declined deactivation </td>
+    </tr>
+    <tr>
+      <td>00000008h </td>
+      <td>driver not installed </td>
+    </tr>
+  </table>
+  <p>VXDLDR begins by seeking the <span class="struct">DeviceInfo</span> structure 
+  for the designated driver. The VxD ID, if non-zero, is used in preference to the 
+  driver name. If the driver is installed and is still active, then VXDLDR calls 
+  the driver’s <span class="constant">Sys_Dynamic_Device_Exit</span> control. If 
+  the driver approves its deactivation, then all its swappable, non-discardable 
+  objects are released and the driver is marked inactive in the
+  <span class="struct">DeviceInfo</span> structure. If the debugger is running, 
+  then it is notified of the discards via int 41h function 0152h. Note that the 
+  driver may have resident objects: these are left in memory. The
+  <span class="struct">DeviceInfo</span> structure is left in the chain of these 
+  structures, but is marked inactive by clearing the status flag at offset 04h. 
+  Leaving the <span class="struct">DeviceInfo</span> structure in memory allows 
+  VXDLDR to locate resident objects in any subsequent attempt to reload the driver.
+  </p>
+  <p>The driver must already have been loaded and initialised before this service 
+  is called. Note in particular, that this service assumes there is no need to release 
+  discardable objects but presumes instead that these will have been released already 
+  when the driver’s initialisation was completed (see the notes to the
+  <span class="constant">VXDLDR_DevInitSucceeded</span> service). If the driver 
+  has been loaded but not fully initialised, then the correct procedure is not to 
+  unload the driver via VXDLDR_UnloadDevice, but instead to call
+  <span class="constant">VXDLDR_DevInitFailed</span>, which will release all the 
+  driver’s objects. </p>
+  <h4>VXDLDR Service 0003h: VXDLDR_DevInitSucceeded </h4>
+  <p>Input: </p>
+  <table>
+    <tr>
+      <td>EDX </td>
+      <td>address of <span class="struct">DeviceInfo</span> structure for driver
+      </td>
+    </tr>
+  </table>
+  <p>Success: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+  </table>
+  <p>Failure: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td colspan="2">set </td>
+    </tr>
+    <tr>
+      <td rowspan="2">eax </td>
+      <td colspan="2">error code: </td>
+    </tr>
+    <tr>
+      <td>00000008h </td>
+      <td>plausible <span class="struct">DeviceInfo</span> structure not found at 
+      given address </td>
+    </tr>
+  </table>
+  <p>This service is intended to be called after the driver’s
+  <span class="constant">Sys_Dynamic_Device_Init</span> control has returned successfully. 
+  Indeed, if the driver was initialised as part of the <span class="constant">VXDLDR_LoadDevice</span> 
+  service, then VXDLDR calls this service immediately after the driver returns successfully 
+  from the control function. Put another way, this service performs VXDLDR’s housekeeping 
+  after a successful driver initialisation. It exists so that when the
+  <span class="constant">VXDLDR_LoadDevice</span> service is used to load but not 
+  initialise, the caller may perform additional work while the driver’s discardable 
+  objects are still present. </p>
+  <p>The service checks for the ‘XVLD’ signature 0Fh bytes from the address passed 
+  in <span class="register">EDX</span> and also that the number of objects is non-zero. 
+  If the <span class="struct">DeviceInfo</span> structure is not yet linked into 
+  the chain, then it is placed at the start (so that its address will be the one 
+  returned by the <span class="constant">VXDLDR_GetDeviceList</span> service). The 
+  status flag at offset 04h in the <span class="struct">DeviceInfo</span> structure 
+  is set to 01h to indicate that the driver is operational. Then, all discardable 
+  objects are released from memory. If the debugger is running, then it is notified 
+  of the discards via int 41h function 0152h. </p>
+  <h4>VXDLDR Service 0004h: VXDLDR_DevInitFailed </h4>
+  <p>Input: </p>
+  <table>
+    <tr>
+      <td>EDX </td>
+      <td>address of <span class="struct">DeviceInfo</span> structure for driver
+      </td>
+    </tr>
+  </table>
+  <p>Success: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+  </table>
+  <p>Failure: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td colspan="2">set </td>
+    </tr>
+    <tr>
+      <td rowspan="2">eax </td>
+      <td colspan="2">error code: </td>
+    </tr>
+    <tr>
+      <td>00000008h </td>
+      <td>plausible <span class="struct">DeviceInfo</span> structure not found at 
+      given address </td>
+    </tr>
+  </table>
+  <p>This service is intended to be called if the driver has been loaded successfully 
+  but cannot be initialised. The typical circumstance is that the driver responded 
+  to the <span class="constant">Sys_Dynamic_Device_Init</span> control by setting 
+  the carry flag, which indicates that the driver failed to initialise and must 
+  now be removed. VXDLDR calls this service internally when it aborts the initialisation 
+  of a driver that it has been asked to both load and initialise through the
+  <span class="constant">VXDLDR_LoadDevice</span> service. </p>
+  <p>When <span class="constant">VXDLDR_LoadDevice</span> is used to load but not 
+  initialise, it is conceivable that the load may succeed but that the caller decides 
+  it cannot proceed with the initialisation after all. In such a case,
+  <span class="constant">VXDLDR_DevInitFailed</span> would be called to abort the 
+  driver, even though the <span class="constant">Sys_Dynamic_Device_Init</span> 
+  control had not been issued. </p>
+  <p>The service checks for the ‘XVLD’ signature 0Fh bytes from the address passed 
+  in <span class="register">EDX</span> and also that the number of objects is non-zero. 
+  All the driver’s objects are then released from memory. If the debugger is running, 
+  it is notified of each discard via int 41h function 0152h. Finally, if the
+  <span class="struct">DeviceInfo</span> structure is not linked into the chain 
+  (there having been no prior instance of the driver), then the memory occupied 
+  by the <span class="struct">DeviceInfo</span> structure is also released. Presumably 
+  through oversight, the separate heap allocation obtained for the driver name is 
+  not freed. </p>
+  <p>If the <span class="constant">VXDLDR_DevInitSucceeded</span> service has already 
+  been called to complete the driver’s initialisation, then the correct way to unload 
+  the driver is through the <span class="constant">VXDLDR_UnloadDevice</span> service, 
+  not this one. Indeed, using this service would be slightly unsafe since an attempt 
+  would be made to release heap space that had previously been used for discardable 
+  objects; there would arise the faint possibility that the same address had since 
+  been allocated to another driver, which would not welcome the memory’s unexpected 
+  release. </p>
+  <h4>VXDLDR Service 0005h: VXDLDR_Get_Device_List </h4>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>eax </td>
+      <td>address of <span class="struct">DeviceInfo</span> structure for most recently 
+      loaded driver </td>
+    </tr>
+  </table>
+  <h3>V86 and PM API Functions </h3>
+  <p>VXDLDR provides V86 and PM clients with three API functions that are nearly 
+  equivalent to the first three driver services. For details, refer to the notes 
+  which follow the corresponding driver services. </p>
+  <p>The API functions take the function number in <span class="register">AX</span>. 
+  The general scheme is to indicate success or failure via the carry flag, and with 
+  an error code in <span class="register">ax</span>. For unsupported functions, 
+  VXDLDR sets the carry flag (but does not set an error code in
+  <span class="register">ax</span>). </p>
+  <h4>API Function 0000h: VXDLDR_APIFUNC_GETVERSION </h4>
+  <p>Input: </p>
+  <table>
+    <tr>
+      <td>AX </td>
+      <td>0000h </td>
+    </tr>
+  </table>
+  <p>Output: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+    <tr>
+      <td>ax </td>
+      <td>0000h </td>
+    </tr>
+    <tr>
+      <td>dx </td>
+      <td>0100h </td>
+    </tr>
+  </table>
+  <h4>API Function 0001h: VXDLDR_APIFUNC_LOADDEVICE </h4>
+  <p>Input: </p>
+  <table>
+    <tr>
+      <td>AX </td>
+      <td>0001h </td>
+    </tr>
+    <tr>
+      <td>DS:(E)DX </td>
+      <td>address of ASCIIZ pathname for file containing VxD </td>
+    </tr>
+  </table>
+  <p>Success: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+    <tr>
+      <td>ax </td>
+      <td>0000h </td>
+    </tr>
+  </table>
+  <p>Failure: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td colspan="2">set </td>
+    </tr>
+    <tr>
+      <td rowspan="8">ax </td>
+      <td colspan="2">error code: </td>
+    </tr>
+    <tr>
+      <td>0001h </td>
+      <td>memory allocation error </td>
+    </tr>
+    <tr>
+      <td>0002h </td>
+      <td>DOS busy </td>
+    </tr>
+    <tr>
+      <td>0003h </td>
+      <td>file not found </td>
+    </tr>
+    <tr>
+      <td>0004h </td>
+      <td>error reading from file or moving file pointer </td>
+    </tr>
+    <tr>
+      <td>0005h </td>
+      <td>driver already loaded and active </td>
+    </tr>
+    <tr>
+      <td>0006h </td>
+      <td>unsuitable file format </td>
+    </tr>
+    <tr>
+      <td>0007h </td>
+      <td>driver initialisation failure </td>
+    </tr>
+  </table>
+  <p>The designated driver is necessarily both loaded and initialised through the
+  <span class="constant">VXDLDR_LoadDevice</span> service. The facility for separating 
+  the two stages is not available. </p>
+  <h4>API Function 0002h: VXDLDR_APIFUNC_UNLOADDEVICE </h4>
+  <p>Input: </p>
+  <table>
+    <tr>
+      <td>AX </td>
+      <td>0002h </td>
+    </tr>
+    <tr>
+      <td>BX </td>
+      <td>VxD ID; or 0000h to use name </td>
+    </tr>
+    <tr>
+      <td>DS:(E)DX </td>
+      <td>address of driver name as ASCIIZ string, if VxD ID not supplied </td>
+    </tr>
+  </table>
+  <p>Success: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td>clear </td>
+    </tr>
+    <tr>
+      <td>ax </td>
+      <td>0000h </td>
+    </tr>
+  </table>
+  <p>Failure: </p>
+  <table>
+    <tr>
+      <td>cf </td>
+      <td colspan="2">set </td>
+    </tr>
+    <tr>
+      <td rowspan="3">ax </td>
+      <td colspan="2">error code: </td>
+    </tr>
+    <tr>
+      <td>0007h </td>
+      <td>driver declined deactivation </td>
+    </tr>
+    <tr>
+      <td>0008h </td>
+      <td>driver not installed </td>
+    </tr>
+  </table>
+  <h3>Appendix: The VxD as a File on Disk </h3>
+  <p>Although the VxD operates in memory, it is stored on disk. When VXDLDR loads 
+  a driver, it has to create a memory image from the disk image. The memory image 
+  is treated in logical units, called pages, whose size is fixed (typically to 4KB, 
+  the same as a CPU page). Some of these pages have corresponding physical pages 
+  in the file; others are wholly virtual. To help manage the pages, there is a hierarchical 
+  organisation in which pages are grouped into objects. The pages in an object are 
+  kept together in linear address space and they share the memory management attributes 
+  of the object. </p>
+  <h4>The LE Header </h4>
+  <p>The top-level structure for correlating the memory and disk images is the LE 
+  Header at the start of the driver’s disk image. Some fields in the LE Header are 
+  concerned with identifying the nature of the module: the LE Header appears to 
+  have been designed for wider applicability than just Windows VxDs. The following 
+  table shows the format of the LE Header only as far as used by VXDLDR. </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks" span="2">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th colspan="2">Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>2 bytes </td>
+      <td colspan="2">signature: LE </td>
+    </tr>
+    <tr>
+      <td>08h </td>
+      <td>word </td>
+      <td colspan="2">target CPU: must be ≥ 0002h to indicate 80386 or higher
+      </td>
+    </tr>
+    <tr>
+      <td>0Ah </td>
+      <td>word </td>
+      <td colspan="2">target operating system: must be 0004h to indicate Windows 
+      386 Driver </td>
+    </tr>
+    <tr>
+      <td rowspan="2">10h </td>
+      <td rowspan="2">dword </td>
+      <td colspan="2">bit flags describing module type: </td>
+    </tr>
+    <tr>
+      <td>00038000h </td>
+      <td>mask must produce 00038000h to denote dynamically loadable driver </td>
+    </tr>
+    <tr>
+      <td>14h </td>
+      <td>dword </td>
+      <td colspan="2">number of physical pages </td>
+    </tr>
+    <tr>
+      <td>28h </td>
+      <td>dword </td>
+      <td colspan="2">size of page </td>
+    </tr>
+    <tr>
+      <td>2Ch </td>
+      <td>dword </td>
+      <td colspan="2">size of last physical page </td>
+    </tr>
+    <tr>
+      <td>40h </td>
+      <td>dword </td>
+      <td colspan="2">offset from LE Header to Object Table </td>
+    </tr>
+    <tr>
+      <td>44h </td>
+      <td>dword </td>
+      <td colspan="2">number of entries in Object Table </td>
+    </tr>
+    <tr>
+      <td>48h </td>
+      <td>dword </td>
+      <td colspan="2">offset from LE Header to Page Map </td>
+    </tr>
+    <tr>
+      <td>58h </td>
+      <td>dword </td>
+      <td colspan="2">offset from LE Header to Resident Names Table </td>
+    </tr>
+    <tr>
+      <td>5Ch </td>
+      <td>dword </td>
+      <td colspan="2">offset from LE Header to Entry Table </td>
+    </tr>
+    <tr>
+      <td>68h </td>
+      <td>dword </td>
+      <td colspan="2">offset from LE Header to Fixup Page Table </td>
+    </tr>
+    <tr>
+      <td>6Ch </td>
+      <td>dword </td>
+      <td colspan="2">offset from LE Header to Fixup Record Table </td>
+    </tr>
+    <tr>
+      <td>70h </td>
+      <td>dword </td>
+      <td colspan="2">offset from LE Header to Imported Modules Name Table </td>
+    </tr>
+    <tr>
+      <td>74h </td>
+      <td>dword </td>
+      <td colspan="2">number of imported module names </td>
+    </tr>
+    <tr>
+      <td>80h </td>
+      <td>dword </td>
+      <td colspan="2">offset from start of file to first physical page </td>
+    </tr>
+    <tr>
+      <td>C0h </td>
+      <td>word </td>
+      <td colspan="2">VxD ID </td>
+    </tr>
+    <tr>
+      <td>C2h </td>
+      <td>word </td>
+      <td colspan="2">target Windows version: may range from 0300h to 030Ah inclusive
+      </td>
+    </tr>
+  </table>
+  <p>Observe that for some fields, the description gives conditions that must be 
+  met if VXDLDR is to consider the file as valid for a subsystem driver that it 
+  is allowed to load. </p>
+  <h4>Objects </h4>
+  <p>The number of objects comprising the driver’s memory image is given by the 
+  dword at offset 44h. VXDLDR does not check the number of objects against an upper 
+  bound: the present implementation allows space in its internal records for 14 
+  objects. Each entry in the Object Table addressed by the field at offset 40h in 
+  the LE Header is 18h bytes long: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks" span="3">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th colspan="3">Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>dword </td>
+      <td colspan="3">object’s size in memory </td>
+    </tr>
+    <tr>
+      <td rowspan="10">08h </td>
+      <td rowspan="10">dword </td>
+      <td colspan="3">bit flags giving object’s properties: </td>
+    </tr>
+    <tr>
+      <td>00000004h </td>
+      <td colspan="2">executable </td>
+    </tr>
+    <tr>
+      <td>00000010h </td>
+      <td colspan="2">discardable </td>
+    </tr>
+    <tr>
+      <td>00000020h </td>
+      <td colspan="2">shared </td>
+    </tr>
+    <tr>
+      <td>00000040h </td>
+      <td colspan="2">preload </td>
+    </tr>
+    <tr>
+      <td rowspan="3">00000700h </td>
+      <td colspan="2">mask giving residency properties: </td>
+    </tr>
+    <tr>
+      <td>00000000h </td>
+      <td>swappable </td>
+    </tr>
+    <tr>
+      <td>00000200h </td>
+      <td>resident </td>
+    </tr>
+    <tr>
+      <td>00002000h </td>
+      <td colspan="2">32-bit </td>
+    </tr>
+    <tr>
+      <td>00008000h </td>
+      <td colspan="2">IOPL </td>
+    </tr>
+    <tr>
+      <td>0Ch </td>
+      <td>dword </td>
+      <td colspan="3">1-based number of first logical page in object </td>
+    </tr>
+    <tr>
+      <td>10h </td>
+      <td>dword </td>
+      <td colspan="3">number of logical pages in object </td>
+    </tr>
+  </table>
+  <p>Note that only some of the fields and some of the flags hold any interest to 
+  VXDLDR. The full list of permitted combinations of the bit flags described above 
+  is given earlier. </p>
+  <p>See that the fields at offsets 0Ch and 10h in the Object Table Entry show which 
+  logical pages form the object. The amount of memory VXDLDR obtains for an object—its 
+  virtual size—is given by the dword at offset 00h. It is allowed for an object’s 
+  virtual size to exceed the sum of the logical pages, in which case, VXDLDR fills 
+  the excess memory with zeros. </p>
+  <h4>Pages </h4>
+  <p>It remains to determine how the logical pages are to be prepared. The field 
+  at offset 48h in the LE Header points the way to an array of Page Table Entries, 
+  one for each of the driver’s logical pages: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks" span="2">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th colspan="2">Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>byte </td>
+      <td colspan="2">high 8 bits of 1-based physical page number </td>
+    </tr>
+    <tr>
+      <td>01h </td>
+      <td>byte </td>
+      <td colspan="2">middle 8 bits of 1-based physical page number </td>
+    </tr>
+    <tr>
+      <td>02h </td>
+      <td>byte </td>
+      <td colspan="2">low 8 bits of 1-based physical page number </td>
+    </tr>
+    <tr>
+      <td rowspan="3">03h </td>
+      <td rowspan="3">byte </td>
+      <td colspan="2">page type: </td>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>page has physical image in file </td>
+    </tr>
+    <tr>
+      <td>03h </td>
+      <td>page must be initialised with zeros </td>
+    </tr>
+  </table>
+  <p>In a round-about fashion (at least to eyes accustomed to 80x86 machines), the 
+  first three bytes give the correspondence between the logical page and its physical 
+  counterpart, if one exists. The physical page number is 1-based, with zero denoting 
+  that no physical counterpart exists. Only two page types are permitted: anything 
+  other than 00h or 03h in the last field of a Page Table Entry causes VXDLDR to 
+  invalidate the whole driver. </p>
+  <h4>The Driver Name </h4>
+  <p>The Resident Names Table, pointed to by the field at offset 58h in the LE Header, 
+  provides VXDLDR with the name of the driver, stored as a string in the Pascal 
+  style, where the first byte is a count of the characters that actually form the 
+  string. </p>
+  <h4>The Entry Table </h4>
+  <p>Only one exported label is sought, namely the Driver Descriptor Block (DDB). 
+  VXDLDR needs this structure only to find the driver’s control procedure and to 
+  set the <span class="constant">DDB_DYNAMIC_VXD</span> bit in the
+  <span class="member">DDB_Flags</span> field (to distinguish loading by VXDLDR 
+  from normal loading by WIN386). </p>
+  <p>The field at offset 5Ch in the LE Header addresses an Entry Table, which seems 
+  to provide for a set of exported labels, even though VXDLDR is interested in just 
+  one. The coding suggests that the Entry Table consists of a header that identifies 
+  the object and describes the type of entry point, followed immediately by a second 
+  structure that actually locates the entry point. Presumably, this second structure 
+  has variable size, depending on the type specified in the header, or is actually 
+  the beginning of an array. It must also be borne in mind, while speculating on 
+  the more general purpose, that the header must be replicable in order to support 
+  exported labels defined in more than one object. </p>
+  <p>The Entry Table itself has the form: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks" span="2">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th colspan="2">Description </th>
+    </tr>
+    <tr>
+      <td>00h </td>
+      <td>byte </td>
+      <td colspan="2">must be non-zero </td>
+    </tr>
+    <tr>
+      <td rowspan="2">01h </td>
+      <td rowspan="2">byte </td>
+      <td colspan="2">bit flags: </td>
+    </tr>
+    <tr>
+      <td>7Fh </td>
+      <td>mask giving entry point type: must be 03h </td>
+    </tr>
+    <tr>
+      <td>02h </td>
+      <td>word </td>
+      <td colspan="2">1-based number of object containing DDB </td>
+    </tr>
+  </table>
+  <p>If the Entry Table does not meet the conditions given for the fields at offsets 
+  00h and 01h, then VXDLDR deems the driver to be invalid. </p>
+  <p>The Entry Table is followed immediately by a structure of the form: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>01h </td>
+      <td>dword </td>
+      <td>offset of DDB with respect to object </td>
+    </tr>
+  </table>
+  <h4>Run-time Relocations </h4>
+  <p>The contents of a physical page are prepared in the file’s image without knowing 
+  just where that page will be loaded into memory. Corrections, called fixups, have 
+  to be made when the page is loaded from the file. </p>
+  <p>The Fixup Page Table is an array of dwords for each page in the module. The 
+  dword is an offset from the start of the Fixup Record Table to the first Fixup 
+  Record for the designated page. In effect, the dwords in the Fixup Page Table 
+  are fence posts that separate Fixup Records for successive pages. </p>
+  <p>Each Fixup Record is a fixed-sized header followed immediately by variably-sized 
+  fields: </p>
+  <table class="SimpleStruct">
+    <colgroup>
+      <col class="Offset"><col class="Size"><col class="Remarks" span="3">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Size </th>
+      <th colspan="3">Description </th>
+    </tr>
+    <tr>
+      <td rowspan="10">00h </td>
+      <td rowspan="10">word </td>
+      <td colspan="3">flags </td>
+    </tr>
+    <tr>
+      <td rowspan="3">000Fh </td>
+      <td colspan="2">mask giving type of fixup: </td>
+    </tr>
+    <tr>
+      <td>0007h </td>
+      <td>offset </td>
+    </tr>
+    <tr>
+      <td>0008h </td>
+      <td>relative offset </td>
+    </tr>
+    <tr>
+      <td>0020h </td>
+      <td colspan="2">set if record provides multiple fixups to same target </td>
+    </tr>
+    <tr>
+      <td rowspan="3">0300h </td>
+      <td colspan="2">mask giving fixup style </td>
+    </tr>
+    <tr>
+      <td>0000h </td>
+      <td>internal fixup </td>
+    </tr>
+    <tr>
+      <td>0100h </td>
+      <td>external fixup (not properly supported) </td>
+    </tr>
+    <tr>
+      <td>1000h </td>
+      <td colspan="2">set if target offset is dword rather than word </td>
+    </tr>
+    <tr>
+      <td>4000h </td>
+      <td colspan="2">set if object number is word rather than byte </td>
+    </tr>
+    <tr>
+      <td rowspan="2">02h </td>
+      <td>word for single fixup </td>
+      <td colspan="3">offset where fixup is to be applied, i.e., source offset
+      </td>
+    </tr>
+    <tr>
+      <td>byte for multiple fixups </td>
+      <td colspan="3">number of source offsets that follow this Fixup Record
+      </td>
+    </tr>
+    <tr>
+      <td>varies </td>
+      <td>byte or word </td>
+      <td colspan="3">1-based object number for the fixup’s target, if internal 
+      fixup; <br>
+      1-based module number for the fixup’s target, if external fixup </td>
+    </tr>
+    <tr>
+      <td>varies </td>
+      <td>word or dword </td>
+      <td colspan="3">offset component of target </td>
+    </tr>
+  </table>
+  <p>Note that the second field (at offset 02h) is a word or byte, with a different 
+  meaning in each case, depending on the 0020h bit in the flags. The third field 
+  is a byte or word depending on the 4000h bit in the flags. The fourth field is 
+  a word or dword depending on the 1000h bit in the flags. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 11th August 1997, from material first 
+    published in 1994, and was last modified on 4th October 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9708.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1997-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63527" -->
+  </div>
+</div>
+
+</body>
+
+</html>

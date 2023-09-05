@@ -1,0 +1,2929 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>HAL_PRIVATE_DISPATCH</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>HAL_PRIVATE_DISPATCH </h1>
+  <p>The <span class="struct">HAL_PRIVATE_DISPATCH</span> structure is a table of 
+  pointers to optional HAL functionality. The kernel keeps the one instance of this 
+  table. It’s in the kernel’s read-write data section and its address is exported 
+  as <span class="variable">HalPrivateDispatchTable</span>. The table initially 
+  has the kernel’s built-in implementations for most (but not all) of the functions. 
+  The HAL overrides most. No known HAL overrides all. Functionality that has no 
+  meaning to a particular HAL is left to the kernel’s default (and HAL programmers 
+  are spared from writing even dummy code for nothing that matters to them). Moreover, 
+  since the address is exported, rather than communicated specifically to the HAL, 
+  it seems to have been intended all along—whatever might be inferred from the word 
+  private—that the functionality is exposed to other kernel-mode modules such as 
+  drivers not only for them to call but also to override further. </p>
+  <p>Though all Windows versions since 3.51 have a <span class="variable">HalPrivateDispatchTable</span> 
+  in the kernel and have the HAL override at least some functions, no calling of 
+  these functions through the table is known until Windows 2000 (which suggests 
+  that more research is required on this point). In that version and since, the 
+  kernel and the HAL each call through the table, and so do other kernel-mode modules. 
+  In Windows 2000, these others are BOOTVID.DLL (which calls through the table) 
+  and PCI.SYS (which overrides functionality in the table). </p>
+  <h2>Documentation Status </h2>
+  <p>Both the <span class="struct">HAL_PRIVATE_DISPATCH</span> structure and he
+  <span class="variable">HalPrivateDispatchTable</span> variable have always been 
+  undocumented. </p>
+  <p>As with many functions, structures can be left without formal documentation 
+  but still be known a little from C-language definitions in headers that Microsoft 
+  publishes with one or another programming kit. This has happened for the
+  <span class="struct">HAL_PRIVATE_DISPATCH</span> in a header named NTOSP.H in 
+  the original and Version 1511 editions of the Windows Driver Kit (WDK) for Windows 
+  10. It comes with no conditional compilation blocks for accommodating earlier 
+  versions. It is immediately useful only for programming that targets these specific 
+  versions of Windows 10, yet doesn’t say so. Add that this header appears under 
+  a directory named “um”, surely standing for user mode, even though the definition 
+  is meaningful only in kernel mode, and one might wonder if Microsoft disclosed 
+  it by mistake. </p>
+  <p>Many undocumented structures for which Microsoft publishes no C-language definition 
+  have the practical equivalent disclosed as type information in the public symbol 
+  files that Microsoft distributes to help with debugging. When this article was 
+  first prepared in 2016, the <span class="struct">HAL_PRIVATE_DISPATCH</span> did 
+  not yet have type information in any of Microsoft’s published symbol files for 
+  any known Windows version. How it happens that type information for the
+  <span class="struct">HAL_PRIVATE_DISPATCH</span> turns up in public symbol files 
+  for the kernel in the 1803 release of Windows 10, having escaped such disclosure 
+  for most of two decades, I do not yet know, but published it is—and this has continued 
+  at least to the 2004 release. </p>
+  <p>In the other direction, time-wise, type information turns out to have been 
+  available from as long ago as Windows Vista—just not in symbol files but instead 
+  in a statically linked library, named CLFSMGMT.LIB, which Microsoft distributes 
+  with the Software Development Kit (SDK) for user-mode programming. How it has 
+  type information for something at the lowest levels of kernel-mode programming 
+  is that the library’s few intended object files are compiled with a pre-compiled 
+  header that is itself built from a source file such that an object file was produced 
+  as output and then got archived into the library. Do this with a pre-compiled 
+  header that you throw everything but the kitchen sink into and you risk publishing 
+  a library that contains type information for everything but the kitchen sink. 
+  Surely an oversight, but published it is. </p>
+  <p>Also likely as a disclosure by mistake is that where the NTDDK.H file, back 
+  as far as the Device Driver Kit (DDK) for Windows 2000, defines types for function 
+  pointers in the <span class="struct"><a href="hal_dispatch.htm">HAL_DISPATCH</a></span> 
+  structure, it has others that can only be for function pointers in the otherwise 
+  unmentioned <span class="struct">HAL_PRIVATE_DISPATCH</span>. Thus, for instance, 
+  the Windows 2000 DDK defines <span class="type">pHalTranslateBusAddress</span> 
+  and the Windows XP DDK defines <span class="type">pKdSetupPciDeviceForDebugging</span>, 
+  yet uses them nowhere. They are instead the types for the <span class="member">
+  HalPciTranslateBusAddress</span> and <span class="member">KdSetupPciDeviceForDebugging</span> 
+  members of the <span class="struct">HAL_PRIVATE_DISPATCH</span>. The information 
+  that’s disclosed this way is nowhere near complete and is sometimes fleeting: 
+  though the two preceding examples survive into the WDK for Windows 10, the
+  <span class="type">pHalGetVectorInput</span> type disappears betwen the WDKs for 
+  Windows Vista and Windows 7. Still, combined with symbols for the implementations 
+  in the kernel, the HAL and elsewhere, these type definitions have long sufficed 
+  for reverse engineers to make relatively easy and confident work of reconstructing 
+  what must be a close approximation to Microsoft’s own (evolving) definition of
+  <span class="struct">HAL_PRIVATE_DISPATCH</span>. The structure may not have been 
+  defined in public until recently, but it has certainly not been unknown to those 
+  who fiddle around in the bowels of kernel-mode Windows. It’s not impossible that 
+  some have even used the information constructively (and, sadly, otherwise) in 
+  real-world kernel-mode code. </p>
+  <h2>Variability </h2>
+  <p>Part of knowing <span class="struct">HAL_PRIVATE_DISPATCH</span>, especially 
+  if imagining that you actually do have good cause to contemplate real-world use 
+  of it, is to appreciate how susceptible is its layout to change from one build 
+  of Windows to another. Being touched by many hands—not just shared between the 
+  kernel and HAL but also with bus drivers and others—it is far more stable than 
+  is any structure that’s internal to one module. Indeed, of all kernel-mode structures 
+  that are both long-lived and undocumented, the <span class="struct">HAL_PRIVATE_DISPATCH</span> 
+  has some of the best backwards compatibility. Yet it does change, including in 
+  ways that break the backwards compatibility. </p>
+  <h3>Versions </h3>
+  <p>If only so that the kernel and HAL can check that they agree on their expectations 
+  of the <span class="struct">HAL_PRIVATE_DISPATCH</span>, the very first member 
+  is a <span class="member">Version</span> number. From the definition in the WDK 
+  for Windows 10, one might get the impression that the <span class="struct">HAL_PRIVATE_DISPATCH</span> 
+  structure accumulated functions in lock step with an increasing
+  <span class="member">Version</span> number, but this would be to misread what 
+  Microsoft has disclosed. A comment that “changes to this interface need to be 
+  backward-compatible” looks, with access to the historical record, to have been 
+  added as a warning, or even as admonishment, after the desired backward-compability 
+  had been broken more than a few times. Comments pick up the increasing
+  <span class="member">Version</span> only at 14, by when the changes were indeed 
+  more orderly. </p>
+  <p>The earliest history is a special shambles. Through the first three Windows 
+  versions that have the structure, the <span class="member">Version</span> stayed 
+  at 1 while functions were not just added but redefined. During the life of the 
+  second <span class="member">Version</span>, a function was inserted, thus changing 
+  the offsets of others. No third or fourth <span class="member">Version</span> 
+  is observed in any formal release, but although <span class="member">Version</span> 
+  5 does extend the structure just by adding members, <span class="member">Version</span> 
+  6 not only adds but redefines, and additions for <span class="member">Version</span> 
+  7 get shifted by later insertions. </p>
+  <p>The definition in NTOSP.H breaks the member list into blocks for successive
+  <span class="member">Version</span> numbers, but only starting with 14. Whether 
+  this is for a late build of version 6.1 or, perhaps more likely, for pre-release 
+  development of version 6.2, it does mark the onset of stability. Offsets become 
+  reliable because the structure grows only by adding at its end, and functions 
+  that fall out of use are not removed but are instead changed to placeholders. 
+  Even so, functions do change type and no trace of this remains in Microsoft’s 
+  header to alert (even Microsoft’s own) programmers to the variability. Indeed, 
+  since functions continue to change type between releases of Windows 10, the header’s 
+  comment that “changes to this interface need to be backward-compatible” evidently 
+  isn’t heeded. </p>
+  <p>The following table summarises the correspondence between the
+  <span class="member">Version</span> member and the Windows version, as known from 
+  formal releases, giving in each case the size of the structure as a rough guide 
+  to its growth. Note that by far the most substantial growth was for Windows 8.
+  </p>
+  <table class="Sizes ForTwoVersions">
+    <colgroup>
+      <col class="Version" span="2"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Windows Versions </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">1 </td>
+        <td>3.51 to 4.0 </td>
+        <td>0x1C </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr class="VersionImplied">
+        <td>5.0 </td>
+        <td>0x30 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">2 </td>
+        <td>5.1 </td>
+        <td>0x4C </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr class="VersionImplied">
+        <td>5.2 </td>
+        <td>0x50 </td>
+        <td>0xA0 </td>
+      </tr>
+      <tr>
+        <td>5 </td>
+        <td>early 6.0 (before SP1) </td>
+        <td>0x6C </td>
+        <td>0xD8 </td>
+      </tr>
+      <tr>
+        <td>6 </td>
+        <td>late 6.0 (SP1) </td>
+        <td>0x88 </td>
+        <td>0x0110 </td>
+      </tr>
+      <tr>
+        <td>7 </td>
+        <td>very late 6.0 (SP2) </td>
+        <td>0x90 </td>
+        <td>0x0120 </td>
+      </tr>
+      <tr>
+        <td>13 </td>
+        <td>6.1 </td>
+        <td>0xB8 </td>
+        <td>0x0170 </td>
+      </tr>
+      <tr>
+        <td>21 </td>
+        <td>6.2 </td>
+        <td>0x016C </td>
+        <td>0x02D8 </td>
+      </tr>
+      <tr>
+        <td>23 </td>
+        <td>6.3 </td>
+        <td>0x01A8 </td>
+        <td>0x0350 </td>
+      </tr>
+      <tr>
+        <td>32 </td>
+        <td>10.0 to 1511 </td>
+        <td>0x01DC </td>
+        <td>0x03B8 </td>
+      </tr>
+      <tr>
+        <td>36 </td>
+        <td>1607 </td>
+        <td>0x01E8 </td>
+        <td>0x03D0 </td>
+      </tr>
+      <tr>
+        <td>40 </td>
+        <td>1703 </td>
+        <td>0x01F8 </td>
+        <td>0x03F0 </td>
+      </tr>
+      <tr>
+        <td>43 </td>
+        <td>1709 </td>
+        <td>0x0220 </td>
+        <td>0x0440 </td>
+      </tr>
+      <tr>
+        <td>46 </td>
+        <td>1803 </td>
+        <td>0x022C </td>
+        <td>0x0458 </td>
+      </tr>
+      <tr>
+        <td>48 </td>
+        <td>1809 </td>
+        <td>0x023C </td>
+        <td>0x0478 </td>
+      </tr>
+      <tr>
+        <td>49 </td>
+        <td>1903 </td>
+        <td>0x0250 </td>
+        <td>0x04A0 </td>
+      </tr>
+      <tr>
+        <td>51 </td>
+        <td>2004 </td>
+        <td>0x0258 </td>
+        <td>0x04B0 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout </h2>
+  <p>The detailed layout below combines the “official” definitions from the NTOSP.H 
+  in early editions of the WDK for Windows 10 and the public symbol files for later 
+  releases of Windows 10 with the completely unofficial, meaning what I can add 
+  from old notes and new inspection. For no version before Windows 10 are Microsoft’s 
+  names for members known with certainty. The type of function that a member points 
+  to can often be deduced either from a known call through the pointer or from a 
+  known implementation of the function. Where the type has not changed on the way 
+  to Windows 10 I infer that the name has not changed either. Continuity of the 
+  name often seems reasonable even if the type has changed (as when arguments are 
+  added) and even if the member has moved (because of insertion or removal earlier 
+  in the structure). Still, you should understand that this attempt at conveying 
+  two decades of missing historical record cannot be perfect. </p>
+  <h3>Original </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">ULONG Version;</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">BUS_HANDLER *
+(FASTCALL *HalHandlerForBus) (
+    INTERFACE_TYPE,
+    ULONG);</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>0x10 </td>
+        <td>
+        <pre class="source">BUS_HANDLER *
+(FASTCALL *HalHandlerForConfigSpace) (
+    BUS_DATA_TYPE,
+    ULONG);</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0C </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">VOID
+(*HalCompleteSlotControl) (
+    SLOT_CONTROL_CONTEXT *);</pre>
+        </td>
+        <td>3.51 only <br>
+        </td>
+        <td>no default; <br>
+        name inferred from HAL symbols </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">VOID
+(*HalCompleteDeviceControl) (
+    DEVICE_CONTROL_CONTEXT *);</pre>
+        </td>
+        <td>4.0 only <br>
+        </td>
+        <td>no default; <br>
+        name inferred from HAL symbols </td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td>
+        <pre class="source">VOID
+(*HalLocateHiberRanges) (
+    PVOID);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalRegisterBusHandler) (
+    INTERFACE_TYPE,
+    BUS_DATA_TYPE,
+    ULONG,
+    INTERFACE_TYPE,
+    ULONG,
+    ULONG,
+    PINSTALL_BUS_HANDLER,
+    BUS_HANDLER **);</pre>
+        </td>
+        <td>3.51 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x14 </td>
+        <td rowspan="2">0x28 </td>
+        <td>&nbsp;</td>
+        <td>3.51 and 4.0 <br>
+        </td>
+        <td>no default; <br>
+        name and type not known </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID
+(*HalSetWakeEnable) (
+    BOOLEAN);</pre>
+        </td>
+        <td>5.0 and higher <br>
+        </td>
+        <td>no default in 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x18 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalSuspendHibernateSystem) (
+    &lt;unknown-arguments&gt;);</pre>
+        </td>
+        <td>3.51 and 4.0 <br>
+        </td>
+        <td>name inferred from kernel symbols; <br>
+        type not known (8 bytes of arguments) </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x30 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalSetWakeAlarm) (
+    ULONGLONG,
+    TIME_FIELDS *);</pre>
+        </td>
+        <td>5.0 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalSetWakeAlarm) (
+    ULONGLONG,
+    ULONGLONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 2000 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1C </td>
+        <td>0x38 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalPciTranslateBusAddress) (
+    INTERFACE_TYPE,
+    ULONG,
+    PHYSICAL_ADDRESS,
+    ULONG *,
+    PHYSICAL_ADDRESS *);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x20 </td>
+        <td>0x40 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalPciAssignSlotResources) ( 
+    UNICODE_STRING *,
+    UNICODE_STRING *,
+    DRIVER_OBJECT *,
+    DEVICE_OBJECT *,
+    INTERFACE_TYPE,
+    ULONG,
+    ULONG,
+    CM_RESOURCE_LIST **);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x24 </td>
+        <td>0x48 </td>
+        <td>
+        <pre class="source">VOID
+(*HalHaltSystem) (
+    VOID);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x28 </td>
+        <td>0x50 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalFindBusAddressTranslation) (
+    PHYSICAL_ADDRESS,
+    ULONG *,
+    PHYSICAL_ADDRESS *,
+    ULONG_PTR *,
+    BOOLEAN);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x2C </td>
+        <td>0x58 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalResetDisplay) (
+    VOID);</pre>
+        </td>
+        <td>5.0 and higher </td>
+        <td>no default </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Inserted for Windows Server 2003 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x30 </td>
+        <td>0x60 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalAllocateMapRegisters) (
+    ADAPTER_OBJECT *,
+    ULONG,
+    ULONG,
+    MAP_REGISTER_ENTRY *);</pre>
+        </td>
+        <td>5.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows XP </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x30 (5.1) <br>
+        0x34 </td>
+        <td>0x68 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*KdSetupPciDeviceForDebugging) (
+    PVOID,
+    DEBUG_DEVICE_DESCRIPTOR *);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x34 (5.1) <br>
+        0x38 </td>
+        <td>0x70 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*KdReleasePciDeviceForDebugging) (
+    DEBUG_DEVICE_DESCRIPTOR *);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x38 (5.1) <br>
+        0x3C </td>
+        <td>0x78 </td>
+        <td>
+        <pre class="source">PVOID
+(*KdGetAcpiTablePhase0) (
+    <a href="../../api/arc/loader_parameter_block.htm">LOADER_PARAMETER_BLOCK</a> *,
+    ULONG);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x3C (5.1) <br>
+        0x40 </td>
+        <td>0x80 </td>
+        <td>
+        <pre class="source">VOID
+(*KdCheckPowerButton) (
+    VOID);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40 (5.1) <br>
+        0x44 </td>
+        <td>0x88 </td>
+        <td>
+        <pre class="source">UCHAR
+(*HalVectorToIDTEntry) (
+    ULONG);</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x44 (5.1) <br>
+        0x48 </td>
+        <td rowspan="2">0x90 </td>
+        <td>
+        <pre class="source">PVOID
+(*KdMapPhysicalMemory64) (
+    PHYSICAL_ADDRESS,
+    ULONG);</pre>
+        </td>
+        <td>5.1 to early 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID
+(*KdMapPhysicalMemory64) (
+    PHYSICAL_ADDRESS,
+    ULONG,
+    BOOLEAN);</pre>
+        </td>
+        <td>late 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x48 (5.1) <br>
+        0x4C </td>
+        <td rowspan="2">0x98 </td>
+        <td>
+        <pre class="source">VOID
+(*KdUnmapVirtualAddress) (
+    PVOID,
+    ULONG);</pre>
+        </td>
+        <td>5.1 to early 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID
+(*KdUnmapVirtualAddress) (
+    PVOID,
+    ULONG,
+    BOOLEAN);</pre>
+        </td>
+        <td>late 6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows Vista </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x50 </td>
+        <td>0xA0 </td>
+        <td>
+        <pre class="source">ULONG
+(*KdGetPciDataByOffset) (
+    ULONG,
+    ULONG,
+    PVOID,
+    ULONG,
+    ULONG);</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x54 </td>
+        <td>0xA8 </td>
+        <td>
+        <pre class="source">ULONG
+(*KdSetPciDataByOffset) (
+    ULONG,
+    ULONG,
+    PVOID,
+    ULONG,
+    ULONG);</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x58 </td>
+        <td>0xB0 </td>
+        <td>
+        <pre class="source">ULONG
+(*HalGetInterruptVectorOverride) (
+    INTERFACE_TYPE,
+    ULONG,
+    ULONG,
+    ULONG,
+    KIRQL *,
+    KAFFINITY *);</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x5C </td>
+        <td rowspan="2">0xB8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalGetVectorInputOverride) (
+    ULONG,
+    KAFFINITY,
+    ULONG *,
+    KINTERRUPT_POLARITY *);</pre>
+        </td>
+        <td>6.0 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalGetVectorInputOverride) (
+    ULONG,
+    GROUP_AFFINITY *,
+    ULONG *,
+    KINTERRUPT_POLARITY *,
+    INTERRUPT_REMAPPING_INFO *);</pre>
+        </td>
+        <td>6.1 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x60 </td>
+        <td>0xC0 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalLoadMicrocode) (
+    PVOID);</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x64 </td>
+        <td>0xC8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalUnloadMicrocode) (
+    VOID);</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x68 </td>
+        <td>0xD0 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalPostMicrocodeUpdate) (
+    VOID);</pre>
+        </td>
+        <td>6.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows Vista SP1 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x6C </td>
+        <td rowspan="2">0xD8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalAllocateMessageTargetOverride) (
+    DEVICE_OBJECT *,
+    KAFFINITY,
+    ULONG,
+    KINTERRUPT_MODE,
+    BOOLEAN,
+    ULONG *,
+    KIRQL *,
+    ULONG *);</pre>
+        </td>
+        <td>late 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalAllocateMessageTargetOverride) (
+    DEVICE_OBJECT *,
+    GROUP_AFFINITY *,
+    ULONG,
+    KINTERRUPT_MODE,
+    BOOLEAN,
+    ULONG *,
+    KIRQL *,
+    ULONG *);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x70 </td>
+        <td rowspan="2">0xE0 </td>
+        <td>
+        <pre class="source">VOID
+(*HalFreeMessageTargetOverride) (
+    DEVICE_OBJECT *,
+    ULONG,
+    KAFFINITY);</pre>
+        </td>
+        <td>late 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID
+(*HalFreeMessageTargetOverride) (
+    DEVICE_OBJECT *,
+    ULONG,
+    GROUP_AFFINITY *);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x74 </td>
+        <td>0xE8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalDpReplaceBegin) (
+    HAL_DP_REPLACE_PARAMETERS *,
+    PVOID *);</pre>
+        </td>
+        <td>late 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x78 </td>
+        <td>0xF0 </td>
+        <td>
+        <pre class="source">VOID
+(*HalDpReplaceTarget) (
+    PVOID);</pre>
+        </td>
+        <td>late 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x7C </td>
+        <td>0xF8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalDpReplaceControl) (
+    ULONG,
+    PVOID);</pre>
+        </td>
+        <td>late 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80 </td>
+        <td>0x0100 </td>
+        <td>
+        <pre class="source">VOID
+(*HalDpReplaceEnd) (
+    PVOID);</pre>
+        </td>
+        <td>late 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x84 </td>
+        <td>0x0108 </td>
+        <td>
+        <pre class="source">VOID
+(*HalPrepareForBugcheck) (
+    ULONG);</pre>
+        </td>
+        <td>late 6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Inserted for Windows 7 </h4>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x88 </td>
+        <td rowspan="2">0x0110 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalQueryWakeTime) (
+    ULONGLONG *);</pre>
+        </td>
+        <td>6.1 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalQueryWakeTime) (
+    ULONGLONG *,
+    ULONGLONG *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x8C </td>
+        <td>0x0118 </td>
+        <td>
+        <pre class="source">VOID
+(*HalReportIdleStateUsage) (
+    UCHAR,
+    AFFINITY_EX *);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x90 </td>
+        <td>0x0120 </td>
+        <td>
+        <pre class="source">VOID
+(*HalTscSynchronization) (
+    BOOLEAN,
+    ULONG *);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x94 </td>
+        <td>0x0128 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalWheaInitProcessorGenericSection) (
+    WHEA_ERROR_RECORD_SECTION_DESCRIPTOR *,
+    WHEA_PROCESSOR_GENERIC_ERROR_SECTION *);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x98 </td>
+        <td rowspan="2">0x0130 </td>
+        <td>
+        <pre class="source">VOID
+(*HalStopLegacyUsbInterrupts) (
+    VOID);</pre>
+        </td>
+        <td>6.1 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID
+(*HalStopLegacyUsbInterrupts) (
+    SYSTEM_POWER_STATE);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows Vista SP2 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x88 (6.0) <br>
+        0x9C </td>
+        <td>0x0138 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalReadWheaPhysicalMemory) (
+    PHYSICAL_ADDRESS,
+    ULONG,
+    PVOID);</pre>
+        </td>
+        <td>very late 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x8C (6.0) <br>
+        0xA0 </td>
+        <td>0x0140 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalWriteWheaPhysicalMemory) (
+    PHYSICAL_ADDRESS,
+    ULONG,
+    PVOID);</pre>
+        </td>
+        <td>very late 6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 7 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xA4 </td>
+        <td>0x0148 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalDpMaskLevelTriggeredInterrupts) (
+    VOID);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0xA8 </td>
+        <td>0x0150 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalDpUnmaskLevelTriggeredInterrupts) (
+    VOID);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0xAC </td>
+        <td>0x0158 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalDpGetInterruptReplayState) (
+    PVOID,
+    PVOID *);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0xB0 </td>
+        <td>0x0160 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalDpReplayInterrupts) (
+    PVOID);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0xB4 </td>
+        <td>0x0168 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalQueryIoPortAccessSupported) (
+    VOID);</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 8 </h3>
+  <p>To go the <span class="member">Version</span> member, the
+  <span class="struct">HAL_PRIVATE_DISPATCH</span> was worked on very actively between 
+  Windows 7 and Windows 8. The <span class="member">Version</span> is 13 for both 
+  the original Windows 7 and the first release of its only service pack, but it’s 
+  21 for the released Windows 8. Comments in the C-language definition from NTOSP.H 
+  record the development. </p>
+  <p>The following were added for <span class="member">Version</span> 14: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xB8 </td>
+        <td>0x0170 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*KdSetupIntegratedDeviceForDebugging) (
+    PVOID,
+    DEBUG_DEVICE_DESCRIPTOR *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xBC </td>
+        <td>0x0178 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*KdReleaseIntegratedDeviceForDebugging) (
+    DEBUG_DEVICE_DESCRIPTOR *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xC0 </td>
+        <td>0x0180 </td>
+        <td>
+        <pre class="source">VOID
+(*HalGetEnlightenmentInformation) (
+    HAL_INTEL_ENLIGHTENMENT_INFORMATION *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>conditional default </td>
+      </tr>
+      <tr>
+        <td>0xC4 </td>
+        <td>0x0188 </td>
+        <td>
+        <pre class="source">PVOID
+(*HalAllocateEarlyPages) (
+    LOADER_PARAMETER_BLOCK *,
+    ULONG,
+    ULONG64 *,
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0xC8 </td>
+        <td>0x0190 </td>
+        <td>
+        <pre class="source">PVOID
+(*HalMapEarlyPages) (
+    ULONG64,
+    ULONG,
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xCC </td>
+        <td rowspan="2">0x0198 </td>
+        <td>
+        <pre class="source">ULONG
+(*HalGetClockOwner) (
+    VOID);</pre>
+        </td>
+        <td>6.2 only <br>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Dummy1;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xD0 </td>
+        <td rowspan="2">0x01A0 </td>
+        <td>
+        <pre class="source">VOID
+(*HalGetClockConfiguration) (
+    ULONG *,
+    ULONG *,
+    UCHAR *);</pre>
+        </td>
+        <td>6.2 only <br>
+        </td>
+        <td>next at 0x0170 and 0x02E0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Dummy2;</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xD4 </td>
+        <td rowspan="2">0x01A8 </td>
+        <td>
+        <pre class="source">VOID
+(*HalNotifyProcessorFreeze) (
+    BOOLEAN);</pre>
+        </td>
+        <td>6.2 only </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID
+(*HalNotifyProcessorFreeze) (
+    BOOLEAN,
+    BOOLEAN);</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xD8 </td>
+        <td rowspan="2">0x01B0 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalPrepareProcessorForIdle) (
+    ULONG,
+    ULONG,
+    ULONG);</pre>
+        </td>
+        <td>6.2 only <br>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalPrepareProcessorForIdle) (
+    ULONG);</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xDC </td>
+        <td>0x01B8 </td>
+        <td>
+        <pre class="source">VOID
+(*HalRegisterLogRoutine) (
+    HAL_LOG_REGISTER_CONTEXT *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0xE0 </td>
+        <td rowspan="2">0x01C0 </td>
+        <td>
+        <pre class="source">VOID
+(*HalResumeProcessorFromIdle) (
+    ULONG *);</pre>
+        </td>
+        <td>6.2 only <br>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID
+(*HalResumeProcessorFromIdle) (
+    VOID);</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0xE4 </td>
+        <td>0x01C8 </td>
+        <td>
+        <pre class="source">PVOID Dummy;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>What is meant by conditional about the default for <span class="member">HalGetEnlightenmentInformation</span> 
+  is that the member starts as <span class="constant">NULL</span> in the kernel’s
+  <span class="variable">HalPrivateDispatchTable</span> but the kernel may set a 
+  default while initialising. </p>
+  <p>The next set were added for <span class="member">Version</span> 15: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0xE8 </td>
+        <td>0x01D0 </td>
+        <td>
+        <pre class="source">ULONG
+(*HalVectorToIDTEntryEx) (
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0xEC </td>
+        <td>0x01D8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalSecondaryInterruptQueryPrimaryInformation) (
+    INTERRUPT_VECTOR_DATA *,
+    ULONG *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0xF0 </td>
+        <td>0x01E0 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalMaskInterrupt) (
+    ULONG,
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0xF4 </td>
+        <td>0x01E8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalUnmaskInterrupt) (
+    ULONG,
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0xF8 </td>
+        <td>0x01F0 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalIsInterruptTypeSecondary) (
+    ULONG,
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0xFC </td>
+        <td>0x01F8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalAllocateGsivForSecondaryInterrupt) (
+    PCHAR,
+    USHORT,
+    ULONG *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0100 </td>
+        <td>0x0200 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalAddInterruptRemapping) (
+    ULONG,
+    ULONG,
+    PCI_BUSMASTER_DESCRIPTOR *,
+    UCHAR,
+    INTERRUPT_VECTOR_DATA *,
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0104 </td>
+        <td>0x0208 </td>
+        <td>
+        <pre class="source">VOID
+(*HalRemoveInterruptRemapping) (
+    ULONG,
+    ULONG,
+    PCI_BUSMASTER_DESCRIPTOR *,
+    UCHAR,
+    INTERRUPT_VECTOR_DATA *,
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0108 </td>
+        <td>0x0210 </td>
+        <td>
+        <pre class="source">VOID
+(*HalSaveAndDisableHvEnlightenment) (
+    VOID);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x010C </td>
+        <td>0x0218 </td>
+        <td>
+        <pre class="source">VOID
+(*HalRestoreHvEnlightenment) (
+    VOID);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Only two were added for <span class="member">Version</span> 16: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0110 </td>
+        <td>0x0220 </td>
+        <td>
+        <pre class="source">VOID
+(*HalFlushIoBuffersExternalCache) (
+    MDL *,
+    BOOLEAN);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0114 </td>
+        <td>0x0228 </td>
+        <td>
+        <pre class="source">VOID
+(*HalFlushExternalCache) (
+    BOOLEAN);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The advance was larger for <span class="member">Version</span> 17: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0118 </td>
+        <td>0x0230 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalPciEarlyRestore) (
+    SYSTEM_POWER_STATE);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x011C </td>
+        <td>0x0238 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalGetProcessorId) (
+    ULONG,
+    ULONG *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0120 </td>
+        <td>0x0240 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalAllocatePmcCounterSet) (
+    ULONG,
+    KPROFILE_SOURCE *,
+    ULONG,
+    HAL_PMC_COUNTERS **);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0124 </td>
+        <td>0x0248 </td>
+        <td>
+        <pre class="source">VOID
+(*HalCollectPmcCounters) (
+    HAL_PMC_COUNTERS *,
+    ULONG64 *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0128 </td>
+        <td>0x0250 </td>
+        <td>
+        <pre class="source">VOID
+(*HalFreePmcCounterSet) (
+    HAL_PMC_COUNTERS *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x012C </td>
+        <td>0x0258 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalProcessorHalt) (
+    ULONG,
+    PVOID,
+    PPROCESSOR_HALT_ROUTINE);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0130 </td>
+        <td>0x0260 </td>
+        <td>
+        <pre class="source">ULONG
+(*HalTimerQueryCycleCounter) (
+    ULONGLONG *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0134 </td>
+        <td rowspan="2">0x0268 </td>
+        <td>
+        <pre class="source">VOID
+(*HalGetNextTickDuration) (
+    <a href="../kprcb.htm">KPRCB</a> *,
+    BOOLEAN,
+    ULONG,
+    ULONG64,
+    ULONGLONG *);</pre>
+        </td>
+        <td>6.2 only <br>
+        </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Dummy3;</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0138 </td>
+        <td>0x0270 </td>
+        <td>
+        <pre class="source">VOID
+(*HalPciMarkHiberPhase) (
+    VOID);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x013C </td>
+        <td>0x0278 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalQueryProcessorRestartEntryPoint) (
+    PHYSICAL_ADDRESS *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0140 </td>
+        <td>0x0280 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalRequestInterrupt) (
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0144 </td>
+        <td>0x0288 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalEnumerateUnmaskedInterrupts) (
+    PHAL_ENUMERATE_INTERRUPT_SOURCE_CALLBACK,
+    PVOID,
+    HAL_UNMASKED_INTERRUPT_INFORMATION *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The additions then seem to have settled as Windows 8 neared release. There 
+  are two for <span class="member">Version</span> 18: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0148 </td>
+        <td>0x0290 </td>
+        <td>
+        <pre class="source">VOID
+(*HalFlushAndInvalidatePageExternalCache) (
+    PHYSICAL_ADDRESS);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x014C </td>
+        <td>0x0298 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*KdEnumerateDebuggingDevices) (
+    PVOID,
+    DEBUG_DEVICE_DESCRIPTOR *,
+    PDEBUG_DEVICE_FOUND_FUNCTION);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Just one for <span class="member">Version</span> 19: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0150 </td>
+        <td>0x02A0 </td>
+        <td>
+        <pre class="source">VOID
+(*HalFlushIoRectangleExternalCache) (
+    MDL *,
+    ULONG,
+    ULONG,
+    ULONG,
+    ULONG,
+    BOOLEAN);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>One more for <span class="member">Version</span> 20: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0154 </td>
+        <td>0x02A8 </td>
+        <td>
+        <pre class="source">VOID
+(*HalPowerEarlyRestore) (
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Microsoft’s history adds twelve for <span class="member">Version</span> 21, 
+  but the original release of Windows 8 has <span class="member">Version</span> 
+  21 and adds only five: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0158 </td>
+        <td>0x02B0 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalQueryCapsuleCapabilities) (
+    PVOID,
+    ULONG,
+    ULONGLONG *,
+    ULONG *);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x015C </td>
+        <td>0x02B8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalUpdateCapsule) (
+    PVOID,
+    ULONG,
+    PHYSICAL_ADDRESS);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0160 </td>
+        <td>0x02C0 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalPciMultiStageResumeCapable) (
+    VOID);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0164 </td>
+        <td>0x02C8 </td>
+        <td>
+        <pre class="source">VOID
+(*HalDmaFreeCrashDumpRegisters) (
+    ULONG);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0168 </td>
+        <td>0x02D0 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalAcpiAoacCapable) (
+    VOID);</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 8.1 </h3>
+  <p>Although the comments in the NTOSP.H definition places the following members 
+  after the “Start of version 21 functions” and before the “Start of version 22 
+  functions”, testing for <span class="member">Version</span> 21 to establish these 
+  members’ existence is unsound. Certainly there exist Windows 8 kernels that have
+  <span class="member">Version</span> 21 but do not provide their
+  <span class="variable">HalPrivateDispatchTable</span> with space for the following:
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x016C </td>
+        <td rowspan="3">0x02D8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalInterruptSetDestination) (
+    INTERRUPT_CONNECTION_DATA *,
+    GROUP_AFFINITY *);</pre>
+        </td>
+        <td>6.3 only <br>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalInterruptSetDestination) (
+    ULONG,
+    INTERRUPT_VECTOR_DATA *,
+    GROUP_AFFINITY *);</pre>
+        </td>
+        <td>10.0 to 1511 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalInterruptSetDestination) (
+    INTERRUPT_VECTOR_DATA *,
+    GROUP_AFFINITY *,
+    ULONG *);</pre>
+        </td>
+        <td>1607 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0170 </td>
+        <td>0x02E0 </td>
+        <td>
+        <pre class="source">VOID
+(*HalGetClockConfiguration) (
+    HAL_CLOCK_TIMER_CONFIGURATION *);</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>previously at 0xD0 and 0x01A0 </td>
+      </tr>
+      <tr>
+        <td>0x0174 </td>
+        <td>0x02E8 </td>
+        <td>
+        <pre class="source">VOID
+(*HalClockTimerActivate) (
+    BOOLEAN);</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0178 </td>
+        <td>0x02F0 </td>
+        <td>
+        <pre class="source">VOID
+(*HalClockTimerInitialize) (
+    VOID);</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x017C </td>
+        <td>0x02F8 </td>
+        <td>
+        <pre class="source">VOID
+(*HalClockTimerStop) (
+    VOID);</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0180 </td>
+        <td>0x0300 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalClockTimerArm) (
+    HAL_CLOCK_TIMER_MODE,
+    ULONG64,
+    ULONG64 *);</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0184 </td>
+        <td>0x0308 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalTimerOnlyClockInterruptPending) (
+    VOID);</pre>
+        </td>
+        <td>6.3 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Added for <span class="member">Version</span> 22: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0188 </td>
+        <td>0x0310 </td>
+        <td>
+        <pre class="source">PVOID
+(*HalAcpiGetMultiNode) (
+    VOID);</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x018C </td>
+        <td>0x0318 </td>
+        <td>
+        <pre class="source">PHALREBOOTHANDLER
+(*HalPowerSetRebootHandler) (
+    PHALREBOOTHANDLER);</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The original release of Windows 8.1 has <span class="member">Version</span> 
+  23. It got six more by then, but see that three have a change of type sooner or 
+  later: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0190 </td>
+        <td>0x0320 </td>
+        <td>
+        <pre class="source">VOID
+(*HalIommuRegisterDispatchTable) (
+    HAL_IOMMU_DISPATCH *);</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0194 </td>
+        <td rowspan="2">0x0328 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalTimerWatchdogStart) (
+    VOID);</pre>
+        </td>
+        <td>6.3 to 1607 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID 
+(*HalTimerWatchdogStart) (
+    VOID);</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x0198 </td>
+        <td rowspan="3">0x0330 </td>
+        <td>
+        <pre class="source">VOID
+(*HalTimerWatchdogResetCountdown) (
+    VOID);</pre>
+        </td>
+        <td>6.3 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID
+(*HalTimerWatchdogResetCountdown) (
+    LOGICAL);</pre>
+        </td>
+        <td>10.0 to 1607 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID
+(*HalTimerWatchdogResetCountdown) (
+    VOID);</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x019C </td>
+        <td rowspan="2">0x0338 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalTimerWatchdogStop) (
+    VOID);</pre>
+        </td>
+        <td>6.3 to 1607 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">VOID 
+(*HalTimerWatchdogStop) (
+    VOID);</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01A0 </td>
+        <td>0x0340 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalTimerWatchdogGeneratedLastReset) (
+    VOID);</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01A4 </td>
+        <td>0x0348 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalTimerWatchdogTriggerSystemReset) (
+    BOOLEAN);</pre>
+        </td>
+        <td>6.3 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 </h3>
+  <p>The first release of Windows 10 has <span class="member">Version</span> 32, 
+  up from 23 for Windows 8.1. Microsoft’s history records that the
+  <span class="member">Version</span> didn’t simply leap ahead, but was incremented 
+  for each new member (almost). </p>
+  <p>Added for <span class="member">Version</span> 24: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01A8 </td>
+        <td>0x0350 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalInterruptVectorDataToGsiv) (
+    INTERRUPT_VECTOR_DATA *,
+    ULONG *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Added for <span class="member">Version</span> 25: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01AC </td>
+        <td>0x0358 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalInterruptGetHighestPriorityInterrupt) (
+    ULONG *,
+    BOOLEAN *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Added for <span class="member">Version</span> 26: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01B0 </td>
+        <td>0x0360 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalProcessorOn) (
+    ULONG);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01B4 </td>
+        <td>0x0368 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalProcessorOff) (
+    VOID);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Added for <span class="member">Version</span> 27: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01B8 </td>
+        <td>0x0370 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalProcessorFreeze) (
+    VOID);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Added for <span class="member">Version</span> 28: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01BC </td>
+        <td>0x0378 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalDmaLinkDeviceObjectByToken) (
+    ULONG_PTR,
+    DEVICE_OBJECT *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Added for <span class="member">Version</span> 29: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01C0 </td>
+        <td>0x0380 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalDmaCheckAdapterToken) (
+    ULONG_PTR);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Added for <span class="member">Version</span> 30: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x01C4 </td>
+        <td rowspan="2">0x0388 </td>
+        <td>
+        <pre class="source">VOID
+(*HalPciLateRestore) (
+    VOID);</pre>
+        </td>
+        <td>10.0 to 1607 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID Dummy4;</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01C8 </td>
+        <td>0x0390 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalTimerConvertPerformanceCounterToAuxiliaryCounter) (
+    ULONG64,
+    ULONG64 *,
+    ULONG64 *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01CC </td>
+        <td>0x0398 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalTimerConvertAuxiliaryCounterToPerformanceCounter) (
+    ULONG64,
+    ULONG64 *,
+    ULONG64 *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01D0 </td>
+        <td>0x03A0 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalTimerQueryAuxiliaryCounterFrequency) (
+    ULONG64 *);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Added for <span class="member">Version</span> 31: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01D4 </td>
+        <td>0x03A8 </td>
+        <td>
+        <pre class="source">NTSTATUS
+(*HalConnectThermalInterrupt) (
+    PKSERVICE_ROUTINE);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Added for <span class="member">Version</span> 32: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01D8 </td>
+        <td>0x03B0 </td>
+        <td>
+        <pre class="source">BOOLEAN
+(*HalIsEFIRuntimeActive) (
+    VOID);</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 Version 1607 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01DC </td>
+        <td>0x03B8 </td>
+        <td>
+        <pre class="source">BOOLEAN 
+(*HalTimerQueryAndResetRtcErrors) (
+    BOOLEAN);</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01E0 </td>
+        <td>0x03C0 </td>
+        <td>
+        <pre class="source">VOID 
+(*HalAcpiLateRestore) (
+    VOID);</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01E4 </td>
+        <td>0x03C8 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*KdWatchdogDelayExpiration) (
+    ULONG64 *);</pre>
+        </td>
+        <td>1607 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 Version 1703 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01E8 </td>
+        <td>0x03D0 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalGetProcessorStats) (
+    HAL_PROCESSOR_STAT_TYPE, 
+    ULONG, 
+    ULONG, 
+    ULONG_PTR *);</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01EC </td>
+        <td>0x03D8 </td>
+        <td>
+        <pre class="source">ULONG64 
+(*HalTimerWatchdogQueryDueTime) (
+    VOID);</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01F0 </td>
+        <td>0x03E0 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalConnectSyntheticInterrupt) (
+    PKSERVICE_ROUTINE);</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01F4 </td>
+        <td>0x03E8 </td>
+        <td>
+        <pre class="source">VOID 
+(*HalPreprocessNmi) (
+    ULONG);</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 Version 1709 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01F8 </td>
+        <td>0x03F0 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalEnumerateEnvironmentVariablesWithFilter) (
+    ULONG,
+    BOOLEAN (*) (GUID const *, PCWSTR), 
+    PVOID, 
+    ULONG *);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01FC </td>
+        <td>0x03F8 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalCaptureLastBranchRecordStack) (
+    ULONG, 
+    HAL_LBR_ENTRY *, 
+    ULONG *);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0200 </td>
+        <td>0x0400 </td>
+        <td>
+        <pre class="source">BOOLEAN 
+(*HalClearLastBranchRecordStack) (
+    VOID);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0204 </td>
+        <td>0x0408 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalConfigureLastBranchRecord) (
+    ULONG, 
+    ULONG);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0208 </td>
+        <td>0x0410 </td>
+        <td>
+        <pre class="source">BOOLEAN 
+(*HalGetLastBranchInformation) (
+    ULONG *, 
+    ULONG *);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x020C </td>
+        <td>0x0418 </td>
+        <td>
+        <pre class="source">VOID 
+(*HalResumeLastBranchRecord) (
+    BOOLEAN);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0210 </td>
+        <td>0x0420 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalStartLastBranchRecord) (
+    ULONG, 
+    ULONG *);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0214 </td>
+        <td>0x0428 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalStopLastBranchRecord) (
+    ULONG);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0218 </td>
+        <td>0x0430 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalIommuBlockDevice) (
+    PVOID);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+      <tr>
+        <td>0x021C </td>
+        <td>0x0438 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalIommuUnblockDevice) (
+    EXT_IOMMU_DEVICE_ID *,
+    PVOID *);</pre>
+        </td>
+        <td>1709 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 Version 1803 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0220 </td>
+        <td>0x0440 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalGetIommuInterface) (
+    ULONG,
+    DMA_IOMMU_INTERFACE *);</pre>
+        </td>
+        <td>1803 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0224 </td>
+        <td>0x0448 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalRequestGenericErrorRecovery) (
+    PVOID, 
+    ULONG *);</pre>
+        </td>
+        <td>1803 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0228 </td>
+        <td>0x0450 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalTimerQueryHostPerformanceCounter) (
+    ULONG64 *);</pre>
+        </td>
+        <td>1803 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 Version 1809 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x022C </td>
+        <td>0x0458 </td>
+        <td>
+        <pre class="source">LONG 
+(*HalTopologyQueryProcessorRelationships) (
+    ULONG, 
+    ULONG, 
+    UCHAR *, 
+    UCHAR *, 
+    UCHAR *, 
+    ULONG *, 
+    ULONG *);</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0230 </td>
+        <td>0x0460 </td>
+        <td>
+        <pre class="source">VOID 
+(*HalInitPlatformDebugTriggers) (
+    VOID);</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x0234 </td>
+        <td>0x0468 </td>
+        <td>
+        <pre class="source">VOID 
+(*HalRunPlatformDebugTriggers) (
+    BOOLEAN);</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x0238 </td>
+        <td>0x0470 </td>
+        <td>
+        <pre class="source">PVOID 
+(*HalTimerGetReferencePage) (
+    VOID);</pre>
+        </td>
+        <td>1809 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 Version 1903 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x023C </td>
+        <td>0x0478 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalGetHiddenProcessorPowerInterface) (
+    HIDDEN_PROCESSOR_POWER_INTERFACE *);</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x0240 </td>
+        <td>0x0480 </td>
+        <td>
+        <pre class="source">ULONG 
+(*HalGetHiddenProcessorPackageId) (
+    ULONG);</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x0244 </td>
+        <td>0x0488 </td>
+        <td>
+        <pre class="source">ULONG 
+(*HalGetHiddenPackageProcessorCount) (
+    ULONG);</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x0248 </td>
+        <td>0x0490 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalGetHiddenProcessorApicIdByIndex) (
+    ULONG, 
+    ULONG *);</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x024C </td>
+        <td>0x0498 </td>
+        <td>
+        <pre class="source">NTSTATUS 
+(*HalRegisterHiddenProcessorIdleState) (
+    ULONG, 
+    ULONGLONG);</pre>
+        </td>
+        <td>1903 and higher </td>
+        <td>no default </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Appended for Windows 10 Version 2004 </h3>
+  <table class="Struct">
+    <colgroup>
+      <col class="Size" span="2"><col class="Definition"><col class="Version">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0250 </td>
+        <td>0x04A0 </td>
+        <td>
+        <pre class="source">VOID 
+(*HalIommuReportIommuFault) (
+    ULONGLONG, 
+    FAULT_INFORMATION *);</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>no default </td>
+      </tr>
+      <tr>
+        <td>0x0254 </td>
+        <td>0x04A8 </td>
+        <td>
+        <pre class="source">BOOLEAN 
+(*HalIommuDmaRemappingCapable) (
+    EXT_IOMMU_DEVICE_ID *, 
+    ULONG *);</pre>
+        </td>
+        <td>2004 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Function Pointers </h3>
+  <p>All non-obvious types in the preceding table are structures or enumerations 
+  except for the following function pointers (all of which are Microsoft’s type 
+  definitions from NTOSP.H): </p>
+  <pre class="source">typedef
+NTSTATUS
+(*PINSTALL_BUS_HANDLER) (
+    BUS_HANDLER *);
+
+typedef
+NTSTATUS 
+(*PPROCESSOR_HALT_ROUTINE) (
+    PVOID);
+    
+typedef
+BOOLEAN
+(*PHAL_ENUMERATE_INTERRUPT_SOURCE_CALLBACK) (
+    PVOID,
+    HAL_UNMASKED_INTERRUPT_INFORMATION *);
+
+typedef
+KD_CALLBACK_ACTION
+(*PDEBUG_DEVICE_FOUND_FUNCTION) (
+    DEBUG_DEVICE_DESCRIPTOR *);
+
+typedef
+VOID 
+(*PHALREBOOTHANDLER) (
+    ULONG,
+    LONG volatile *);
+
+typedef
+BOOLEAN
+(*PKSERVICE_ROUTINE) (
+    KINTERRUPT *,
+    PVOID);</pre>
+  <p>Of course, almost all members of the <span class="struct">HAL_PRIVATE_DISPATCH</span> 
+  are function pointers, and Microsoft’s NTOSP.H does define types for them too. 
+  Those that I use here are just the ones that can be given as arguments: function 
+  pointers in function pointers get just a bit too complicated for easy presentation.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 5th
+    <a href="../../../../../../../new/16/05.htm">May 2016</a> and was last modified 
+    on 30th <a href="../../../../../../../new/22/10.htm">November 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4925" -->
+  </div>
+</div>
+
+</body>
+
+</html>

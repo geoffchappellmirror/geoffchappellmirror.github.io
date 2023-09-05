@@ -1,0 +1,4392 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Bug Check Codes</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+  <h1>Bug Check Codes </h1>
+  <p>The Windows kernel has always been able to stop itself, and thus the whole 
+  of Windows, if something has gone so seriously wrong that execution can’t continue—or 
+  just wrong enough to doubt the safety of even trying to continue. The documentation’s 
+  description of an “immediate, controlled shutdown” must of course be understood 
+  as relative. The system does what it can—and it tends not to be appreciated even 
+  nearly enough how much work Microsoft has put in to this—but what can be done 
+  cannot be much. </p>
+  <p>The whole point to stopping is that everything is suspect. Just being able 
+  to control the crash is no small feat of planning. For instance, the kernel would 
+  ideally save a crash dump for subsequent analysis by “an experienced debugging 
+  technician”, but the cause of the crash could be a driver for disk I/O: therefore 
+  disk I/O to save a crash dump goes through a separate set of drivers that have 
+  been kept out of the way, hopefully safe from corruption, just in case. </p>
+  <p>Historically, this dire state of having to stop Windows was presented to the 
+  user by reverting to the video BIOS’s text mode—again, drivers can’t be trusted—to 
+  fill the display with white monotype characters on a blue background which has 
+  become known colloquially as the Blue Screen Of Death. The verb phrase
+  <span class="definition">blue screen</span> and the acronym BSOD are very common 
+  in users’ descriptions. </p>
+  <p>To get to this state programmatically, one of the kernel’s exported functions
+  <span class="function">KeBugCheck</span> or <span class="function">KeBugCheckEx</span> 
+  is called, whether by the kernel itself or by some kernel-mode module such as 
+  the HAL or a driver, or the kernel calls directly to some internal routine that 
+  is anyway the essence of <span class="function">KeBugCheckEx</span>. The one
+  <span class="function">KeBugCheck</span> argument, which is also the first of 
+  the <span class="function">KeBugCheckEx</span> arguments, becomes the defining 
+  characteristic. Microsoft’s C-language declarations of the function have always 
+  named this as <span class="argument">BugCheckCode</span> and so the term
+  <span class="definition">bug check code</span> is common, but the term
+  <span class="definition">stop code</span> is also common because that’s how it 
+  was originally presented to users: </p>
+  <pre class="output">*** STOP: <span class="placeholder">BugCheckCode</span> (<span class="placeholder">BugCheckParameter1</span>, <span class="placeholder">BugCheckParameter2</span>, <span class="placeholder">BugCheckParameter3</span>, <span class="placeholder">BugCheckParameter4</span>)</pre>
+  <p>Each of this line’s placeholders is in C-language hexadecimal notation. Most 
+  versions follow with at least some attempt to render the
+  <span class="placeholder">BugCheckCode</span> in something closer to plain language. 
+  The earliest versions tend to be brief about this, contenting themselves with 
+  the bug check’s <span class="definition">symbolic name</span> such as
+  <span class="constant">INACCESSIBLE_BOOT_DEVICE</span> or a single-line explanation 
+  such as “Mismatched kernel and hal image”, on the way to naming executable modules 
+  that look relevant and to showing something of the machine state. Later versions 
+  leave such programming details to be recovered from a crash dump and instead get 
+  more expansive with a plain-language interpretation and some suggestions for troubleshooting. 
+  Users apparently didn’t feel helped either way: the practical history of how Microsoft 
+  presents bug checks to users has ever since been one of reducing them to uselessness 
+  for everyone. </p>
+  <p>If too few users ever did have the experience that the technical gibberish 
+  on the blue screen actually did get the problem solved, it’s not the fault of 
+  the gibberish. To the programmer of a driver whose fault just stopped Windows 
+  for a customer, the bug check code and the resolution of a bug check parameter 
+  to a relative address within the driver, as read from the display by the customer 
+  and relayed over the telephone, will sometimes have sufficed for identifying the 
+  fault and fixing it in the next build. Of course, not all programmers of kernel-mode 
+  drivers have the luxury of having specialised enough to know their work so well, 
+  and not all problems that stop Windows have a cause that’s so immediate that deduction 
+  is even possible just from what the kernel can show on the blue screen at the 
+  time of detection. Indeed, not all problems that stop Windows are the fault of 
+  third-party drivers. A good proportion are coding errors in Microsoft’s own drivers 
+  and even in the kernel itself, especially in new functionality. Many bug checks 
+  are not understood without very close and lengthy study using specialised tools 
+  (a debugger) and highly specialised knowledge. But almost all are understandable 
+  with enough skill, experience and attention—and all such analysis starts with 
+  the bug check code. Even if it only sometimes ends there too, Microsoft was not 
+  wrong to write in the Windows NT 3.51 Resource Kit that </p>
+  <blockquote>
+    The content of the symbolic string may suggest, to a trained technician, the 
+    part of the Kernel that detected the condition from which there was no recourse 
+    but to stop.
+  </blockquote>
+  <h2>Documentation Status </h2>
+  <p>Given this early recognition by Microsoft that bug check codes are useful, 
+  the natural expectation is that they’ve always been documented. They might even 
+  be thought <span class="emphasis">important</span> to document, not just for advanced 
+  programmers (who are this website’s intended readers) but for the system administrators 
+  and other support staff who will be the first port of call for users who have 
+  Windows stop on them. After all, Microsoft’s own words at the end of every blue 
+  screen from the first release were: </p>
+  <pre class="output">Restart your computer. If this message reappears, do not restart.
+Contact your system administrator or technical support group, and/or
+peripheral device vendor.</pre>
+  <p>Quite what Microsoft imagined could result from such contact, back then, is 
+  unclear. Definitive documentation is surprisingly hard to pin down for the early 
+  versions and I don’t think it’s unfair to say that Microsoft has never given more 
+  than the <span class="emphasis">appearance</span> of providing good documentation 
+  to work from. &nbsp;</p>
+  <h2>Enumeration </h2>
+  <p>The tables below list every bug check code that is known in any of several 
+  ways: </p>
+  <ul>
+    <li>from any BUGCODES.H in a DDK or WDK; </li>
+    <li>from the message resource in any x86 or x64 kernel; </li>
+    <li>from known use by a kernel-mode binary, e.g., as the first argument for 
+    a call to <span class="function">KeBugCheckEx</span>. </li>
+  </ul>
+  <p>The first two are closely related since the header and the resource look to 
+  be generated by the Message Compiler from the same input. Every message resource 
+  has a <span class="directive">#define</span> in the header, but not conversely. 
+  Some message resources are not bug check codes but instead elaborate the description 
+  of bug checks, e.g., to suggest options for product support or diagnosis. The 
+  third way that bug check codes are known for the tables below is more problematic: 
+  discovering bug check codes that are used without being formally defined is, of 
+  course, only ever a work in progress. </p>
+  <p>The Name given for a Value is from the corresponding
+  <span class="directive">#define</span> in BUGCODES.H. A Value for which the Name 
+  is not in bold is thought to have never been intended as a bug check. </p>
+  <p>The Versions given for a Value are those that have a definition in BUGCODES.H 
+  from the corresponding kit or have a message in the compiled resource from the 
+  corresponding kernel. The following shorthands are used for changes that are yet 
+  noticed to have occurred within a version: </p>
+  <ul>
+    <li>late 4.0 starts with Windows NT 4.0 SP6; </li>
+    <li>mid 5.1 starts with Windows XP SP1; </li>
+    <li>late 5.1 starts with Windows XP SP2;</li>
+    <li>late 5.2 starts with Windows Server 2003 SP1; </li>
+    <li>late 6.0 starts with Windows Vista SP1. </li>
+  </ul>
+  <p>The shorthand “all” in the Versions column means version 3.10 and higher. The 
+  survey presently reaches to the 1803 release of Windows 10. If you want more up-to-date 
+  information, try getting it from Microsoft. </p>
+  <p>That a bug check is listed as “used by kernel” presently means that the 32-bit 
+  kernel in the listed versions has code that would raise the bug check. Other bug 
+  checks are specifically 64-bit and many more are raised only by the HAL or by 
+  drivers. Enumerating these is left for another time (or may be in progress). It’s 
+  very plausible that even more can be raised only in checked builds. These are 
+  unlikely ever to be taken up here. The aim is anyway not for an exhaustive list 
+  of all use. That a bug check is not listed as used does not mean it is not used, 
+  only that I haven’t found where in a more or less mechanical survey. Again, if 
+  you want comprehensiveness, try getting it from Microsoft—and, better yet, wonder 
+  why getting it from Microsoft, who have just stopped your computer, should be 
+  any sort of effort. </p>
+  <p>The word “all” for versions in the Known Use column is short for all
+  <span class="emphasis">applicable</span> versions (as listed in the Versions column): 
+  no case is known (or expected) of a bug check being used before it is defined. 
+  Contrast with the many in which a bug check is known to be used before it is documented.
+  </p>
+  <h3>Original </h3>
+  <p>Windows was born with 127 different types of bug check. How many were actually 
+  possible is not known. Some may have been intended for portability and never got 
+  developed for the i386 (which is the only originally supported processor architecture 
+  that this note can be interested in). Many are plainly intended for use by particular 
+  drivers or types of driver. Such cases aside, that a bug check code is defined 
+  this early likely means that the unrecoverable trouble it signifies is with functionality 
+  that’s fundamental. Among the implications is that many of these bug checks can 
+  be raised by the kernel in all known versions and are even still among the most 
+  frequently encountered in real-world use. </p>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x01 </td>
+      <td><span class="constant">APC_INDEX_MISMATCH</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10; <br>
+      kernel in 6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x02 </td>
+      <td><span class="constant">DEVICE_QUEUE_NOT_BUSY</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x03 </td>
+      <td><span class="constant">INVALID_AFFINITY_SET</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 to 5.2 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x04 </td>
+      <td><span class="constant">INVALID_DATA_ACCESS_TRAP</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x05 </td>
+      <td><span class="constant">INVALID_PROCESS_ATTACH_ATTEMPT</span> </td>
+      <td>all </td>
+      <td>kernel in 4.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x06 </td>
+      <td><span class="constant">INVALID_PROCESS_DETACH_ATTEMPT</span> </td>
+      <td>all </td>
+      <td>kernel in 5.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x07 </td>
+      <td><span class="constant">INVALID_SOFTWARE_INTERRUPT</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x08 </td>
+      <td><span class="constant">IRQL_NOT_DISPATCH_LEVEL</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x09 </td>
+      <td><span class="constant">IRQL_NOT_GREATER_OR_EQUAL</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0A </td>
+      <td><span class="constant">IRQL_NOT_LESS_OR_EQUAL</span> </td>
+      <td>all </td>
+      <td>kernel in all; <br>
+      HAL in 6.0 to 6.1 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0B </td>
+      <td><span class="constant">NO_EXCEPTION_HANDLING_SUPPORT</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0C </td>
+      <td><span class="constant">MAXIMUM_WAIT_OBJECTS_EXCEEDED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0D </td>
+      <td><span class="constant">MUTEX_LEVEL_NUMBER_VIOLATION</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0E </td>
+      <td><span class="constant">NO_USER_MODE_CONTEXT</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0F </td>
+      <td><span class="constant">SPIN_LOCK_ALREADY_OWNED</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x10 </td>
+      <td><span class="constant">SPIN_LOCK_NOT_OWNED</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x11 </td>
+      <td><span class="constant">THREAD_NOT_MUTEX_OWNER</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x12 </td>
+      <td><span class="constant">TRAP_CAUSE_UNKNOWN</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x13 </td>
+      <td><span class="constant">EMPTY_THREAD_REAPER_LIST</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x14 </td>
+      <td><span class="constant">CREATE_DELETE_LOCK_NOT_LOCKED</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x15 </td>
+      <td><span class="constant">LAST_CHANCE_CALLED_FROM_KMODE</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x16 </td>
+      <td><span class="constant">CID_HANDLE_CREATION</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x17 </td>
+      <td><span class="constant">CID_HANDLE_DELETION</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x18 </td>
+      <td><span class="constant">REFERENCE_BY_POINTER</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 to 3.51; <br>
+      kernel in 6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x19 </td>
+      <td><span class="constant">BAD_POOL_HEADER</span> </td>
+      <td>all </td>
+      <td>kernel in 3.51; <br>
+      kernel in 6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x1A </td>
+      <td><span class="constant">MEMORY_MANAGEMENT</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x1B </td>
+      <td><span class="constant">PFN_SHARE_COUNT</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x1C </td>
+      <td><span class="constant">PFN_REFERENCE_COUNT</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x1D </td>
+      <td><span class="constant">NO_SPIN_LOCK_AVAILABLE</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x1E </td>
+      <td><span class="constant">KMODE_EXCEPTION_NOT_HANDLED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x1F </td>
+      <td><span class="constant">SHARED_RESOURCE_CONV_ERROR</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x20 </td>
+      <td><span class="constant">KERNEL_APC_PENDING_DURING_EXIT</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x21 </td>
+      <td><span class="constant">QUOTA_UNDERFLOW</span> </td>
+      <td>all </td>
+      <td>kernel in 6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x22 </td>
+      <td><span class="constant">FILE_SYSTEM</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x23 </td>
+      <td><span class="constant">FAT_FILE_SYSTEM</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x24 </td>
+      <td><span class="constant">NTFS_FILE_SYSTEM</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x25 </td>
+      <td><span class="constant">NPFS_FILE_SYSTEM</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x26 </td>
+      <td><span class="constant">CDFS_FILE_SYSTEM</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x27 </td>
+      <td><span class="constant">RDR_FILE_SYSTEM</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x28 </td>
+      <td><span class="constant">CORRUPT_ACCESS_TOKEN</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x29 </td>
+      <td><span class="constant">SECURITY_SYSTEM</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x2A </td>
+      <td><span class="constant">INCONSISTENT_IRP</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x2B </td>
+      <td><span class="constant">PANIC_STACK_SWITCH</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x2C </td>
+      <td><span class="constant">PORT_DRIVER_INTERNAL</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x2D </td>
+      <td><span class="constant">SCSI_DISK_DRIVER_INTERNAL</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x2E </td>
+      <td><span class="constant">DATA_BUS_ERROR</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x2F </td>
+      <td><span class="constant">INSTRUCTION_BUS_ERROR</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x30 </td>
+      <td><span class="constant">SET_OF_INVALID_CONTEXT</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x31 </td>
+      <td><span class="constant">PHASE0_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x32 </td>
+      <td><span class="constant">PHASE1_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x33 </td>
+      <td><span class="constant">UNEXPECTED_INITIALIZATION_CALL</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x34 </td>
+      <td><span class="constant">CACHE_MANAGER</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x35 </td>
+      <td><span class="constant">NO_MORE_IRP_STACK_LOCATIONS</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x36 </td>
+      <td><span class="constant">DEVICE_REFERENCE_COUNT_NOT_ZERO</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 to 4.0 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x37 </td>
+      <td><span class="constant">FLOPPY_INTERNAL_ERROR</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x38 </td>
+      <td><span class="constant">SERIAL_DRIVER_INTERNAL</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x39 </td>
+      <td><span class="constant">SYSTEM_EXIT_OWNED_MUTEX</span> </td>
+      <td>all </td>
+      <td>kernel in 6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x3A </td>
+      <td><span class="constant">SYSTEM_UNWIND_PREVIOUS_USER</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x3B </td>
+      <td><span class="constant">SYSTEM_SERVICE_EXCEPTION</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x3C </td>
+      <td><span class="constant">INTERRUPT_UNWIND_ATTEMPTED</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x3D </td>
+      <td><span class="constant">INTERRUPT_EXCEPTION_NOT_HANDLED</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x3E </td>
+      <td><span class="constant">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</span>
+      </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x3F </td>
+      <td><span class="constant">NO_MORE_SYSTEM_PTES</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x40 </td>
+      <td><span class="constant">TARGET_MDL_TOO_SMALL</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 to 6.1 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x41 </td>
+      <td><span class="constant">MUST_SUCCEED_POOL_EMPTY</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x42 </td>
+      <td><span class="constant">ATDISK_DRIVER_INTERNAL</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x43 </td>
+      <td><span class="constant">NO_SUCH_PARTITION</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x44 </td>
+      <td><span class="constant">MULTIPLE_IRP_COMPLETE_REQUESTS</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x45 </td>
+      <td><span class="constant">INSUFFICIENT_SYSTEM_MAP_REGS</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x46 </td>
+      <td><span class="constant">DEREF_UNKNOWN_LOGON_SESSION</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x47 </td>
+      <td><span class="constant">REF_UNKNOWN_LOGON_SESSION</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x48 </td>
+      <td><span class="constant">CANCEL_STATE_IN_COMPLETED_IRP</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x49 </td>
+      <td><span class="constant">PAGE_FAULT_WITH_INTERRUPTS_OFF</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x4A </td>
+      <td><span class="constant">IRQL_GT_ZERO_AT_SYSTEM_SERVICE</span> </td>
+      <td>all </td>
+      <td>kernel in 6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x4B </td>
+      <td><span class="constant">STREAMS_INTERNAL_ERROR</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x4C </td>
+      <td><span class="constant">FATAL_UNHANDLED_HARD_ERROR</span> </td>
+      <td>all </td>
+      <td>kernel in 3.51 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x4D </td>
+      <td><span class="constant">NO_PAGES_AVAILABLE</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x4E </td>
+      <td><span class="constant">PFN_LIST_CORRUPT</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x4F </td>
+      <td><span class="constant">NDIS_INTERNAL_ERROR</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x50 </td>
+      <td><span class="constant">PAGE_FAULT_IN_NONPAGED_AREA</span> </td>
+      <td>all </td>
+      <td>kernel in 3.51 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x51 </td>
+      <td><span class="constant">REGISTRY_ERROR</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x52 </td>
+      <td><span class="constant">MAILSLOT_FILE_SYSTEM</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x53 </td>
+      <td><span class="constant">NO_BOOT_DEVICE</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x54 </td>
+      <td><span class="constant">LM_SERVER_INTERNAL_ERROR</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x55 </td>
+      <td><span class="constant">DATA_COHERENCY_EXCEPTION</span> </td>
+      <td>all </td>
+      <td>kernel in 10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x56 </td>
+      <td><span class="constant">INSTRUCTION_COHERENCY_EXCEPTION</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x57 </td>
+      <td><span class="constant">XNS_INTERNAL_ERROR</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x58 </td>
+      <td><span class="constant">FTDISK_INTERNAL_ERROR</span> </td>
+      <td>3.10 to 6.0 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="constant">VOLMGRX_INTERNAL_ERROR</span> </td>
+      <td>6.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x59 </td>
+      <td><span class="constant">PINBALL_FILE_SYSTEM</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x5A </td>
+      <td><span class="constant">CRITICAL_SERVICE_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 to 3.50; <br>
+      kernel in 6.2 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x5B </td>
+      <td><span class="constant">SET_ENV_VAR_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 to 5.2 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x5C </td>
+      <td><span class="constant">HAL_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all; <br>
+      HAL in 5.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="3">0x5D </td>
+      <td><span class="constant">HEAP_INITIALIZATION_FAILED</span> </td>
+      <td>3.10 to 3.50 </td>
+      <td>kernel in 3.10 to 3.50 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>undefined </td>
+      <td>3.51 only </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="constant"><a href="5d.htm">UNSUPPORTED_PROCESSOR</a></span>
+      </td>
+      <td>4.0 and higher </td>
+      <td>kernel in 4.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x5E </td>
+      <td><span class="constant">OBJECT_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x5F </td>
+      <td><span class="constant">SECURITY_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x60 </td>
+      <td><span class="constant">PROCESS_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x61 </td>
+      <td><span class="constant">HAL1_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x62 </td>
+      <td><span class="constant">OBJECT1_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x63 </td>
+      <td><span class="constant">SECURITY1_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x64 </td>
+      <td><span class="constant">SYMBOLIC_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x65 </td>
+      <td><span class="constant">MEMORY1_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x66 </td>
+      <td><span class="constant">CACHE_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x67 </td>
+      <td><span class="constant">CONFIG_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x68 </td>
+      <td><span class="constant">FILE_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x69 </td>
+      <td><span class="constant">IO1_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x6A </td>
+      <td><span class="constant">LPC_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x6B </td>
+      <td><span class="constant">PROCESS1_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x6C </td>
+      <td><span class="constant">REFMON_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x6D </td>
+      <td><span class="constant">SESSION1_INITIALIZATION_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x6E </td>
+      <td><span class="constant">SESSION2_INITIALIZATION_FAILED</span> </td>
+      <td>3.10 to 6.3 </td>
+      <td>kernel in 3.10 to 6.3 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="declared constant">BOOTPROC_INITIALIZATION_FAILED</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>kernel in 10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x6F </td>
+      <td><span class="constant">SESSION3_INITIALIZATION_FAILED</span> </td>
+      <td>3.10 to 6.3 </td>
+      <td>kernel in 3.10 to 6.3 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="declared constant">VSL_INITIALIZATION_FAILED</span> </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x70 </td>
+      <td><span class="constant">SESSION4_INITIALIZATION_FAILED</span> </td>
+      <td>3.10 to 6.3 </td>
+      <td>kernel in 3.10 to 6.3 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="declared constant">SOFT_RESTART_FATAL_ERROR</span> </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x71 </td>
+      <td><span class="constant">SESSION5_INITIALIZATION_FAILED</span> </td>
+      <td>3.10 to 6.3 </td>
+      <td>kernel in 3.10 to 6.3 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x72 </td>
+      <td><span class="constant">ASSIGN_DRIVE_LETTERS_FAILED</span> </td>
+      <td>all </td>
+      <td>HAL in 3.10 to 3.50; <br>
+      kernel in 3.51 to 6.0 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x73 </td>
+      <td><span class="constant">CONFIG_LIST_FAILED</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x74 </td>
+      <td><span class="constant">BAD_SYSTEM_CONFIG_INFO</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x75 </td>
+      <td><span class="constant">CANNOT_WRITE_CONFIGURATION</span> </td>
+      <td>all </td>
+      <td>kernel in 3.10 to 4.0 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x76 </td>
+      <td><span class="constant">PROCESS_HAS_LOCKED_PAGES</span> </td>
+      <td>all </td>
+      <td>kernel in 5.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x77 </td>
+      <td><span class="constant">KERNEL_STACK_INPAGE_ERROR</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x78 </td>
+      <td><span class="constant">PHASE0_EXCEPTION</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x79 </td>
+      <td><span class="constant"><a href="79.htm">MISMATCHED_HAL</a></span> </td>
+      <td>all </td>
+      <td>HAL in all; <br>
+      kernel in 4.0 to 6.2 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x7A </td>
+      <td><span class="constant">KERNEL_DATA_INPAGE_ERROR</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x7B </td>
+      <td><span class="constant">INACCESSIBLE_BOOT_DEVICE</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="3">0x7C </td>
+      <td>BUGCODE_PSS_MESSAGE </td>
+      <td>3.10 to 5.0 </td>
+      <td>&nbsp;</td>
+      <td>next as 0x40000082 </td>
+    </tr>
+    <tr>
+      <td>undefined </td>
+      <td>5.1 only </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="constant">BUGCODE_NDIS_DRIVER</span> </td>
+      <td>5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>see 0xD2 for history </td>
+    </tr>
+    <tr>
+      <td>0x7D </td>
+      <td><span class="constant">INSTALL_MORE_MEMORY</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x7E </td>
+      <td><span class="constant">SYSTEM_THREAD_EXCEPTION_NOT_HANDLED</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in 5.1 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x7F </td>
+      <td><span class="constant">UNEXPECTED_KERNEL_MODE_TRAP</span> </td>
+      <td>all </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x80 </td>
+      <td><span class="constant">NMI_HARDWARE_FAILURE</span> </td>
+      <td>all </td>
+      <td>HAL in 5.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x81 </td>
+      <td><span class="constant">SPIN_LOCK_INIT_FAILURE</span> </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <p>Bug check 0x09 is among the earliest examples of bug checks whose use is known 
+  only in checked builds. It’s also an example of the small confusions that have 
+  been the everyday lot of the kernel-mode Windows programmer right from the start 
+  (with no sign yet of a stop). The <span class="function">KefAcquireSpinLockAtDpcLevel</span> 
+  function, which is what a macro redefines <span class="function">KeAcquireSpinLockAtDpcLevel</span> 
+  to, is nowadays documented for use at <span class="constant">DISPATCH_LEVEL</span> 
+  and higher. Call it with a lower IRQL and checked builds raise
+  <span class="constant">IRQL_NOT_GREATER_OR_EQUAL</span>. Go back far enough, however, 
+  and though the bug check was always <span class="constant">IRQL_NOT_GREATER_OR_EQUAL</span>, 
+  what’s tested by the early versions is that the IRQL is not exactly
+  <span class="constant">DISPATCH_LEVEL</span>. </p>
+  <p>For bug check 0x14, the text in the compiled message resource for the kernel 
+  in versions 3.10 to 4.0 explains bug check 0x13, presumably by oversight. </p>
+  <p>Microsoft’s documentation is trivially correct that bug check 0x4C “appears 
+  very infrequently.” In version 3.51 and higher, it can be a bug check code as 
+  an argument for the <span class="function">KeBugCheck</span> functions but it 
+  never can show as a stop code. As a <span class="argument">BugCheckCode</span> 
+  argument it conveys to the kernel that the bug check is a fallback from a hard 
+  error that was intended to show to the user without crashing Windows but could 
+  not be so shown. What ends up as the bug check code on the stop screen, and is 
+  in some few cases documented as its own bug check code, is not 0x4C but the
+  <span class="argument">ErrorStatus</span> from the hard error. </p>
+  <p>Bug check 0x58 is renamed in BUGCODES.H from the WDK for Windows 7 in 2009 
+  but retains its old name in the documentation even today, 2nd July 2020. Even 
+  the name change was late, the bug check code having been carried over from FTDISK.SYS 
+  to VOLMGRX.SYS for Windows Vista. </p>
+  <p>Bug check 0x5D is taken up in detail separately. Here, in a list of bug checks 
+  and a survey of their history, what’s remarkable about 0x5D is that it’s the first 
+  that was redefined. Indeed, it was for a long time the only redefinition. That 
+  the first two versions of the Windows kernel work so closely with the user-mode 
+  heap is its own fascinating topic, especially for the archaeology of computer 
+  security, but what matters here is that version 3.51 had got far enough out of 
+  this game that the kernel surely never would again have a Heap Manager whose initialisation 
+  failure is fatal. The corresponding bug check was un-defined for version 3.51, 
+  both in BUGCODES.H and in the kernel’s message resource, though it persisted in 
+  the Windows NT 3.51 Resource Kit. That version 4.0 repurposes it to complain of 
+  not supporting any 80386 will have seemed natural since earlier versions had been 
+  (arguably) misusing the neighbouring bug check 0x5C to reject early steppings 
+  of the 80386. </p>
+  <p>Through most of the history of Windows, five points of failure while starting 
+  the first user-mode process each have their own bug check: 0x6D to 0x71 inclusive. 
+  Version 10.0 collapses them to be five cases of bug check 0x6D, distinguished 
+  by the first bug check parameter. Of course, now that Microsoft has simplified 
+  the stop screen so that the bug check parameters don’t show, this differentiation 
+  may as well be no differentiation at all to anyone who didn’t have the foresight 
+  to attach a kernel-mode debugger. Whatever was the purpose—presumably not just 
+  for tidiness, else it might have occurred to someone to tidy the bug checks in 
+  the documentation too—the redefinitions recovered four codes to reassign to new 
+  bug checks. That the numerical value 0x6E is immediately used for an entirely 
+  different failure is captured by a new name in BUGCODES.H but not in the documentation. 
+  The slightly later repurposing of two more, 0x6F and 0x70, also remains undocumented. 
+  Though all three are missed for the documentation, the <span class="command">!analyze</span> 
+  command has descriptions such as might have been written as documentation. There’s 
+  an example here in microcosm: on causual reading, Microsoft’s documentation of 
+  bug checks might look extensive, but close attention reveals that Microsoft takes 
+  very little care. </p>
+  <p>The numerical value 0x7C is the original example of BUGCODES.H defining a symbolic 
+  name not for a bug check code but for a message identifier that selects text for 
+  framing the presentation of actual bug checks. Originally, the message selected 
+  by 0x7C ends all stop screens. Several message IDs soon accumulated among the 
+  bug check codes. This mingling looks to have been thought unsatisfactory even 
+  before the first version’s formal release, which has the beginnings of defining 
+  a separate sequence for message IDs at 0x40000000 (see far below). </p>
+  <p>Bug check 0x7E is here thought to have been originally left undefined as a 
+  side-effect of defining 0x4000007E for a message. There was perhaps a scheme of 
+  setting the 0x40000000 bit in message IDs and leaving it clear in bug check codes. 
+  If so, it was put aside for version 5.1, which redefines 0x7E for a bug check 
+  code despite keeping 0x4000007E as a message ID and defines 0x4000007F to 0x40000083 
+  for messages without fear of collision with what had by then been the long-standing 
+  bug checks 0x7F to 0x83. </p>
+  <h3>Added for Windows NT 3.50 </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x82 </td>
+      <td><span class="delayed constant">DFS_FILE_SYSTEM</span> </td>
+      <td>3.50 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 4.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x83 </td>
+      <td><span class="declared constant">OFS_FILE_SYSTEM</span> </td>
+      <td>3.50 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x84 </td>
+      <td><span class="declared constant">RECOM_DRIVER</span> </td>
+      <td>3.50 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x85 </td>
+      <td><span class="delayed constant">SETUP_FAILURE</span> </td>
+      <td>3.50 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 4.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x86 </td>
+      <td><span class="declared constant">AUDIT_FAILURE</span> </td>
+      <td>3.50 and higher </td>
+      <td>kernel in 3.50 to 5.1 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x87 <br>
+      0x88 <br>
+      0x89 <br>
+      0x8A </td>
+      <td>undefined </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x8B </td>
+      <td><span class="delayed constant">MBR_CHECKSUM_MISMATCH</span> </td>
+      <td>3.50 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 4.0 and higher </td>
+    </tr>
+  </table>
+  <p>Bug check 0x86 is superseded by 0xC0000244 (see below, under Miscellany), starting 
+  with version 5.2. This new code for the bug check is <span class="constant">STATUS_AUDIT_FAILURE</span>, 
+  defined not in BUGCODES.H but in NTSTATUS.H. Neither value has ever appeared in 
+  the Bug Check Code Reference. This is remarkable because the bug check itself 
+  is documented, just not the bug check code. At least as far back as the Windows 
+  NT 3.51 Resource Kit, Microsoft documents a registry value named
+  <span class="regvalue">CrashOnAuditFail</span> as available to security-minded 
+  administrators to ensure that security-sensitive operations are not possible while 
+  the ability to audit them is suspect. If auditing to the Security log ever fails, 
+  then “the system will halt and not reboot.” It’s brutal but certain. It evidently 
+  did get used, though surely its usefulness was lessened by Microsoft’s leaving 
+  administrators with no clear guidance on recognising when a bug check’s occurrence 
+  has this particular reason. Some of Microsoft’s difficulty may have come from 
+  there being two parts to the implementation: the kernel; and LSASRV.DLL in the 
+  LSASS.EXE process. In these versions, the kernel explicitly raises
+  <span class="constant">AUDIT_FAILURE</span> as a bug check, but LSASRV raises
+  <span class="constant">STATUS_AUDIT_FAILURE</span> as a hard error. </p>
+  <p>Bug checks 0x87 to 0x8A are here thought to have been left undefined as a side-effect 
+  of defining 0x40000087 to 0x40000089 for messages and 0x4000008A for a bug check.
+  </p>
+  <h3>Added for Windows NT 3.51 </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x8C </td>
+      <td>BUGCODE_PSS_CRASH_INIT </td>
+      <td>3.51 to 5.0 </td>
+      <td>&nbsp;</td>
+      <td>next as 0x4000008D </td>
+    </tr>
+    <tr>
+      <td>0x8D </td>
+      <td>BUGCODE_PSS_CRASH_PROGRESS </td>
+      <td>3.51 to 5.0 </td>
+      <td>&nbsp;</td>
+      <td>next as 0x4000008E </td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x8E </td>
+      <td>BUGCODE_PSS_CRASH_DONE </td>
+      <td>3.51 to 5.0 </td>
+      <td>&nbsp;</td>
+      <td>next as 0x4000008F </td>
+    </tr>
+    <tr>
+      <td><span class="constant">KERNEL_MODE_EXCEPTION_NOT_HANDLED</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x8F </td>
+      <td><span class="delayed constant">PP0_INITIALIZATION_FAILED</span> </td>
+      <td>3.51 and higher </td>
+      <td>kernel in 4.0 and higher </td>
+      <td>documented in 4.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x90 </td>
+      <td><span class="delayed constant">PP1_INITIALIZATION_FAILED</span> </td>
+      <td>3.51 and higher </td>
+      <td>kernel in 4.0 and higher </td>
+      <td>documented in 4.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x91 </td>
+      <td><span class="declared constant">WIN32K_INIT_OR_RIT_FAILURE</span> </td>
+      <td>3.51 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <h3>Added for Windows NT 4.0 </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+    </tr>
+    <tr>
+      <td>0x92 </td>
+      <td><span class="constant">UP_DRIVER_ON_MP_SYSTEM</span> </td>
+      <td>4.0 and higher </td>
+      <td>kernel in 4.0 to 5.2 </td>
+    </tr>
+    <tr>
+      <td>0x93 </td>
+      <td><span class="constant">INVALID_KERNEL_HANDLE</span> </td>
+      <td>4.0 and higher </td>
+      <td>kernel in all </td>
+    </tr>
+    <tr>
+      <td>0x94 </td>
+      <td><span class="constant">KERNEL_STACK_LOCKED_AT_EXIT</span> </td>
+      <td>4.0 and higher </td>
+      <td>kernel in all </td>
+    </tr>
+    <tr>
+      <td>0x95 </td>
+      <td><span class="declared constant">PNP_INTERNAL_ERROR</span> </td>
+      <td>4.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x96 </td>
+      <td><span class="constant">INVALID_WORK_QUEUE_ITEM</span> </td>
+      <td>4.0 and higher </td>
+      <td>kernel in all </td>
+    </tr>
+    <tr>
+      <td>0x97 </td>
+      <td><span class="constant">BOUND_IMAGE_UNSUPPORTED</span> </td>
+      <td>4.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x98 </td>
+      <td><span class="constant">END_OF_NT_EVALUATION_PERIOD</span> </td>
+      <td>4.0 and higher </td>
+      <td>kernel in 4.0 to 1607 </td>
+    </tr>
+    <tr>
+      <td>0x99 </td>
+      <td><span class="constant">INVALID_REGION_OR_SEGMENT</span> </td>
+      <td>4.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x9A </td>
+      <td><span class="constant">SYSTEM_LICENSE_VIOLATION</span> </td>
+      <td>4.0 and higher </td>
+      <td>kernel in all </td>
+    </tr>
+    <tr>
+      <td>0x9B </td>
+      <td><span class="constant">UDFS_FILE_SYSTEM</span> </td>
+      <td>4.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x9C </td>
+      <td><span class="constant">MACHINE_CHECK_EXCEPTION</span> </td>
+      <td>4.0 and higher </td>
+      <td>HAL in all </td>
+    </tr>
+  </table>
+  <h3>Added for Windows 2000 </h3>
+  <p>For reasons not yet understood, version 5.0 skips a code. Indeed, it skipped 
+  two but one of these was brought into use for Windows Server 2003 (and got documented 
+  for Windows Vista). </p>
+  <p>The presentation of bug checks changed significantly for Windows 2000. A benefit 
+  for programmers is that the bug check shows in the debugger before the kernel 
+  disables interrupts and stops other processors, let alone before it attempts to 
+  present the bug check as a blue screen and well before any attempt to write a 
+  crash dump. It even becomes realistic, if only for simple problems, that the programmer 
+  who is skilled at debugging can put things right at this first break to the debugger 
+  and recover from the bug check. The significant reworking brought with it a proliferation 
+  of bug check codes. </p>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x9D </td>
+      <td>undefined </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x9E </td>
+      <td><span class="delayed constant">USER_MODE_HEALTH_MONITOR</span> </td>
+      <td>5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x9F </td>
+      <td><span class="constant">DRIVER_POWER_STATE_FAILURE</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xA0 </td>
+      <td><span class="delayed constant">INTERNAL_POWER_ERROR</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xA1 </td>
+      <td><span class="delayed constant">PCI_BUS_DRIVER_INTERNAL</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xA2 </td>
+      <td><span class="delayed constant">MEMORY_IMAGE_CORRUPT</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xA3 </td>
+      <td><span class="delayed constant">ACPI_DRIVER_INTERNAL</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xA4 </td>
+      <td><span class="delayed constant">CNSS_FILE_SYSTEM_FILTER</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xA5 </td>
+      <td><span class="delayed constant">ACPI_BIOS_ERROR</span> </td>
+      <td>5.0 and higher </td>
+      <td>HAL in all <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xA6 </td>
+      <td><span class="declared constant">FP_EMULATION_ERROR</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xA7 </td>
+      <td><span class="delayed constant">BAD_EXHANDLE</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in 5.0 to 5.1 <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xA8 </td>
+      <td>BOOTING_IN_SAFEMODE_MINIMAL </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xA9 </td>
+      <td>BOOTING_IN_SAFEMODE_NETWORK </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xAA </td>
+      <td>BOOTING_IN_SAFEMODE_DSREPAIR </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xAB </td>
+      <td><span class="delayed constant">SESSION_HAS_VALID_POOL_ON_EXIT</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>kernel in 5.0 to 6.3 <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xAC </td>
+      <td><span class="delayed constant">HAL_MEMORY_ALLOCATION</span> </td>
+      <td>5.0 and higher </td>
+      <td>HAL in all <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xAD </td>
+      <td>BUGCODE_PSS_MESSAGE_A </td>
+      <td>5.0 only </td>
+      <td>&nbsp;</td>
+      <td>see 0x400000AD </td>
+    </tr>
+    <tr>
+      <td>0xAE </td>
+      <td>BUGCODE_PSS_MESSAGE_1E </td>
+      <td>5.0 only </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xAF </td>
+      <td>BUGCODE_PSS_MESSAGE_23 </td>
+      <td>5.0 only </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xB0 </td>
+      <td>BUGCODE_PSS_MESSAGE_2E </td>
+      <td>5.0 only </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="3">0xB1 </td>
+      <td>BUGCODE_PSS_MESSAGE_3F </td>
+      <td>5.0 only </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>undefined </td>
+      <td>5.1 to 6.1 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="declared constant">BGI_DETECTED_VIOLATION</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xB2 </td>
+      <td>BUGCODE_PSS_MESSAGE_7B </td>
+      <td>5.0 only </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xB3 </td>
+      <td>BUGCODE_PSS_MESSAGE_7F </td>
+      <td>5.0 only </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xB4 </td>
+      <td><span class="delayed constant">VIDEO_DRIVER_INIT_FAILURE</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xB5 </td>
+      <td>BOOTLOG_LOADED </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xB6 </td>
+      <td>BOOTLOG_NOT_LOADED </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xB7 </td>
+      <td>BOOTLOG_ENABLED </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xB8 </td>
+      <td><span class="delayed constant">ATTEMPTED_SWITCH_FROM_DPC</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xB9 </td>
+      <td><span class="delayed constant">CHIPSET_DETECTED_ERROR</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xBA </td>
+      <td><span class="delayed constant">SESSION_HAS_VALID_VIEWS_ON_EXIT</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xBB </td>
+      <td><span class="delayed constant">NETWORK_BOOT_INITIALIZATION_FAILED</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>kernel in 5.0 to 5.2 <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xBC </td>
+      <td><span class="delayed constant">NETWORK_BOOT_DUPLICATE_ADDRESS</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>kernel in 5.2 <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xBD </td>
+      <td><span class="declared constant">INVALID_HIBERNATED_STATE</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xBE </td>
+      <td><span class="constant">ATTEMPTED_WRITE_TO_READONLY_MEMORY</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xBF </td>
+      <td><span class="delayed constant">MUTEX_ALREADY_OWNED</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xC0 </td>
+      <td><span class="declared constant">PCI_CONFIG_SPACE_ACCESS_FAILURE</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xC1 </td>
+      <td><span class="constant">SPECIAL_POOL_DETECTED_MEMORY_CORRUPTION</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xC2 </td>
+      <td><span class="constant">BAD_POOL_CALLER</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="2">0xC3 </td>
+      <td>BUGCODE_PSS_MESSAGE_SIGNATURE </td>
+      <td>5.0 to 6.1 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="declared constant">SYSTEM_IMAGE_BAD_SIGNATURE</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xC4 </td>
+      <td><span class="constant">DRIVER_VERIFIER_DETECTED_VIOLATION</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all; <br>
+      HAL in 6.0 only </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xC5 </td>
+      <td><span class="constant">DRIVER_CORRUPTED_EXPOOL</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xC6 </td>
+      <td><span class="constant">DRIVER_CAUGHT_MODIFYING_FREE_POOL</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xC7 </td>
+      <td><span class="constant">TIMER_OR_DPC_INVALID</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xC8 </td>
+      <td><span class="constant">IRQL_UNEXPECTED_VALUE</span> </td>
+      <td>5.0 and higher </td>
+      <td>HAL in 6.0 and higher; <br>
+      kernel in 6.2 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xC9 </td>
+      <td><span class="constant">DRIVER_VERIFIER_IOMANAGER_VIOLATION</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xCA </td>
+      <td><span class="constant">PNP_DETECTED_FATAL_ERROR</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xCB </td>
+      <td><span class="constant">DRIVER_LEFT_LOCKED_PAGES_IN_PROCESS</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xCC </td>
+      <td><span class="constant">PAGE_FAULT_IN_FREED_SPECIAL_POOL</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xCD </td>
+      <td><span class="constant">PAGE_FAULT_BEYOND_END_OFALLOCATION</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xCE </td>
+      <td><span class="constant">DRIVER_UNLOADED_WITHOUT_CANCELLING_PENDING_OPERATIONS</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xCF </td>
+      <td><span class="constant">TERMINAL_SERVER_DRIVER_MADE_INCORRECT_MEMORY_REFERENCE</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xD0 </td>
+      <td><span class="constant">DRIVER_CORRUPTED_MMPOOL</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xD1 </td>
+      <td><span class="constant">DRIVER_IRQL_NOT_LESS_OR_EQUAL</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in 1709 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="3">0xD2 </td>
+      <td>BUGCODE_ID_DRIVER </td>
+      <td>5.0 only </td>
+      <td>&nbsp;</td>
+      <td>next as 0x40000080 </td>
+    </tr>
+    <tr>
+      <td>undefined </td>
+      <td>5.1 to 6.1 </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="constant">BUGCODE_ID_DRIVER</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xD3 </td>
+      <td><span class="constant">DRIVER_PORTION_MUST_BE_NONPAGED</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xD4 </td>
+      <td><span class="constant">SYSTEM_SCAN_AT_RAISED_IRQL_CAUGHT_IMPROPER_DRIVER_UNLOAD</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xD5 </td>
+      <td><span class="constant">DRIVER_PAGE_FAULT_IN_FREED_SPECIAL_POOL</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xD6 </td>
+      <td><span class="constant">DRIVER_PAGE_FAULT_BEYOND_END_OF_ALLOCATION</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xD7 </td>
+      <td><span class="constant">DRIVER_UNMAPPING_INVALID_VIEW</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xD8 </td>
+      <td><span class="constant">DRIVER_USED_EXCESSIVE_PTES</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xD9 </td>
+      <td><span class="delayed constant">LOCKED_PAGES_TRACKER_CORRUPTION</span>
+      </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xDA </td>
+      <td><span class="delayed constant">SYSTEM_PTE_MISUSE</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xDB </td>
+      <td><span class="constant">DRIVER_CORRUPTED_SYSPTES</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xDC </td>
+      <td><span class="constant">DRIVER_INVALID_STACK_ADDRESS</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xDD </td>
+      <td>BUGCODE_PSS_MESSAGE_A5 </td>
+      <td>5.0 only </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xDE </td>
+      <td><span class="constant">POOL_CORRUPTION_IN_FILE_AREA</span> </td>
+      <td>late 4.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xDF </td>
+      <td><span class="constant">IMPERSONATING_WORKER_THREAD</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xE0 </td>
+      <td><span class="delayed constant">ACPI_BIOS_FATAL_ERROR</span> </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0xE1 </td>
+      <td><span class="constant">WORKER_THREAD_RETURNED_AT_BAD_IRQL</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xE2 </td>
+      <td><span class="constant">MANUALLY_INITIATED_CRASH</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xE3 </td>
+      <td><span class="constant">RESOURCE_NOT_OWNED</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xE4 </td>
+      <td><span class="constant">WORKER_INVALID</span> </td>
+      <td>5.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <p>A bug check 0xAD is documented by Microsoft as <span class="constant">VIDEO_DRIVER_DEBUG_REPORT_REQUEST</span>, 
+  but what’s declared in BUGCODES.H (and understood by VIDEOPRT.SYS) is 0x400000AD.
+  </p>
+  <p>The point to 0xAD (and to several others) as a message ID in version 5.0 is 
+  that if a crash dump is not written, then the kernel has one last breath for telling 
+  the user something more about the bug check. As the symbolic names suggest, this 
+  elaborates the original scheme of ending all bug check displays with the text 
+  from message <span class="constant">BUGCODE_PSS_MESSAGE</span> (0x7C). Version 
+  3.51 had already reduced this just to cases where no crash dump is written. Version 
+  5.0 keeps to this but provides for ending with different text for different bug 
+  codes. The suggestions in the symbolic names are mostly clear, but note that
+  <span class="constant">BUGCODE_PSS_MESSAGE_A</span> is not just for bug check 
+  0x0A but also for 0xC5, 0xD0, 0xD1, 0xD3 and 0xD4, and <span class="constant">
+  BUGCODE_PSS_MESSAGE_23</span> is for both 0x23 and 0x24. </p>
+  <p>The numerical value 0xD2 presents quite a puzzle, surely to programmers at 
+  the time, and certainly to historians. It needs a few paragraphs to explain…
+  </p>
+  <p>To the version 5.0 kernel, 0xD2 is not a bug check code but is instead the 
+  message ID of text with which to flesh out the description of various other bug 
+  checks. These others are all new for Windows 2000: 0xBE, 0xCB to 0xCF and 0xD3 
+  to 0xD6. What they have in common is that the kernel interprets a bug check parameter 
+  as identifying a faulting driver. Literally. What the lookup of 0xD2 as a message 
+  ID adds to the stop screen’s text in the English releases is </p>
+  <pre class="source">This driver may be at fault:
+<span class="placeholder">name</span></pre>
+  <p>The symbolic name <span class="constant">BUGCODE_ID_DRIVER</span> for 0xD2 
+  is thus appropriate: it’s in the BUGCODES.H definitions not as a bug check code 
+  but to select text for identifying a driver to the user, who perhaps will prefer 
+  the directness of finger-pointing by name. </p>
+  <p>Somehow, the numerical value 0xD2 also gets used in version 5.0 by Microsoft’s 
+  NDIS.SYS driver as the bug check code for all unrecoverable NDIS faults, the same 
+  as later becomes <span class="constant">BUGCODE_NDIS_DRIVER</span> (0x7C). </p>
+  <p>Bug check 0xDE is here thought to have been back-fitted into version 4.0 for 
+  its last service pack, having been intended as new for version 5.0. </p>
+  <h3>Added for Windows XP </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0xE5 </td>
+      <td><span class="declared constant">POWER_FAILURE_SIMULATE</span> </td>
+      <td>5.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="2">0xE6 </td>
+      <td><span class="constant">DRIVER_VERIFIER_DMA_VIOLATION</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in 5.1 to 5.2 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>unknown, see note </td>
+      <td>&nbsp;</td>
+      <td>HAL in 6.2 and higher; <br>
+      kernel in 10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xE7 </td>
+      <td><span class="constant">INVALID_FLOATING_POINT_STATE</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in 5.1 to 6.0 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xE8 </td>
+      <td><span class="constant">INVALID_CANCEL_OF_FILE_OPEN</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xE9 </td>
+      <td><span class="constant">ACTIVE_EX_WORKER_THREAD_TERMINATION</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xEA </td>
+      <td><span class="constant">THREAD_STUCK_IN_DEVICE_DRIVER</span> </td>
+      <td>5.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xEB </td>
+      <td><span class="constant">DIRTY_MAPPED_PAGES_CONGESTION</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xEC </td>
+      <td><span class="constant">SESSION_HAS_VALID_SPECIAL_POOL_ON_EXIT</span>
+      </td>
+      <td>5.1 and higher </td>
+      <td>kernel in 6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xED </td>
+      <td><span class="constant">UNMOUNTABLE_BOOT_VOLUME</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xEE </td>
+      <td>undefined </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xEF </td>
+      <td><span class="constant">CRITICAL_PROCESS_DIED</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF0 </td>
+      <td><span class="declared constant">STORAGE_MINIPORT_ERROR</span> </td>
+      <td>1703 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF1 </td>
+      <td><span class="constant">SCSI_VERIFIER_DETECTED_VIOLATION</span> </td>
+      <td>5.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF2 </td>
+      <td><span class="declared constant">HARDWARE_INTERRUPT_STORM</span> </td>
+      <td>5.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF3 </td>
+      <td><span class="constant">DISORDERLY_SHUTDOWN</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in 5.1 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF4 </td>
+      <td><span class="constant">CRITICAL_OBJECT_TERMINATION</span> </td>
+      <td>5.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF5 </td>
+      <td><span class="delayed constant">FLTMGR_FILE_SYSTEM</span> </td>
+      <td>5.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in late 5.2 and higher </td>
+    </tr>
+    <tr>
+      <td>0xF6 </td>
+      <td><span class="constant">PCI_VERIFIER_DETECTED_VIOLATION</span> </td>
+      <td>5.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <p>Though bug check 0xE6 retains its definition as <span class="constant">DRIVER_VERIFIER_DMA_VIOLATION</span>, 
+  the known use of it by the kernel in version 10.0 does not fill well enough with 
+  this name to allow any suggestion of continuity. The kernel’s use of bug check 
+  0xE6 in versions 5.1 and 5.2 is plainly for a Driver Verifier assertion. In version 
+  10.0, even its connection with DMA is slight. The bug check occurs in a defective 
+  call to the new <span class="function">KeFlushIoBuffers</span> function, independently 
+  of the Driver Verifier. There is a connection with DMA, however, since a non-zero
+  <span class="argument">DmaOperation</span> argument is a necessary condition.
+  </p>
+  <h3>Added for Windows Server 2003 </h3>
+  <p>Apparently because versions 5.1 and 5.2 were developed in parallel, several 
+  bug checks are defined first for version 5.2 but find their way into service packs 
+  of version 5.1. Overlap seems to have been anticipated: 0xF7, 0xF8 and 0xF9 are 
+  included in the <span class="citation">Bug Check Code Reference</span> in the 
+  Windows XP DDK even though they are not in the BUGCODES.H from the same DDK. Indeed, 
+  two of them aren’t known to the message resource as compiled into the kernel even 
+  for Windows XP SP3. </p>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0xF7 </td>
+      <td><span class="constant">DRIVER_OVERRAN_STACK_BUFFER</span> </td>
+      <td>late 5.1 and higher </td>
+      <td>kernel in late 5.2 and higher; <br>
+      HAL in 6.1 to 6.2 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF8 </td>
+      <td><span class="constant">RAMDISK_BOOT_INITIALIZATION_FAILED</span> </td>
+      <td>5.2 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF9 </td>
+      <td><span class="constant">DRIVER_RETURNED_STATUS_REPARSE_FOR_VOLUME_OPEN</span>
+      </td>
+      <td>5.2 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xFA </td>
+      <td><span class="delayed constant">HTTP_DRIVER_CORRUPTED</span> </td>
+      <td>5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0xFB </td>
+      <td><span class="declared constant">RECURSIVE_MACHINE_CHECK</span> </td>
+      <td>5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xFC </td>
+      <td><span class="delayed constant">ATTEMPTED_EXECUTE_OF_NOEXECUTE_MEMORY</span>
+      </td>
+      <td>late 5.1 and higher </td>
+      <td>kernel in 6.0 and higher <br>
+      </td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0xFD </td>
+      <td><span class="delayed constant">DIRTY_NOWRITE_PAGES_CONGESTION</span>
+      </td>
+      <td>5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0xFE </td>
+      <td><span class="delayed constant">BUGCODE_USB_DRIVER</span> </td>
+      <td>mid 5.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in late 5.2 and higher </td>
+    </tr>
+  </table>
+  <h3>Added for Windows Vista </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0xFF </td>
+      <td><span class="constant">RESERVE_QUEUE_OVERFLOW</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0100 </td>
+      <td><span class="constant">LOADER_BLOCK_MISMATCH</span> </td>
+      <td>6.0 and higher </td>
+      <td>kernel in 6.1 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0101 </td>
+      <td><span class="constant">CLOCK_WATCHDOG_TIMEOUT</span> </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all; <br>
+      HAL in 6.3 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0102 </td>
+      <td><span class="delayed constant">DPC_WATCHDOG_TIMEOUT</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0103 </td>
+      <td><span class="delayed constant">MUP_FILE_SYSTEM</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 6.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0104 </td>
+      <td><span class="constant">AGP_INVALID_ACCESS</span> </td>
+      <td>late 5.1, late 5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0105 </td>
+      <td><span class="constant">AGP_GART_CORRUPTION</span> </td>
+      <td>late 5.1, late 5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0106 </td>
+      <td><span class="constant">AGP_ILLEGALLY_REPROGRAMMED</span> </td>
+      <td>late 5.1, late 5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0107 </td>
+      <td><span class="declared constant">KERNEL_EXPAND_STACK_ACTIVE</span> </td>
+      <td>late 5.2 and higher </td>
+      <td>kernel in 6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0108 </td>
+      <td><span class="constant">THIRD_PARTY_FILE_SYSTEM_FAILURE</span> </td>
+      <td>late 5.1, late 5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0109 </td>
+      <td><span class="constant">CRITICAL_STRUCTURE_CORRUPTION</span> </td>
+      <td>late 5.2 and higher </td>
+      <td>kernel in 6.0 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x010A </td>
+      <td><span class="constant">APP_TAGGING_INITIALIZATION_FAILED</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x010B </td>
+      <td><span class="declared constant">DFSC_FILE_SYSTEM</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x010C </td>
+      <td><span class="constant">FSRTL_EXTRA_CREATE_PARAMETER_VIOLATION</span>
+      </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x010D </td>
+      <td><span class="constant">WDF_VIOLATION</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x010E </td>
+      <td><span class="constant">VIDEO_MEMORY_MANAGEMENT_INTERNAL</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x010F </td>
+      <td><span class="constant">RESOURCE_MANAGER_EXCEPTION_NOT_HANDLED</span>
+      </td>
+      <td>6.0 only </td>
+      <td>kernel in 6.0 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0110 </td>
+      <td><span class="declared constant">DRIVER_INVALID_CRUNTIME_PARAMETER</span>
+      </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0111 </td>
+      <td><span class="delayed constant">RECURSIVE_NMI</span> </td>
+      <td>late 5.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0112 </td>
+      <td><span class="constant">MSRPC_STATE_VIOLATION</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0113 </td>
+      <td><span class="constant">VIDEO_DXGKRNL_FATAL_ERROR</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0114 </td>
+      <td><span class="constant">VIDEO_SHADOW_DRIVER_FATAL_ERROR</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0115 </td>
+      <td><span class="constant">AGP_INTERNAL</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0116 </td>
+      <td><span class="constant">VIDEO_TDR_FAILURE</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0117 </td>
+      <td><span class="constant">VIDEO_TDR_TIMEOUT_DETECTED</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0118 </td>
+      <td><span class="declared constant">NTHV_GUEST_ERROR</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0119 </td>
+      <td><span class="constant">VIDEO_SCHEDULER_INTERNAL_ERROR</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x011A </td>
+      <td><span class="constant">EM_INITIALIZATION_ERROR</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x011B </td>
+      <td><span class="delayed constant">DRIVER_RETURNED_HOLDING_CANCEL_LOCK</span>
+      </td>
+      <td>6.0 and higher </td>
+      <td>kernel in 6.2 and higher <br>
+      </td>
+      <td>documented in late 6.0, and higher </td>
+    </tr>
+    <tr>
+      <td>0x011C </td>
+      <td><span class="delayed constant">ATTEMPTED_WRITE_TO_CM_PROTECTED_STORAGE</span>
+      </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x011D </td>
+      <td><span class="delayed constant">EVENT_TRACING_FATAL_ERROR</span> </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x011E </td>
+      <td><span class="delayed constant">TOO_MANY_RECURSIVE_FAULTS</span> </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x011F </td>
+      <td><span class="delayed constant">INVALID_DRIVER_HANDLE</span> </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x0120 </td>
+      <td><span class="delayed constant">BITLOCKER_FATAL_ERROR</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0121 </td>
+      <td><span class="delayed constant">DRIVER_VIOLATION</span> </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0122 </td>
+      <td><span class="delayed constant">WHEA_INTERNAL_ERROR</span> </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0123 </td>
+      <td><span class="delayed constant">CRYPTO_SELF_TEST_FAILURE</span> </td>
+      <td>6.0 and higher </td>
+      <td>kernel in 10.0 and higher </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0124 </td>
+      <td><span class="delayed constant">WHEA_UNCORRECTABLE_ERROR</span> </td>
+      <td>6.0 and higher </td>
+      <td>HAL in all; <br>
+      kernel in 6.1 and higher <br>
+      </td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0125 </td>
+      <td><span class="declared constant">NMR_INVALID_STATE</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0126 </td>
+      <td><span class="declared constant">NETIO_INVALID_POOL_CALLER</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0127 </td>
+      <td><span class="delayed constant">PAGE_NOT_ZERO</span> </td>
+      <td>6.0 and higher </td>
+      <td>kernel in 6.2 and higher <br>
+      </td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0128 </td>
+      <td><span class="delayed constant">WORKER_THREAD_RETURNED_WITH_BAD_IO_PRIORITY</span>
+      </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x0129 </td>
+      <td><span class="delayed constant">WORKER_THREAD_RETURNED_WITH_BAD_PAGING_IO_PRIORITY</span>
+      </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x012A </td>
+      <td><span class="delayed constant">MUI_NO_VALID_SYSTEM_LANGUAGE</span>
+      </td>
+      <td>6.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x012B </td>
+      <td><span class="delayed constant">FAULTY_HARDWARE_CORRUPTED_PAGE</span>
+      </td>
+      <td>6.0 and higher </td>
+      <td>kernel in 6.1 and higher <br>
+      </td>
+      <td>documented in late 6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x012C </td>
+      <td><span class="constant">EXFAT_FILE_SYSTEM</span> </td>
+      <td>late 6.0, and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <h3>Added for Windows 7 </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x012D </td>
+      <td><span class="delayed constant">VOLSNAP_OVERLAPPED_TABLE_ACCESS</span>
+      </td>
+      <td>6.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x012E </td>
+      <td><span class="declared constant">INVALID_MDL_RANGE</span> </td>
+      <td>6.1 and higher </td>
+      <td>kernel in 6.2 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x012F </td>
+      <td><span class="declared constant">VHD_BOOT_INITIALIZATION_FAILED</span>
+      </td>
+      <td>6.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0130 </td>
+      <td><span class="declared constant">DYNAMIC_ADD_PROCESSOR_MISMATCH</span>
+      </td>
+      <td>6.1 and higher </td>
+      <td>kernel in 6.2 to 6.3 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0131 </td>
+      <td><span class="declared constant">INVALID_EXTENDED_PROCESSOR_STATE</span>
+      </td>
+      <td>6.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0132 </td>
+      <td><span class="declared constant">RESOURCE_OWNER_POINTER_INVALID</span>
+      </td>
+      <td>6.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0133 </td>
+      <td><span class="delayed constant">DPC_WATCHDOG_VIOLATION</span> </td>
+      <td>6.1 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 6.3 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0134 </td>
+      <td><span class="declared constant">DRIVE_EXTENDER</span> </td>
+      <td>6.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0135 </td>
+      <td><span class="declared constant">REGISTRY_FILTER_DRIVER_EXCEPTION</span>
+      </td>
+      <td>6.1 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0136 </td>
+      <td><span class="delayed constant">VHD_BOOT_HOST_VOLUME_NOT_ENOUGH_SPACE</span>
+      </td>
+      <td>6.1 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+  </table>
+  <h3>Added for Windows 8 </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x0137 </td>
+      <td><span class="declared constant">WIN32K_HANDLE_MANAGER</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0138 </td>
+      <td><span class="delayed constant">GPIO_CONTROLLER_DRIVER_ERROR</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 6.3 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0139 </td>
+      <td><span class="delayed constant">KERNEL_SECURITY_CHECK_FAILURE</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 6.3 and higher </td>
+    </tr>
+    <tr>
+      <td>0x013A </td>
+      <td><span class="declared constant">KERNEL_MODE_HEAP_CORRUPTION</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x013B </td>
+      <td><span class="delayed constant">PASSIVE_INTERRUPT_ERROR</span> </td>
+      <td>6.2 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x013C </td>
+      <td><span class="delayed constant">INVALID_IO_BOOST_STATE</span> </td>
+      <td>6.2 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x013D </td>
+      <td><span class="declared constant">CRITICAL_INITIALIZATION_FAILURE</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x013E </td>
+      <td><span class="declared constant">ERRATA_WORKAROUND_UNSUCCESSFUL</span>
+      </td>
+      <td>1511 and higher </td>
+      <td>kernel in 1511 only </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x013F </td>
+      <td>undefined </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0140 </td>
+      <td><span class="declared constant">STORAGE_DEVICE_ABNORMALITY_DETECTED</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0141 </td>
+      <td><span class="declared constant">VIDEO_ENGINE_TIMEOUT_DETECTED</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0142 </td>
+      <td><span class="declared constant">VIDEO_TDR_APPLICATION_BLOCKED</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0143 </td>
+      <td><span class="declared constant">PROCESSOR_DRIVER_INTERNAL</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0144 </td>
+      <td><span class="constant">BUGCODE_USB3_DRIVER</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0145 </td>
+      <td><span class="delayed constant">SECURE_BOOT_VIOLATION</span> </td>
+      <td>6.2 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x0146 </td>
+      <td><span class="declared constant">NDIS_NET_BUFFER_LIST_INFO_ILLEGALLY_TRANSFERRED</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0147 </td>
+      <td><span class="delayed constant">ABNORMAL_RESET_DETECTED</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0148 </td>
+      <td><span class="declared constant">IO_OBJECT_INVALID</span> </td>
+      <td>6.2 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0149 </td>
+      <td><span class="declared constant">REFS_FILE_SYSTEM</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x014A </td>
+      <td><span class="declared constant">KERNEL_WMI_INTERNAL</span> </td>
+      <td>6.2 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x014B </td>
+      <td><span class="constant">SOC_SUBSYSTEM_FAILURE</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x014C </td>
+      <td><span class="delayed constant">FATAL_ABNORMAL_RESET_ERROR</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x014D </td>
+      <td><span class="declared constant">EXCEPTION_SCOPE_INVALID</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x014E </td>
+      <td><span class="declared constant">SOC_CRITICAL_DEVICE_REMOVED</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x014F </td>
+      <td><span class="declared constant">PDC_WATCHDOG_TIMEOUT</span> </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0150 </td>
+      <td><span class="declared constant">TCPIP_AOAC_NIC_ACTIVE_REFERENCE_LEAK</span>
+      </td>
+      <td>6.2 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <h3>Added for Windows 8.1 </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x0151 </td>
+      <td><span class="delayed constant">UNSUPPORTED_INSTRUCTION_MODE</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0152 </td>
+      <td><span class="delayed constant">INVALID_PUSH_LOCK_FLAGS</span> </td>
+      <td>6.3 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x0153 </td>
+      <td><span class="declared constant">KERNEL_LOCK_ENTRY_LEAKED_ON_THREAD_TERMINATION</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0154 </td>
+      <td><span class="delayed constant">UNEXPECTED_STORE_EXCEPTION</span> </td>
+      <td>6.3 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x0155 </td>
+      <td><span class="declared constant">OS_DATA_TAMPERING</span> </td>
+      <td>6.3 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0156 </td>
+      <td><span class="delayed constant">WINSOCK_DETECTED_HUNG_CLOSESOCKET_LIVEDUMP</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0157 </td>
+      <td><span class="delayed constant">KERNEL_THREAD_PRIORITY_FLOOR_VIOLATION</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x0158 </td>
+      <td><span class="delayed constant">ILLEGAL_IOMMU_PAGE_FAULT</span> </td>
+      <td>6.3 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x0159 </td>
+      <td><span class="declared constant">HAL_ILLEGAL_IOMMU_PAGE_FAULT</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>HAL in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x015A </td>
+      <td><span class="delayed constant">SDBUS_INTERNAL_ERROR</span> </td>
+      <td>6.3 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x015B </td>
+      <td><span class="declared constant">WORKER_THREAD_RETURNED_WITH_SYSTEM_PAGE_PRIORITY_ACTIVE</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x015C </td>
+      <td><span class="declared constant">PDC_WATCHDOG_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x015D </td>
+      <td><span class="delayed constant">SOC_SUBSYSTEM_FAILURE_LIVEDUMP</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 10.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x015E </td>
+      <td><span class="constant">BUGCODE_NDIS_DRIVER_LIVE_DUMP</span> </td>
+      <td>6.3 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x015F </td>
+      <td><span class="declared constant">CONNECTED_STANDBY_WATCHDOG_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0160 </td>
+      <td><span class="delayed constant">WIN32K_ATOMIC_CHECK_FAILURE</span> </td>
+      <td>6.3 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0161 </td>
+      <td><span class="declared constant">LIVE_SYSTEM_DUMP</span> </td>
+      <td>6.3 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0162 </td>
+      <td><span class="delayed constant">KERNEL_AUTO_BOOST_INVALID_LOCK_RELEASE</span>
+      </td>
+      <td>6.3 and higher </td>
+      <td>kernel in all<br>
+      </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+  </table>
+  <p>Bug check 0x015F is the first known use by the kernel of what is in version 
+  6.3 the new facility for the live capture of a dump file—as if for a crash dump 
+  file but without the crash. </p>
+  <h3>Added for Windows 10 </h3>
+  <p>Before proceeding to the very many bug checks that are new for Windows 10, 
+  note that not even one was documented in the Bug Check Code Reference from the 
+  contemporaneous Debugging Tools for Windows. </p>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x0163 </td>
+      <td><span class="delayed constant">WORKER_THREAD_TEST_CONDITION</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0164 </td>
+      <td><span class="declared constant">WIN32K_CRITICAL_FAILURE</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0165 </td>
+      <td><span class="declared constant">CLUSTER_CSV_STATUS_IO_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0166 </td>
+      <td><span class="declared constant">CLUSTER_RESOURCE_CALL_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0167 </td>
+      <td><span class="declared constant">CLUSTER_CSV_SNAPSHOT_DEVICE_INFO_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0168 </td>
+      <td><span class="declared constant">CLUSTER_CSV_STATE_TRANSITION_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0169 </td>
+      <td><span class="declared constant">CLUSTER_CSV_VOLUME_ARRIVAL_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x016A </td>
+      <td><span class="declared constant">CLUSTER_CSV_VOLUME_REMOVAL_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x016B </td>
+      <td><span class="declared constant">CLUSTER_CSV_CLUSTER_WATCHDOG_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x016C </td>
+      <td><span class="declared constant">INVALID_RUNDOWN_PROTECTION_FLAGS</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x016D </td>
+      <td><span class="delayed constant">INVALID_SLOT_ALLOCATOR_FLAGS</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x016E </td>
+      <td><span class="delayed constant">ERESOURCE_INVALID_RELEASE</span> </td>
+      <td>10.0 and higher </td>
+      <td>kernel in 1607 and higher <br>
+      </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x016F </td>
+      <td><span class="declared constant">CLUSTER_CSV_STATE_TRANSITION_INTERVAL_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0170 </td>
+      <td><span class="declared constant">CLUSTER_CSV_CLUSSVC_DISCONNECT_WATCHDOG</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0171 </td>
+      <td><span class="declared constant">CRYPTO_LIBRARY_INTERNAL_ERROR</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0172 </td>
+      <td>undefined </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0173 </td>
+      <td><span class="declared constant">COREMSGCALL_INTERNAL_ERROR</span> </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0174 </td>
+      <td><span class="declared constant">COREMSG_INTERNAL_ERROR</span> </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0175 </td>
+      <td><span class="declared constant">PREVIOUS_FATAL_ABNORMAL_RESET_ERROR</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0176 <br>
+      0x0177 </td>
+      <td>undefined </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0178 </td>
+      <td><span class="declared constant">ELAM_DRIVER_DETECTED_FATAL_ERROR</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0179 </td>
+      <td><span class="declared constant">CLUSTER_CLUSPORT_STATUS_IO_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>1703 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x017A </td>
+      <td>undefined </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x017B </td>
+      <td><span class="declared constant">PROFILER_CONFIGURATION_ILLEGAL</span>
+      </td>
+      <td>1709 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x017C </td>
+      <td><span class="declared constant">PDC_LOCK_WATCHDOG_LIVEDUMP</span> </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x017D </td>
+      <td><span class="declared constant">PDC_UNEXPECTED_REVOCATION_LIVEDUMP</span>
+      </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x017E <br>
+      0x017F </td>
+      <td>undefined </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0180 </td>
+      <td><span class="declared constant">WVR_LIVEDUMP_REPLICATION_IOCONTEXT_TIMEOUT</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0181 </td>
+      <td><span class="declared constant">WVR_LIVEDUMP_STATE_TRANSITION_TIMEOUT</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0182 </td>
+      <td><span class="declared constant">WVR_LIVEDUMP_RECOVERY_IOCONTEXT_TIMEOUT</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0183 </td>
+      <td><span class="declared constant">WVR_LIVEDUMP_APP_IO_TIMEOUT</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0184 </td>
+      <td><span class="declared constant">WVR_LIVEDUMP_MANUALLY_INITIATED</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0185 </td>
+      <td><span class="declared constant">WVR_LIVEDUMP_STATE_FAILURE</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0186 </td>
+      <td><span class="declared constant">WVR_LIVEDUMP_CRITICAL_ERROR</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0187 </td>
+      <td><span class="declared constant">VIDEO_DWMINIT_TIMEOUT_FALLBACK_BDD</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0188 </td>
+      <td><span class="declared constant">CLUSTER_CSVFS_LIVEDUMP</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0189 </td>
+      <td><span class="declared constant">BAD_OBJECT_HEADER</span> </td>
+      <td>10.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x018A </td>
+      <td><span class="declared constant">SILO_CORRUPT</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x018B </td>
+      <td><span class="delayed constant">SECURE_KERNEL_ERROR</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x018C </td>
+      <td><span class="declared constant">HYPERGUARD_VIOLATION</span> </td>
+      <td>1511 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x018D </td>
+      <td><span class="declared constant">SECURE_FAULT_UNHANDLED</span> </td>
+      <td>1703 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x018E </td>
+      <td><span class="declared constant">KERNEL_PARTITION_REFERENCE_VIOLATION</span>
+      </td>
+      <td>1709 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x018F </td>
+      <td>undefined </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0190 </td>
+      <td><span class="delayed constant">WIN32K_CRITICAL_FAILURE_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0191 </td>
+      <td><span class="declared constant">PF_DETECTED_CORRUPTION</span> </td>
+      <td>10.0 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0192 </td>
+      <td><span class="delayed constant">KERNEL_AUTO_BOOST_LOCK_ACQUISITION_WITH_RAISED_IRQL</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher <br>
+      </td>
+    </tr>
+    <tr>
+      <td>0x0193 </td>
+      <td><span class="declared constant">VIDEO_DXGKRNL_LIVEDUMP</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0194 </td>
+      <td>see Saver section, below </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0195 </td>
+      <td><span class="delayed constant">SMB_SERVER_LIVEDUMP</span> </td>
+      <td>1511 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0196 </td>
+      <td><span class="delayed constant">LOADER_ROLLBACK_DETECTED</span> </td>
+      <td>1511 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0197 </td>
+      <td><span class="declared constant">WIN32K_SECURITY_FAILURE</span> </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0198 </td>
+      <td><span class="declared constant">UFX_LIVEDUMP</span> </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0199 </td>
+      <td><span class="delayed constant">KERNEL_STORAGE_SLOT_IN_USE</span> </td>
+      <td>1607 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x019A </td>
+      <td><span class="delayed constant">WORKER_THREAD_RETURNED_WHILE_ATTACHED_TO_SILO</span>
+      </td>
+      <td>1607 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x019B </td>
+      <td><span class="delayed constant">TTM_FATAL_ERROR</span> </td>
+      <td>1607 and higher </td>
+      <td>kernel in all <br>
+      </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x019C </td>
+      <td><span class="delayed constant">WIN32K_POWER_WATCHDOG_TIMEOUT</span>
+      </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x019D </td>
+      <td><span class="delayed constant">CLUSTER_SVHDX_LIVEDUMP</span> </td>
+      <td>1607 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x019E </td>
+      <td><span class="declared constant">BUGCODE_NETADAPTER_DRIVER</span> </td>
+      <td>1703 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x019F </td>
+      <td><span class="declared constant">PDC_PRIVILEGE_CHECK_LIVEDUMP</span>
+      </td>
+      <td>1703 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01A0 </td>
+      <td><span class="declared constant">TTM_WATCHDOG_TIMEOUT</span> </td>
+      <td>1703 and higher </td>
+      <td>kernel in 1709 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01A1 </td>
+      <td><span class="declared constant">WIN32K_CALLOUT_WATCHDOG_LIVEDUMP</span>
+      </td>
+      <td>1703 and higher </td>
+      <td>kernel in 1703 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01A2 </td>
+      <td><span class="declared constant">WIN32K_CALLOUT_WATCHDOG_BUGCHECK</span>
+      </td>
+      <td>1703 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01A3 </td>
+      <td><span class="declared constant">CALL_HAS_NOT_RETURNED_WATCHDOG_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>1709 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01A4 </td>
+      <td><span class="declared constant">DRIPS_SW_HW_DIVERGENCE_LIVEDUMP</span>
+      </td>
+      <td>1709 and higher </td>
+      <td>kernel in 1709 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01A5 </td>
+      <td><span class="declared constant">USB_DRIPS_BLOCKER_SURPRISE_REMOVAL_LIVEDUMP</span>
+      </td>
+      <td>1803 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <p><span class="alert">SOMETHING TO WRITE HERE</span> </p>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Known Use </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x01C4 </td>
+      <td><span class="delayed constant">DRIVER_VERIFIER_DETECTED_VIOLATION_LIVEDUMP</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x01C5 </td>
+      <td><span class="delayed constant">IO_THREADPOOL_DEADLOCK_LIVEDUMP</span>
+      </td>
+      <td>1607 and higher </td>
+      <td>kernel in 1607 and higher <br>
+      </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x01C6 </td>
+      <td><span class="declared constant">FAST_ERESOURCE_PRECONDITION_VIOLATION</span>
+      </td>
+      <td>1703 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01C7 </td>
+      <td><span class="declared constant">STORE_DATA_STRUCTURE_CORRUPTION</span>
+      </td>
+      <td>1703 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01C8 </td>
+      <td><span class="declared constant">MANUALLY_INITIATED_POWER_BUTTON_HOLD</span>
+      </td>
+      <td>1703 and higher </td>
+      <td>kernel in 1703 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01C9 </td>
+      <td><span class="declared constant">USER_MODE_HEALTH_MONITOR_LIVEDUMP</span>
+      </td>
+      <td>1703 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01CA </td>
+      <td><span class="declared constant">HYPERVISOR_WATCHDOG_TIMEOUT</span>
+      </td>
+      <td>1703 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01CB </td>
+      <td><span class="declared constant">INVALID_SILO_DETACH</span> </td>
+      <td>1703 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01CC </td>
+      <td><span class="declared constant">EXRESOURCE_TIMEOUT_LIVEDUMP</span>
+      </td>
+      <td>1709 and higher </td>
+      <td>kernel in 1709 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01CD </td>
+      <td><span class="declared constant">INVALID_CALLBACK_STACK_ADDRESS</span>
+      </td>
+      <td>1709 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01CE </td>
+      <td><span class="declared constant">INVALID_KERNEL_STACK_ADDRESS</span>
+      </td>
+      <td>1709 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01CF </td>
+      <td><span class="declared constant">HARDWARE_WATCHDOG_TIMEOUT</span> </td>
+      <td>1709 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01D0 </td>
+      <td><span class="declared constant">ACPI_FIRMWARE_WATCHDOG_TIMEOUT</span>
+      </td>
+      <td>1709 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01D1 </td>
+      <td><span class="declared constant">TELEMETRY_ASSERTS_LIVEDUMP</span> </td>
+      <td>1709 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01D2 </td>
+      <td><span class="declared constant">WORKER_THREAD_INVALID_STATE</span>
+      </td>
+      <td>1709 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01D3 </td>
+      <td><span class="declared constant">WFP_INVALID_OPERATION</span> </td>
+      <td>1709 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01D4 </td>
+      <td><span class="declared constant">UCMUCSI_LIVEDUMP</span> </td>
+      <td>1709 and higher </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x01D5 </td>
+      <td><span class="declared constant">DRIVER_PNP_WATCHDOG</span> </td>
+      <td>1803 and higher </td>
+      <td>kernel in all </td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <h3>Xbox </h3>
+  <p>Though Windows, here considered only in its i386 and amd64 implementations, 
+  is not known to make any use of the following, the Windows kernel even in its 
+  i386 and amd64 implementations has bug check codes whose names strongly suggest 
+  they are specific to the Xbox games console. They can’t have any attention here 
+  except to note their existence—and the continuing definition of more of them:
+  </p>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+    </tr>
+    <tr>
+      <td>0x0356 </td>
+      <td><span class="declared constant">XBOX_ERACTRL_CS_TIMEOUT</span> </td>
+      <td>1709 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0357 </td>
+      <td><span class="declared constant">XBOX_CORRUPTED_IMAGE</span> </td>
+      <td>1607 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0358 </td>
+      <td><span class="declared constant">XBOX_INVERTED_FUNCTION_TABLE_OVERFLOW</span>
+      </td>
+      <td>10.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0359 </td>
+      <td><span class="declared constant">XBOX_CORRUPTED_IMAGE_BASE</span> </td>
+      <td>10.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0360 </td>
+      <td><span class="declared constant">XBOX_360_SYSTEM_CRASH</span> </td>
+      <td>6.2 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0420 </td>
+      <td><span class="declared constant">XBOX_360_SYSTEM_CRASH_RESERVED</span>
+      </td>
+      <td>6.2 and higher </td>
+    </tr>
+  </table>
+  <h3>Blue Tooth </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x0BFE </td>
+      <td><span class="declared constant">BC_BLUETOOTH_VERIFIER_FAULT</span>
+      </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x0BFF </td>
+      <td><span class="delayed constant">BC_BTHMINI_VERIFIER_FAULT</span> </td>
+      <td>6.2 and higher </td>
+      <td>documented in 1709 and higher </td>
+    </tr>
+  </table>
+  <h3>Saver Driver </h3>
+  <p>Apparently there exists a kernel-mode driver named Saver which helps Microsoft’s 
+  user-mode programmers during development. It’s not known to be supplied with Windows 
+  10 in any retail release and since it also doesn’t seem to be known very much 
+  on the Internet, for what that might be worth, it is perhaps best just to repeat 
+  what Microsoft is known to say about it: </p>
+  <pre class="source">Saver is a kernel mode driver that is used to bugcheck the system.
+Its intended purpose is to cause a kernel bugcheck and generate a kernel memory dump.
+This memory dump can be used to debug the error case for which we bugchecked the system.</pre>
+  <p>The relevant bug check codes look to have been defined first as a driver-specific 
+  addition to the normal sequence, then another outside this sequence and one more 
+  even further outside before defining a whole new sequence: </p>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x0194 </td>
+      <td><span class="declared constant">SAVER_NONRESPONSIVEPROCESS</span> </td>
+      <td>10.0 and higher </td>
+      <td>used by modernexecserver.dll </td>
+    </tr>
+    <tr>
+      <td>0x0315 </td>
+      <td><span class="declared constant">SAVER_MTBFCOMMANDTIMEOUT</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x8866 </td>
+      <td><span class="declared constant">SAVER_SICKAPPLICATION</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF000 </td>
+      <td><span class="declared constant">SAVER_UNSPECIFIED</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF001 </td>
+      <td>undefined </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF002 </td>
+      <td><span class="declared constant">SAVER_BLANKSCREEN</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF003 </td>
+      <td><span class="declared constant">SAVER_INPUT</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF004 </td>
+      <td><span class="declared constant">SAVER_WATCHDOG</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF005 </td>
+      <td><span class="declared constant">SAVER_STARTNOTVISIBLE</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF006 </td>
+      <td><span class="declared constant">SAVER_NAVIGATIONMODEL</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF007 </td>
+      <td><span class="declared constant">SAVER_OUTOFMEMORY</span> </td>
+      <td>10.0 and higher </td>
+      <td>used by PsmServiceExtHost.dll </td>
+    </tr>
+    <tr>
+      <td>0xF008 </td>
+      <td><span class="declared constant">SAVER_GRAPHICS</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF009 </td>
+      <td><span class="declared constant">SAVER_NAVSERVERTIMEOUT</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF00A </td>
+      <td><span class="declared constant">SAVER_CHROMEPROCESSCRASH</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF00B </td>
+      <td><span class="declared constant">SAVER_NOTIFICATIONDISMISSAL</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF00C </td>
+      <td><span class="declared constant">SAVER_SPEECHDISMISSAL</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF00D </td>
+      <td><span class="declared constant">SAVER_CALLDISMISSAL</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF00E </td>
+      <td><span class="declared constant">SAVER_APPBARDISMISSAL</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF00F </td>
+      <td><span class="declared constant">SAVER_RILADAPTATIONCRASH</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF010 </td>
+      <td><span class="declared constant">SAVER_APPLISTUNREACHABLE</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF011 </td>
+      <td><span class="declared constant">SAVER_REPORTNOTIFICATIONFAILURE</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF012 </td>
+      <td><span class="declared constant">SAVER_UNEXPECTEDSHUTDOWN</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF013 </td>
+      <td><span class="declared constant">SAVER_RPCFAILURE</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF014 </td>
+      <td><span class="declared constant">SAVER_AUXILIARYFULLDUMP</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF015 </td>
+      <td><span class="declared constant">SAVER_ACCOUNTPROVSVCINITFAILURE</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF101 </td>
+      <td><span class="declared constant">SAVER_MTBFCOMMANDHANG</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF102 </td>
+      <td><span class="declared constant">SAVER_MTBFPASSBUGCHECK</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF103 </td>
+      <td><span class="declared constant">SAVER_MTBFIOERROR</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF200 </td>
+      <td><span class="declared constant">SAVER_RENDERTHREADHANG</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF201 </td>
+      <td><span class="declared constant">SAVER_RENDERMOBILEUIOOM</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF300 </td>
+      <td><span class="declared constant">SAVER_DEVICEUPDATEUNSPECIFIED</span>
+      </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF400 </td>
+      <td><span class="declared constant">SAVER_AUDIODRIVERHANG</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF500 </td>
+      <td><span class="declared constant">SAVER_BATTERYPULLOUT</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF600 </td>
+      <td><span class="declared constant">SAVER_MEDIACORETESTHANG</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF700 </td>
+      <td><span class="declared constant">SAVER_RESOURCEMANAGEMENT</span> </td>
+      <td>10.0 and higher </td>
+      <td>used by modernexecserver.dll </td>
+    </tr>
+    <tr>
+      <td>0xF800 </td>
+      <td><span class="declared constant">SAVER_CAPTURESERVICE</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0xF900 </td>
+      <td><span class="declared constant">SAVER_WAITFORSHELLREADY</span> </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <h3>Hyper-V </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+    </tr>
+    <tr>
+      <td>0x00020001 </td>
+      <td><span class="declared constant">HYPERVISOR_ERROR</span> </td>
+      <td>late 6.0 and higher </td>
+    </tr>
+  </table>
+  <h3>M Suffix </h3>
+  <p>Numerical values in a 0x10000000 sequence are defined in BUGCODES.H but are 
+  not in the kernel’s message resource in any version. Four are documented as early 
+  as the Windows XP DDK even though they don’t appear in the BUGCODES.H from the 
+  same kit. For each of these four, Microsoft’s documentation says just that this 
+  high-numbered code “has the same meaning and parameters” as the low-numbered code, 
+  i.e., stripped of the 0x10000000. </p>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+    </tr>
+    <tr>
+      <td>0x1000007E </td>
+      <td><span class="constant">SYSTEM_THREAD_EXCEPTION_NOT_HANDLED_M</span>
+      </td>
+      <td>5.2 and higher </td>
+    </tr>
+    <tr>
+      <td>0x1000007F </td>
+      <td><span class="constant">UNEXPECTED_KERNEL_MODE_TRAP_M</span> </td>
+      <td>5.2 and higher </td>
+    </tr>
+    <tr>
+      <td>0x1000008E </td>
+      <td><span class="constant">KERNEL_MODE_EXCEPTION_NOT_HANDLED_M</span> </td>
+      <td>5.2 and higher </td>
+    </tr>
+    <tr>
+      <td>0x100000D6 </td>
+      <td><span class="declared constant">DRIVER_PAGE_FAULT_BEYOND_END_OF_ALLOCATION_M</span>
+      </td>
+      <td>6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x100000EA </td>
+      <td><span class="constant">THREAD_STUCK_IN_DEVICE_DRIVER_M</span> </td>
+      <td>5.2 and higher </td>
+    </tr>
+  </table>
+  <h3>Messages Mostly </h3>
+  <p>Numerical values in a 0x40000000 sequence are defined in BUGCODES.H and have 
+  corresponding text in the kernel’s message resource. They seem to have been intended 
+  as a separate range for messages that do not themselves describe bug checks, but 
+  no formal scheme is known that was ever stuck to. </p>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>0x4000007E </td>
+      <td>WINDOWS_NT_BANNER </td>
+      <td>all </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x4000007F </td>
+      <td>BUGCHECK_MESSAGE_INTRO </td>
+      <td>5.1 to 6.1 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x40000080 </td>
+      <td>BUGCODE_ID_DRIVER </td>
+      <td>5.1 to 6.1 </td>
+      <td>previously 0xD2 </td>
+    </tr>
+    <tr>
+      <td>0x40000081 </td>
+      <td>PSS_MESSAGE_INTRO </td>
+      <td>5.1 to 6.1 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x40000082 </td>
+      <td>BUGCODE_PSS_MESSAGE </td>
+      <td>5.1 to 6.1 </td>
+      <td>previously 0x7C </td>
+    </tr>
+    <tr>
+      <td>0x40000083 </td>
+      <td>BUGCODE_TECH_INFO </td>
+      <td>5.1 to 6.1 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x40000087 </td>
+      <td>WINDOWS_NT_CSD_STRING </td>
+      <td>3.50 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x40000088 </td>
+      <td>WINDOWS_NT_INFO_STRING </td>
+      <td>3.50 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x40000089 </td>
+      <td>WINDOWS_NT_MP_STRING </td>
+      <td>3.50 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x4000008A </td>
+      <td><span class="constant">THREAD_TERMINATE_HELD_MUTEX</span> </td>
+      <td>3.50 and higher </td>
+      <td>used by kernel in all </td>
+    </tr>
+    <tr>
+      <td>0x4000008B </td>
+      <td>BUGCODE_PSS_CRASH_INIT </td>
+      <td>5.1 to 6.1 </td>
+      <td>previously 0x8C </td>
+    </tr>
+    <tr>
+      <td>0x4000008C </td>
+      <td>BUGCODE_PSS_CRASH_PROGRESS </td>
+      <td>5.1 to 6.1 </td>
+      <td>previously 0x8D </td>
+    </tr>
+    <tr>
+      <td>0x4000008D </td>
+      <td>BUGCODE_PSS_CRASH_DONE </td>
+      <td>5.1 to 6.1 </td>
+      <td>previously 0x8E </td>
+    </tr>
+    <tr>
+      <td>0x4000009D </td>
+      <td>WINDOWS_NT_INFO_STRING_PLURAL </td>
+      <td>4.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x4000009E </td>
+      <td>WINDOWS_NT_RC_STRING </td>
+      <td>4.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x400000AD </td>
+      <td><span class="constant">VIDEO_DRIVER_DEBUG_REPORT_REQUEST</span> </td>
+      <td>6.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x40010001 </td>
+      <td>HARDWARE_PROFILE_UNDOCKED_STRING </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x40010002 </td>
+      <td>HARDWARE_PROFILE_DOCKED_STRING </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>0x40010003 </td>
+      <td>HARDWARE_PROFILE_UNKNOWN_STRING </td>
+      <td>5.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <h3>Miscellany </h3>
+  <table class="Constants">
+    <tr>
+      <th>Value </th>
+      <th>Name </th>
+      <th>Versions </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td><span class="undocumented">0x00000000</span>&nbsp; </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>used by HAL in 3.10 </td>
+    </tr>
+    <tr>
+      <td><span class="undocumented">0x12345678</span> </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>used by kernel in 3.10 to 5.0 </td>
+    </tr>
+    <tr>
+      <td>0x80000000 </td>
+      <td>BUGCHECK_CONTEXT_MODIFIER </td>
+      <td>10.0 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>arbitrary exception code </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>used by kernel in 3.10 to 5.0 </td>
+    </tr>
+    <tr>
+      <td>0xC000021A </td>
+      <td><span class="constant">WINLOGON_FATAL_ERROR</span> </td>
+      <td>5.2 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td><span class="undocumented">0xC0000244</span> </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>used by kernel in 5.2 and higher </td>
+    </tr>
+    <tr>
+      <td>0xDEADDEAD </td>
+      <td><span class="constant">MANUALLY_INITIATED_CRASH1</span> </td>
+      <td>5.2 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>arbitrary from debugger </td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>used by kernel in 3.51 to 4.0 </td>
+    </tr>
+  </table>
+  <p>The HAL in version 3.10 has code that would raise a bug check zero. This is 
+  only from an internal routine that symbol files name as
+  <span class="internal routine">HalSaveState</span>. No way is known that this 
+  routine can ever execute. It is perhaps intended only for checked builds or even 
+  for some processor architecture other than the i386. </p>
+  <p>Perhaps as a last defence, early versions of the kernel would call
+  <span class="function">KeBugCheck</span> from places that should be unreachable. 
+  For example, exiting a thread can involve the kernel in a rare case of scheduling 
+  a routine of its own for execution as a user-mode Asynchronous Procedure Call 
+  (APC). It’s not intended that the routine can ever execute. If it does execute, 
+  something can only have gone seriously wrong. Before version 5.1, the execution 
+  is to stop Windows as bug check 0x12345678. Later versions catch it only in the 
+  checked builds, and only then as an assertion failure, and then version 6.3 changes 
+  the mechanism. </p>
+  <p>Another example is where <span class="function">ExAllocatePoolWithQuota</span> 
+  in version 3.10 charges the pool allocation against the calling process’s quota. 
+  It calls <span class="function">PsChargePoolQuota</span> in a Structured Exception 
+  Handling block. If the exception handler executes, it’s to present the exception 
+  code as a bug check code. However, the exception filter can only return zero and 
+  so the exception code as a bug check code is at best theoretical. </p>
+  <p>Starting with the Windows XP DDK, Microsoft’s documentation lists the status 
+  codes 0xC0000218, 0xC000021A and 0xC0000221 as bug check codes. Two of these are 
+  not in BUGCODES.H in any known version. The other is, but with the different name 
+  shown above. </p>
+  <p>As <span class="constant">STATUS_AUDIT_FAILED</span>, 0xC0000244 might be another 
+  stop code that originates as a hard error, raised in this case by LSASRV.DLL in 
+  the LSASS.EXE process. It can, however, be explicitly a bug check code. The kernel 
+  in version 5.2 and higher passes it to <span class="function">KeBugCheckEx</span> 
+  as <span class="argument">BugCheckCode</span> exactly where the kernel in versions 
+  3.50 to 5.1 passes <span class="constant">AUDIT_FAILED</span> (0x86) to
+  <span class="function">KeBugCheck</span>. The one clearly supersedes the other.
+  </p>
+  <h3>Arbitrary </h3>
+  <p>Already noted above is that any <span class="type">NTSTATUS</span> that has 
+  its high two bits set can be presented as a stop code even though the bug check 
+  code that was presented to <span class="function">KeBugCheckEx</span> was 0x4C. 
+  Early Windows versions also permit that an arbitrary exception code or unsuccessful
+  <span class="type">NTSTATUS</span> can be explicitly given to
+  <span class="function">KeBugCheck</span> as the bug check code. </p>
+  <p>Versions 3.51 and 4.0 also allow an arbitrary bug check code for the particular 
+  pupose of manually crashing Windows from a kernel-mode debugger. This is the earliest 
+  known form of what version 5.0 and higher provide through the bug check code
+  <span class="constant">MANUALLY_INITIATED_CRASH</span> (0xE2). Given that the 
+  kernel is started with debugging enabled, it exchanges packets with a debugger 
+  over some transport, which was originally only a serial port. One such packet 
+  directs the kernel to raise a bug check and specifies the bug check code. Just 
+  like any driver calling <span class="function">KeBugCheck</span>, the debugger 
+  might in principle choose anything for the bug check code. What I386KD chooses 
+  in practice, for its <span class="command">.crash</span> command, is 0xDEADDEAD.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created in 2008 as a skimpy index page. Its substantial 
+    reworking was started on 13th July 2020 but was not published until 5th April 
+    2021. </p>
+    <!--webbot bot="Include" U-Include="../_include/c2021.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020-2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="48256" -->
+  </div>
+</div>
+
+</body>
+
+</html>

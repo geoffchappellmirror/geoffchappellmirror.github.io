@@ -1,0 +1,136 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DESCRIPTION</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="24274" endspan -->
+<h1>DESCRIPTION </h1>
+<p>The <span class="def">DESCRIPTION</span> statement is supported only when 
+building an export file for a VxD. It is otherwise ignored after a warning 
+(LNK4017). </p>
+<h2>Syntax </h2>
+<p><span class="def">DESCRIPTION</span> is a single-definition statement. It is 
+a fatal error (LNK1118) if the statement is empty. The <span class="def">
+DESCRIPTION</span> 
+tag must be followed by a space or tab. There may then be any amount of white 
+space, including none, before the definition. The ordinary syntax is: </p>
+<blockquote>
+  <p><span class="def">DESCRIPTION </span><span class="placeholder">text</span><span class="def">
+  </span></p>
+</blockquote>
+<p>such that <span class="placeholder">text</span> truly is all the text on the 
+remainder of the line (including trailing white space). A variation is: </p>
+<blockquote>
+  <p><span class="def">DESCRIPTION &#39;</span><span class="placeholder">text</span><span class="def">&#39;
+  </span></p>
+</blockquote>
+<p>Here, the first character of the argument is a single-quote, and
+<span class="placeholder">text</span> begins with the next character and 
+continues up to but not including the last single-quote on the remainder of the 
+line. It is a fatal error (LNK1118) if there is not another single-quote on the 
+line. Characters beyond the last single-quote are irrelevant and are ignored 
+without complaint.
+</p>
+<h2>Command-Line Translation </h2>
+<p>The <span class="def">DESCRIPTION</span> statement translates to a
+<span class="switch">/comment</span> option for the export-file command line. 
+The form is: </p>
+<blockquote>
+  <p><span class="switch">/COMMENT:&quot;</span><span class="placeholder">text</span><span class="switch">&quot;
+  </span></p>
+</blockquote>
+<p>where <span class="placeholder">text</span> is from the <span class="def">
+DESCRIPTION</span> 
+statement, as described above, but at most the first 117 bytes of it. </p>
+<h3>Buffer Overrun </h3>
+<p>The need to limit the amount of <span class="placeholder">text</span> that 
+carries to the command-line option arises because LIB prepares the command-line 
+option in a buffer that is set up on the stack as a local variable, whose size 
+is therefore set in the source code and not adjustable at run time. The buffer’s 
+size is 128 bytes. The <span class="switch">/comment</span> switch, its colon 
+and a pair of double-quotes total 11 bytes. This would leave 117 bytes for the
+<span class="placeholder">text</span>. </p>
+<p>However, a null byte must yet terminate the string that LIB prepares in this 
+buffer. If the <span class="placeholder">text</span> in the <span class="def">
+DESCRIPTION</span> 
+statement does run to 117 bytes or more, then although LIB copies only the first 
+117 bytes to the stack as <span class="placeholder">text</span> for the
+<span class="switch">/comment</span> switch, the null terminator is one byte too 
+many for the buffer on the stack. </p>
+<p>It happens that in the version inspected for these notes, namely 7.00.9466, 
+the buffer in which LIB prepares the <span class="switch">/comment</span> switch 
+is placed highest among the relevant procedure’s local variables. Ordinarily, 
+the one-byte overrun would therefore corrupt this procedure’s return address. 
+However, the procedure has been compiled with the Buffer Security Check enabled, 
+to detect overruns that would overwrite the return address. This gives a ready 
+demonstration both of the coding error and of the efficacy of the Buffer 
+Security Check. </p>
+<h4>Demonstration </h4>
+<p>Begin with a module definition file, here named TEST.DEF, containing just the 
+following as one (long) line: </p>
+<pre class="source">DESCRIPTION 12345678901234567890...1234567</pre>
+<p>where the ellipsis stands for as many repetitions of 1234567890 as needed for 
+the <span class="placeholder">text</span> argument to count to 117. Running </p>
+<pre class="input">lib /def:test.def /machine:x86 /vxd</pre>
+<p>triggers the buffer overrun. Repeat with <span class="placeholder">text</span> 
+reduced by one byte, and there is no buffer overrun. </p>
+<h3>White Space and Quotes </h3>
+<p>Note that <span class="placeholder">text</span> with white space need not be 
+enclosed in quotes of either sort when given in the <span class="def">
+DESCRIPTION</span> 
+statement. All the white space gets enclosed in double-quotes when carried to 
+the
+<span class="switch">/comment</span> option. This is true even of trailing white 
+space, such as occurs if <span class="placeholder">text</span> without 
+single-quotes is followed by white space and then by a comment. (Remember that 
+by this stage of parsing, LIB treats a comment as having ended the line.) </p>
+<p>Enclosure between single-quotes in the <span class="def">DESCRIPTION</span> 
+statement is supported explicitly and has the merit of marking clearly which 
+characters are intended as the <span class="placeholder">text</span> for the
+<span class="switch">/comment</span> option. Double-quotes in the
+<span class="placeholder">text</span> are problematic. They carry into the
+<span class="placeholder">text</span> for the <span class="switch">/comment</span> 
+option in the export file, but the enclosure in double-quotes for the option 
+inverts the pairing of the double-quotes in the definition. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 8th May 1999 and was last modified 
+  on 7th January 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c9910.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1999-2010. Geoff Chappell. All rights reserved.
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="63648" endspan -->
+</div>
+
+</body>
+
+</html>

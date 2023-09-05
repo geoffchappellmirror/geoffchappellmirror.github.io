@@ -1,0 +1,124 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EtwStartLoggerCode</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<!--webbot bot="Include" U-Include="../../../../../_include/placeholder.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">PLACEHOLDER FOR WORK THAT MAY NEVER BE DONE - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="62046" -->
+<h1>EtwStartLoggerCode </h1>
+<p>When given <span class="constant">EtwStartLoggerCode</span> (1) as its
+<span class="argument">FunctionCode</span> argument, the <span class="function">
+<a href="index.htm">NtTraceControl</a></span> function starts a tracing session, 
+known informally as a logger. This note deals only with the function’s behaviour 
+that is particular to this function code. The function’s general behaviour is here 
+taken as assumed knowledge. </p>
+<h2>Access </h2>
+<p>Well-behaved user-mode software does not call <span class="function">NtTraceControl</span>. 
+The documented user-mode API for reaching this functionality is
+<span class="function">StartTrace</span>. This is a shorthand for two functions,
+<span class="function">StartTraceA</span> and <span class="function">StartTraceW</span>, 
+being ANSI and Unicode variants respectively. Both are exported by name from ADVAPI32 
+in version 5.0 and higher. In version 5.2 only, these functions are merely forwards 
+to the undocumented NTDLL exports <span class="function">EtwStartTraceA</span> and
+<span class="function">EtwStartTraceW</span>. Implementation returns to ADVAPI32 
+in version 6.0. Then, in version 6.2 and higher, the ADVAPI32 implementations are 
+stubs that redirect to KERNELBASE.DLL in version 6.2 but to SECHOST.DLL in version 
+6.3 and higher. For <span class="function">StartTraceW</span> only, this redirection 
+imports through the API Set api-ms-win-eventing-controller-l1-1-0.dll. </p>
+<p>The <span class="function">StartTrace</span> function predates
+<span class="function">NtTraceControl</span>. In versions before 6.0, it reaches 
+the kernel by Device I/O Control through the WMI support device. However important 
+this earlier functionality may have been at the time, and may be still for historians 
+of how and why Microsoft kept so much of Event Tracing for Windows (ETW) to itself 
+for so long, it is not the concern of this note. </p>
+<p>Kernel-mode software also does not call <span class="function">NtTraceControl</span> 
+to start a tracing session. </p>
+<h2>Input Validation </h2>
+<!--webbot bot="Include" U-Include="_include/validateusermodeloggerinfo.htm" TAG="BODY" startspan -->
+
+<p>A <span class="struct"><a href="../wmi_logger_information/index.htm">WMI_LOGGER_INFORMATION</a></span> 
+structure is expected to begin the input and is produced as the function’s successful 
+output. If either the input or output buffer is too small for this structure, including 
+because a user-mode request gives <span class="constant">NULL</span> for either 
+buffer’s address, the function returns <span class="constant">STATUS_INVALID_BUFFER_SIZE</span>. 
+If a kernel-mode request provides no input, the returned error code is
+<span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="44770" -->
+<h3>Input Buffer </h3>
+<!--webbot bot="Include" U-Include="_include/validateloggerinfo.htm" TAG="BODY" startspan -->
+
+<p>The expected structure begins with a <span class="struct">WNODE_HEADER</span>. 
+Within this, the <span class="member">BufferSize</span> tells how many bytes of 
+data this header is the first part of. If this is too small even for the fixed-size
+<span class="struct">WMI_LOGGER_INFORMATION</span>, the function returns
+<span class="constant">STATUS_INVALID_BUFFER_SIZE</span>. The
+<span class="member">Flags</span> in the <span class="struct">WNODE_HEADER</span> 
+tell of the header’s interpretation and purpose. Use in Event Tracing for Windows 
+(ETW) requires <span class="constant">WNODE_FLAG_TRACED_GUID</span> (0x00020000). 
+If this is not set, the function returns <span class="constant">STATUS_INVALID_PARAMETER</span>. 
+If <span class="member">BufferSize</span> in the header is too large for the input 
+buffer, the function returns <span class="constant">STATUS_INVALID_BUFFER_SIZE</span>.
+</p>
+
+<!--webbot bot="Include" endspan i-checksum="7708" -->
+<h3>Log File Mode </h3>
+<p>The key to intepreting the many properties that can be specified in the
+<span class="struct">WMI_LOGGER_INFORMATION</span> is the set of bit flags that 
+make the <span class="member">
+<a href="../wmi_logger_information/logfilemode.htm">LogFileMode</a></span>. Some 
+flags are ignored. Very many combinations are invalid and cause the function to 
+return <span class="constant">STATUS_INVALID_PARAMETER</span>. Some flags require 
+another or are inconsistent with another, but the resolution is to proceed as if 
+the other is set or clear. </p>
+<p><span class="alert">TO BE DONE?</span> </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 17th April 2020 from material first 
+  published on 31st <a href="../../../../../../../../new/18/12.htm">December 2018</a>. 
+  It was last modified on 28th <a href="../../../../../../../../new/20/05.htm">May 
+  2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14474" -->
+</div>
+
+</body>
+
+</html>

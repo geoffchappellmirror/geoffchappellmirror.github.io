@@ -1,0 +1,685 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CPU Identification by the 32-Bit Windows Kernel</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <div class="Notice">
+    <p>This old page from 2008 is now retired. All its content has been expanded 
+    for a new set of pages about the <span class="instruction">
+    <a href="cpuid/index.htm">cpuid</a></span> instruction, else reworked as
+    <a href="precpuid.htm">CPU Identification Before CPUID</a>. </p>
+  </div>
+  <h1>CPU Identification by the 32-Bit Windows Kernel </h1>
+  <p>Intel-compatible processors from any one vendor are identified by a combination 
+  of family, model and stepping numbers (in order of decreasing significance). You 
+  might think these are so easily and reliably established that there can’t be much 
+  that’s worth writing on the matter. But there have long been quirks. </p>
+  <h2>Identification Algorithms </h2>
+  <p>The primary means of identifying a modern x86 processor is of course the
+  <span class="instruction">cpuid</span> instruction, which was introduced with 
+  some models of Intel’s 80486 processor. Only recently has the kernel stopped defending 
+  against being run on a processor that predates the instruction. Up to and including 
+  version 6.2, the kernel regards the <span class="instruction">cpuid</span> instruction 
+  as unimplemented if either: </p>
+  <ul>
+    <li>the <span class="bit">ID</span> bit (masked by 0x00200000) in the
+    <span class="register">eflags</span> register cannot be changed; </li>
+    <li>or if executing the <span class="instruction">CPUID</span> instruction with 
+    the <span class="bit">ID</span> bit set in <span class="register">eflags</span> 
+    and with <span class="register">eax</span> set to zero causes an Invalid Opcode 
+    exception (interrupt 0x06). </li>
+  </ul>
+  <p>With no <span class="instruction">cpuid</span> instruction, the processor must 
+  be an 80386 or 80486 (discussed below). The <span class="instruction">cpuid</span> 
+  instruction takes a <span class="definition">leaf</span> number in the
+  <span class="register">eax</span> register. Execution with zero in
+  <span class="register">eax</span> produces in <span class="register">eax</span> 
+  the maximum supported leaf. The family, model and stepping are expected from leaf 
+  1. Starting with version 3.50, if <span class="instruction">cpuid</span> leaf 
+  0 does not return at least 1 in <span class="register">eax</span>, then although 
+  the <span class="instruction">cpuid</span> instruction is implemented, it is not 
+  the slightest bit useful to the kernel and is dismissed as unsupported, such that 
+  the processor must be an 80386 or 80486. </p>
+  <h3>Bad Pentium for Early Windows </h3>
+  <p>Before the version 4.0 from Windows NT 4.0 SP6, the kernel also regards
+  <span class="instruction">cpuid</span> as unusable if leaf 0 returns with
+  <span class="register">eax</span> greater than 3. Instead of writing off the processor 
+  as an 80386 or 80486, the kernel assigns it to family 5, model 0 and stepping 
+  0, as if to recognise a Pentium. Whatever the merits as a defence against implausibility 
+  when <span class="instruction">cpuid</span> was a relatively new and perhaps unstable 
+  facility, it risked a future compatibility problem with any processors that genuinely 
+  are advanced enough to have a <span class="instruction">cpuid</span> leaf 4 or 
+  5, etc. When these early Windows versions are run on such a processor, the non-recognition 
+  of <span class="instruction">cpuid</span> has (at best) the unhappy consequence 
+  that even functionality that might have been learnt from
+  <span class="instruction">cpuid</span> leaves 1, 2 and 3 instead goes unused.
+  </p>
+  <p>Later processors from Intel can be configured to limit the returned maximum 
+  to 3 by setting bit 22 in the model-specific register <span class="register">
+  <a href="msr/misc_enable.htm">IA32_MISC_ENABLE</a></span> (0x01A0). Intel’s literature 
+  suggests that the “BIOS should contain a setup question that allows users to specify 
+  when the installed OS does not support CPUID functions greater than 3.”<a class="FootnoteReference" name="FtnRef_1" href="#Ftn_1">1</a> 
+  It is not known whether these early versions of Windows were the one and only 
+  cause, but if you wanted to install any of them on any computer manufactured in 
+  the last 20 years or so, you might do well to look for this BIOS option. </p>
+  <p>You might think that there the matter ends, but this would be to underestimate 
+  how compatibility problems too easily only <span class="emphasis">look</span> 
+  to have been solved. As Windows itself advances in its ability to use the increasing 
+  capabilities of Intel’s processors, and even begins to regard new features as 
+  highly desirable if not yet essential, there comes a question of whether Windows 
+  should want to respect a BIOS setting that looks for all the world like a safety 
+  provision for a long-gone version and which might only have got turned on by oversight. 
+  In version 6.0 and higher, if the identification algorithms described below show 
+  that the kernel is being run on a sufficiently modern processor, then the kernel 
+  clears bit 22 in <span class="register">IA32_MISC_ENABLE</span> so that it does 
+  not miss out on the higher <span class="instruction">cpuid</span> functions. What 
+  counts as sufficiently modern is a genuine Intel processor for which either
+  </p>
+  <ul>
+    <li>the family is at least 15 </li>
+    <li>the family is 6 and the model is greater than 13. </li>
+  </ul>
+  <h3>Pentium and Higher (and some 80486) </h3>
+  <p>Having confirmed that the <span class="instruction">cpuid</span> instruction 
+  is usable, the kernel accepts whatever it gives for the family, model and stepping. 
+  In early Windows versions, this is as simple as proceeding to leaf 1 and picking 
+  out the family, model and stepping as bit fields from whatever is returned in
+  <span class="register">eax</span>. But as processors advanced, the interpretation 
+  got complicated, first just for the bit fields, and then because of vendor-specific 
+  differences. </p>
+  <h4>Vendor String </h4>
+  <p>Execution with 0 in <span class="register">eax</span> returns something in
+  <span class="register">eax</span>, as noted above, but it also returns a vendor 
+  identifier in other registers. If the values returned in
+  <span class="register">ebx</span>, <span class="register">edx</span> and
+  <span class="register">ecx</span> are stored at successive memory locations, they 
+  read as a string of single-byte characters. Starting with the builds of version 
+  5.1 from Windows XP SP2 and of version 5.2 from Windows Server 2003 SP1, the kernel 
+  knows it cannot safely interpret the family, model and stepping from leaf 1 without 
+  knowing the vendor string from leaf 0. </p>
+  <h4>Processor Signature </h4>
+  <p>The family, model and stepping are bit fields in the processor signature that 
+  is returned in <span class="register">eax</span> when
+  <span class="instruction">cpuid</span> is executed with 1 in
+  <span class="register">eax</span>: </p>
+  <table>
+    <tr>
+      <th>Interpretation </th>
+      <th>Bits </th>
+      <th>Applicable Versions </th>
+      <th>Conditions </th>
+    </tr>
+    <tr>
+      <td>stepping </td>
+      <td>0 to 3 </td>
+      <td>3.51 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>model </td>
+      <td>4 to 7 </td>
+      <td>3.51 and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="2">family </td>
+      <td>8 to 10 </td>
+      <td>4.0 before SP6 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>8 to 11 </td>
+      <td>4.0 from SP6, and higher </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="3">extended model </td>
+      <td rowspan="3">16 to 19 </td>
+      <td>5.1 before Windows XP SP2; <br>
+      5.2 before Windows Server 2003 SP1 </td>
+      <td>family is 15 </td>
+    </tr>
+    <tr>
+      <td>5.1 from Windows XP SP2 and higher; <br>
+      5.2 from Windows Server 2003 SP1 and higher; <br>
+      6.0 to 6.1 </td>
+      <td>family is 15; <br>
+      or family is 6 and vendor string is GenuineIntel </td>
+    </tr>
+    <tr>
+      <td>6.2 and higher </td>
+      <td>family is 15; <br>
+      or family is 6 and vendor string is GenuineIntel or CentaurHauls </td>
+    </tr>
+    <tr>
+      <td>extended family </td>
+      <td>20 to 27 </td>
+      <td>5.1 and higher </td>
+      <td>family is 15 </td>
+    </tr>
+  </table>
+  <p>The family and model were originally 4-bit numbers, which early versions of 
+  the Windows kernel take not quite directly from corresponding 4-bit fields. That 
+  early versions of Windows looked only for a 3-bit family surely caused a lot more 
+  trouble than first appears. It plausibly is even the reason that no known processor 
+  has a family between 8 and 14: a new processor with any such family would have 
+  looked to early Windows versions like an old processor with a family between 0 
+  and 6. </p>
+  <h5>Extended Family and Model </h5>
+  <p>Recent processors provide for 8-bit family and model numbers, each composed 
+  from two fields: the original and an extension. It is this composition that has 
+  the vendor-specific differences. </p>
+  <p>Version 5.1 is the first to recognise the extended fields. The 8-bit family 
+  and model are <span class="emphasis">both</span> indicated when the 4-bit family 
+  field is full, i.e., contains 15. The 8-bit family is then formed by
+  <span class="emphasis">adding</span> the 4-bit family field, i.e., 15, to the 
+  8-bit extended family field. The 8-bit model is formed by taking the 4-bit model 
+  field for the low bits and the 4-bit extended model field for the high bits.
+  </p>
+  <p>Starting with the builds of version 5.1 from Windows XP SP2 and of version 
+  5.2 from Windows Server 2003 SP1, the kernel knows a vendor-specific additional 
+  case. If the vendor string is GenuineIntel, then the 8-bit model
+  <span class="emphasis">alone</span> is indicated when the 4-bit family field contains 
+  6. In this case, the family truly is 6 but the 8-bit model is again formed by 
+  taking the 4-bit model field for the low bits and the 4-bit extended model field 
+  for the high bits. </p>
+  <p>Only in version 6.2 and higher does the kernel recognise that Intel’s addition 
+  to the interpretation applies also to processors whose vendor string is CentaurHauls.
+  </p>
+  <h3>Older Processors </h3>
+  <p>The processor signature predates the <span class="instruction">cpuid</span> 
+  instruction, but only as the initial value of the <span class="register">edx</span> 
+  register immediately after the processor is reset. Many, if not all, computers 
+  with these processors have BIOS support through which this value can be retrieved 
+  on a running machine. This magic involves resetting the processor without losing 
+  memory, having configured the BIOS not to reinitialise as if from a reboot but 
+  to resume execution at a given address, such that the <span class="register">edx</span> 
+  register is preserved from the reset. This is perhaps a bit much for the kernel, 
+  if not for anyone. When faced with a processor that does not have a
+  <span class="instruction">cpuid</span> instruction to report the processor signature, 
+  the kernel invents family, model and stepping numbers from the results of various 
+  tests. How closely these correspond with the actual processor signature (or with 
+  information from Intel) is not known. </p>
+  <p>Of course, with the Pentium being effectively a minimal requirement in Windows 
+  XP and higher (because of <a href="cx8.htm"><span class="instruction">CMPXCHG8B</span> 
+  support</a>), the tests that the Windows kernel uses for identifying processors 
+  that do not support <span class="instruction">cpuid</span> are surely of interest 
+  only to historians and perhaps to hobbyists who have enough time on their hands 
+  to try running a modern Windows on an 80486 for the dubious fun of seeing what 
+  happens. The code for testing that the CPU is an 80386 or 80486, and then for 
+  identifying what type of 80386 or 80486, is unchanged, byte for byte, from version 
+  3.10 until it was discarded for version 6.3. </p>
+  <p>Given a processor that has no <span class="instruction">cpuid</span> instruction 
+  that implements at least leaf 1, the kernel looks to the <span class="bit">AC</span> 
+  bit (masked by 0x00040000) in the <span class="register">eflags</span> register. 
+  If this can be changed, then the processor is deemed to be an 80486 (family 4). 
+  Otherwise, it is an 80386 (family 3). </p>
+  <h4>Early 80486 </h4>
+  <p>Some 80486 processors, perhaps even many, do implement the
+  <span class="instruction">cpuid</span> instruction acceptably. For those that 
+  do not, the kernel tests successively for what seem mostly to be defects. Any 
+  80486 that passes all the tests is said to be model 3. </p>
+  <table>
+    <tr>
+      <th>Family </th>
+      <th>Model </th>
+      <th>Stepping </th>
+      <th>Test </th>
+    </tr>
+    <tr>
+      <td>4 </td>
+      <td>0 </td>
+      <td>0 </td>
+      <td><span class="bit">ET</span> bit (0x10) of <span class="register">cr0</span> 
+      can be cleared </td>
+    </tr>
+    <tr>
+      <td>4 </td>
+      <td>1 </td>
+      <td>0 </td>
+      <td>reading <span class="register">dr4</span> causes Invalid Opcode exception
+      </td>
+    </tr>
+    <tr>
+      <td>4 </td>
+      <td>2 </td>
+      <td>0 </td>
+      <td>numeric coprocessor not present; <br>
+      or pseudo-denormal not normalised for fractional <span class="instruction">
+      fscale</span> </td>
+    </tr>
+    <tr>
+      <td>4 </td>
+      <td>3 </td>
+      <td>0 </td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <p>According to Intel (see, for instance, section 17.17.1 of the
+  <a target="_top" href="http://www.intel.com/design/processor/manuals/253668.pdf">
+  Intel 64 and IA-32 Architectures Software Developer’s Manual Volume 3A: System 
+  Programming Guide, Part 1</a>), the <span class="bit">ET</span> bit of
+  <span class="register">cr0</span> is hard-wired to 1 for Intel486 processors. 
+  Presumably then, it can be changed on some early 80486 processors only as a defect, 
+  which distinguishes what Microsoft regards as model 0. </p>
+  <p>The <span class="register">dr4</span> register has long been documented as 
+  reserved, but Intel notes (see sections 17.22.3 and 18.2.2) that it has long been 
+  aliased to <span class="register">dr6</span>. Intel gives no indication of when 
+  this started, but Microsoft seems to think it begins after what Microsoft calls 
+  model 1. </p>
+  <p>Detection of a numeric coprocessor is a standard test. The kernel clears the
+  <span class="bit">MP</span>, <span class="bit">EM</span>, <span class="bit">TS</span> 
+  and <span class="bit">ET</span> bits of the <span class="register">cr0</span> 
+  register, initialises the floating-point unit (FPU) and reads the floating-point 
+  status word. An FPU is present if all flags in the low byte are clear. With the 
+  test done, the kernel sets the <span class="bit">EM</span>, <span class="bit">
+  TS</span> and <span class="bit">NE</span> bits in <span class="register">cr0</span>, 
+  and also the <span class="bit">ET</span> bit if the coprocessor was detected.
+  </p>
+  <p>Model 2 is identified by a defect in the <span class="instruction">fscale</span> 
+  instruction’s handling of pseudo-denormals. These are 80-bit floating-point numbers 
+  that have zero as the biased exponent and 1 as the integer part. They ought never 
+  be given as operands, but are tolerated for compatibility. They supposedly cannot 
+  be generated as the result of a floating-point operation. They, along with actual 
+  denormals, are supposed to be normalised automatically if the Denormal Operand 
+  exception is masked. Scaling by a fraction leaves a normalised operand unchanged. 
+  Model 2 is apparently defective in that fractional scaling leaves a pseudo-denormal 
+  operand un-normalised. For testing the <span class="instruction">fscale</span> 
+  instruction, the kernel clears the <span class="bit">MP</span>,
+  <span class="bit">EM</span>, <span class="bit">TS</span> and <span class="bit">
+  ET</span> bits of the <span class="register">cr0</span> register and masks all 
+  floating-point exceptions (by setting the low 8 bits of the floating-point control 
+  word). The 80-bit pseudo-denormal used for the test is zero except for having 
+  1 as its integer part. If scaling this pseudo-denormal by 0.5 leaves the exponent 
+  as zero, then the processor is model 2. </p>
+  <h4>80386 </h4>
+  <p>Finer identification of 80386 processors is largely academic. Whatever the 
+  model or stepping, the 80386 processor is unsupported since version 4.0, and soon 
+  causes the bug check <span class="constant"><a href="../bugchecks/5d.htm">UNSUPPORTED_PROCESSOR</a></span> 
+  (0x5D), though not without the kernel having worked its way through more tests 
+  for defects to identify models and steppings. For any 80386 processor that passes 
+  all tests, the model and stepping leap ahead to 3 and 1. </p>
+  <table>
+    <tr>
+      <th>Family </th>
+      <th>Model </th>
+      <th>Stepping </th>
+      <th>Test </th>
+    </tr>
+    <tr>
+      <td>3 </td>
+      <td>0 </td>
+      <td>0 </td>
+      <td>32-bit <span class="instruction">mul</span> not reliably correct </td>
+    </tr>
+    <tr>
+      <td>3 </td>
+      <td>1 </td>
+      <td>0 </td>
+      <td>supports <span class="instruction">xbts</span> instruction </td>
+    </tr>
+    <tr>
+      <td>3 </td>
+      <td>1 </td>
+      <td>1 </td>
+      <td>set <span class="bit">TF</span> bit (0x0100) in <span class="register">
+      eflags</span> causes Debug exception (interrupt 0x01) only at completion of
+      <span class="instruction">rep movsb</span> </td>
+    </tr>
+    <tr>
+      <td>3 </td>
+      <td>3 </td>
+      <td>1 </td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <p>Versions 3.50 and 3.51 reject any 80386 that doesn’t pass all three tests. 
+  The bug check in this case, however, is <span class="constant">HAL_INITIALIZATION_FAILED</span> 
+  (0x5C). Version 3.10 doesn’t have a bug check for this but instead displays the 
+  following text message and hangs: </p>
+  <pre class="output">Your system may be using an early version of the Intel 386(tm) DX CPU
+which is not supported in this beta version of Windows NT.
+Please contact Intel at 1-800-228-4561, in Europe at 44-793-431144, or
+1-503-629-7354 to determine if you need to acquire an Intel 386 CPU upgrade.</pre>
+  <p>The particular multiplication that distinguishes model 0 is of 0x81 by 0x0417A000. 
+  This same test was used by Microsoft at least as far back as Windows 3.10 Enhanced 
+  Mode, to advise </p>
+  <pre class="output">The Intel 80386 processor in this computer does not reliably execute 32-bit
+multiply operations. Windows usually works correctly on computers with this
+problem but may occasionally fail. You may want to replace your 80386 processor.
+Press any key to continue...</pre>
+  <p>The instruction whose support is tested for model 1 stepping 0 has opcode bytes 
+  0x0F 0xA6 followed by a Mod R/M byte and by whatever more this byte indicates 
+  is needed. This opcode is disassembled as <span class="instruction">xbts</span> 
+  by Microsoft’s DUMPBIN utility from Visual C++, and has been since at least the 
+  mid-90s. However, the same opcode was apparently used for the
+  <span class="instruction">cmpxchg</span> instruction on some 80486 processors. 
+  The confusion seems to have left a lasting mark: Intel’s opcode charts leave 0x0F 
+  0xA6 unassigned even now. The specific test performed by the Windows kernel is 
+  to load <span class="register">eax</span> and <span class="register">edx</span> 
+  with zero and <span class="register">ecx</span> with 0xFF00. If executing
+  <span class="instruction">xbts ecx,edx</span> does not cause an Invalid Opcode 
+  exception and clears <span class="register">ecx</span> to zero (which
+  <span class="instruction">cmpxchg ecx,edx</span> would not), then
+  <span class="instruction">xbts</span> is deemed to be supported and the processor 
+  is model 1 stepping 0. This case of 80386 processor also was known to Windows 
+  3.10 Enhanced Mode, and was rejected as fatal: </p>
+  <pre class="output">Windows may not run correctly with the 80386 processor in this computer.
+
+Upgrade your 80386 processor or start Windows in standard mode by typing
+WIN /s at the MS-DOS prompt.</pre>
+  <p>When string instructions such as <span class="instruction">movsb</span> are 
+  repeated because of a <span class="instruction">rep</span> prefix, each operation 
+  is ordinarily interruptible. As Intel says (for <span class="instruction">rep</span> 
+  in the
+  <a target="_top" href="http://www.intel.com/design/processor/manuals/253667.pdf">
+  Intel 64 and IA-32 Architectures Software Developer’s Manual Volume 2B: Instruction 
+  Set Reference N-Z</a>), this “allows long string operations to proceed without 
+  affecting the interrupt response time of the system.” It ordinarily applies also 
+  to the Debug exception, such as raised by the processor at the end of executing 
+  an instruction for which the <span class="bit">TF</span> bit is set in the
+  <span class="register">eflags</span> when the instruction started. Programmers 
+  may have noticed this in the real world of assembly-language debugging. If the 
+  debugger actually does implement its trace command as a trace, as opposed to setting 
+  an <span class="instruction">int 3</span> breakpoint where the instruction is 
+  calculated to end, then a two-byte <span class="instruction">rep movsb</span> 
+  may take many keystrokes to trace through! That model 1 stepping 1 traces through 
+  a <span class="instruction">rep movsb</span> without interruption may be helpful 
+  when debugging, but it is surely a defect. </p>
+  <h2>Accessibility of Results </h2>
+  <p>The immediate place at which the kernel stores the results of this identification 
+  is in the formally opaque <span class="struct">
+  <a href="../ntoskrnl/inc/ntos/i386_x/kprcb/index.htm">KPRCB</a></span> structure, 
+  reachable from (and embedded in) the partially opaque <span class="struct">
+  <a href="../ntoskrnl/inc/ntos/kpcr.htm">KPCR</a></span> structure. Each processor 
+  has its own <span class="struct">KPCR</span> structure. The kernel defines a segment 
+  for each <span class="struct">KPCR</span> and ordinarily keeps the corresponding 
+  selector in the processor’s <span class="register">fs</span> register. In the
+  <span class="struct">KPCR</span>, the <span class="member">SelfPcr</span> member 
+  holds an address for access to the <span class="struct">KPCR</span> without further 
+  need of the segment override, and the <span class="member">Prcb</span> member 
+  points to the <span class="struct">KPRCB</span>. For both structures, Microsoft’s 
+  names for all members are known from type information in the widely published 
+  symbol files for Windows 2000 SP3 and higher (and finding the offsets for earlier 
+  versions is a relatively simple exercise in reverse engineering). The
+  <span class="struct">KPRCB</span> members that are relevant to CPU identification 
+  as detailed above are: </p>
+  <table>
+    <colgroup>
+      <col class="Offset"><col class="Remarks"><col class="Remarks">
+    </colgroup>
+    <tr>
+      <th>Offset </th>
+      <th>Definition </th>
+      <th>Description </th>
+    </tr>
+    <tr>
+      <td>0x18 (3.10 to 6.1); <br>
+      0x14 </td>
+      <td>
+      <pre class="source">CHAR CpuType;</pre>
+      </td>
+      <td>family </td>
+    </tr>
+    <tr>
+      <td>0x19 (3.10 to 6.1); <br>
+      0x15 </td>
+      <td>
+      <pre class="source">CHAR CpuID;</pre>
+      </td>
+      <td>1, if <span class="instruction">cpuid</span> instruction is supported;
+      <br>
+      0, otherwise </td>
+    </tr>
+    <tr>
+      <td>0x1A (3.10 to 6.1); <br>
+      0x16 </td>
+      <td>
+      <pre class="source">UCHAR CpuStepping;</pre>
+      </td>
+      <td>stepping </td>
+    </tr>
+    <tr>
+      <td>0x1B (3.10 to 6.1); <br>
+      0x17 </td>
+      <td>
+      <pre class="source">UCHAR CpuModel;</pre>
+      </td>
+      <td>model </td>
+    </tr>
+    <tr>
+      <td>0x1BA8 (6.0 before SP1); <br>
+      0x1C28 (6.0 starting with SP1); <br>
+      0x03C4 (6.1 to 6.2); <br>
+      0x03BE </td>
+      <td>
+      <pre class="source">UCHAR CpuVendor;</pre>
+      </td>
+      <td>numeric code for identified vendor </td>
+    </tr>
+    <tr>
+      <td>0x0335 (3.50); <br>
+      0x034D (3.51); <br>
+      0x052D (4.0); <br>
+      0x072D (5.0); <br>
+      0x0900 (5.1); <br>
+      0x0A78 (5.2 before SP1); <br>
+      0x0B60 (5.2 starting with SP1); <br>
+      0x1BAC (6.0 before SP1); <br>
+      0x1C2C (6.0 starting with SP1); <br>
+      0x336C (6.1); <br>
+      0x3C7C (6.2 to 6.3); <br>
+      0x3CFC </td>
+      <td>
+      <pre class="source">UCHAR VendorString [0x0D];</pre>
+      </td>
+      <td>vendor string, null-terminated </td>
+    </tr>
+  </table>
+  <p>The <span class="member">CpuType</span>, <span class="member">CpuID</span>,
+  <span class="member">CpuStepping</span> and <span class="member">CpuModel</span> 
+  are at reliable positions all the way back from version 3.10 until a change for 
+  Windows 7. The <span class="member">CpuStepping</span> and
+  <span class="member">CpuModel</span> members are also accessed as one 16-bit word, 
+  named <span class="member">CpuStep</span>. Beware that the
+  <span class="member">CpuType</span> member corresponds most closely with what 
+  the Intel literature describes as the family, not the type. </p>
+  <p>The offsets for <span class="member">CpuVendor</span> and
+  <span class="member">VendorString</span> vary even from one build to another. 
+  They are surely not intended to be accessed programmatically from outside the 
+  kernel, but they can be useful to know when debugging and they are anyway a natural 
+  reference point for tracking which vendors had to wait for which Windows versions. 
+  The <span class="member">VendorString</span> is saved not long after the identification 
+  of family, model and stepping. All versions except 3.10 match it against supported 
+  vendors. In version 4.0 and higher, identification is codified as a vendor number. 
+  Version 6.0 starts storing that vendor number in the <span class="struct">KPRCB</span> 
+  as the <span class="member">CpuVendor</span>. Microsoft’s programmatic names for 
+  the possible vendor numbers are available, as type information for a
+  <span class="enum">CPU_VENDORS</span> enumeration, from symbol files for the kernel 
+  and some other modules in some Windows versions. They are more formally disclosed 
+  in a header file, NTOSP.H, from a release of the Windows Driver Kit (WDK) for 
+  Windows 10. The same header’s definition of an “architecturally defined section” 
+  of the <span class="struct">KPRCB</span> structure has a comment that suggests
+  <span class="member">CpuType</span>, <span class="member">CpuID</span>,
+  <span class="member">CpuStepping</span>, <span class="member">CpuModel</span> 
+  and even <span class="member">CpuVendor</span> are now at stable positions.
+  </p>
+  <table>
+    <tr>
+      <th>Vendor Number </th>
+      <th>Symbolic Name </th>
+      <th>Vendor String </th>
+      <th>Applicable Versions </th>
+    </tr>
+    <tr>
+      <td>1 </td>
+      <td><span class="constant">CPU_INTEL</span> </td>
+      <td>GenuineIntel </td>
+      <td>3.50 and higher </td>
+    </tr>
+    <tr>
+      <td>2 </td>
+      <td><span class="constant">CPU_AMD</span> </td>
+      <td>AuthenticAMD </td>
+      <td>3.50 and higher </td>
+    </tr>
+    <tr>
+      <td>3 </td>
+      <td><span class="constant">CPU_CYRIX</span> </td>
+      <td>CyrixInstead </td>
+      <td>4.0 and higher </td>
+    </tr>
+    <tr>
+      <td>4 </td>
+      <td><span class="constant">CPU_TRANSMETA</span> </td>
+      <td>GenuineTMx86 </td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>5 </td>
+      <td><span class="constant">CPU_CENTAUR</span> <br>
+      <span class="constant">CPU_VIA</span> </td>
+      <td>CentaurHauls </td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>6 </td>
+      <td><span class="constant">CPU_RISE</span> </td>
+      <td>RiseRiseRise </td>
+      <td>5.1 from Windows XP SP2; <br>
+      5.2 from Windows Server 2003 SP1; <br>
+      6.0 and higher </td>
+    </tr>
+  </table>
+  <p>The vendor number is 0 (<span class="constant">CPU_NONE</span>) if no vendor 
+  string is obtained (because <span class="instruction">cpuid</span> is absent or 
+  inadequate). A vendor number greater than any that is specifically supported for 
+  the version means that a vendor string is obtained but is not recognised. For 
+  all recent versions, this value is 7 (<span class="constant">CPU_UNKNOWN</span>).
+  </p>
+  <h3>Registry </h3>
+  <p>No interface is known for retrieving each processor’s identification from its
+  <span class="struct">KPRCB</span>. However, all known versions of the kernel write 
+  the details to the registry. </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_LOCAL_MACHINE\Hardware\Description\System\CentralProcessor\<span class="placeholder">index</span></span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">Identifier</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_SZ</span> </td>
+    </tr>
+  </table>
+  <p>Data for the <span class="regvalue">Identifier</span> value is typically
+  <span class="regsz">x86 Family <span class="placeholder">family</span> Model
+  <span class="placeholder">model</span> Stepping <span class="placeholder">stepping</span></span>, 
+  in which the placeholders are resolved as decimal numbers from
+  <span class="member">CpuType</span>, <span class="member">CpuModel</span> and
+  <span class="member">CpuStepping</span> respectively. For processors on which 
+  a usable <span class="instruction">cpuid</span> instruction is unavailable, the 
+  data for the <span class="regvalue">Identifier</span> value takes the form
+  <span class="regsz">80<span class="placeholder">x</span>86-<span class="placeholder">yz</span></span> 
+  , where <span class="placeholder">x</span>, <span class="placeholder">y</span> 
+  and <span class="placeholder">z</span> represent the family, model and stepping 
+  as found by testing for defects, but with <span class="placeholder">y</span> as 
+  a letter (A for 0, B for 1, etc). </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_LOCAL_MACHINE\Hardware\Description\System\CentralProcessor\<span class="placeholder">index</span></span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">VendorIdentifier</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_SZ</span> </td>
+    </tr>
+  </table>
+  <p>The data for the <span class="regvalue">VendorIdentifier</span> value is the 
+  vendor string. Except for the curiosity noted in the next paragraph, this value 
+  is not set unless a vendor string is known from the <span class="instruction">
+  cpuid</span> instruction. In versions 4.0 and higher, the data is set from the
+  <span class="member">VendorString</span> member of the <span class="struct">KPRCB</span>. 
+  Though earlier versions also record the <span class="member">VendorString</span>, 
+  they get the vendor string afresh when writing to the registry. </p>
+  <p>Some Cyrix processors that do not support <span class="instruction">cpuid</span> 
+  can be recognised by the presence of configuration registers that are accessible 
+  through I/O ports 0x22 and 0x23. For these, the kernel sets the
+  <span class="regvalue">VendorIdentifier</span> value to <span class="regsz">CyrixInstead</span> 
+  without having recorded a <span class="member">VendorString</span> in the
+  <span class="struct">KPRCB</span>. The relevant code is as old as version 3.50 
+  even though it’s not until version 4.0 that the kernel knows anything of CyrixInstead 
+  as a vendor string from <span class="instruction">cpuid</span>. It’s retained 
+  even as late as version 10.0 which has no code for discovering that
+  <span class="instruction">cpuid</span> is not supported. </p>
+  <div class="Footnotes">
+    <hr>
+    <p><a class="FootnoteReference" name="Ftn_1" href="#FtnRef_1">[1]</a> Or so 
+    it was written in the
+    <a target="_top" href="http://www.intel.com/design/processor/manuals/253669.pdf">
+    Intel 64 and IA-32 Architectures Software Developer’s Manual Volume 3B: System 
+    Programming Guide, Part 2</a>, Appendix B Model-Specific Registers (MSRs), dated 
+    November 2006. Ten years later, the
+    <a href="http://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3c-part-3-manual.pdf">
+    Intel 64 and IA-32 Architectures Software Developer’s Manual Volume 3C: System 
+    Programming Guide, Part 3</a>, Chapter 35 Model-Specific Registers (MSRs), dated 
+    April 2016, has it that the returned maximum is 2. </p>
+  </div>
+  <div class="Footer">
+    <p class="Dates">This page was created on 22nd January 2008 and was last modified 
+    on 1st February 2020. </p>
+    <!--webbot bot="Include" U-Include="../_include/c0820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="49136" -->
+  </div>
+</div>
+
+</body>
+
+</html>

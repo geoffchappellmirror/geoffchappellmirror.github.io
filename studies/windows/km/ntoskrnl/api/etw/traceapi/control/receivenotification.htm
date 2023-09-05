@@ -1,0 +1,136 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Receive Notification</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<!--webbot bot="Include" U-Include="../../../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+<h1>Receive Notification </h1>
+<p>When given 0x10 as its <span class="argument">FunctionCode</span> argument, the
+<span class="function"><a href="index.htm">NtTraceControl</a></span> function receives 
+a notification. Microsoft’s name for this function code is not known, though
+<span class="constant">EtwReceiveNotification</span> or <span class="constant">EtwReceiveNotificationCode</span> 
+might be reasonable guesses. This note deals only with behaviour of
+<span class="function">NtTraceControl</span> that is specific to this function code. 
+The function’s general behaviour is here taken as assumed knowledge. </p>
+<p>The notification will be intended for one or all of the calling process’s user-mode 
+registrations of an event provider. The notification comes with a data block. This 
+begins with a fixed-size header that tells something of where the data block came 
+from and what’s expected for its handling, but the continuation beyond the header 
+is essentially arbitrary. The sender, typically some other process, will have sent 
+the notification by calling <span class="function">NtTraceControl</span> with
+<a href="sendnotification.htm">0x11</a> as the <span class="argument">FunctionCode</span>. 
+The header may indicate that a reply is requested. The recipient replies by calling
+<span class="function">NtTraceControl</span> with
+<a href="sendreplydatablock.htm">0x12</a> as the <span class="argument">FunctionCode</span>. 
+The sender receives the reply by calling <span class="function">NtTraceControl</span> 
+with <a href="receivereplydatablock.htm">0x13</a> as the <span class="argument">
+FunctionCode</span>, thus completing an exchange. </p>
+<h2>Access </h2>
+<p>Much of this mechanism, and certainly this function’s part in it, is unknown 
+to event providers. Even the lowest-level and most specialised or secret event providers 
+do not themselves call this function or any higher-level form of it. The architecture 
+is instead that the process that hosts the event provider, and which may host more 
+than one, has one routine that repeatedly calls this function to receive notifications 
+for all the process’s event providers. On each receipt, this routine interprets 
+which event provider the notification is intended for, and then distributes it to 
+the event provider by calling the NTDLL function <span class="function">EtwDeliverDataBlock</span>. 
+The event provider learns of it through the callback function, if any, that the 
+event provider supplied when registering. To the event provider, then, the notification 
+is received asynchronously in some system-supplied thread. </p>
+<p>The one and only expected caller of this function is therefore NTDLL, which implements 
+the polling routine. Before version 6.3, NTDLL is nothing more than the carrier 
+of this code. Executing it is instead arranged by the kernel, which locates it from 
+its exported name <span class="function">EtwpNotificationThread</span> and executes 
+it as a thread whenever a notification is to be sent to the process but the thread 
+is not known to be running. This is not without trouble. </p>
+<p>Supervision of the routine’s execution moves to NTDLL in version 6.3. The routine 
+is not now a thread by itself. Instead, a thread from the thread pool shares the 
+polling with other work. </p>
+<h2>Parameter Validation </h2>
+<p>The caller asks only to receive a notification: no input is expected. The output 
+buffer is to receive a fixed-size <span class="struct">
+<a href="../../notify/notification_header.htm">ETWP_NOTIFICATION_HEADER</a></span> 
+and some variable-size continuation. The function returns <span class="constant">
+STATUS_INVALID_PARAMETER</span> if any of the following is true: </p>
+<ul>
+  <li>an input buffer is provided; </li>
+  <li>the output buffer is too small for an <span class="struct">ETWP_NOTIFICATION_HEADER</span>;
+  </li>
+  <li>the output buffer is larger than 64KB. </li>
+</ul>
+<p>Notifications can have been sent to a process concurrently from multiple sources 
+with multiple event providers as their destinations. Each process has its own queue 
+of notifications that are waiting to be received. Each such notification is held 
+as an <span class="struct"><a href="../../notify/queue_entry.htm">ETW_QUEUE_ENTRY</a></span>. 
+The queue is in fact a double-linked list whose head is in the process’s
+<span class="struct"><a href="../../notify/data_source.htm">ETW_DATA_SOURCE</a></span>.
+</p>
+<p>The <span class="struct">EPROCESS</span> for the calling process must have an
+<span class="member">EtwDataSource</span>, else the function returns
+<span class="constant">STATUS_INVALID_PARAMETER</span>. Moreover, the data source 
+must have at least one pending notification, else the function returns
+<span class="constant">STATUS_NO_MORE_ENTRIES</span>. Such notifications are held 
+in a queue. Each is represented by an <span class="struct">ETW_QUEUE_ENTRY</span> 
+whose <span class="member">DataBlock</span> points to the notification data. This 
+data is what the caller seeks. It begins with an <span class="struct">
+<a href="../notification_header.htm">ETW_NOTIFICATION_HEADER</a></span> whose
+<span class="member">NotificationSize</span> is the total size, in bytes, of the 
+data. If this is too big for the caller’s buffer, the function returns
+<span class="constant">STATUS_BUFFER_TOO_SMALL</span> having set the return size 
+(and the caller who expects to do anything useful would better repeat the call but 
+with a suitably bigger buffer). Otherwise, the function copies the notification 
+data to the caller’s buffer and returns success. If the notification queue is not 
+empty, the return is <span class="constant">STATUS_MORE_ENTRIES</span> (so that 
+the caller can know to poll again rather than wait on the event). </p>
+<p><span class="alert">TO BE DONE</span> </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 22nd April 2020 from material first 
+  published on 31st <a href="../../../../../../../../new/18/12.htm">December 2018</a>. 
+  It was last modified on 28th <a href="../../../../../../../../new/20/05.htm">May 
+  2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14474" -->
+</div>
+
+</body>
+
+</html>

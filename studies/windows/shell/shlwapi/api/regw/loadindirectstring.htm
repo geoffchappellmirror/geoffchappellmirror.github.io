@@ -1,0 +1,201 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SHLoadIndirectString</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>SHLoadIndirectString </h1>
+<p>This function loads the string resource that is indicated by a given indirect 
+string. </p>
+<h2>Declaration </h2>
+<pre class="source">HRESULT 
+SHLoadIndirectString (
+    LPCWSTR pszSource, 
+    LPWSTR pszOutBuf, 
+    UINT cchOutBuf, 
+    PVOID *ppvReserved);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">pszSource</span> argument provides the address of 
+a null-terminated Unicode string to parse. </p>
+<p>The <span class="argument">pszOutBuf</span> and <span class="argument">cchOutBuf</span> 
+arguments describe a buffer, by address and capacity (in characters) respectively, 
+which is to receive the resolved string. These arguments may be NULL and 0 if output 
+is not required. </p>
+<p>The <span class="argument">ppvReserved</span> argument is ignored. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../_include/hresult.htm" TAG="BODY" startspan -->
+
+<p>The function returns zero for success, else an error code. </p>
+
+<!--webbot bot="Include" i-checksum="1551" endspan -->
+<h2>Behaviour </h2>
+<p>If <span class="argument">pszSource</span> is NULL, there is no input to parse. 
+The function can do nothing, and fails (returning <span class="constant">E_INVALIDARG</span>).
+</p>
+<p>If the input string does not begin with an @ sign, it is not an indirect string. 
+If <span class="argument">pszOutBuf</span> is not NULL, the function produces as 
+output a null-terminated copy of as much of the input string as will fit in the 
+output buffer. Whether an output buffer is provided or not, the function succeeds.
+Though the copy is trivial if the input string and output buffer have the same 
+address, the results of any other overlap are better treated as undefined.
+</p>
+<p>If the input does begin with an @ sign, the function expects its output to 
+differ from the input string. To ensure that the input string remains available 
+even after output is produced, the function works with a copy of the input 
+string. If the function cannot duplicate the input string, it fails (returning
+<span class="constant">E_OUTOFMEMORY</span>). 
+</p>
+<p>The indirect string is not necessarily the whole of the input string. It 
+begins with the @ sign but extends only up to but not including the first 
+question mark. If there is no question mark, the indirect string extends up to 
+but not including the next @ sign. In its copy of the input string, the function 
+ignores all characters that follow the indirect string. </p>
+<p>If the indirect string does not contain “shell32.dll” (independent of case), 
+then the indirect string may be cached in the registry, as a value in the key 
+that has 0x5021 as its <span class="enum">
+<a href="../util/shellkey/shellkey.htm">SHELLKEY</a></span>. The function reads this value’s data, of whatever type, 
+directly to the output 
+buffer. Success at this is success for the function (including if
+<span class="argument">pszOutBuf</span>  is NULL). As a side-effect of this caching at a 
+well-known location, many well-known titles and messages that are loaded from 
+resource strings in shell executables can be edited, in effect, without any 
+change to those executables as files. </p>
+<p>The indirect string may contain environment variables in the standard notation 
+of enclosure by percent signs. The function expands environment variables in the 
+indirect string, from immediately after the opening @ sign. A temporary buffer of 
+267 characters is allowed for the result. If the expansion does not fit, the function 
+continues with as many characters of the expansion as do fit the temporary buffer. 
+If the expansion fails, the function continues with as many characters of the indirect 
+string as fit with no environment variables expanded. </p>
+<p>With environment variables possibly expanded into this temporary buffer, the interpretation is then of a pathname 
+to a resource library, a comma, a minus sign and a resource ID, in a standard notation 
+defined by the documented function <span class="function">
+<a href="../path/parseiconlocation.htm">PathParseIconLocation</a></span>. The size 
+of temporary buffer suggests an allowance of <span class="constant">MAX_PATH</span> 
+characters for a pathname and 5 decimal digits for a 16-bit resource ID. However, 
+this is all copied into yet another buffer, just of <span class="constant">MAX_PATH</span> 
+characters, before the parsing starts. If this is not large enough, the function 
+fails (typically returning <span class="constant">STRSAFE_E_INSUFFICIENT_BUFFER</span>). 
+If the parsing does not extract a resource ID, the function fails (returning
+<span class="constant">E_FAIL</span>). The pathname, stripped of enclosing double-quotes 
+and then of leading and trailing spaces, is then examined to see if it is a path 
+and filename or is just a filename. </p>
+<p>If the pathname is just a filename and contains LC.DLL (independent of case), 
+then the function loads the resource library using <span class="function">
+<a href="../mlui/load.htm">MLLoadLibrary</a></span> 
+(which may mean it actually loads from a language-specific subdirectory of wherever 
+Internet Explorer is installed). Otherwise, the function loads the library just 
+with <span class="function">LoadLibraryEx</span> (with flags such that the executable 
+is loaded only as a data file and image resource). Either way, once the library is loaded, the function 
+loads the indicated string resource from that library directly to the output buffer. 
+If the function fails to load the library or to load the string resource (including 
+because <span class="argument">pszOutBuf</span> is NULL), it fails (returning
+<span class="constant">E_FAIL</span>). </p>
+<p>If the indirect string did not contain “shell32.dll”, the function caches the 
+loaded string resource into the registry key represented by <span class="enum">SHELLKEY</span> 
+0x5021. The indirect string is the value. The loaded string resource is its
+<span class="constant">REG_SZ</span> data. Success is merely desirable. </p>
+<p>In all cases where the function fails except for lack of input, the function 
+stores a null string in the output buffer unless <span class="argument">cchOutBuf</span> 
+is zero. </p>
+<h3>Coding Quirk </h3>
+<p>The function allows explicitly in several places for <span class="argument">pszOutBuf</span> 
+to be NULL, but not in enough places to support a clear interpretation of intention. 
+When given no output buffer, the function can succeed if the input string does not 
+begin with an @ sign or if the input string is cached, but not if the function gets 
+as far as successfully loading the resource string. In this latter case, not only 
+will the function try to return an error, it will fault unless
+<span class="argument">cchOutBuf</span> is zero. If the intention ever was to provide 
+for a NULL <span class="argument">pszOutBuf</span> as a means to test whether the 
+input string is a valid indirect string without caring to have the evaluation, then 
+code for the case is not yet completed. </p>
+<h3>Variations </h3>
+<p>The preceding description is of the implementation in the SHLWAPI version 6.00 
+from Windows Vista. </p>
+<p>Earlier builds do not defend against being given no input string. They also do not care if the indirect string contains “shell32.dll” for deciding 
+whether an input string and its corresponding resource string may be cached. Be 
+aware also that interpretation of <span class="enum">SHELLKEY</span> 0x5021 changes 
+with Windows Vista: </p>
+<table class="Registry">
+  <tr>
+    <td rowspan="2">Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\ShellNoRoam\MUICache</span>
+    </td>
+    <td>before Windows Vista </td>
+  </tr>
+  <tr>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\MuiCache</span>
+    <br>
+    <span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\Shell\MuiCache</span>
+    </td>
+    <td>Windows Vista and higher </td>
+  </tr>
+</table>
+<p>Builds for Internet Explorer 6.0 and Windows XP always consult the cache, but 
+if they are running on Windows rather than NT, they do not necessarily save the 
+resource string to the cache. The details depend on user-interface languages and 
+are presently beyond the scope of this article. </p>
+<p>The limit of <span class="constant">MAX_PATH</span> characters for the 
+resource-location string (i.e., the indirect string, less its initial @ sign, 
+and with environment variables possibly expanded) is new for Windows Vista, 
+possibly as an oversight. Earlier builds also duplicate the resource-location 
+string in order to parse it, but into new memory rather than into a fixed-size 
+local buffer. </p>
+<h4>History </h4>
+<p>SHLWAPI supported indirect strings in yet earlier versions when something like 
+this function was merely an internal procedure for the <span class="function">
+<a href="loadreguistring.htm">SHLoadRegUIString</a></span> function. The present 
+allowance for a second @ sign to terminate the indirect string is then seen as vestigial 
+from an earlier provision for caching the string resource in the registry value 
+from which the indirect string is loaded. </p>
+<h2>Availability </h2>
+<p>The <span class="function">SHLoadIndirectString</span> function is exported by 
+name from SHLWAPI.DLL version 6.00 and higher, and also as ordinal 487. </p>
+<p>This function is documented, though the Minimum DLL Version is said to be “shlwapi.dll 
+version 5.5 or later”. </p>
+<p>Note that where Microsoft’s documentation would have you believe that “if the 
+resource value is zero or greater, the number becomes the index of the string in 
+the binary file”, the reality is that the function explicitly defends against this, 
+and returns an error. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 8th July 2009 and was last modified 
+  on 12th July 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="50766" endspan -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,131 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Hooking Disk Access</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Hooking Disk Access </h1>
+  <p>The disk-hooking sample is a set of source files (and the built executables) 
+  supplied at present with no comment other than what you see here and in the source 
+  code. The sources build four test rigs. These are: </p>
+  <ol>
+    <li>
+    <p>A Windows 95 VSD called DISKHOOK.VXD. </p>
+    <p>It hooks disk access underneath IOS.VXD on Windows 95 and higher. It loads 
+    automatically if placed in the IOSUBSYS subdirectory of the Windows SYSTEM directory.
+    </p>
+    </li>
+    <li>
+    <p>A Windows for Workgroups 3.11 VSD called DISKHOOK.D32. </p>
+    <p>It hooks disk access underneath IOS.386 on Windows for Workgroups 3.11 only. 
+    It loads automatically if placed in the SYSTEM subdirectory of the Windows installation.
+    </p>
+    </li>
+    <li>
+    <p>A VxD called DISKHOOK.386. </p>
+    <p>It hooks disk access between BLOCKDEV.386 and the FastDisk driver (typically 
+    WDCTRL) or between IOS.386 or IOS.VXD and the port driver. This VxD is to be 
+    loaded via a <span class="inikey">device</span> statement in SYSTEM.INI. It 
+    is intended for Windows 3.10 and higher, but a VSD is clearly a superior solution 
+    in later versions. </p>
+    </li>
+    <li>
+    <p>A DOS program called DISKHOOK.EXE. </p>
+    <p>It hooks int 13h and then runs a command processor. Running the disk hooking 
+    program before running Windows gives you a global int 13h hook. Running the 
+    disk hooking program from a DOS Prompt inside Windows gives you a local int 
+    13h hook. </p>
+    </li>
+  </ol>
+  <p>The action of each test rig is to modify the appearance of the first sector 
+  on cylinder 0 head 1 of the first physical hard disk, a preset location having 
+  been chosen so that the sample can concentrate mostly on the mechanics of intercepting 
+  disk access. The particular location chosen for the sample usually stores a DOS 
+  boot sector. If this is not true for your machine, do not run these test rigs. 
+  The specific change to the appearance is to find the first occurrence of the word 
+  “disk” in the sector (this word being very likely to appear in an error message 
+  somewhere in the sector) and to toggle the case of some of the letters. The DOS 
+  test rig toggles the case of the first two letters. The VxD test rigs toggle the 
+  case of the last two letters. </p>
+  <p>All VxD source code is written in assembly language using include files from 
+  the Windows 95 DDK. For detailed expectations read the MAKEFILE in each directory.
+  </p>
+  <p>The Windows 95 and Windows for Workgroups 3.11 VSDs have the
+  <span class="emphasis">same</span> source code (although they must be compiled 
+  with different include files). Two of the source files involve small amounts of 
+  conditional assembly. One reason is trivial, namely that the different VSD versions 
+  have to check for their respective versions of the IOS. Another reason is that 
+  only the Windows 95 VSD needs to support the <span class="constant">AEP_BOOT_COMPLETE</span> 
+  function. </p>
+  <p>Although the VSD source code is presented separately from the source code for 
+  the DISKHOOK.386 version that works for Windows 3.10, it should be noted that 
+  there is a strong correspondence between source files and procedures. Indeed, 
+  the two versions of the PLAY.ASM source file can be matched very nearly line by 
+  line. Port drivers supersede FastDisk drivers. The IOS supersedes BlockDev. VSDs, 
+  which sit between the IOS and a port driver are a very natural development of 
+  the sort of VxD that sits between BlockDev and a FastDisk driver. </p>
+  <p>The trouble with that progression is that Microsoft didn’t document it very 
+  much. Indeed, I expect that hooking 32-bit disk access underneath BlockDev on 
+  Windows 3.10 and higher was very rare in commercial software. Nothing undocumented 
+  is required when hooking VxD services to bend them to your will, but you need 
+  a sense of adventure even to see the possibility, before needing a good understanding 
+  of what you’re hooking into. The replacement of BlockDev by IOS formalised the 
+  notion of passing disk I/O through a sequence of drivers on the way to one that 
+  actually controls the hardware. For many VxD programmers, this will have been 
+  the first opportunity for hooking disk I/O inside Windows. Yet to my knowledge 
+  the existence of this support before Windows 95 never was documented by Microsoft.
+  </p>
+  <p>For distribution, the binaries and source code are compressed into a zip file: 
+  click here to <a href="_download/diskhook.zip">download the Hooking Disk Access 
+  sample</a>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 21st July 1997 and was last modified 
+    on 5th October 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9708.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1997-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63527" -->
+  </div>
+</div>
+
+</body>
+
+</html>

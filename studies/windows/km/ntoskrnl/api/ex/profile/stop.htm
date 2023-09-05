@@ -1,0 +1,120 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>NtStopProfile</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>NtStopProfile </h1>
+<p>This function stops the profiling that has been configured for a given profile 
+object. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS NtStopProfile (HANDLE ProfileHandle);</pre>
+<h3>Parameters </h3>
+<!--webbot bot="Include" U-Include="_include/start_stop.htm" TAG="BODY" startspan -->
+
+<p>The <span class="argument">ProfileHandle</span> argument is a handle to an
+<a href="eprofile.htm">executive profile object</a>, such as created by
+<span class="function"><a href="create.htm">NtCreateProfile</a></span> or
+<span class="function"><a href="createex.htm">NtCreateProfileEx</a></span>.
+</p>
+
+<!--webbot bot="Include" endspan i-checksum="55698" -->
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+<h2>Availability </h2>
+<p>The <span class="function">NtStopProfile</span> function and its alias
+<span class="function">ZwStopProfile</span> are exported by name from NTDLL in version 
+3.10 and higher. In kernel mode, where <span class="function">ZwStopProfile</span> 
+is a stub and <span class="function">NtStopProfile</span> is the implementation, 
+neither is exported until the 1607 release of Windows 10 exports the stub. </p>
+<h2>Documentation Status </h2>
+<p>Neither <span class="function">NtStopProfile</span> nor its alias is documented. 
+As <span class="function">ZwStopProfile</span>, it is declared in the ZWAPI.H file 
+from an Enterprise edition of the Windows Driver Kit (WDK) for Windows 10. </p>
+<p>Unusually for native API functions, no repackaging of <span class="function">
+NtStopProfile</span>, documented or not, is known in any higher-level user-mode 
+module that is distributed as standard with Windows. </p>
+<h2>Behaviour </h2>
+<!--webbot bot="Include" U-Include="../../_include/win10.htm" TAG="BODY" startspan -->
+
+<p>The following implementation notes come mainly from inspection of the kernel 
+from the original release of Windows 10. They may some day get revised to account 
+for other versions. Where anything is written about earlier versions, take it not 
+as an attempt at presenting a comprehensive history but as a bonus from my being 
+unable to resist a quick trip down memory lane. I have no programme of revisiting 
+this analysis for later releases. Updates mean just that I happen to have noticed 
+something and to have found time to add it. </p>
+
+<!--webbot bot="Include" endspan i-checksum="60685" -->
+<h3>Parameter Validation </h3>
+<p>The function fails unless the given handle references an executive profile object 
+(rather than any other type of object) and has whatever permission is represented 
+by the access mask 0x00000001. Microsoft’s name for this one permission that is 
+defined for profile objects is not known, but there would be no surprise if it turns 
+out to be <span class="struct">EPROFILE</span>. </p>
+<p>The profile object retains parameters that were supplied on some earlier call 
+to <span class="function">NtCreateProfile</span> or <span class="function">NtCreateProfileEx</span>. 
+Among these is the address of a buffer that is to receive the <span class="type">
+ULONG</span> counters of times that execution is discovered in successive buckets 
+that span a profiled region of address space. Because the counters will be incremented 
+while handling a hardware interrupt this buffer—well, that part of it that will 
+be needed for the counters—must be locked into physical memory and mapped into system 
+address space at all times that profiling is started but not yet stopped. This mapped 
+address for the buffer is also kept with the profile object. If it’s not present, 
+then there is no profiling to stop, and the function returns
+<span class="constant">STATUS_PROFILING_NOT_STARTED</span>. </p>
+<h3>Cleanup </h3>
+<p>The function’s remaining work, which cannot fail, is to stop the profiling but 
+not to end it. It undoes just the work of <span class="function">
+<a href="start.htm">NtStartProfile</a></span>. The executive profile object remains. 
+The caller retains a handle to it and may reuse it in any number of paired calls 
+to <span class="function">NtStartProfile</span> and <span class="function">NtStopProfile</span>. 
+Complete cleanup is done only when the handle gets closed. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 23rd
+  <a href="../../../../../../../new/16/12.htm">December 2016</a> and was last modified 
+  on 6th October 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1618.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5013" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,323 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Windows/386 VDA Interface</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/notes.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/notes.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="20600" -->
+<div class="Main">
+  <h1>The Windows/386 VDA Interface </h1>
+  <p>The Virtual DOS Machine Manager (VDMM) in Windows/386 exposes an Application 
+  Programming Interface (API) in the first of its virtual machines to help with 
+  the creation and management of additional virtual machines. The apparent intention 
+  is that each virtual machine runs a DOS application, which may then run more, 
+  essentially as if the virtual machine were real. Though each virtual machine has 
+  at any one time just one current DOS application being executed by a single-tasking 
+  operating system that is shared by all virtual machines, the collection of virtual 
+  machines has pre-emptive multi-tasking under the supervision of the VDMM. </p>
+  <p>As distributed, this multi-tasking DOS is constrained to run Windows in its 
+  first virtual machine. The user-level management of additional virtual machines 
+  is then in the hands of a Windows module named WINOLDAP.MOD, which is the one 
+  and only known user of the Virtual DOS Application (VDA) API. Had anyone sufficiently 
+  enterprising and well-resourced been paying attention in late 1987, they might 
+  have written a DOS program that makes these VDA calls. DOS users might then have 
+  realised that Microsoft had developed a pre-emptive multi-tasking DOS but tied 
+  its availability to the purchase of Windows. </p>
+  <p>Do not miss this obscure interface’s anti-trust implications. Microsoft had 
+  a natural monopoly over DOS but already had competitors for Graphical User Interface 
+  (GUI) environments such as Windows. Instead of building the pre-emptive multi-tasking 
+  of DOS programs into DOS as a DOS feature, Microsoft used it to help establish 
+  Windows in what was still then a competitive market. The case is clearer and simpler 
+  than any that was ever made against Microsoft for anti-competitive product tying, 
+  but seems never to have got near a court, nor even to have got the attention of 
+  any regulator. </p>
+  <h2>Windows/386 VDA Calls </h2>
+  <p>The entry point for VDA calls is returned in <span class="register">es</span>:<span class="register">di</span> 
+  by <a href="00h.htm"><span class="instruction">int 2Fh</span> function 1600h</a> 
+  in Windows/386 version 2.01 but <a href="01h.htm"><span class="instruction">int 
+  2Fh</span> function 1601h</a> in later versions. Beware of an unusual design. 
+  Both these functions require an address in <span class="register">es</span>:<span class="register">di</span> 
+  as input. This is the address at which execution is to resume in the virtual machine. 
+  Virtual-8086 execution of the output address from these
+  <span class="instruction">int 2Fh</span> functions appears to resume at the input 
+  address after what the virtual-8086 “caller” may presume is a transition to and 
+  from ring 0. A simple scheme is indeed to call the entry point by a far
+  <span class="instruction">call</span> and to resume from it by executing a far
+  <span class="instruction">ret</span>, but this is not the only possible scheme.
+  </p>
+  <p>There’s some support for regarding this VDA interface as a distant ancestor 
+  of what each Virtual Device Driver (VxD) in later Windows versions can offer as 
+  its own API for being called from the unprivileged code in virtual machines. But 
+  the ancestry is distant. Aside from the different mechanism, there is that this 
+  early API is exposed only in what is later known as the System VM. A different 
+  API for use in arbitrary virtual machines was instead exposed through
+  <a href="02h.htm"><span class="instruction">int 2Fh</span> function 1602h</a>.
+  </p>
+  <p>Each VDA call takes input in <span class="register">ax</span>. The high byte 
+  selects an internal component of the 32-bit operating system (which error messages 
+  in WIN386.EXE actually do refer to as a system, no matter that nobody at the time, 
+  neither Microsoft itself nor industry observers, was much given to talking of 
+  it as an operating system): </p>
+  <ul>
+    <li>00h for the VDD as the Virtual Display Device; </li>
+    <li>01h for the VKD as the Virtual Keyboard Device; </li>
+    <li>02h for the VMD as the Virtual Mouse Device; </li>
+    <li>03h for the system itself. </li>
+  </ul>
+  <p>These would each in later Windows versions be either the Virtual Machine Manager 
+  (VMM) or a separate VxD. The low byte is then a function number. Interpretation 
+  of other registers depends on the component and function numbers. Undefined functions 
+  change no registers. </p>
+  <p>Some historian of the development of Windows might usefully write about these 
+  functions at length. That may end up being me. Meanwhile, I offer only a sample 
+  of a catalogue. Names are known from symbol tables in the WIN386.386 binaries.
+  </p>
+  <h3>VDD Functions </h3>
+  <p>When <span class="register">ah</span> is 00h on input, the VDA interface selects 
+  the internal component that the symbol tables name as the VDD. A function number 
+  in <span class="register">al</span> is assumed for input, and so is a VM ID in
+  <span class="register">ebx</span>. </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Function Number </th>
+        <th>Symbolic Name </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0000h </td>
+        <td><span class="internal routine">VDD_Ctl_ID</span> </td>
+      </tr>
+      <tr>
+        <td>0001h </td>
+        <td><span class="internal routine">VDD_Ctl_Mod</span> </td>
+      </tr>
+      <tr>
+        <td>0002h </td>
+        <td><span class="internal routine">VDD_Ctl_Clr</span> </td>
+      </tr>
+      <tr>
+        <td>0003h </td>
+        <td><span class="internal routine">VDD_Ctl_Map</span> </td>
+      </tr>
+      <tr>
+        <td>0004h </td>
+        <td><span class="internal routine">VDD_Ctl_UMap</span> </td>
+      </tr>
+      <tr>
+        <td>0005h </td>
+        <td><span class="internal routine">VDD_Ctl_CStt</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>VKD Functions </h3>
+  <p>When <span class="register">ah</span> is 01h on input, the VDA interface selects 
+  the internal component that the symbol tables name as the VKD. A function number 
+  in <span class="register">al</span> is assumed for input. </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Function Number </th>
+        <th>Symbolic Name </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0100h </td>
+        <td><span class="internal routine">VKD_Ctl_ID</span> </td>
+      </tr>
+      <tr>
+        <td>0101h </td>
+        <td><span class="internal routine">VKD_Ctl_Int9</span> </td>
+      </tr>
+      <tr>
+        <td>0102h </td>
+        <td><span class="internal routine">VKD_Ctl_SetFocus</span> </td>
+      </tr>
+      <tr>
+        <td>0103h </td>
+        <td><span class="internal routine">VKD_Ctl_DefSwt</span> </td>
+      </tr>
+      <tr>
+        <td>0104h </td>
+        <td>unlabelled </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>A function 0105h seems to have been intended. It is allowed by the code that 
+  handles the VKD functions but the jump table has only five entries and so the 
+  outcome of calling with 05h in <span class="register">al</span> is undefined.
+  </p>
+  <h3>VMD Functions </h3>
+  <p>When <span class="register">ah</span> is 02h on input, the VDA interface selects 
+  the internal component that the symbol tables name as the VMD, but the handler 
+  is trivial. </p>
+  <h3>System Functions </h3>
+  <p>When <span class="register">ah</span> is 03h on input,
+  <span class="register">al</span> selects from functionality in the VDMM itself.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Function Number </th>
+        <th>Symbolic Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0300h </td>
+        <td><span class="internal routine">Get_VDMM_Version</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0301h </td>
+        <td><span class="internal routine">Map_VM_Pages</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0302h </td>
+        <td><span class="internal routine">Unmap_VM_Pages</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0303h </td>
+        <td><span class="internal routine">Create_VM</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0304h </td>
+        <td><span class="internal routine">Destroy_VM</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0305h </td>
+        <td><span class="internal routine">Suspend_VM</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0306h </td>
+        <td><span class="internal routine">Resume_VM</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0307h </td>
+        <td><span class="internal routine">Set_VM_Event_Handler</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0308h </td>
+        <td><span class="internal routine">VMDA_Present</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0309h </td>
+        <td><span class="internal routine">VMDA_Not_Present</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>030Ah </td>
+        <td><span class="internal routine">Set_Map_Region</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>030Bh </td>
+        <td><span class="internal routine">Unset_Map_Region</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>030Ch </td>
+        <td><span class="internal routine">Set_Window_Mode</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>030Dh </td>
+        <td><span class="internal routine">Set_Display_Mode</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>030Eh </td>
+        <td><span class="internal routine">Task_Count</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>030Fh </td>
+        <td><span class="internal routine">Set_Physical_Mode</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0310h </td>
+        <td><span class="internal routine">Change_Background_Mode</span> </td>
+        <td>2.01 to 2.11 </td>
+      </tr>
+      <tr>
+        <td>0311h </td>
+        <td><span class="internal routine">VM_GetInfo</span> </td>
+        <td>2.03 to 2.11 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Known Use </h2>
+  <p>As noted, the interface is exposed only in the System VM and has an unusual 
+  design that requires a single address to which all VDA functions seem to return 
+  from ring 0. Very plausibly, the one known user is the one and only intended user. 
+  This is WINOLDAP.MOD which for Windows/386 is coded as a 16-bit Windows module 
+  making heavy use of 80386 instructions. From within Windows it may be seen mostly 
+  as supervising the representation of DOS programs each in their own window. Its 
+  use of the VDA calls, however, elevates WINOLDAP into supervising the execution 
+  of DOS programs each in their own pre-emptively multi-tasked virtual machine. 
+  Do not miss that these VDA calls could instead be made by an otherwise straightforward 
+  DOS program in the System VM to co-ordinate a pre-emptively multi-tasking DOS—independently 
+  of the Windows GUI and as long ago as 1987, even before anyone had yet seen any 
+  DOS version 4. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 4th
+    <a href="../../../../../new/22/01.htm">January 2022</a> and was last modified 
+    on 13th January 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="46751" -->
+  </div>
+</div>
+
+</body>
+
+</html>

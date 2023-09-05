@@ -1,0 +1,152 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SID</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>SID </h1>
+<p>The <span class="struct">SID</span> structure is the fixed-size header that begins 
+a variable-size Security Identifier (SID). Each SID is a path in a security namespace 
+of authorities and subauthorities which together identify a trustee in the security 
+model. A trustee can be a single user, a group of users, a computer, a program, 
+or something much more abstract. </p>
+<h2>Access </h2>
+<p>What a program can get from Windows depends on who runs the program or on whose 
+behalf it asks. The who is most generally a trustee in the security model. Any resource 
+to which access is selective must be associated somehow with SIDs for trustees who 
+do or don’t have this or that access. Any request for access must come with a SID 
+for the trustee that is to be granted the access—and with some means for testing 
+that such a SID is in some sense genuine. SIDs, as the identifiers of trustees, 
+are therefore abundant both in memory at run-time and in persistent storage. Moreover, 
+they exist both in a compact binary form and in a more human-readable expression.
+</p>
+<p>SIDS are directly or indirectly among the inputs to many API functions, especially 
+those of the Security Reference Monitor. A large family of Run Time Library (RTL) 
+functions exists for managing SIDs, with implementations both in kernel and user 
+modes.&nbsp; </p>
+<h2>Documentation Status </h2>
+<p>The <span class="struct">SID</span> structure and its continuation as a SID are 
+documented but more than usually in the abstract. The <span class="struct">SID</span> 
+is defined in NTIFS.H from the Windows Driver Kit (WDK) and in WINNT.H from the 
+Software Development Kit (SDK), but this layout of its binary form seems intended 
+to be treated as opaque by almost all Windows software. See in particular that although 
+a <span class="type">PSID</span> type is defined for use whenever software has the 
+address of a SID, it evaluates not as a pointer to a <span class="struct">SID</span> 
+but as a pointer to <span class="type">void</span>. </p>
+<h2>Layout </h2>
+<p>SIDs must have equal meaning to all operating systems that might use them. The
+<span class="struct">SID</span> is therefore the same for both 32-bit and 64-bit 
+Windows. It is formally 0x0C bytes but only because it ends with a variable-size 
+array that has one element as a placeholder. The <span class="struct">SID</span> 
+is as well regarded as an 8-byte header that introduces the variable-size
+<span class="member">SubAuthority</span> array. The true element count for this 
+array is <span class="member">SubAuthorityCount</span>. </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">UCHAR Revision;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x01 </td>
+    <td>
+    <pre class="source">UCHAR SubAuthorityCount;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>
+    <pre class="source">SID_IDENTIFIER_AUTHORITY IdentifierAuthority;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">ULONG SubAuthority [ANYSIZE_ARRAY];</pre>
+    </td>
+  </tr>
+</table>
+<p>Through a quarter century of use, the only <span class="member">Revision</span> 
+known for any <span class="struct">SID</span> is 1, for which Microsoft defines
+<span class="constant">SID_REVISION</span>. Despite its definition as a whole byte, 
+RTL functions that check validity require 1 only in the low four bits. </p>
+<p>The six-byte <span class="struct">SID_IDENTIFIER_AUTHORITY</span> has just the 
+one member: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">UCHAR Value [6];</pre>
+    </td>
+  </tr>
+</table>
+<p>RTL functions for converting between binary and string forms treat the
+<span class="member">IdentifierAuthority</span> as a 48-bit integer whose bytes 
+are ordered from most significant to least. </p>
+<p>Interpretation of the <span class="member">SubAuthority</span> array varies with 
+the authority. Each element of the array is known as a Relative Identifier (RID). 
+An authority or subauthority defines some number of subsequent RIDs for the next 
+subauthority. RTL functions that check validity impose a maximum of 15 elements 
+in the array. Microsoft defines this limit symbolically as
+<span class="constant">SID_MAX_SUB_AUTHORITIES</span>. </p>
+<h2>RTL Support </h2>
+<p>Though the use of SIDs in an access check is ultimately the work of the 
+Security Reference Monitor in the kernel, the work of creating and managing SIDs 
+is needed throughout Windows, both in kernel and user modes. The substantial 
+interface is in the Run Time Library. Its functions are exported from either or 
+both of the kernel and NTDLL, typically in implementations that are close enough 
+that they plausibly are compiled from the same source code. In user mode, these 
+low-level functions are the basis of higher-level functions that are exported by 
+ADVAPI32.DLL. </p>
+<p><span class="alert">TO BE CONTINUED</span> </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 31st
+  <a href="../../../../../../../new/20/05.htm">May 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,136 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CreateUrlCacheGroup</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>CreateUrlCacheGroup </h1>
+<p>This function creates a group in the Content cache container. </p>
+<h2>Declaration </h2>
+<pre class="source">GROUPID 
+CreateUrlCacheGroup (
+    DWORD dwFlags, 
+    LPVOID lpReserved);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">dwFlags</span> argument varies the behaviour of the 
+function and may specify the behaviour of the created group. The following bits 
+are permitted: </p>
+<table>
+  <tr>
+    <td>0x01 </td>
+    <td><span class="constant">CACHEGROUP_FLAG_NONPURGEABLE</span> </td>
+    <td>create a sticky group </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td><span class="constant">CACHEGROUP_FLAG_FLUSHURL_ONDELETE</span> </td>
+    <td>accepted but meaningless </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td><span class="constant">CACHEGROUP_FLAG_GIDONLY</span> </td>
+    <td>allocate a group ID but do not create a group </td>
+  </tr>
+</table>
+<p>The <span class="argument">lpReserved</span> argument must be NULL. </p>
+<h3>Return Value </h3>
+<p>If successful, the function returns a non-zero 64-bit identifier for the created 
+group. The function returns 0 to indicate failure. An error code can be retrieved 
+by calling <span class="function">GetLastError</span>. </p>
+<h2>Behaviour </h2>
+<p>If any invalid bit is set in <span class="argument">dwFlags</span> or if
+<span class="argument">lpReserved</span> is not NULL, the function fails. </p>
+<p>If URL caching is not yet initialised, it gets initialised as part of this function. 
+Among other things, this involves loading the registry configuration of all cache 
+containers in the applicable registry set and creating default groups in the Content 
+container. If this initialisation fails, so too does the function. </p>
+<p>This function works only with the Content container of the applicable registry 
+set. If no Content container has been loaded, the function fails. The function also 
+fails if it cannot secure its use of the Content container. </p>
+<p>The <span class="constant">CACHEGROUP_FLAG_GIDONLY</span> bit in
+<span class="argument">dwFlags</span> has precedence. If it is set, the function 
+is not to go as far as creating a group but is instead to stop just at obtaining 
+a group identifier as if for a new group. In practice, this cannot fail. If no group 
+identifier has yet been allocated for this Content container (from previous calls 
+to this function), then the current system time is saved as a
+<span class="struct">FILETIME</span> in the container file’s header. Subsequently, 
+this saved <span class="struct">FILETIME</span> is incremented for each new allocation. 
+The group identifier is the 64 bits of this saved <span class="struct">FILETIME</span> 
+but with the high 4 bits cleared. </p>
+<p>Without the <span class="constant">CACHEGROUP_FLAG_GIDONLY</span> bit in
+<span class="argument">dwFlags</span>, the function must find a free
+<span class="struct">GROUP_ENTRY</span> structure in the container file, or create 
+one. Failure at this is failure for the function. Having found a free
+<span class="struct">GROUP_ENTRY</span> structure, the function obtains a group 
+identifier as above, except that if the <span class="constant">CACHEGROUP_FLAG_NONPURGEABLE</span> 
+bit is set in <span class="argument">dwFlags</span>, the group identifier gets its 
+0x1000000000000000 bit set. Both the newly allocated group identifier and the given
+<span class="argument">dwFlags</span> are saved in the <span class="struct">GROUP_ENTRY</span>, 
+which is then the persistent record of the newly created group. In all future use 
+of the group, non-purgeability is determined by the flag in the group identifier, 
+not by the bit that is saved from the <span class="argument">dwFlags</span> argument.
+</p>
+<h3>Usage Notes </h3>
+<p>Once a group is created with this function, additional properties can be set 
+for it through the <span class="function">SetUrlCacheGroupAttribute</span> function 
+and URL entries can be assigned to the group by calling <span class="function">SetUrlCacheEntryGroup</span>. 
+Note that a URL entry can be assigned to multiple groups. To delete a group, call
+<span class="function"><a href="deletegroup.htm">DeleteUrlCacheGroup</a></span>.
+</p>
+<p>The point to a sticky group, as created by specifying <span class="constant">
+CACHEGROUP_FLAG_NONPURGEABLE</span>, is that URL entries automatically become sticky 
+(in the sense that their cache entry type acquires the <span class="constant">STICKY_CACHE_ENTRY</span> 
+flag) when assigned to a sticky group. </p>
+<p>The Content container has one group created by default (internally, without using 
+this function) as an essential part of initialising URL caching. This built-in group 
+is sticky. It is semi-documented, its group ID being declared symbolically in WININETI.H 
+as <span class="constant">CACHEGROUP_ID_BUILTIN_STICKY</span>. </p>
+<h2>Availability </h2>
+<p>The <span class="function">CreateUrlCacheGroup</span> function is exported by 
+name from WININET.DLL version 4.71 and higher. It has long been documented. Note 
+however that the documentation omits to mention that <span class="constant">CACHEGROUP_FLAG_NONPURGEABLE</span> 
+is accepted. </p>
+<p>The behaviour described in this note is of version 7.0 from the original Windows 
+Vista. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 14th September 2010 and was last modified 
+  on 17th September 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c10.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="5570" endspan -->
+</div>
+
+</body>
+
+</html>

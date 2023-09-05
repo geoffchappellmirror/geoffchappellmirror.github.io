@@ -1,0 +1,172 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Oldest Unchanged Kernel Code</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>The Oldest Unchanged Kernel Code </h1>
+  <p>The kernel’s internal routine for computing the <span class="member">TickCountMultiplier</span> 
+  in the <span class="struct"><a href="index.htm">KUSER_SHARED_DATA</a></span> is 
+  here presented as the kernel’s longest-lasting code that has any substance.
+  </p>
+  <p>The code is in one routine, named very straightforwardly as
+  <span class="internal routine">ExComputeTickCountMultiplier</span>. It dates from 
+  version 3.10, which does not have the <span class="struct">KUSER_SHARED_DATA</span> 
+  but computes the multiplier for the kernel’s implementation of
+  <span class="function">NtGetTickCount</span>. Dating during the development of 
+  this first Windows version is possible from pre-release builds that are redistributed 
+  on the Internet as abandon-ware, possibly unlawfully but invaluably for historians. 
+  Nothing like this routine yet exists in the pre-release build 3.10.297.1 from 
+  June 1992, but the routine is present in the pre-release build 3.10.328.1 from 
+  October 1992. At the other end of the time scale, it is still present at least 
+  as recently as the 2004 edition of Windows 10—and not just 32-bit, but 64-bit 
+  too. </p>
+  <p>At not even 100 bytes, substance is relative. But at roughly 60 to 80 bytes, 
+  depending on the version, it’s not trivial. And through all these years, this 
+  code has executed every time that anyone starts Windows. Though the binary code 
+  varies between versions, the source code in C looks like it has never changed 
+  in getting on to three decades, which is no small point of distinction. </p>
+  <h2>Algorithm </h2>
+  <p>Also distinctive is that the routine is much less slight than it could be. 
+  Because it works, it doesn’t need to be simpler or smaller. Though it exists only 
+  to prepare an optimisation, it need not itself be optimised. But all the routine 
+  has to do is zero-extend a 32-bit integer to 64 bits, shift left by 24 bits, and 
+  divide by 10,000. This routine could be coded as a single C statement. Had it 
+  been, it would almost certainly have got inlined, very possibly leaving (in the 
+  binary) no discernable trace of its being still written as a separate routine. 
+  Indeed, since its computation is wanted just the once, the programmer might have 
+  written the one statement in-place. Of all routines that might have survived unchanged 
+  for so long as active code, this one has strikingly little reason ever to have 
+  existed as its own routine, let alone to have survived. </p>
+  <p>For critical review, specifically of the routine’s improbable survival, let’s 
+  transcribe Microsoft’s code from the binary into C: </p>
+  <pre class="source">ULONG ExComputeTickCountMultiplier (ULONG Period)
+{
+    ULONG integer = Period / 10000;
+    ULONG remainder = Period - integer * 10000;
+    ULONG fraction = 0;
+    for (ULONG n = 24; n != 0; n --) {
+        remainder &lt;&lt;= 1;
+        fraction &lt;&lt;= 1;
+        if (remainder &lt; 10000) continue;
+        remainder -= 10000;
+        fraction |= 1;
+    }
+    return (integer &lt;&lt; 24) | fraction;
+}</pre>
+  <p>One way to parse the computed <span class="member">TickCountMultiplier</span> 
+  is that it’s a fixed-point integer with the high 8 bits for the integer part and 
+  the low 24 for the fraction. The kernel literally computes it in these parts: 
+  an integer division of the maximum period by 10,000 to get the integer part and 
+  a remainder; then 24 loops of a shift-and-subtract algorithm to divide this remainder 
+  by 10,000 to get the fractional part. Because of this particular fixed-point form, 
+  with 8 bits for the integer part, the result is meaningful only if
+  <span class="argument">Period</span> is less than 2,560,000. Given that this is 
+  assumed of the input, the code is correct. </p>
+  <p>Microsoft is evidently not unhappy with this code. Except that the routine’s 
+  name has the <span class="functionprefix">Exp</span> prefix in version 3.10 but 
+  changed to <span class="functionprefix">Ex</span> when version 3.50 gave the computed 
+  result more exposure, the routine looks to have been written once and then left 
+  untouched. Even if its longevity is due only to nobody at Microsoft having ever 
+  cared enough to review it, let alone rewrite it, someone certainly reviewed it 
+  for
+  <a href="https://github.com/svn2github/reactos/blob/master/ntoskrml/ex/init.c">
+  ReactOS</a> and seems similarly to have been not unhappy with it. For all the 
+  talk of ReactOS having reverse-engineered the Windows kernel using clean-room 
+  techniques, ReactOS’s implementation of this routine is just a slightly different 
+  transcription from mine above. </p>
+  <p>Yet the kernel’s code for this routine is undeniably laboured. For what’s assumed 
+  of the input, an alternative in one line gives exactly the same result and is 
+  far more readable: </p>
+  <pre class="source">ULONG ExComputeTickCountMultiplier (ULONG Period)
+{
+    return ((ULONGLONG) Period &lt;&lt; 24) / 10000;
+}</pre>
+  <p>It’s just not credible that a competent programmer could write this as ten 
+  statements without realising that the computation can be done in one (or that 
+  a competent reverse engineer could read Microsoft’s binary code and not capture 
+  the functionality for the programmers in the clean room, rather than dictate a 
+  precise implementation). The only explanation that makes sense to me (about Microsoft’s 
+  programming, not ReactOS’s transcription) is that in 1992 the one-statement implementation 
+  was unavailable. </p>
+  <h2>No 64-Bit Integer </h2>
+  <p>The obvious, if not only, reason that Microsoft’s programmers in 1992 would 
+  not have plumbed for the one-statement implementation is that there was no 64-bit 
+  integer type to do 64-bit arithmetic with. </p>
+  <p>To this day, the x86 kernel exports a set of <span class="functionprefix">Rtl</span> 
+  functions for arithmetic on 64-bit integers expressed as <span class="union">LARGE_INTEGER</span> 
+  or <span class="union">ULARGE_INTEGER</span> unions, and headers in kits for kernel-mode 
+  programming add macros and inline routines. All are documented in the DDK for 
+  Windows NT 3.1 as if intended for real-world use, which they got, both within 
+  the kernel and by drivers. Some remain in real-world use even now, but since at 
+  least the DDK for Windows NT 3.51 their documentation has been reduced to saying 
+  that each function “is exported to support existing driver binaries and is obsolete. 
+  For better performance use the compiler support for 64-bit integer operations.” 
+  Headers in the DDK for Windows NT 3.1 are written as if such support is anticipated 
+  but is not yet available. The familiar <span class="type">LONGLONG</span> and
+  <span class="type">ULONGLONG</span> types are defined, but as
+  <span class="type">double</span>. They have the desired 64-bit size and alignment 
+  but are not usable for integer arithmetic. (This fallback to
+  <span class="type">double</span> if <span class="type">__int64</span> is thought 
+  to be unavailable has never been completely removed. See for yourself in NTDEF.H.)
+  </p>
+  <p>Such were the limited programming resources of the Windows NT 3.1 DDK and contemporaneous 
+  (or at least recent) versions of Microsoft’s 32-bit compiler. Given this, the 
+  coding that the kernel has kept all these years arguably is optimised. It credibly 
+  was the most efficient, both for execution and presentation, that was possible 
+  at the time. Its survival in active use means it’s a living fossil of coding practice—indeed, 
+  of expert coding practice—from a time when Microsoft’s compiler for 32-bit Windows 
+  could not yet do 64-bit arithmetic. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 2nd
+    <a href="../../../../../../../../new/23/03.htm">March 2023</a> from material 
+    that was first published on <a href="../../../../../../../../new/16/05.htm">
+    May 2016</a>. It was last modified on 2nd April 2023. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1623.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14266" -->
+  </div>
+</div>
+
+</body>
+
+</html>

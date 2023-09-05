@@ -1,0 +1,2761 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>THREADINFO</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="54033" -->
+<h1>THREADINFO </h1>
+<p>The <span class="struct">THREADINFO</span> (formally <span class="struct">tagTHREADINFO</span>) 
+is the most of what WIN32K.SYS keeps about a thread. A portion at its start is reproduced 
+as a <span class="struct">W32THREAD</span> (formally <span class="struct">_W32THREAD</span>), 
+apparently as an unnamed member. It is not clear what governs the separation.
+</p>
+<p>No thread is born with a <span class="struct">THREADINFO</span> and many execute 
+to their end without ever having one—and not just for being system threads that 
+execute no user-mode code at all. To get a <span class="struct">THREADINFO</span> 
+a thread must try to use at least some of the extensive but optional GUI functionality 
+that Windows is known and loved for. When a thread calls a system service that is 
+not yet defined for the thread, the kernel attempts to convert the thread to a GUI 
+thread. This gets the thread connected with WIN32K.SYS in kernel mode and its support 
+for USER32.DLL and GDI32.DLL, among others, in user mode—and gives the thread an 
+additional service descriptor table so that those DLLs can communicate with WIN32K. 
+Though the distribution of the work involved in this conversion varies between versions, 
+the mechanism is essentially unchanged since version 3.51 prepared for the introduction 
+of WIN32K in version 4.0. </p>
+<h2>Documentation Status </h2>
+<p>Neither the <span class="struct">W32THREAD</span> nor the
+<span class="struct">THREADINFO</span> is documented, but structural details of 
+the <span class="struct">W32THREAD</span>—more or less equivalent to having a C-language 
+definition—are disclosed as type information in the public symbol files for WIN32K.SYS 
+starting with Windows XP. The larger <span class="struct">THREADINFO</span> is apparently 
+more secret. Though symbol files for Windows 8 and higher name the
+<span class="struct">THREADINFO</span> in the C++ decorations of internal routines, 
+type information for the structure is present in symbol files for Windows 7 only—not 
+before and not since. </p>
+<p>For some versions before Windows XP, Microsoft’s names for some, and even all, 
+members of both structures are known with varying confidence from the output of 
+one or another debugger command as implemented in the USEREXTS.DLL or USERKDX.DLL 
+debugger extensions which Microsoft published with one or another Device Driver 
+Kit (DDK). Nobody would sensibly count this as documentation. It does show, however, 
+that Microsoft understood for a while that knowledge of the <span class="struct">
+THREADINFO</span> may help programmers in the depths of debugging what they’re doing 
+with Windows! </p>
+<h2>Access </h2>
+<p>The <span class="struct">THREADINFO</span> has long been a kernel-mode structure 
+allocated from per-session paged pool, but although it is not accessible from user 
+mode its address is readily available to user-mode software, even with low integrity, 
+even as late as Windows 10, through all sorts of techniques from all sorts of places.
+</p>
+<p>Most direct and obvious is that in each <span class="struct">
+<a href="../../../../win32/ntdll/structs/teb/index.htm">TEB</a></span> for a GUI 
+thread, the <span class="member">Win32ThreadInfo</span> member, reliably at offset 
+0x40 since version 3.51, is formally a pointer to <span class="type">void</span> 
+but what it actually holds is the kernel-mode address of the
+<span class="struct">THREADINFO</span>. Less direct but ubiquitous is that the table 
+of handles to user objects is in shared memory such that any user-mode process that 
+can find the <span class="struct">SHAREDINFO</span> structure and knows that the
+<span class="member">aheList</span> member addresses an array of
+<span class="struct"><a href="../../../../win32/user32/structs/handleentry.htm">
+HANDLEENTRY</a></span> structures can get <span class="struct">THREADINFO</span> 
+addresses by the bucketload because in each <span class="struct">HANDLEENTRY</span> 
+for a user object that can be owned by a thread (as can a window, for instance) 
+the <span class="member">pOwner</span> member is the address of the owning thread’s
+<span class="struct">THREADINFO</span>. </p>
+<p>These kernel-mode addresses’ presence in user-mode memory—despite increasing 
+effort by Microsoft to eliminate such leakage in general—is perhaps a relic from 
+the earliest Windows versions. Before version 4.0, the <span class="struct">THREADINFO</span> 
+was a user-mode structure. Much of the work that is since done in kernel mode by 
+WIN32K.SYS was instead done in user mode by WINSRV.DLL in the CSRSS.EXE process. 
+Especially notable in the present context is a continuous history of a routine named
+<span class="routine">xxxCreateThreadInfo</span> now in WIN32K but with the same 
+name in WINSRV version 3.51 and with an even earlier existence in version 3.10 as 
+plain <span class="routine">CreateThreadInfo</span>. </p>
+<h3>Kernel Mode </h3>
+<p>In kernel mode, each <span class="struct">
+<a href="../../../ntoskrnl/structs/kthread/index.htm">KTHREAD</a></span> has a
+<span class="member">Win32Thread</span> member whose value is returned by the exported 
+function <span class="function">PsGetThreadWin32Thread</span> in version 5.1 and 
+higher. Starting with version 5.2 from Windows Server 2003 SP1, the kernel also 
+exports a <span class="function">PsGetCurrentThreadWin32Thread</span> which, of 
+course, reads this member specifically from the current thread’s
+<span class="struct">KTHREAD</span>. The contemporaneous elaboration
+<span class="function">PsGetCurrentThreadWin32ThreadAndEnterCriticalRegion</span> 
+does the same but also puts the thread into a critical region (as if to have called
+<span class="function">KeEnterCriticalRegion</span>) and indirectly returns the 
+thread’s process ID. None of these functions are documented, but all three are declared 
+in the NTOSP.H that was disclosed in some editions of the Windows Driver Kit (WDK) 
+for Windows 10. </p>
+<p>The <span class="member">Win32Thread</span> in the <span class="struct">KTHREAD</span> 
+also is formally a pointer to <span class="type">void</span>. Historically, what 
+it actually points to, if it points to anything, is the <span class="struct">THREADINFO</span>. 
+In version 10.0, however, it points to a <span class="struct">
+<a href="../w32threadnonpaged.htm">W32THREADNONPAGED</a></span> that is in session-global 
+non-paged pool and whose <span class="member">pW32Thread</span> is in turn a pointer 
+to the <span class="struct">THREADINFO</span> (which, remember, is in per-session 
+paged pool). </p>
+<h2>Layout </h2>
+<p>Not only is the <span class="struct">THREADINFO</span> highly variable between 
+versions but in the one version for which publicly available symbol files have type 
+information not just for the <span class="struct">W32THREAD</span> but for the
+<span class="struct">THREADINFO</span> too, reconciling the information against 
+the matching executable shows immediately that the <span class="struct">THREADINFO</span> 
+as described in the symbol files is not the full story. The memory block the
+<span class="struct">THREADINFO</span> is created in is larger than is declared 
+for the structure, yet the additional space is accessed as if for members of a larger 
+structure. It could be that the <span class="struct">THREADINFO</span> is itself 
+a reduction from an even more secret structure, but close inspection shows something 
+more interesting: the <span class="struct">THREADINFO</span> as described by type 
+information in the symbol file for WIN32K is not the <span class="struct">THREADINFO</span> 
+that the matching WIN32K executable actually uses. Even the following table just 
+of changing sizes is therefore not just more than usually complex but more than 
+usually uncertain. </p>
+<table class="Sizes">
+  <colgroup>
+    <col class="Version"><col class="Size" span="4">
+  </colgroup>
+  <tr>
+    <th rowspan="2">Version </th>
+    <th colspan="2"><span class="struct">W32THREAD</span> </th>
+    <th colspan="2"><span class="struct">THREADINFO</span> </th>
+    <th rowspan="2">Remarks </th>
+  </tr>
+  <tr>
+    <th>Size (x86) </th>
+    <th>Size (x64) </th>
+    <th>SIze (x86) </th>
+    <th>Size (x64) </th>
+  </tr>
+  <tr>
+    <td>3.10 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>0x026C </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>3.51 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>0x01F8 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>early 4.0 (before Windows NT 4.0 SP3) </td>
+    <td>0x38 </td>
+    <td>&nbsp;</td>
+    <td>0x0148 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>late 4.0 (Windows NT 4.0 SP3 and higher) </td>
+    <td>0x38 </td>
+    <td>&nbsp;</td>
+    <td>0x0150 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.0 </td>
+    <td>0x1C </td>
+    <td>&nbsp;</td>
+    <td>0x013C </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.1 </td>
+    <td>0x28 </td>
+    <td>&nbsp;</td>
+    <td>0x014C </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.2 </td>
+    <td>0x28 </td>
+    <td>0x60 </td>
+    <td>0x0150 </td>
+    <td>0x0278 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>6.0 </td>
+    <td>0x28 </td>
+    <td>0x60 </td>
+    <td>0x0164 </td>
+    <td>0x0298 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>6.1 </td>
+    <td>0xB4 </td>
+    <td>0x0150 </td>
+    <td>0x0220 </td>
+    <td>0x03D0 </td>
+    <td>symbol files have 0x0208 and 0x03A8 for <span class="struct">THREADINFO</span> 
+    size </td>
+  </tr>
+  <tr>
+    <td>6.2 </td>
+    <td>0xC0 </td>
+    <td>0x0168 </td>
+    <td>0x0278 </td>
+    <td>0x0468 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>6.3 </td>
+    <td>0xC0 </td>
+    <td>0x0168 </td>
+    <td>0x0298 </td>
+    <td>0x0490 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>10.0 </td>
+    <td>0xC4 </td>
+    <td>0x0170 </td>
+    <td>0x02D0 </td>
+    <td>0x04E0 </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>That the <span class="struct">THREADINFO</span> shrinks by nearly half before 
+it starts the continuing growth that would ordinarily be expected is because three 
+relatively large structures that are later built on the stack or in dynamically 
+allocated memory started out in the <span class="struct">THREADINFO</span> itself.
+</p>
+<h3>W32THREAD </h3>
+<p>For versions 5.1 and higher, offsets, types and Microsoft’s names for the first 
+part of the <span class="struct">THREADINFO</span> are known from type information 
+in public symbol files. For versions 4.0 and 5.0, offsets and Microsoft’s names 
+are known with good confidence from the output of the debugger’s
+<span class="struct">!dso</span> command as supported by the USEREXTS.DLL and USERKDX.DLL 
+debugger extensions for these versions. </p>
+<p>Memory for the <span class="struct">THREADINFO</span> is allocated by the kernel 
+in version 4.0, the required size having been communicated by WIN32K as an argument 
+to the undocumented (and highly variable) <span class="function">PsEstablishWin32Callouts</span> 
+function. The first 0x20 bytes of the <span class="struct">THREADINFO</span> get 
+copied from the kernel’s service descriptor table. The remainder is zero-initialised, 
+to be completed by WIN32K. It is not known how service descriptor table entries 
+are represented in Microsoft’s definitions. Version 5.0 redistributed the work, 
+such that the <span class="struct">THREADINFO</span> is instead created by WIN32K 
+and the service descriptor tables stay with the kernel. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">&lt;unknown-type&gt; ServiceDescriptorTable [2];</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x20 (4.0); <br>
+    0x00 </td>
+    <td rowspan="2">0x00 </td>
+    <td>
+    <pre class="source"><a href="../../../ntoskrnl/structs/ethread/index.htm">ETHREAD</a> *Thread;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ETHREAD *pEThread;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x24 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">CLIENT_ID RealClientId;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2C (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">PVOID GdiCachedProcessHandle;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">ULONG RefCount;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">TL *ptlW32;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x30 (4.0); <br>
+    0x0C </td>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">PVOID pgdiDcattr;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x34 (4.0); <br>
+    0x10 </td>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">PVOID pgdiBrushAttr;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>last <span class="struct">W32THREAD</span> member in 4.0 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x14 </td>
+    <td rowspan="2">0x28 </td>
+    <td>
+    <pre class="source">PVOID pUMPDObjs;</pre>
+    </td>
+    <td>5.0 to 6.1 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">LIST_ENTRY UMPDOBJList;</pre>
+    </td>
+    <td>10.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x18 (5.0 to 6.3); <br>
+    0x1C </td>
+    <td>0x30 (5.1 to 6.3); <br>
+    0x38 </td>
+    <td>
+    <pre class="source">PVOID pUMPDHeap;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>last <span class="struct">W32THREAD</span> member in 5.0 </td>
+  </tr>
+  <tr>
+    <td>0x1C (5.1) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG dwEngAcquireCount;</pre>
+    </td>
+    <td>5.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x20 (5.1) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">PVOID pSemTable;</pre>
+    </td>
+    <td>5.1 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1C (6.2 to 6.3) </td>
+    <td>0x38 (6.2 to 6.3) </td>
+    <td>
+    <pre class="source">PVOID DxThread;</pre>
+    </td>
+    <td>6.2 to 6.3 </td>
+    <td>next at 0x28 and 0x50 </td>
+  </tr>
+  <tr>
+    <td>0x24 (5.1); <br>
+    0x1C (5.2 to 6.1); <br>
+    0x20 (6.2 to 6.3) </td>
+    <td>0x38 (5.2 to 6.1); <br>
+    0x40 (6.2 to 6.3) </td>
+    <td>
+    <pre class="source">PVOID pUMPDObj;</pre>
+    </td>
+    <td>5.2 to 6.3 </td>
+    <td>last <span class="struct">W32THREAD</span> member in 5.1 </td>
+  </tr>
+  <tr>
+    <td>0x24 (6.2 to 6.3); <br>
+    0x20 </td>
+    <td>0x40 (5.2 to 6.1); <br>
+    0x48 (6.2 to 6.3); <br>
+    0x40 </td>
+    <td>
+    <pre class="source">PVOID pProxyPort;</pre>
+    </td>
+    <td>late 5.2 and higher (x64); <br>
+    6.2 and higher (x86) </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x28 (6.2 to 6.3); <br>
+    0x24 </td>
+    <td>0x48 (5.2 to 6.1); <br>
+    0x50 (6.2 to 6.3); <br>
+    0x48 </td>
+    <td>
+    <pre class="source">PVOID pClientID;</pre>
+    </td>
+    <td>late 5.2 and higher (x64); <br>
+    6.2 and higher (x86) </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>0x50 </td>
+    <td>
+    <pre class="source">PVOID DxThread;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>previously at 0x1C and 0x38 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x20 (5.2 to 6.1); <br>
+    0x2C </td>
+    <td rowspan="2">0x50 (5.2 to 6.1); <br>
+    0x58 </td>
+    <td>
+    <pre class="source">LIST_ENTRY GdiTmpAllocList;</pre>
+    </td>
+    <td>5.2 only </td>
+    <td>last <span class="struct">W32THREAD</span> member in 5.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">LIST_ENTRY GdiTmpTgoList;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>last <span class="struct">W32THREAD</span> member in 6.0 </td>
+  </tr>
+  <tr>
+    <td>0x28 (6.1); <br>
+    0x34 </td>
+    <td>0x60 (6.1); <br>
+    0x68 </td>
+    <td>
+    <pre class="source">ULONG pRBRecursionCount;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x2C (6.1); <br>
+    0x38 </td>
+    <td>0x64 (6.1); <br>
+    0x6C </td>
+    <td>
+    <pre class="source">ULONG pNonRBRecursionCount;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x30 (6.1); <br>
+    0x3C </td>
+    <td>0x68 (6.1); <br>
+    0x70 </td>
+    <td>
+    <pre class="source">TLSPRITESTATE tlSpriteState;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x90 (6.1); <br>
+    0x9C </td>
+    <td>0x0110 (6.1); <br>
+    0x0118 </td>
+    <td>
+    <pre class="source">PVOID pSpriteState;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x94 (6.1); <br>
+    0xA0 </td>
+    <td>0x0118 (6.1); <br>
+    0x0120 </td>
+    <td>
+    <pre class="source">PVOID pDevHTInfo;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x98 (6.1); <br>
+    0xA4 </td>
+    <td>0x0120 (6.1); <br>
+    0x0128 </td>
+    <td>
+    <pre class="source">ULONG ulDevHTInfoUniqueness;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x9C (6.1); <br>
+    0xA8 </td>
+    <td>0x0128 (6.1); <br>
+    0x0130 </td>
+    <td>
+    <pre class="source">PVOID pdcoAA;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xA0 (6.1); <br>
+    0xAC </td>
+    <td>0x0130 (6.1); <br>
+    0x0138 </td>
+    <td>
+    <pre class="source">PVOID pdcoRender;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xA4 (6.1); <br>
+    0xB0 </td>
+    <td>0x0138 (6.1); <br>
+    0x0140 </td>
+    <td>
+    <pre class="source">PVOID pdcoSrc;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xA8 (6.1); <br>
+    0xB4 </td>
+    <td>0x0140 (6.1); <br>
+    0x0148 </td>
+    <td>
+    <pre class="source">BOOLEAN bEnableEngUpdateDeviceSurface;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xA9 (6.1); <br>
+    0xB5 </td>
+    <td>0x0141 (6.1); <br>
+    0x0149 </td>
+    <td>
+    <pre class="source">BOOLEAN bIncludeSprites;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xB6 </td>
+    <td>0x014A </td>
+    <td>
+    <pre class="source">BOOLEAN bEnableAppContainerRendering;</pre>
+    </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xAC (6.1); <br>
+    0xB8 </td>
+    <td>0x0144 (6.1); <br>
+    0x014C </td>
+    <td>
+    <pre class="source">ULONG ulWindowSystemRendering;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xB0 (6.1); <br>
+    0xBC </td>
+    <td>0x0148 (6.1); <br>
+    0x0150 </td>
+    <td>
+    <pre class="source">ULONG iVisRgnUniqueness;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>last <span class="struct">W32THREAD</span> member in 6.1; <br>
+    last <span class="struct">W32THREAD</span> member in 6.2 (x86); <br>
+    last <span class="struct">W32THREAD</span> member in 6.3 (x86) </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x0158 </td>
+    <td>
+    <pre class="source">ULONGLONG RefCountInc;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x0160 </td>
+    <td>
+    <pre class="source">ULONGLONG RefCountDec;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>last <span class="struct">W32THREAD</span> member in 6.2 (x64); <br>
+    last <span class="struct">W32THREAD</span> member in 6.3 (x64) </td>
+  </tr>
+  <tr>
+    <td>0xC0 </td>
+    <td>0x0168 </td>
+    <td>
+    <pre class="source">PVOID pUmfdTls;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>last <span class="struct">W32THREAD</span> member in 10.0 </td>
+  </tr>
+</table>
+<h3>THREADINFO Continuation </h3>
+<p>For the rest of the <span class="struct">THREADINFO</span>, type information 
+is known in public symbol files for version 6.1 only. Microsoft’s names for some 
+members in versions 3.51 to 5.0 inclusive are known from the output of debugger 
+commands. Most noticeable is the <span class="command">!dti</span> command. More 
+notable for versions 4.0 and 5.0 is the <span class="command">!dso</span> command 
+as supported by the USERKDX.DLL debugger extensions for these versions. Still, structural 
+details of the <span class="struct">THREADINFO</span> are more than usually scarce 
+among public sources. For almost all Windows versions, the tables from here are 
+necessarily the result of deduction, inference and outright guesswork from inspection 
+of executables. Near the end of the structure, this becomes true even of version 
+6.1 despite Microsoft’s disclosure of type information. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 (3.10 to 3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source"><a href="../../../../win32/user32/structs/throbjhead.htm">THROBJHEAD</a> head;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0C (3.10); <br>
+    0x10 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>unknown <span class="struct">THREADINFO</span> pointer </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x38 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">LIST_ENTRY PtiLink;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>next at 0xA4 </td>
+  </tr>
+  <tr>
+    <td>0x10 (3.10) </td>
+    <td>&nbsp;</td>
+    <td>unknown heap handle </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x14 (3.10) </td>
+    <td>&nbsp;</td>
+    <td>unknown event handle </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x14 (3.51); <br>
+    0x40 (4.0); <br>
+    0x1C (5.0); <br>
+    0x28 (5.1 to 6.0); <br>
+    0xB4 (6.1); <br>
+    0xC0 (6.2 to 6.3); <br>
+    0xC4 </td>
+    <td>0x60 (5.2 to 6.0); <br>
+    0x0150 (6.1); <br>
+    0x0168 (6.2 to 6.3); <br>
+    0x0170 </td>
+    <td>
+    <pre class="source">TL *ptl;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x44 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">TL *ptlOb;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x48 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">TL *ptlPool;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4C (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">INT cEnterCount;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>next at 0xC4 </td>
+  </tr>
+</table>
+<p>Version 3.10 has at offset 0x14 a handle to a per-thread event that may correspond 
+in later versions to the per-process <span class="member">InputIdleEvent</span>.
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x18 (3.10 to 3.51); <br>
+    0x50 (4.0); <br>
+    0x20 (5.0); <br>
+    0x2C (5.1 to 6.0); <br>
+    0xB8 (6.1); <br>
+    0xC4 (6.2 to 6.3); <br>
+    0xC8 </td>
+    <td>0x68 (5.2 to 6.0); <br>
+    0x0158 (6.1); <br>
+    0x0170 (6.2 to 6.3); <br>
+    0x0178 </td>
+    <td>
+    <pre class="source"><a href="../processinfo/index.htm">PROCESSINFO</a> *ppi;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x1C (3.10 to 3.51); <br>
+    0x54 (4.0); <br>
+    0x24 (5.0); <br>
+    0x30 (5.1 to 6.0); <br>
+    0xBC (6.1); <br>
+    0xC8 (6.2 to 6.3); <br>
+    0xCC </td>
+    <td>0x70 (5.2 to 6.0); <br>
+    0x0160 (6.1); <br>
+    0x0178 (6.2 to 6.3); <br>
+    0x0180 </td>
+    <td>
+    <pre class="source">Q *pq;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x58 (4.0); <br>
+    0x28 (5.0); <br>
+    0x34 (5.1 to 6.0); <br>
+    0xC0 (6.1); <br>
+    0xCC (6.2 to 6.3); <br>
+    0xD0 </td>
+    <td>0x78 (5.2 to 6.0); <br>
+    0x0168 (6.1); <br>
+    0x0180 (6.2 to 6.3); <br>
+    0x0188 </td>
+    <td>
+    <pre class="source">KL *spklActive;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x20 (3.10 to 3.51); <br>
+    0x5C (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">MLIST mlPost;</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>next at 0xC8 </td>
+  </tr>
+  <tr>
+    <td>0x68 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">USHORT fsChangeBitsRemoved;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>previously as <span class="type">ULONG</span> at 0x38; <br>
+    next at 0xD4 </td>
+  </tr>
+  <tr>
+    <td>0x6A (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">USHORT cDeskClient;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x6C (4.0); <br>
+    0x2C (5.0); <br>
+    0x38 (5.1 to 6.0); <br>
+    0xC4 (6.1); <br>
+    0xD0 (6.2 to 6.3); <br>
+    0xD4 </td>
+    <td>0x80 (5.2 to 6.0); <br>
+    0x0170 (6.1); <br>
+    0x0188 (6.2 to 6.3); <br>
+    0x0190 </td>
+    <td>
+    <pre class="source">CLIENTTHREADINFO *pcti;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x70 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">CLIENTTHREADINFO cti;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>next at 0x012C </td>
+  </tr>
+  <tr>
+    <td>0x28 (3.10); <br>
+    0x2C (3.51); <br>
+    0x80 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">HANDLE hEventQueueClient;</pre>
+    </td>
+    <td>3.51 to 4.0 </td>
+    <td>next at 0x9C </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x2C (3.10); <br>
+    0x30 (3.51); <br>
+    0x84 (4.0) </td>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">HANDLE hEventQueueServer;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">KEVENT *pEventQueueServer;</pre>
+    </td>
+    <td>4.0 </td>
+    <td>next at 0xA0 </td>
+  </tr>
+  <tr>
+    <td>0x30 (3.10); <br>
+    0x34 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG fsChangeBits;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>next as <span class="type">USHORT</span> in <span class="struct">CLIENTTHREADINFO</span>
+    </td>
+  </tr>
+  <tr>
+    <td>0x38 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG fsChangeBitsRemovd;</pre>
+    </td>
+    <td>3.51 only </td>
+    <td>next as <span class="type">USHORT</span> at 0x68 </td>
+  </tr>
+  <tr>
+    <td>0x34 (3.10); <br>
+    0x3C (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG fsWakeBits;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>next as <span class="type">USHORT</span> in <span class="struct">CLIENTTHREADINFO</span>
+    </td>
+  </tr>
+  <tr>
+    <td>0x38 (3.10); <br>
+    0x40 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG fsWakeMask;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>next as <span class="type">USHORT</span> in <span class="struct">CLIENTTHREADINFO</span>
+    </td>
+  </tr>
+</table>
+<p>The spelling <span class="member">fsChangeBitsRemovd</span> is Microsoft’s, specifically 
+from the USEREXTS debugger extension from the DDK for Windows NT 3.51. This is as 
+good a moment as any to remind that the text for a debugger extension’s description 
+of a member does not necessarily reproduce the member’s name from whatever header 
+has the member’s source-code definition. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x88 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">KEVENT **apEvent;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>next at 0xDC </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x3C (3.10); <br>
+    0x44 (3.51); <br>
+    0x8C (4.0); <br>
+    0x30 (5.0); <br>
+    0x3C (5.1 to 6.0); <br>
+    0xC8 (6.1); <br>
+    0xD4 (6.2 to 6.3); <br>
+    0xD8 </td>
+    <td rowspan="2">0x88 (5.2 to 6.0); <br>
+    0x0178 (6.1); <br>
+    0x0190 (6.2 to 6.3); <br>
+    0x0198 </td>
+    <td>
+    <pre class="source">DESKTOP *spdesk;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">DESKTOP *rpdesk;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x48 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">DESKTOPINFO *pDeskInfo;</pre>
+    </td>
+    <td>3.51 only </td>
+    <td>next at 0x98 </td>
+  </tr>
+  <tr>
+    <td>0x40 (3.10); <br>
+    0x4C (3.51); <br>
+    0x90 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">HDESK hdesk;</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>next at 0x60 </td>
+  </tr>
+  <tr>
+    <td>0x94 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ACCESS_MASK amdesk;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>next at 0xE0 </td>
+  </tr>
+  <tr>
+    <td>0x98 (4.0); <br>
+    0x34 (5.0); <br>
+    0x40 (5.1 to 6.0); <br>
+    0xCC (6.1); <br>
+    0xD8 (6.2 to 6.3); <br>
+    0xDC </td>
+    <td>0x90 (5.2 to 6.0); <br>
+    0x0180 (6.1); <br>
+    0x0198 (6.2 to 6.3); <br>
+    0x01A0 </td>
+    <td>
+    <pre class="source">DESKTOPINFO *pDeskInfo;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>previously at 0x48 </td>
+  </tr>
+  <tr>
+    <td>0x44 (5.2 to 6.0); <br>
+    0xD0 (6.1); <br>
+    0xDC (6.2 to 6.3); <br>
+    0xE0 </td>
+    <td>0x98 (5.2 to 6.0); <br>
+    0x0188 (6.1); <br>
+    0x01A0 (6.2 to 6.3); <br>
+    0x01A8 </td>
+    <td>
+    <pre class="source">ULONG_PTR ulClientDelta;</pre>
+    </td>
+    <td>5.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x9C (4.0); <br>
+    0x38 (5.0); <br>
+    0x44 (5.1); <br>
+    0x48 (5.2 to 6.0); <br>
+    0xD4 (6.1); <br>
+    0xE0 (6.2 to 6.3); <br>
+    0xE4 </td>
+    <td>0xA0 (5.2 to 6.0); <br>
+    0x0190 (6.1); <br>
+    0x01A8 (6.2 to 6.3); <br>
+    0x01B0 </td>
+    <td>
+    <pre class="source">CLIENTINFO *pClientInfo;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x44 (3.10); <br>
+    0x50 (3.51); <br>
+    0xA0 (4.0); <br>
+    0x3C (5.0); <br>
+    0x48 (5.1); <br>
+    0x4C (5.2 to 6.0); <br>
+    0xD8 (6.1); <br>
+    0xE4 (6.2 to 6.3); <br>
+    0xE8 </td>
+    <td>0xA8 (5.2 to 6.0); <br>
+    0x0198 (6.1); <br>
+    0x01B0 (6.2 to 6.3); <br>
+    0x01B8 </td>
+    <td>
+    <pre class="source">ULONG <a href="tif_flags.htm">TIF_flags</a>;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x48 (3.10); <br>
+    0x54 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">DWORD idProcessClient;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x4C (3.10); <br>
+    0x58 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">DWORD idThreadClient;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x50 (3.10); <br>
+    0x5C (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">DWORD idSequenceClient;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x54 (3.10); <br>
+    0x60 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>unknown thread ID </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x58 (3.10); <br>
+    0x64 (3.51); <br>
+    0xA4 (4.0); <br>
+    0x40 (5.0); <br>
+    0x4C (5.1); <br>
+    0x50 (5.2 to 6.0); <br>
+    0xDC (6.1); <br>
+    0xE8 (6.2 to 6.3); <br>
+    0xEC </td>
+    <td rowspan="2">0xB0 (5.2 to 6.0); <br>
+    0x01A0 (6.1); <br>
+    0x01B8 (6.2 to 6.3); <br>
+    0x01C0 </td>
+    <td>
+    <pre class="source">PWSTR pstrAppName;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UNICODE_STRING *pstrAppName;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x5C (3.10); <br>
+    0x68 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG fsHooks;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>next at 0x0104 </td>
+  </tr>
+  <tr>
+    <td>0x60 (3.10); <br>
+    0x6C (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">HOOK *asphkStart [0x0D];</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>next at 0x0108 </td>
+  </tr>
+  <tr>
+    <td>0x94 (3.10); <br>
+    0xA0 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">HOOK *sphkCurrent;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>next at 0x0140 </td>
+  </tr>
+  <tr>
+    <td>0x98 (3.10); <br>
+    0xA4 (3.51); <br>
+    0xA8 (4.0); <br>
+    0x44 (5.0); <br>
+    0x50 (5.1); <br>
+    0x54 (5.2 to 6.0); <br>
+    0xE0 (6.1); <br>
+    0xEC (6.2 to 6.3); <br>
+    0xF0 </td>
+    <td>0xB8 (5.2 to 6.0); <br>
+    0x01A8 (6.1); <br>
+    0x01C0 (6.2 to 6.3); <br>
+    0x01C8 </td>
+    <td>
+    <pre class="source"><a href="../sms.htm">SMS</a> *psmsSent;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x9C (3.10); <br>
+    0xA8 (3.51); <br>
+    0xAC (4.0); <br>
+    0x48 (5.0); <br>
+    0x54 (5.1); <br>
+    0x58 (5.2 to 6.0); <br>
+    0xE4 (6.1); <br>
+    0xF0 (6.2 to 6.3); <br>
+    0xF4 </td>
+    <td>0xC0 (5.2 to 6.0); <br>
+    0x01B0 (6.1); <br>
+    0x01C8 (6.2 to 6.3); <br>
+    0x01D0 </td>
+    <td>
+    <pre class="source">SMS *psmsCurrent;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0xA0 (3.10); <br>
+    0xAC (3.51); <br>
+    0xB0 (4.0); <br>
+    0x4C (5.0); <br>
+    0x58 (5.1); <br>
+    0x5C (5.2 to 6.0); <br>
+    0xE8 (6.1); <br>
+    0xF4 (6.2 to 6.3); <br>
+    0xF8 </td>
+    <td rowspan="2">0xC8 (5.2 to 6.0); <br>
+    0x01B8 (6.1); <br>
+    0x01D0 (6.2 to 6.3); <br>
+    0x01D8 </td>
+    <td>
+    <pre class="source">SMS *psmsReceiveList;</pre>
+    </td>
+    <td>3.10 to 6.3 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>unknown <span class="struct">LIST_ENTRY</span> </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0100 </td>
+    <td>0x01E8 </td>
+    <td>unknown dword </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xA4 (3.10); <br>
+    0xB0 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">LONG_PTR ExtraInfo;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>next in <span class="struct">Q</span> </td>
+  </tr>
+  <tr>
+    <td>0xA8 (3.10); <br>
+    0xB4 (3.51 to 4.0); <br>
+    0x50 (5.0); <br>
+    0x5C (5.1); <br>
+    0x60 (5.2 to 6.0); <br>
+    0xEC (6.1); <br>
+    0xF8 (6.2 to 6.3); <br>
+    0x0104 </td>
+    <td>0xD0 (5.2 to 6.0); <br>
+    0x01C0 (6.1); <br>
+    0x01D8 (6.2 to 6.3); <br>
+    0x01EC </td>
+    <td>
+    <pre class="source">LONG timeLast;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xAC (3.10); <br>
+    0xB8 (3.51 to 4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">POINT ptLast;</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>next at 0xB0 </td>
+  </tr>
+  <tr>
+    <td>0xB4 (3.10); <br>
+    0xC0 (3.51 to 4.0); <br>
+    0x54 (5.0); <br>
+    0x60 (5.1); <br>
+    0x64 (5.2 to 6.0); <br>
+    0xF0 (6.1); <br>
+    0xFC (6.2 to 6.3); <br>
+    0x0108 </td>
+    <td>0xD8 (5.2 to 6.0); <br>
+    0x01C8 (6.1); <br>
+    0x01E0 (6.2 to 6.3); <br>
+    0x01F0 </td>
+    <td>
+    <pre class="source">ULONG_PTR idLast;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xBC (3.10); <br>
+    0xC8 (3.51); <br>
+    0xC4 (4.0); <br>
+    0x58 (5.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">INT cQuit;</pre>
+    </td>
+    <td>3.10 to 5.0 </td>
+    <td>next as 0x40000000 bit in <span class="member">TIF_flags</span> </td>
+  </tr>
+  <tr>
+    <td>0xC0 (3.10); <br>
+    0xCC (3.51); <br>
+    0xC8 (4.0); <br>
+    0x5C (5.0); <br>
+    0x64 (5.1); <br>
+    0x68 (5.2 to 6.0); <br>
+    0xF4 (6.1); <br>
+    0x0100 (6.2 to 6.3); <br>
+    0x010C </td>
+    <td>0xE0 (5.2 to 6.0); <br>
+    0x01D0 (6.1); <br>
+    0x01E8 (6.2 to 6.3); <br>
+    0x01F8 </td>
+    <td>
+    <pre class="source">INT exitCode;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x60 (5.0); <br>
+    0x68 (5.1); <br>
+    0x6C (5.2 to 6.0); <br>
+    0xF8 (6.1); <br>
+    0x0104 (6.2 to 6.3); <br>
+    0x0110 </td>
+    <td>0xE8 (5.2 to 6.0); <br>
+    0x01D8 (6.1); <br>
+    0x01F0 (6.2 to 6.3); <br>
+    0x0200 </td>
+    <td>
+    <pre class="source">HDESK hdesk;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x90 </td>
+  </tr>
+  <tr>
+    <td>0xC4 (3.10); <br>
+    0xD0 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>unaccounted four bytes </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xC8 (3.10); <br>
+    0xD4 (3.51); <br>
+    0xCC (4.0); <br>
+    0x64 (5.0); <br>
+    0x6C (5.1); <br>
+    0x70 (5.2 to 6.0); <br>
+    0xFC (6.1); <br>
+    0x0108 (6.2 to 6.3); <br>
+    0x0114 </td>
+    <td>0xF0 (5.2 to 6.0); <br>
+    0x01E0 (6.1); <br>
+    0x01F8 (6.2 to 6.3); <br>
+    0x0208 </td>
+    <td>
+    <pre class="source">INT cPaintsReady;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xCC (3.10); <br>
+    0xD8 (3.51); <br>
+    0xD0 (4.0); <br>
+    0x68 (5.0); <br>
+    0x70 (5.1); <br>
+    0x74 (5.2 to 6.0); <br>
+    0x0100 (6.1); <br>
+    0x010C (6.2 to 6.3); <br>
+    0x0118 </td>
+    <td>0xF4 (5.2 to 6.0); <br>
+    0x01E4 (6.1); <br>
+    0x01FC (6.2 to 6.3); <br>
+    0x020C </td>
+    <td>
+    <pre class="source">UINT cTimersReady;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0xD0 (3.10); <br>
+    0xDC (3.51); <br>
+    0xD4 (4.0); <br>
+    0x6C (5.0); <br>
+    0x74 (5.1); <br>
+    0x78 (5.2 to 6.0); <br>
+    0x0104 (6.1); <br>
+    0x0110 (6.2 to 6.3); <br>
+    0x011C </td>
+    <td>&nbsp;</td>
+    <td>unknown <span class="struct">MENUSTATE</span> </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xF8 (5.2 to 6.0); <br>
+    0x01E8 (6.1); <br>
+    0x0200 (6.2 to 6.3); <br>
+    0x0210 </td>
+    <td>
+    <pre class="source">MENUSTATE *pMenuState;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0108 (3.10); <br>
+    0x0104 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">&lt;unknown-type&gt; SBState;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x01B0 (3.10) </td>
+    <td>&nbsp;</td>
+    <td>unknown <span class="struct">MOVESIZEDATA</span> </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x022C (3.10); <br>
+    0x01B0 (3.51); <br>
+    0xD8 (4.0); <br>
+    0x70 (5.0); <br>
+    0x78 (5.1) <br>
+    0x7C (5.2 to 6.0); <br>
+    0x0108 (6.1); <br>
+    0x0114 (6.2 to 6.3); <br>
+    0x0120 </td>
+    <td rowspan="2">0x0100 (5.2 to 6.0); <br>
+    0x01F0 (6.1); <br>
+    0x0208 (6.2 to 6.3); <br>
+    0x0218 </td>
+    <td>
+    <pre class="source">union {
+    <a href="../tdb.htm">TDB</a> *ptdb;
+    WINDOWSTATION *pwinsta;
+    DESKTOP *pdeskClient;
+};</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    TDB *ptdb;
+    WINDOWSTATION *pwinsta;
+};</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0230 (3.10); <br>
+    0x01B4 (3.51); <br>
+    0xDC (4.0); <br>
+    0x74 (5.0); <br>
+    0x7C (5.1); <br>
+    0x80 (5.2 to 6.0); <br>
+    0x010C (6.1); <br>
+    0x0118 (6.2 to 6.3); <br>
+    0x0124 </td>
+    <td>0x0108 (5.2 to 6.0); <br>
+    0x01F8 (6.1); <br>
+    0x0210 (6.2 to 6.3); <br>
+    0x0220 </td>
+    <td>
+    <pre class="source">SVR_INSTANCE_INFO *psiiList;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0234 (3.10); <br>
+    0x01B8 (3.51); <br>
+    0xE0 (4.0); <br>
+    0x78 (5.0); <br>
+    0x80 (5.1); <br>
+    0x84 (5.2 to 6.0); <br>
+    0x0110 (6.1); <br>
+    0x011C (6.2 to 6.3); <br>
+    0x0128 </td>
+    <td>0x0110 (5.2 to 6.0); <br>
+    0x0200 (6.1); <br>
+    0x0218 (6.2 to 6.3); <br>
+    0x0228 </td>
+    <td>
+    <pre class="source">DWORD dwExpWinVer;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0120 (6.2 to 6.3); <br>
+    0x012C </td>
+    <td>0x021C (6.2 to 6.3); <br>
+    0x022C </td>
+    <td>
+    <pre class="source">DWORD dwManifestWinVer;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0238 (3.10); <br>
+    0x01BC (3.51); <br>
+    0xE4 (4.0); <br>
+    0x7C (5.0); <br>
+    0x84 (5.1); <br>
+    0x88 (5.2 to 6.0); <br>
+    0x0114 (6.1); <br>
+    0x0124 (6.2 to 6.3); <br>
+    0x0130 </td>
+    <td>0x0114 (5.2 to 6.0); <br>
+    0x0204 (6.1); <br>
+    0x0220 (6.2 to 6.3); <br>
+    0x0230 </td>
+    <td>
+    <pre class="source">union {
+    DWORD <a href="dwcompatflags.htm">dwCompatFlags</a>;
+    struct {
+        /* bit fields, follow link */
+    };
+};</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x023C (3.10) </td>
+    <td>&nbsp;</td>
+    <td>unknown dword </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x80 (5.0); <br>
+    0x88 (5.1); <br>
+    0x8C (5.2 to 6.0); <br>
+    0x0118 (6.1); <br>
+    0x0128 (6.2 to 6.3); <br>
+    0x0138 </td>
+    <td rowspan="2">0x0118 (5.2 to 6.0); <br>
+    0x0208 (6.1); <br>
+    0x0228 (6.2 to 6.3); <br>
+    0x0238 </td>
+    <td>
+    <pre class="source">union {
+    DWORD <a href="qwcompatflags2.htm">dwCompatFlags2</a>;
+    struct {
+        /* bit fields, follow link */
+    };
+};</pre>
+    </td>
+    <td>5.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    DWORD dwCompatFlags2;
+    ULONGLONG <a href="qwcompatflags2.htm">qwCompatFlags2</a>;
+    struct {
+        /* bit fields, follow link */
+    };
+};</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x01C0 (3.51); <br>
+    0xE8 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">UINT cWindows;</pre>
+    </td>
+    <td>3.51 to 4.0 </td>
+    <td>next at 0xE4 </td>
+  </tr>
+  <tr>
+    <td>0x0240 (3.10); <br>
+    0x01C4 (3.51); <br>
+    0xEC (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">UINT cVisWindows;</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>next at 0xE8 </td>
+  </tr>
+  <tr>
+    <td>0x0244 (3.10); <br>
+    0x01C8 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG hTaskWow;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>next in <span class="struct">TDB</span> </td>
+  </tr>
+  <tr>
+    <td>0x0248 (3.10); <br>
+    0x01CC (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">HANDLE hThreadClient;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x024C (3.10); <br>
+    0x01D0 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">HANDLE hThreadServer;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0250 (3.10); <br>
+    0x01D4 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">&lt;unknown-type&gt; *pcsrt;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0254 (3.10); <br>
+    0x01D8 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">TEB *pteb;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0258 (3.10); <br>
+    0x01DC (3.51); <br>
+    0xF0 (4.0); <br>
+    0x84 (5.0); <br>
+    0x8C (5.1); <br>
+    0x90 (5.2 to 6.0); <br>
+    0x0120 (6.1); <br>
+    0x0130 (6.2 to 6.3); <br>
+    0x0140 </td>
+    <td>0x0120 (5.2 to 6.0); <br>
+    0x0210 (6.1); <br>
+    0x0230 (6.2 to 6.3); <br>
+    0x0240 </td>
+    <td>
+    <pre class="source">Q *pqAttach;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x025C (3.10) </td>
+    <td>&nbsp;</td>
+    <td>unknown dword </td>
+    <td>3.10 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0260 (3.10); <br>
+    0x01E0 (3.51); <br>
+    0xF4 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">INT iCursorLevel;</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>next at 0xAC </td>
+  </tr>
+  <tr>
+    <td>0x0264 (3.10); <br>
+    0x01E4 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">INT cSpins;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0268 (3.10); <br>
+    0x01E8 (3.51); <br>
+    0xF8 (4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG fsReserveKeys;</pre>
+    </td>
+    <td>4.0 only </td>
+    <td>next at 0xD8; <br>
+    last <span class="struct">THREADINFO</span> member in 3.10 </td>
+  </tr>
+  <tr>
+    <td>0x01EC (3.51); <br>
+    0xFC (4.0); <br>
+    0x88 (5.0); <br>
+    0x90 (5.1); <br>
+    0x94 (5.2 to 6.0); <br>
+    0x0124 (6.1); <br>
+    0x0134 (6.2 to 6.3); <br>
+    0x0144 </td>
+    <td>0x0128 (5.2 to 6.0); <br>
+    0x0218 (6.1); <br>
+    0x0238 (6.2 to 6.3); <br>
+    0x0248 </td>
+    <td>
+    <pre class="source">THREADINFO *ptiSibling;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x01F0 (3.51); <br>
+    0x0100 (4.0); <br>
+    0x8C (5.0); <br>
+    0x94 (5.1); <br>
+    0x98 (5.2 to 6.0); <br>
+    0x0128 (6.1); <br>
+    0x0138 (6.2 to 6.3); <br>
+    0x0148 </td>
+    <td>0x0130 (5.2 to 6.0); <br>
+    0x0220 (6.1); <br>
+    0x0240 (6.2 to 6.3); <br>
+    0x0250 </td>
+    <td>
+    <pre class="source">MOVESIZEDATA *pmsd;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x01F4 (3.51) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">WOWTHREADINFO *pwti;</pre>
+    </td>
+    <td>3.51 only </td>
+    <td>next in <span class="struct">TDB</span>; <br>
+    last <span class="struct">THREADINFO</span> member in 3.51 </td>
+  </tr>
+  <tr>
+    <td>0x0104 (4.0); <br>
+    0x90 (5.0); <br>
+    0x98 (5.1); <br>
+    0x9C (5.2 to 6.0); <br>
+    0x012C (6.1); <br>
+    0x013C (6.2 to 6.3); <br>
+    0x014C </td>
+    <td>0x0138 (5.2 to 6.0); <br>
+    0x0228 (6.1); <br>
+    0x0248 (6.2 to 6.3); <br>
+    0x0258 </td>
+    <td>
+    <pre class="source">ULONG fsHooks;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>previously at 0x68 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0108 (4.0) </td>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">HOOK *asphkStart [0x0E];</pre>
+    </td>
+    <td>early 4.0 only </td>
+    <td>previously at 0x6C </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">HOOK *asphkStart [0x10];</pre>
+    </td>
+    <td>late 4.0 only </td>
+    <td>next at 0xEC </td>
+  </tr>
+  <tr>
+    <td>0x0140 (early 4.0); <br>
+    0x0148 (late 4.0); <br>
+    0x94 (5.0); <br>
+    0x9C (5.1); <br>
+    0xA0 (5.2 to 6.0); <br>
+    0x0130 (6.1); <br>
+    0x0140 (6.2 to 6.3); <br>
+    0x0150 </td>
+    <td>0x0140 (5.2 to 6.0); <br>
+    0x0230 (6.1); <br>
+    0x0250 (6.2 to 6.3); <br>
+    0x0260 </td>
+    <td>
+    <pre class="source">HOOK *sphkCurrent;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>previoustly at 0xA0 </td>
+  </tr>
+  <tr>
+    <td>0x0134 (6.1); <br>
+    0x0144 (6.2 to 6.3); <br>
+    0x0154 </td>
+    <td>0x0238 (6.1); <br>
+    0x0258 (6.2 to 6.3); <br>
+    0x0268 </td>
+    <td>
+    <pre class="source">LPARAM lParamHkCurrent;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0138 (6.1); <br>
+    0x0148 (6.2 to 6.3); <br>
+    0x0158 </td>
+    <td>0x0240 (6.1); <br>
+    0x0260 (6.2 to 6.3); <br>
+    0x0270 </td>
+    <td>
+    <pre class="source">WPARAM wParamHkCurrent;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0144 (early 4.0); <br>
+    0x014C (late 4.0); <br>
+    0x98 (5.0); <br>
+    0xA0 (5.1); <br>
+    0xA4 (5.2 to 6.0); <br>
+    0x013C (6.1); <br>
+    0x014C (6.2 to 6.3); <br>
+    0x015C </td>
+    <td>0x0148 (5.2 to 6.0); <br>
+    0x0248 (6.1); <br>
+    0x0268 (6.2 to 6.3); <br>
+    0x0278 </td>
+    <td>
+    <pre class="source">SBTRACK *pSBTrack;</pre>
+    </td>
+    <td>4.0 and higher </td>
+    <td>last <span class="struct">THREADINFO</span> member in 4.0 </td>
+  </tr>
+</table>
+<p>The unknown <span class="struct">LIST_ENTRY</span> elaborates
+<span class="member">psmsReceiveList</span> from single-linked to double-linked. 
+It seems likely that Microsoft changed the name, but to what is unknown. The unknown 
+dword that follows counts the <span class="struct">SMS</span> structures in the 
+list. </p>
+<p>A thread has a <span class="member">ptdb</span> or a <span class="member">pwinsta</span> 
+according to whether its <span class="constant">TIF_16BIT</span> (0x00000002) bit 
+is set or clear in the <span class="member">TIF_flags</span>. </p>
+<p>The name <span class="member">dwManifestWinVer</span> is proposed as a reasonable 
+guess in the style of what it follows. The member is set by a routine that symbol 
+files show to be named <span class="routine">SetManifestWinVer</span>.&nbsp; </p>
+<p>There is, of course, one element in the <span class="member">aphkStart</span> 
+array for each possible hook, as set through the API function
+<span class="function">SetWindowsHookEx</span>. The hooks are documented and it 
+is well known that the numbering is not zero-based but instead starts at -1 (<span class="constant">WH_MSGFILTER</span>). 
+Notwithstanding that a conditional block in Microsoft’s WINUSER.H would have it 
+that <span class="constant">WH_KEYBOARD_LL</span> (0x0D) and
+<span class="constant">WH_MOUSE_LL</span> (0x0E) are defined for version 4.0 and 
+higher, they are in fact rejected by the WIN32K.SYS from the original release of 
+Windows NT 4.0. Indeed, look back through Microsoft’s documentation, even as recently 
+as the Software Development Kit (SDK) for Windows 7, and it can be found that the 
+low-level keyboard and mouse hooks require “version 4.0 SP3 or later.” </p>
+<h3>Appended for Windows 2000 </h3>
+<p>Most members that appear at the end of the <span class="struct">THREADINFO</span> 
+in version 5.0 weren’t so much appended as just moved from earlier in the structure, 
+in no particular order for no reason that I yet understand. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x9C (5.0); <br>
+    0xA4 (5.1); <br>
+    0xA8 (5.2 to 6.0); <br>
+    0x0140 (6.1); <br>
+    0x0150 (6.2 to 6.3); <br>
+    0x0160 </td>
+    <td>0x0150 (5.2 to 6.0); <br>
+    0x0250 (6.1); <br>
+    0x0270 (6.2 to 6.3); <br>
+    0x0280 </td>
+    <td>
+    <pre class="source">PVOID hEventQueueClient;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x80 </td>
+  </tr>
+  <tr>
+    <td>0xA0 (5.0); <br>
+    0xA8 (5.1); <br>
+    0xAC (5.2 to 6.0); <br>
+    0x0144 (6.1); <br>
+    0x0154 (6.2 to 6.3); <br>
+    0x0164 </td>
+    <td>0x0158 (5.2 to 6.0); <br>
+    0x0258 (6.1); <br>
+    0x0278 (6.2 to 6.3); <br>
+    0x0288 </td>
+    <td>
+    <pre class="source">KEVENT *pEventQueueServer;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x84 </td>
+  </tr>
+  <tr>
+    <td>0xA4 (5.0); <br>
+    0xAC (5.1); <br>
+    0xB0 (5.2 to 6.0); <br>
+    0x0148 (6.1); <br>
+    0x0158 (6.2 to 6.3); <br>
+    0X0168 </td>
+    <td>0x0160 (5.2 to 6.0); <br>
+    0x0260 (6.1); <br>
+    0x0280 (6.2 to 6.3); <br>
+    0x0290 </td>
+    <td>
+    <pre class="source">LIST_ENTRY PtiLink;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x38 </td>
+  </tr>
+  <tr>
+    <td>0xAC (5.0); <br>
+    0xB4 (5.1); <br>
+    0xB8 (5.2 to 6.0); <br>
+    0x0150 (6.1); <br>
+    0x0160 (6.2 to 6.3); <br>
+    0x0170 </td>
+    <td>0x0170 (5.2 to 6.0); <br>
+    0x0270 (6.1); <br>
+    0x0290 (6.2 to 6.3); <br>
+    0x02A0 </td>
+    <td>
+    <pre class="source">INT iCursorLevel;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0xF4 </td>
+  </tr>
+  <tr>
+    <td>0xB0 (5.0); <br>
+    0xB8 (5.1); <br>
+    0xBC (5.2 to 6.0); <br>
+    0x0154 (6.1); <br>
+    0x0164 (6.2 to 6.3); <br>
+    0x0174 </td>
+    <td>0x0174 (5.2 to 6.0); <br>
+    0x0274 (6.1); <br>
+    0x0294 (6.2 to 6.3); <br>
+    0x02A4 </td>
+    <td>
+    <pre class="source">POINT ptLast;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0xB8 </td>
+  </tr>
+  <tr>
+    <td>0xC4 (6.0); <br>
+    0x015C (6.1); <br>
+    0x016C (6.2 to 6.3); <br>
+    0x017C </td>
+    <td>0x017C (6.0); <br>
+    0x027C (6.1); <br>
+    0x029C (6.2 to 6.3); <br>
+    0x02AC </td>
+    <td>
+    <pre class="source">POINT ptLastReal;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xB8 (5.0); <br>
+    0xC0 (5.1); <br>
+    0xC4 (5.2); <br>
+    0xCC (6.0); <br>
+    0x0164 (6.1); <br>
+    0x0174 (6.2 to 6.3); <br>
+    0x0184 </td>
+    <td>0x0180 (5.2); <br>
+    0x0188 (6.0); <br>
+    0x0288 (6.1); <br>
+    0x02A8 (6.2 to 6.3); <br>
+    0x02B8 </td>
+    <td>
+    <pre class="source">WND *spwndDefaultIme;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xBC (5.0); <br>
+    0xC4 (5.1); <br>
+    0xC8 (5.2); <br>
+    0xD0 (6.0); <br>
+    0x0168 (6.1); <br>
+    0x0178 (6.2 to 6.3); <br>
+    0x0188 </td>
+    <td>0x0188 (5.2); <br>
+    0x0190 (6.0); <br>
+    0x0290 (6.1); <br>
+    0x02B0 (6.2 to 6.3); <br>
+    0x02C0 </td>
+    <td>
+    <pre class="source">IMC *spDefaultImc;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xC0 (5.0); <br>
+    0xC8 (5.1); <br>
+    0xCC (5.2); <br>
+    0xD4 (6.0); <br>
+    0x016C (6.1); <br>
+    0x017C (6.2 to 6.3); <br>
+    0x018C </td>
+    <td>0x0190 (5.2); <br>
+    0x0198 (6.0); <br>
+    0x0298 (6.1); <br>
+    0x02B8 (6.2 to 6.3); <br>
+    0x02C8 </td>
+    <td>
+    <pre class="source">HKL hklPrev;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xC4 (5.0); <br>
+    0xCC (5.1); <br>
+    0xD0 (5.2); <br>
+    0xD8 (6.0); <br>
+    0x0170 (6.1); <br>
+    0x0180 (6.2 to 6.3); <br>
+    0x0190 </td>
+    <td>0x0198 (5.2); <br>
+    0x01A0 (6.0); <br>
+    0x02A0 (6.1); <br>
+    0x02C0 (6.2 to 6.3); <br>
+    0x02D0 </td>
+    <td>
+    <pre class="source">INT cEnterCount;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x4C </td>
+  </tr>
+  <tr>
+    <td>0xC8 (5.0); <br>
+    0xD0 (5.1); <br>
+    0xD4 (5.2); <br>
+    0xDC (6.0); <br>
+    0x0174 (6.1); <br>
+    0x0184 (6.2 to 6.3); <br>
+    0x0194 </td>
+    <td>0x01A0 (5.2); <br>
+    0x01A8 (6.0); <br>
+    0x02A8 (6.1); <br>
+    0x02C8 (6.2 to 6.3); <br>
+    0x02D8 </td>
+    <td>
+    <pre class="source">MLIST mlPost;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x5C </td>
+  </tr>
+  <tr>
+    <td>0xD4 (5.0); <br>
+    0xDC (5.1); <br>
+    0xE0 (5.2); <br>
+    0xE8 (6.0); <br>
+    0x0180 (6.1); <br>
+    0x0194 (6.2 to 6.3); <br>
+    0x01A4 </td>
+    <td>0x01B8 (5.2); <br>
+    0x01C0 (6.0); <br>
+    0x02C0 (6.1); <br>
+    0x02E0 (6.2 to 6.3); <br>
+    0x02F0 </td>
+    <td>
+    <pre class="source">USHORT fsChangeBitsRemoved;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x68 </td>
+  </tr>
+  <tr>
+    <td>0xD6 (5.0); <br>
+    0xDE (5.1); <br>
+    0xE2 (5.2); <br>
+    0xEA (6.0); <br>
+    0x0182 (6.1); <br>
+    0x0196 (6.2 to 6.3); <br>
+    0x01A6 <br>
+    </td>
+    <td>0x01BA (5.2); <br>
+    0x01C2 (6.0); <br>
+    0x02C2 (6.1); <br>
+    0x02E2 (6.2 to 6.3); <br>
+    0x02F2 </td>
+    <td>
+    <pre class="source">WCHAR wchInjected;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0xD8 (5.0); <br>
+    0xE0 (5.1); <br>
+    0xE4 (5.2); <br>
+    0xEC (6.0); <br>
+    0x0184 (6.1); <br>
+    0x0198 (6.2 to 6.3); <br>
+    0x01A8 </td>
+    <td>0x01BC (5.2); <br>
+    0x01C4 (6.0); <br>
+    0x02C4 (6.1); <br>
+    0x02E4 (6.2 to 6.3); <br>
+    0x02F4 </td>
+    <td>
+    <pre class="source">ULONG fsReserveKeys;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0xF8 </td>
+  </tr>
+  <tr>
+    <td>0xDC (5.0); <br>
+    0xE4 (5.1); <br>
+    0xE8 (5.2); <br>
+    0xF0 (6.0); <br>
+    0x0188 (6.1); <br>
+    0x019C (6.2 to 6.3); <br>
+    0x01AC </td>
+    <td>0x01C0 (5.2); <br>
+    0x01C8 (6.0); <br>
+    0x02C8 (6.1); <br>
+    0x02E8 (6.2 to 6.3); <br>
+    0x02F8 </td>
+    <td>
+    <pre class="source">KEVENT **apEvent;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x88 </td>
+  </tr>
+  <tr>
+    <td>0xE0 (5.0); <br>
+    0xE8 (5.1); <br>
+    0xEC (5.2); <br>
+    0xF4 (6.0); <br>
+    0x018C (6.1); <br>
+    0x01A0 (6.2 to 6.3); <br>
+    0x01B0 </td>
+    <td>0x01C8 (5.2); <br>
+    0x01D0 (6.0); <br>
+    0x02D0 (6.1); <br>
+    0x02F0 (6.2 to 6.3); <br>
+    0x0300 </td>
+    <td>
+    <pre class="source">ACCESS_MASK amdesk;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x94 </td>
+  </tr>
+  <tr>
+    <td>0xE4 (5.0); <br>
+    0xEC (5.1); <br>
+    0xF0 (5.2); <br>
+    0xF8 (6.0); <br>
+    0x0190 (6.1); <br>
+    0x01A4 (6.2 to 6.3); <br>
+    0x01B4 </td>
+    <td>0x01CC (5.2); <br>
+    0x01D4 (6.0); <br>
+    0x02D4 (6.1); <br>
+    0x02F4 (6.2 to 6.3); <br>
+    0x0304 </td>
+    <td>
+    <pre class="source">UINT cWindows;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0xE8 </td>
+  </tr>
+  <tr>
+    <td>0xE8 (5.0); <br>
+    0xF0 (5.1); <br>
+    0xF4 (5.2); <br>
+    0xFC (6.0); <br>
+    0x0194 (6.1); <br>
+    0x01A8 (6.2 to 6.3); <br>
+    0x01B8 </td>
+    <td>0x01D0 (5.2); <br>
+    0x01D8 (6.0); <br>
+    0x02D8 (6.1); <br>
+    0x02F8 (6.2 to 6.3); <br>
+    0x0308 </td>
+    <td>
+    <pre class="source">UINT cVisWindows;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0xEC </td>
+  </tr>
+  <tr>
+    <td>0xEC (5.0); <br>
+    0xF4 (5.1); <br>
+    0xF8 (5.2); <br>
+    0x0100 (6.0); <br>
+    0x0198 (6.1); <br>
+    0x01AC (6.2 to 6.3); <br>
+    0x01BC </td>
+    <td>0x01D8 (5.2); <br>
+    0x01E0 (6.0); <br>
+    0x02E0 (6.1); <br>
+    0x0300 (6.2 to 6.3); <br>
+    0x0310 </td>
+    <td>
+    <pre class="source">HOOK *aphkStart [0x10];</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x0108 </td>
+  </tr>
+  <tr>
+    <td>0x012C (5.0); <br>
+    0x0134 (5.1); <br>
+    0x0138 (5.2); <br>
+    0x0140 (6.0); <br>
+    0x01D8 (6.1); <br>
+    0x01EC (6.2 to 6.3); <br>
+    0x01FC </td>
+    <td>0x0258 (5.2); <br>
+    0x0260 (6.0); <br>
+    0x0360 (6.1); <br>
+    0x0380 (6.2 to 6.3); <br>
+    0x0390 </td>
+    <td>
+    <pre class="source">CLIENTTHREADINFO cti;</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously at 0x70; <br>
+    last <span class="struct">THREADINFO</span> member in 5.0 </td>
+  </tr>
+</table>
+<p>It is immediately after the <span class="member">cti</span> member that offsets 
+in type information from symbol files for Windows 7 start to go wrong. These symbol 
+files have the <span class="struct">CLIENTTHREADINFO</span> as 0x10 bytes in both 
+32-bit and 64-bit Windows, but for the structure as actually used by WIN32K this 
+size has not been correct since Windows XP added a dword. How the symbol files get 
+built with only a partial <span class="struct">CLIENTTHREADINFO</span> is not known. 
+The consequence for the next few <span class="struct">THREADINFO</span> members 
+is that offsets that are read mechanically from the Windows 7 symbol files, e.g., 
+for presentation on the Internet as supposedly worthwhile research, are off by four 
+or eight bytes in 32-bit and 64-bit Windows respectively. </p>
+<h3>Appended Mostly For Windows 7 </h3>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x0148 (5.1); <br>
+    0x014C (5.2); <br>
+    0x0154 (6.0); <br>
+    0x01EC (6.1); <br>
+    0x0200 (6.2 to 6.3); <br>
+    0x0210 </td>
+    <td>0x0270 (5.2); <br>
+    0x0278 (6.0); <br>
+    0x0378 (6.1); <br>
+    0x0398 (6.2 to 6.3); <br>
+    0x03A8 </td>
+    <td>
+    <pre class="source">PVOID hPrevHidData;</pre>
+    </td>
+    <td>5.1 and higher </td>
+    <td>last <span class="struct">THREADINFO</span> member in 5.1; <br>
+    last <span class="struct">THREADINFO</span> member in 5.2; <br>
+    0x01E8 and 0x0370 in 6.1 according to symbol files </td>
+  </tr>
+  <tr>
+    <td>0x01F0 (6.1); <br>
+    0x0204 (6.2 to 6.3); <br>
+    0x0214 </td>
+    <td>0x0380 (6.1); <br>
+    0x03A0 (6.2 to 6.3); <br>
+    0x03B0 </td>
+    <td>
+    <pre class="source">HTOUCHINPUT hTouchInputCurrent;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>0x01EC and 0x0378 in 6.1 according to symbol files </td>
+  </tr>
+  <tr>
+    <td>0x01F4 (6.1); <br>
+    0x0208 (6.2 to 6.3); <br>
+    0x0218 </td>
+    <td>0x0388 (6.1); <br>
+    0x03A8 (6.2 to 6.3); <br>
+    0x03B8 </td>
+    <td>
+    <pre class="source">HGESTUREINFO hGestureInfoCurrent;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>0x01F0 and 0x0380 in 6.1 according to symbol files </td>
+  </tr>
+  <tr>
+    <td>0x01F8 (6.1) </td>
+    <td>0x0390 (6.1) </td>
+    <td>
+    <pre class="source">MSGPPINFO MsgPPInfo;</pre>
+    </td>
+    <td>6.1 only </td>
+    <td>0x01F4 and 0x0388 in 6.1 according to symbol files; <br>
+    next at 0x024C and 0x0424 </td>
+  </tr>
+  <tr>
+    <td>0x020C (6.2 to 6.3); <br>
+    0x021C </td>
+    <td>0x03B0 (6.2 to 6.3); <br>
+    0x03C0 </td>
+    <td>unknown <span class="struct">THREADINPUTPOINTERLIST</span> </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0158 (6.0); <br>
+    0x0200 (6.1); <br>
+    0x0224 (6.2 to 6.3); <br>
+    0x0234 </td>
+    <td>0x0280 (6.0); <br>
+    0x0398 (6.1); <br>
+    0x03D8 (6.2 to 6.3); <br>
+    0x03E8 </td>
+    <td>unknown <span class="struct">INPUTHANGINFO</span> </td>
+    <td>6.0 and higher </td>
+    <td>not present in 6.1 according to symbol files; <br>
+    last <span class="struct">THREADINFO</span> member in 6.0 </td>
+  </tr>
+  <tr>
+    <td>0x020C (6.1); <br>
+    0x023C (6.2 to 6.3); <br>
+    0x024C </td>
+    <td>0x03B0 (6.1); <br>
+    0x0408 (6.2 to 6.3); <br>
+    0x0418 </td>
+    <td>
+    <pre class="source">UINT cNestedStableVisRgn;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>0x01F8 and 0x038C in 6.1 according to symbol files </td>
+  </tr>
+  <tr>
+    <td>0x0210 (6.1); <br>
+    0x0240 (6.2 to 6.3); <br>
+    0x0250 </td>
+    <td>0x03B8 (6.1); <br>
+    0x0410 (6.2 to 6.3); <br>
+    0x0420 </td>
+    <td>
+    <pre class="source">LIST_ENTRY readyHead;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>0x01FC and 0x0390 in 6.1 according to symbol files </td>
+  </tr>
+  <tr>
+    <td>0x0218 (6.1); <br>
+    0x0248 (6.2 to 6.3); <br>
+    0x0258 </td>
+    <td>0x03C8 (6.1); <br>
+    0x0420 (6.2 to 6.3); <br>
+    0x0430 </td>
+    <td>
+    <pre class="source">union {
+    struct {
+        /* bit fields, follow link */
+    };
+    ULONG <a href="ulthreadflags2.htm">ulThreadFlags2</a>;
+};</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>0x0204 and 0x03A0 in 6.1 according to symbol files; <br>
+    last <span class="struct">THREADINFO</span> member in 6.1 </td>
+  </tr>
+</table>
+<p>Microsoft’s name <span class="struct">THREADINPUTINFOLIST</span> (formally
+<span class="struct">tagTHREADINPUTINFOLIST</span>) for the structure that first 
+appears in version 6.2 at offsets 0x020C and 0x03B0 is known from symbol files, 
+specifically from the names of routines that are written in C++ and take the structure’s 
+address among their arguments. The structure begins with a <span class="struct">
+LIST_ENTRY</span> that links structures whose name is similarly known to be
+<span class="struct">THREADPOINTERDATA</span> (formally <span class="struct">tagTHREADPOINTERDATA</span>). 
+Microsoft’s names for these structures’ members are not known. </p>
+<p>The <span class="member">MsgPPInfo</span> member is accessed as eight bytes in 
+both 32-bit and 64-bit Windows, yet symbol files for Windows 7 have the
+<span class="struct">MSGPPINFO</span> structure as four bytes in both 32-bit and 
+64-bit Windows. It is here supposed that the symbol files must be wrong about the
+<span class="struct">MSGPPINFO</span> structure, the alternative being that they’re 
+wrong even about the existence of a <span class="member">MsgPPInfo</span> member 
+(there being no other space for it). </p>
+<p>The structure that first appears in version 6.0 at offsets 0x0158 and 0x0280 
+is operated on by routines that symbol files name as <span class="routine">AddUpdateHangInfo</span>,
+<span class="routine">DestroyUpdateHangInfo</span>, etc, and since symbol files 
+for Windows 8.1 (but not Windows 8 or Windows 10) have C++ decorations for these 
+routines Microsoft’s name for the structure is nowadays known to be
+<span class="struct">INPUTHANGINFO</span> (formally <span class="struct">tagINPUTHANGINFO</span>). 
+The structure in the <span class="struct">THREADINFO</span> itself is the head of 
+a list. The head is for the thread itself. Others are for the thread’s windows. 
+This is where the timeout for hung applications is tested—and it
+<span class="emphasis">is</span> hard-coded to 5 seconds in version 6.0. Microsoft’s 
+names for the <span class="struct">THREADINFO</span> member or for the
+<span class="struct">INPUTHANGINFO</span> members are not known. How the member 
+gets missed in the type information from the symbol files for Windows 7 is not known. 
+Note especially that it cannot be that the symbol files as published are somehow 
+out of date: this <span class="struct">INPUTHANGINFO</span> was no last-minute addition 
+during development of Windows 7 but has existed since Windows Vista. </p>
+<p>Before version 6.1, timers for all threads go into one list. Version 6.1 has 
+a global list too but improves on it by putting each timer into both the global 
+list and the new per-thread list. The name <span class="member">readyHead</span> 
+from the suspect symbol files is consistent with the <span class="member">cTimersReady</span> 
+counter that is the whole per-thread tracking of timers in earlier versions. </p>
+<h3>Appended for Windows 8 </h3>
+<p>Microsoft’s names for members that have been added to the
+<span class="struct">THREADINFO</span> since Windows 7 may never be known. On the 
+plus side, if only for neatness of presentation, new members have mostly been added 
+simply by appending.&nbsp;</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x024C (6.2 to 6.3); <br>
+    0x025C </td>
+    <td>0x0424 (6.2 to 6.3); <br>
+    0x0434 </td>
+    <td>
+    <pre class="source">MSGPPINFO MsgPPInfo;</pre>
+    </td>
+    <td>6.2 and higher </td>
+    <td>previously at 0x01F8 and 0x0390 </td>
+  </tr>
+  <tr>
+    <td>0x0254 (6.2 to 6.3); <br>
+    0x0264 </td>
+    <td>0x042C (6.2 to 6.3); <br>
+    0x043C </td>
+    <td>unknown byte </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0258 (6.2 to 6.3); <br>
+    0x0268 </td>
+    <td>0x0430 (6.2 to 6.3); <br>
+    0x0440 </td>
+    <td>unknown pointer </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x025C (6.2 to 6.3); <br>
+    0x026C </td>
+    <td>0x0438 (6.2 to 6.3); <br>
+    0x0448 </td>
+    <td>unknown pointer </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0260 (6.2 to 6.3); <br>
+    0x0270 </td>
+    <td>0x0440 (6.2 to 6.3); <br>
+    0x0450 </td>
+    <td>unknown dword (counter) </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0264 (6.2 to 6.3); <br>
+    0x0274 </td>
+    <td>0x0448 (6.2 to 6.3); <br>
+    0x0458 </td>
+    <td>unknown pointer </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0268 (6.3); <br>
+    0x0278 </td>
+    <td>0x0450 (6.3); <br>
+    0x0460 </td>
+    <td>unknown dword </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0268 (6.2); <br>
+    0x026C (6.3); <br>
+    0x027C </td>
+    <td>0x0450 (6.2); <br>
+    0x0454 (6.3); <br>
+    0x0464 </td>
+    <td>unknown <span class="struct">POINT</span> </td>
+    <td>6.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0270 (6.2); <br>
+    0x0274 (6.3); <br>
+    0x0284 </td>
+    <td>0x0458 (6.2); <br>
+    0x0460 (6.3); <br>
+    0x0470 </td>
+    <td>unknown <span class="struct">LIST_ENTRY</span> </td>
+    <td>6.2 and higher </td>
+    <td>last <span class="struct">THREADINFO</span> member in 6.2 </td>
+  </tr>
+</table>
+<p>The unknown <span class="struct">LIST_ENTRY</span> is presumed to remain defined 
+for version 10.0 though its use seems to have been discontinued. </p>
+<h3>Appended for Windows 8.1 </h3>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x027C (6.3); <br>
+    0x028C </td>
+    <td>0x0470 (6.3); <br>
+    0x0480 </td>
+    <td>unknown dword </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0280 (6.3); <br>
+    0x0290 </td>
+    <td>0x0474 (6.3); <br>
+    0x0484 </td>
+    <td>unknown dword </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0284 (6.3); <br>
+    0x0294 </td>
+    <td>0x0478 (6.3); <br>
+    0x0488 </td>
+    <td>unknown <span class="struct">MSGPPINFO</span> </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x028C (6.3); <br>
+    0x029C </td>
+    <td>0x0480 (6.3); <br>
+    0x0490 </td>
+    <td>unknown pointer </td>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0290 (6.3); <br>
+    0x02A0 </td>
+    <td>0x0488 (6.3); <br>
+    0x0498 </td>
+    <td>unknown dword </td>
+    <td>6.3 and higher </td>
+    <td>last <span class="struct">THREADINFO</span> member in 6.3 </td>
+  </tr>
+</table>
+<h3>Appended for Windows 10 </h3>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x02A4 </td>
+    <td>0x04A0 </td>
+    <td>unaccounted </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02A8 </td>
+    <td>0x04A8 </td>
+    <td>unknown eight bytes </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02B0 </td>
+    <td>0x04B0 </td>
+    <td>unknown eight bytes </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02B8 </td>
+    <td>0x04B8 </td>
+    <td>unknown pointer </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02BC </td>
+    <td>0x04C0 </td>
+    <td>unknown <span class="type">KEVENT</span> pointer </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02C0 </td>
+    <td>0x04C8 </td>
+    <td>unknown <span class="struct">WND</span> pointer </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02C4 </td>
+    <td>0x04D0 </td>
+    <td>unknown pointer </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02C8 </td>
+    <td>0x04D8 </td>
+    <td>unknown dword </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02CC </td>
+    <td>0x04DC </td>
+    <td>unknown dword </td>
+    <td>10.0 and higher </td>
+    <td>last <span class="struct">THREADINFO</span> member in 10.0 </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 13th June 2017 but was not published 
+  until 6th <a href="../../../../../../new/17/08.htm">August 2017</a>. It was last 
+  modified on 1st October 2017. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c17.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62677" -->
+</div>
+
+</body>
+
+</html>

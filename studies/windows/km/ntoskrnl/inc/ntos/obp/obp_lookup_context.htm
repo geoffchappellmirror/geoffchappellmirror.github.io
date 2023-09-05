@@ -1,0 +1,333 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>OBP_LOOKUP_CONTEXT</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>OBP_LOOKUP_CONTEXT </h1>
+  <p>The <span class="struct">OBP_LOOKUP_CONTEXT</span> structure (formally
+  <span class="struct">_OBP_LOOKUP_CONTEXT</span>) dates from Windows XP. With one 
+  exception, it only ever exists temporarily on the stack while internal routines 
+  in the kernel look through the object namespace. The exception is that one internal 
+  routine’s need for this structure comes with so much other temporary data that 
+  no self-respecting programmer would put it all on the stack and so the space is 
+  instead obtained from non-paged pool (with the efficiency of a per-processor lookaside 
+  list, starting with Windows Vista). </p>
+  <p>As temporary data for looking through the object namespace, the structure is 
+  vital knowledge for Microsoft’s own programmers of the Object Manager. It plausibly 
+  has been too for some programmers outside Microsoft who are debugging the Object 
+  Manager, having been mystified by some apparent mistreatment of some object. Nowadays, 
+  the most interest outside Microsoft will be for security researchers who are examining 
+  the Object Manager for vulnerabilities. I don’t well know the methods of searching 
+  for vulnerabilities but I imagine that a thorough examination of the Object Manager 
+  is simply not possible without encountering the <span class="struct">OBP_LOOKUP_CONTEXT</span>.
+  </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="struct">OBP_LOOKUP_CONTEXT</span> is not documented. This 
+  is, of course, not the slightest surprise for a structure that exists only for 
+  internal routines. The surprise instead is that even the structure’s name is knowable 
+  from outside Microsoft. </p>
+  <h3>Forensics </h3>
+  <p>How Microsoft’s name for this transient structure—and for its members—is known 
+  is the usual one: type information for the structure is available in public symbol 
+  files for the kernel, though in this case not until Windows Vista SP1. </p>
+  <p>But why <span class="emphasis">any</span> public symbol file has type information 
+  for this structure is far from obvious. Since the structure is not nested in another 
+  that is shown in the symobl files, nor even pointed to from one, type information 
+  for it is not needed to complete the type information for another. Instead, disclosure 
+  occurs only because a pointer to the structure is an argument to an inline routine 
+  that is in turn called from another that’s also defined in some header that is 
+  included when generating the public symbol file. Starting with Windows Vista SP1, 
+  the public symbol files record the type of the called routine. Starting with Windows 
+  8, they record the name too: </p>
+  <pre class="source">FORCEINLINE 
+VOID 
+ObpUnlockDirectory (
+    OBJECT_DIRECTORY *, 
+    OBP_LOOKUP_CONTEXT *);</pre>
+  <p>Disclosure of this inline routine’s name, which likely is unintended, has nothing 
+  directly to do with Windows 8 but with developments in the compiler and linker 
+  (and thus of what goes into PDB files) for Visual Studio 2012. Still, published 
+  it is—and were it not that these developments and the heavy use of inline routines, 
+  the <span class="struct">OBP_LOOKUP_CONTEXT</span> would be known only to the 
+  sort of “researcher” who’s compromised by learning from leaked source code.&nbsp;
+  </p>
+  <p>From Windows XP through to the original Windows 10, much of the kernel’s use 
+  of the <span class="struct">OBP_LOOKUP_CONTEXT</span> looks to be through helper 
+  routines that are only ever inlined. One helper, named
+  <span class="internal routine">ObpReleaseLookupContextObject</span>, is named 
+  in the public symbol files from Windows Server 2003 through to Windows Vista because 
+  although it is often inlined it is sometimes not. The inline expansions are many 
+  and large. Their repetition for each of some other routines’ different exits for 
+  different cases of failure plausibly gains no run-time efficiency and is just 
+  bloat. Programmers’ opinions on the merits of inlining vary widely, as does their 
+  interpretation of experimental observation, but some of these helpers surely are 
+  too large and execute too infrequently to be worth the trouble. Starting with 
+  Version 1511, at least some are sometimes not inlined—indeed, are inlined only 
+  rarely—and so their names show in the public symbol files. All can then be matched, 
+  with good confidence but some reservations, against the obvious inline expansions 
+  dating back to Windows XP: <span class="internal routine">ObpLockDirectoryExclusive</span>,
+  <span class="internal routine">ObpLockDirectoryShared</span> and
+  <span class="internal routine">ObpReleaseLookupContext</span>. The last of these 
+  is the one whose use of <span class="internal routine">ObpUnlockDirectory</span> 
+  got it into the public symbol files as long ago as 2012. </p>
+  <p>That I take the trouble to sketch an obscure structure’s use in inline routines 
+  is because I see a wider point for researchers and other commentators. Say what 
+  you will about Microsoft—the supposedly more open (and better-behaved) new Microsoft 
+  or just the Microsoft that always was—but however much the company may guard its 
+  private symbol files, it lets far more out in the public symbol files than tends 
+  to be recognised by either its detractors or supporters. </p>
+  <h2>Variability </h2>
+  <p>As a structure that is only ever passed between internal routines, the
+  <span class="struct">OBP_LOOKUP_CONTEXT</span> is highly susceptible to changing 
+  between builds. Against this is that the structure is small and relatively straightforward, 
+  and so the variations have not been many. The following changes of size summarise 
+  which versions are affected: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>5.1 to early 5.2 (before SP1) </td>
+        <td>0x10 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.2 to 6.1 </td>
+        <td>0x14 </td>
+        <td>0x20 </td>
+      </tr>
+      <tr>
+        <td>6.2 to 2004 </td>
+        <td>0x18 </td>
+        <td>0x28 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout </h2>
+  <p>The sizes in the preceding table and the offsets, names and types in the next 
+  are from type information in public symbol files for the kernel, starting with 
+  Windows Vista SP1. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source"><a href="../ob/object_directory.htm">OBJECT_DIRECTORY</a> *Directory;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">PVOID Object;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>0x10 </td>
+        <td>
+        <pre class="source"><a href="../ob/object_directory_entry.htm">OBJECT_DIRECTORY_ENTRY</a> **EntryLink;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 (late 5.2 to 6.1); <br>
+        0x0C </td>
+        <td>0x10 (late 5.2 to 6.1); <br>
+        0x18 </td>
+        <td>
+        <pre class="source">ULONG HashValue;</pre>
+        </td>
+        <td>late 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 (5.1 to early 5.2); <br>
+        0x0C (late 5.2 to 6.1); <br>
+        0x10 </td>
+        <td>0x14 (late 5.2 to 6.1); <br>
+        0x1C </td>
+        <td>
+        <pre class="source">USHORT HashIndex;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0A (5.1 to early 5.2); <br>
+        0x0E (late 5.2 to 6.1); <br>
+        0x12 </td>
+        <td>0x16 (late 5.2 to 6.1); <br>
+        0x1E </td>
+        <td>
+        <pre class="source">BOOLEAN DirectoryLocked;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F (6.1); <br>
+        0x13 </td>
+        <td>0x17 (6.1); <br>
+        0x1F </td>
+        <td>
+        <pre class="source">BOOLEAN LockedExclusive;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0C (5.1 to early 5.2); <br>
+        0x10 (late 5.2 to 6.1); <br>
+        0x14 </td>
+        <td rowspan="2">0x18 (late 5.2 to 6.1); <br>
+        0x20 </td>
+        <td>
+        <pre class="source">ULONG volatile LockStateSignature;</pre>
+        </td>
+        <td>5.1 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG LockStateSignature;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <!-- p>What value the <span class="member">LockStateSignature</span> adds to the
+  <span class="member">DirectoryLocked</span> and <span class="member">
+  LockedExclusive</span> flags is unclear. Since the removal of
+  <span class="keyword">volatile</span> in Windows 8 has a side-effect that 
+  changes of the <span class="member">LockStateSignature</span> are sometimes 
+  optimised away when inlining, one might well ask whether the
+  <span class="member">LockStateSignature</span> has any merit at all. </p -->
+  <p>The intended scheme is that the <span class="member">LockStateSignature</span> 
+  is initially 0xFFFF1234, but changes to 0xAAAA1234 or 0xBBBB1234 in anticipation 
+  of exclusive or shared locking of some directory object, and then to 0xCCCC1234 
+  or 0xDDDD1234 after the lock is acquired, and to 0xEEEE1234 after the lock is 
+  released. </p>
+  <!-- p>The values 0xAAAA1234 and 0xBBBB1234 therefore record something that the 
+  flags do not: they mark that whichever thread has control of this 
+  <span class="struct">OBP_LOOKUP_CONTEXT</span>  is waiting on some directory 
+  object’s lock (or is at least on the way to waiting, or has acquired the lock 
+  without having yet acted on it). As noted, though, whatever merit this may 
+  have been in early versions, it goes away in Windows 8 
+  because the setting of 0xAAAA1234 ahead of the wait is sometimes skipped. </p>
+  <p>The strong suggestion is that there is a more complicated hierarchy of 
+  inlined helpers—if not still, then historically—such that operations on the 
+  signature and the flags are coded separately. For instance, the modern 
+  implementation of the instantiated <span class="internal routine">
+  ObpLockDirectoryExclusive</span> 
+  looks to be written something like </p>
+  <pre class="source">VOID ObpLockDirectoryExclusive (OBJECT_DIRECTORY *Directory, OBP_LOOKUP_CONTEXT *Context)
+{
+    Context -&gt; LockStateSignature = 0xAAAA1234;
+    KeEnterCriticalRegion ();
+    ExAcquirePushLockExclusive (&amp;Directory -&gt; Lock);
+    Context -&gt; LockStateSignature = 0xCCCC1234;
+    ObReferenceObject (Directory);
+    Context -&gt; Directory = Directory;
+    Context -&gt; DirectoryLocked = TRUE;
+    Context -&gt; LockedExclusive = TRUE;
+}</pre>
+  <p>This makes more sense if the inline routine with this name originally dealt 
+  just with the locking of the directory object, bracketed with having the 
+  context just to record the changes of lock state: </p>
+  <pre class="source">VOID ObpLockDirectoryExclusive (OBJECT_DIRECTORY *Directory, OBP_LOOKUP_CONTEXT *Context)
+{
+    Context -&gt; LockStateSignature = 0xAAAA1234;
+    KeEnterCriticalRegion ();
+    ExAcquirePushLockExclusive (&amp;Directory -&gt; Lock);
+    Context -&gt; LockStateSignature = 0xCCCC1234;
+}</pre>
+  <p>Further updating of the context may then have been the business of a caller 
+  that never is named in the public symbol files: </p>
+  <pre class="source">VOID &lt;unknown-name&gt; (OBP_LOOKUP_CONTEXT *Context, OBJECT_DIRECTORY *Directory)
+{
+    ObpLockDirectoryExclusive (Directory, Context);
+    Context -&gt; DirectoryLocked = TRUE;
+    Context -&gt; Directory = Directory;
+}</pre>
+  <p>This separation matches the coding before Windows 7. There is no evidence 
+  one way or the other for the order of arguments in the proposed caller, but 
+  the observed practice of Microsoft’s programmers is that the primary focus of 
+  a routine’s work tends to come first among the arguments. What is certain is 
+  that if the separation ever was coded, then the caller’s additional work with 
+  the context must have been folded into the called routine no later than for 
+  Windows 8 (else <span class="inline routine">ObpLockDirectoryExclusive</span> 
+  also would be named in the public symbol file for Windows 8). </p>
+  <p>See that versions before Windows 7 save the address of the directory object 
+  without adding a reference. </p -->
+  <div class="Footer">
+    <p class="Dates">This page was created on 22nd
+    <a href="../../../../../../../new/22/07.htm">August 2022</a> and was last modified 
+    on 6th September 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5890" -->
+  </div>
+</div>
+
+</body>
+
+</html>

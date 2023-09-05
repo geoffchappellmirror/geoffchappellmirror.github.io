@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Bug Check 0x3E: MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../_styles/km.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="57102" -->
+<div class="Main">
+  <div class="Header">
+    <p class="alert">This article was x86-specific when written about Windows Vista. 
+    It never has got properly attended to for later versions or for 64-bit Windows, 
+    despite continuing interest and occasional attempts. Use with caution. If you 
+    need more up-to-date information, try getting it from Microsoft. </p>
+  </div>
+  <h1>Bug Check 0x3E: Multi-Processor Configuration Not Supported </h1>
+  <p>The <span class="constant">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</span> 
+  bug check reports that one processor differs too much from others. </p>
+  <p>The summary that Microsoft offers to programmers through the
+  <span class="command">!analyze</span> debugger extension command is: </p>
+  <pre class="output">The system has multiple processors, but they are asymmetric in relation
+to one another.  In order to be symmetric all processors must be of
+the same type and level.  For example, trying to mix a Pentium level
+processor with an 80486 would cause this bug check.</pre>
+  <h2>Availability </h2>
+  <p>The <span class="constant">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</span> 
+  bug check can occur in all known versions, i.e., 3.10 and higher. </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="constant">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</span> 
+  bug check is documented. Even today, 7th July 2020, Microsoft’s documentation 
+  says this bug check has no parameters. </p>
+  <h2>32-Bit Windows (i386) </h2>
+  <p>Microsoft’s documentation was correct when it was written. Before version 4.0, 
+  this bug check does indeed have no parameters. Even then, the documentation’s 
+  “all processors must be of the same type and level” was at best a general intention. 
+  The last version for which it is explicitly true is 3.10. It requires that all 
+  processors have exactly the same <span class="member">CpuType</span>, meaning 
+  roughly what the Intel literature refers to as the family, in their
+  <span class="struct"><a href="../ntoskrnl/inc/ntos/i386_x/kprcb/index.htm">KPRCB</a></span> 
+  and that either all have a numeric coprocessor or none have. Versions 3.50 and 
+  3.51 make a point of accepting processors from different families except to reject 
+  any multi-processor configuration that includes an 80386. This provision is dropped 
+  from later versions, which reject even a lone 80386 (and raise the
+  <span class="constant"><a href="5d.htm">UNSUPPORTED_PROCESSOR</a></span> bug check 
+  without multi-processor implications being yet an issue). </p>
+  <p>In version 4.0, the kernel changed completely to matching processors not by 
+  their “type and level”, as documented, but by the presence or absence of particular 
+  features. Access to a numeric coprocessor remains as one feature to test for and 
+  require agreement on. Most others are determined from the
+  <span class="instruction"><a href="../cpu/cpuid/index.htm">cpuid</a></span> instruction, 
+  especially from the feature flags that are returned in
+  <a href="../cpu/cpuid/00000001h/edx.htm"><span class="register">edx</span> from
+  <span class="instruction">cpuid</span> leaf 1</a>. Beware, though, that feature 
+  identification can get complex, with special cases for such things as vendors, 
+  models and steppings—which are all ignored for the rest of this note! </p>
+  <p>Much as the early versions accept a mixture of families, later versions can 
+  work with some mixtures of features. This perhaps requires some explanation. Windows 
+  has long been documented as being designed for symmetric multiprocessor (SMP) 
+  systems. This is often expressed as meaning that all processors must be identical, 
+  but this is correct only very roughly. What the kernel requires is not that all 
+  the processors be identical but that they can all be used identically. </p>
+  <p>The kernel can tolerate some differences by the simple expedient of working 
+  to the lowest capability. If a feature is not supported on all processors, it 
+  simply doesn’t get used for any. For some features, however, the kernel’s support 
+  for the feature, or its accommodation of the feature’s absence, is already relied 
+  on for the boot processor by the time the kernel starts other processors. If reconfiguring 
+  for a difference would be impossible, difficult or too much trouble, then the 
+  difference is fatal and is reported as bug check 0x3E. </p>
+  <h3>Feature Difference </h3>
+  <p>In versions 4.0 to 6.1 inclusive, reporting what it is that differs too much 
+  between the processors is relatively straightforward. The first feature that is 
+  noticed to be fatally different between processors is indicated by the 1st bug-check 
+  parameter: </p>
+  <table>
+    <tr>
+      <td>Bug Check Code: </td>
+      <td><span class="constant">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</span> 
+      (0x3E) </td>
+    </tr>
+    <tr>
+      <td>1st Parameter: </td>
+      <td>0x00000010 for difference in <span class="bit">PGE</span> support (4.0 
+      and higher); <br>
+      0x00000040 for difference in <span class="bit">MTRR</span> support (5.0 and 
+      higher); <br>
+      0x00000080 for difference in <span class="bit">CX8</span> support (4.0 and 
+      higher); <br>
+      0x00000387 for difference in whether numerical coprocessor is present (4.0 
+      to 6.1); <br>
+      0x00000400 for difference in <span class="bit">PAT</span> support (5.0 and 
+      higher); <br>
+      0x00000800 for difference in <span class="bit">FXSR</span> support (5.0 and 
+      higher) or value of <span class="register">mxcsr</span> (5.1 and higher);
+      <br>
+      0x00002000 for difference in <span class="bit">SSE</span> support (5.0 and 
+      higher); <br>
+      0x00040000 for difference in <span class="bit">CLFSH</span> support (6.0 and 
+      higher); <br>
+      0x20000000 for difference in Execute-Disable support (some 5.1, some 5.2, 
+      and 6.0 and higher) </td>
+    </tr>
+    <tr>
+      <td>2nd Parameter: </td>
+      <td>expected <span class="register">mxcsr</span> value, if difference is in 
+      value of <span class="register">mxcsr</span> (5.1 and higher); <br>
+      0, otherwise </td>
+    </tr>
+    <tr>
+      <td>3rd Parameter: </td>
+      <td>rejected <span class="register">mxcsr</span> value, if difference is in 
+      value of <span class="register">mxcsr</span> (5.1 and higher); <br>
+      0, otherwise </td>
+    </tr>
+    <tr>
+      <td>4th Parameter: </td>
+      <td>0 </td>
+    </tr>
+  </table>
+  <p>The “some versions” of 5.1 and 5.2 start with Windows XP SP2 and Windows Server 
+  2003 SP1, respectively. </p>
+  <p>The order in which differences are noticed perhaps does not matter. As it happens, 
+  the features that are noticed first allow for no mix-and-match. They must either 
+  be present for all processors or for none: </p>
+  <ul>
+    <li>the <span class="instruction">fxsave</span> and
+    <span class="instruction">fsrstor</span> instructions, as indicated by the
+    <span class="bit">FXSR</span> bit; </li>
+    <li>Streaming SIMD Extensions (SSE), as indicated by the <span class="bit">SSE</span> 
+    bit; </li>
+    <li>numeric coprocessor. </li>
+  </ul>
+  <p>For <span class="bit">FXSR</span> support, the <span class="register">mxcsr</span> 
+  register must be consistent across all processors. When inconsistent, the expected 
+  and rejected values are given as the 2nd and 3rd bug-check parameters. </p>
+  <p>For most features, the rule is that if the boot processor has the feature, 
+  then so must all other processors: </p>
+  <ul>
+    <li>the <span class="instruction">cmpxchg8b</span> instruction, as indicated 
+    by the <span class="bit">CX8</span> bit; </li>
+    <li>global pages, as indicated by the <span class="bit">PGE</span> bit; </li>
+    <li>the Page Attribute Table (PAT), as indicated by the <span class="bit">PAT</span> 
+    bit; </li>
+    <li>Memory Type Range Registers (MMTR), as indicated by the
+    <span class="bit">MTRR</span> bit; </li>
+    <li>the <span class="instruction">CLFLUSH</span> instruction, as indicated by 
+    the <span class="bit">CLFSH</span> bit; </li>
+    <li>the Execute-Disable bit in page table entries, as indicated by bit 20 in
+    <span class="register">edx</span> returned by <span class="instruction">cpuid</span> 
+    leaf 0x80000001. </li>
+  </ul>
+  <p>For <span class="bit">MTRR</span> support, the Model-Specific Register (MSR)
+  <span class="register">MTRRcap</span> (0xFE) must be consistent across all processors. 
+  Inconsistency of the model-specific register <span class="register">MTRRdefType</span> 
+  (0x2FF) is tested but tolerated, albeit with a complaint to the debugger even 
+  in the free build: </p>
+  <pre class="output">KiInitializeMTRR: MTRR_MSR_DEFAULT is not consistent between processors. </pre>
+  <p>If the boot processor supports <span class="instruction">CLFLUSH</span>, then 
+  not only must all processors support the instruction, they must all have the same 
+  line size (which <span class="instruction">cpuid</span> leaf 1 returns in bits 
+  8 to 15 of <span class="register">ebx</span>). </p>
+  <h3>Hyper-Threading Difference </h3>
+  <p>Version 6.2 adds </p>
+  <table>
+    <tr>
+      <td>Bug Check Code: </td>
+      <td><span class="constant">MULTIPROCESSOR_CONFIGURATION_NOT_SUPPORTED</span> 
+      (0x3E) </td>
+    </tr>
+    <tr>
+      <td>1st Parameter: </td>
+      <td>address of <span class="struct">KPRCB</span> </td>
+    </tr>
+    <tr>
+      <td>2nd Parameter: </td>
+      <td>number of processors in package </td>
+    </tr>
+    <tr>
+      <td>3rd Parameter: </td>
+      <td>number of cores per physical processor </td>
+    </tr>
+    <tr>
+      <td>4th Parameter: </td>
+      <td>number of logical processors per core </td>
+    </tr>
+  </table>
+  <h3>Single-Processor Configuration Not Supported </h3>
+  <p>Versions 4.0 and 5.0 have code to raise this bug check for mis-matched
+  <span class="bit">CX8</span> support even while initialising for the boot processor, 
+  i.e., without yet knowing whether a second processor exists, let alone whether 
+  it has <span class="bit">CX8</span> support. In version 4.0 before Windows NT 
+  4.0 SP6, this allows the occurrence of this bug check even on machines that have 
+  only one processor. </p>
+  <p>This curious effect arises because (in these early builds only) the kernel 
+  tests for <span class="bit">CX8</span> support in two different ways. A first 
+  test, applied only to the boot processor, is very rough and ready. It asks only 
+  whether the <span class="bit">CPUID</span> bit in the <span class="register">eflags</span> 
+  register can be changed, as assurance that there is a
+  <span class="instruction">cpuid</span> instruction, and then whether the
+  <span class="bit">CX8</span> bit is set in the <span class="instruction">cpuid</span> 
+  feature flags. A later test, applied to each processor in turn, including the 
+  boot processor, does not recognise the <span class="bit">CX8</span> bit if either 
+  of the following is true: </p>
+  <ul>
+    <li>the maximum basic leaf number for <span class="instruction">cpuid</span> 
+    execution exceeds 3 (before Windows NT 4.0 SP6); </li>
+    <li>the <span class="instruction">cpuid</span> vendor string is not GenuineIntel, 
+    AuthenticAMD or CyrixInstead (before Windows NT 4.0 SP4). </li>
+  </ul>
+  <p>If the boot processor has <span class="bit">CX8</span> support according to 
+  the first test but not the second, then the boot processor is rejected for its 
+  supposed contribution to an unsupported multiprocessor configuration. </p>
+  <p>Evidently this did have real-world occurrence in the late 1990s for users of 
+  processors whose manufacturer was not Intel, AMD or Cyrix. In the Knowledge Base 
+  article <a target="_top" href="http://support.microsoft.com/kb/189988">CMPXCHG8B 
+  CPUs in Non-Intel/AMD x86 Compatibles Not Supported</a> (apparently long removed 
+  from Microsoft’s website), Microsoft is at best disingenuous in suggesting that 
+  the first test is only a rough guess from the processor’s “type”, which a second 
+  test must “verify” by querying for “specific features”: both tests are specifically 
+  for the <span class="bit">CX8</span> feature; what’s specific about one but not 
+  the other is to test for particular manufacturers. Whoever wrote the text of Microsoft’s 
+  article surely knew this, as did whatever manager approved the text for publication.
+  </p>
+  <p>Though Windows NT 4.0 SP4 fixed this part of the second test, it left the other 
+  for two more service packs. This likely did not have real-world occurrence at 
+  the time. It perhaps can’t even have been seen internally at Microsoft at the 
+  time. It will instead have shown years later when processors that have a
+  <span class="instruction">cpuid</span> leaf higher than 3 finally became available 
+  and programmers, testers and the merely curious tried to run Windows NT 4.0 (except 
+  for its last service pack) on their new processors. </p>
+  <h2>64-Bit Windows (amd64) </h2>
+  <p class="alert">TO BE DONE? </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 22nd January 2008 and was last modified 
+    on 7th July 2020. </p>
+    <!--webbot bot="Include" U-Include="../_include/c0819.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="49272" -->
+  </div>
+</div>
+
+</body>
+
+</html>

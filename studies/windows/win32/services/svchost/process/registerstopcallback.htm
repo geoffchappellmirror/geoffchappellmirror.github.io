@@ -1,0 +1,186 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>RegisterStopCallback</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="54033" endspan -->
+<h1>RegisterStopCallback </h1>
+<p>A service DLL running in a <a href="../index.htm">SVCHOST</a> process calls this 
+function to register a callback for stopping a service. </p>
+<h2>Declaration </h2>
+<p>Access to the function is indirect, through the <span class="member">RegisterStopCallback</span> 
+member of the <span class="struct"><a href="globaldata.htm">SVCHOST_GLOBAL_DATA</a></span> 
+structure whose address was passed to the service DLL’s <span class="function">
+<a href="../dll/svchostpushserviceglobals.htm">SvchostPushServiceGlobals</a></span> 
+function. The member has the following type definition: </p>
+<pre class="source">typedef DWORD (WINAPI *LPREGISTER_STOP_CALLBACK) (
+    HANDLE *phNewWaitObject,
+    PCWSTR pszServiceName,
+    HANDLE hObject,
+    WAITORTIMERCALLBACK Callback,
+    PVOID Context,
+    DWORD dwFlags);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">phNewWaitObject</span> argument provides the address 
+of a variable that is to receive a wait handle. </p>
+<p>The <span class="argument">pszServiceName</span> argument is the address of a 
+(case-insensitive) name of the service for which the stop callback is being registered.
+</p>
+<p>The <span class="argument">hObject</span> argument is a handle to an object that 
+the service DLL will signal when the given service is stopping. </p>
+<p>The <span class="argument">Callback</span> argument is the address of a function 
+that is to be called back in another thread after the object is signalled. The prototype 
+is the same as for the documented <span class="function">RegisterWaitForSingleObject</span> 
+function. </p>
+<p>The <span class="argument">Context</span> argument is an arbitrary value that 
+is to be passed back to the service DLL as the <span class="argument">lpParameter</span> 
+argument for the callback function. </p>
+<p>The <span class="argument">dwFlags</span> argument provides bit flags to vary 
+behaviour. These flags are the same as for the <span class="function">RegisterWaitForSingleObject</span> 
+function. </p>
+<h3>Return Value </h3>
+<p>The function returns zero for success, else an error code. </p>
+<h2>Behaviour </h2>
+<p>This function is intended to be called from a service DLL’s
+<span class="function"><a href="../dll/servicemain.htm">ServiceMain</a></span> function. 
+Where the same service if implemented in a service program might call the
+<span class="function">RegisterWaitForSingleObject</span> function in accordance 
+with Microsoft’s documentation for writing a <span class="function">ServiceMain</span> 
+function, it instead calls the <span class="function">RegisterStopCallback</span> 
+function. </p>
+<p>If any of <span class="argument">phNewWaitObject</span>,
+<span class="argument">pszServiceName</span>, <span class="argument">hObject</span> 
+and <span class="argument">Callback</span> are NULL, the function fails (returning
+<span class="constant">ERROR_INVALID_PARAMETER</span>). If the given service is 
+not configured for execution in this instance of SVCHOST, the function fails (returning
+<span class="constant">ERROR_INVALID_DATA</span>). This is also the outcome if the 
+service already has a callback registered. </p>
+<p>The function registers its own callback with the KERNEL32 function
+<span class="function">RegisterWaitForSingleObject</span>. It passes the
+<span class="argument">phNewWaitObject</span>, <span class="argument">hObject</span> 
+and <span class="argument">dwFlags</span> arguments as given, but specifies an infinite 
+timeout and provides its own callback and context. Setting up this context may fail 
+for lack of memory, causing the function to fail (returning
+<span class="constant">ERROR_NOT_ENOUGH_MEMORY</span>). If the registration fails, 
+its error code is returned as the function’s error code. </p>
+<p>When the function returns success, the variable at the address specified as
+<span class="argument">phNewWaitObject</span> contains a cookie (not formally a 
+handle) that represents the wait condition. The wait can be cancelled by passing 
+this cookie to <span class="function">UnregisterWait</span> or
+<span class="function">UnregisterWaitEx</span>, and must be cancelled from the callback 
+if not before. </p>
+<h3>Callback </h3>
+<p>When the service is to stop, has set the service’s status as
+<span class="constant">SERVICE_STOP_PENDING</span> and has done as much cleaning 
+up as it can do from its control handler, it should signal the object it specified 
+as <span class="argument">hObject</span>. Some other thread will then be found for 
+executing the callback function that SVCHOST registered. In turn, SVCHOST will call 
+the service DLL’s callback function that was specified as the
+<span class="argument">Callback</span> argument. This callback function, with prototype
+</p>
+<pre class="source">VOID CALLBACK <span class="argument">Callback</span> (PVOID lpParameter, BOOLEAN TimerOrWaitFired);</pre>
+<p>will receive as its <span class="argument">lpParameter</span> argument whatever 
+was passed as the <span class="argument">Context</span>. The
+<span class="argument">TimerOrWaitFired</span> argument should always be FALSE. 
+In addition to whatever the callback function may need to do for the service’s own 
+purposes, it has the following responsibilities to SVCHOST and to the Service Control 
+Manager: </p>
+<ul>
+  <li>cancel the wait; </li>
+  <li>close the object handle; </li>
+  <li>set the service’s status as <span class="constant">SERVICE_STOPPED</span>.
+  </li>
+</ul>
+<p>The point to registering the callback with SVCHOST instead of calling
+<span class="function">RegisterWaitForSingleObject</span> directly is that SVCHOST 
+can know to unload the service DLL when the callback is done. Unloading occurs if 
+the following conditions are both satisfied: </p>
+<ul>
+  <li>all the DLL’s services are stopped (meaning strictly that no call to a
+  <span class="function">ServiceMain</span> function in the DLL is yet to return 
+  and no stop callback is still registered) </li>
+  <li>and the following registry value is set to 1: </li>
+</ul>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span>\Parameters</span>
+    <br>
+    <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">ServiceDllUnloadOnStop</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>0 </td>
+  </tr>
+  <tr>
+    <td>Availability </td>
+    <td>version 5.1 from Windows XP SP2, version 5.2 from Windows Server 2003 SP1, 
+    and higher </td>
+  </tr>
+</table>
+<p>where <span class="placeholder">service</span> is the name of the service that 
+has stopped.&nbsp; </p>
+<h2>Availability </h2>
+<p>The <span class="function">RegisterStopCallback</span> function is exposed to 
+service DLLs by SVCHOST.EXE in version 5.1 from Windows XP SP2, version 5.2 from 
+Windows Server 2003 SP1, and higher. </p>
+<p>Note that a service DLL has no formal means to determine if the
+<span class="struct">SVCHOST_GLOBAL_DATA</span> structure it receives from SVCHOST 
+actually does provide for a <span class="function">RegisterStopCallback</span> function.
+</p>
+<p>Microsoft does not formally document either this function or the structure that 
+it is learnt through—or, for that matter, how to write a service DLL to run under 
+SVCHOST. That said, the function does rate a mention in
+<a target="_top" href="http://msdn.microsoft.com/library/aa373653.aspx">Guidelines 
+for Services (Windows)</a> which is otherwise about the Restart Manager. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 13th October 2008 and was last modified 
+  on 26th October 2008. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c08.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62741" endspan -->
+</div>
+
+</body>
+
+</html>

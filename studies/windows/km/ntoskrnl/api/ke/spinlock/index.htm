@@ -1,0 +1,289 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Spin Locks</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>Spin Locks </h1>
+<p>The spin lock is the kernel’s simplest synchronisation object. Indeed, it is 
+not formally an object, just a pointer-sized variable. This is formalised by its 
+definition: the <span class="type">KSPIN_LOCK</span> is not a structure, just a
+<span class="type">ULONG_PTR</span>. </p>
+<p>The simplicity of spin locks means that they are in one sense the least demanding 
+of all synchronisation objects. The more arbitrary the circumstances of your execution, 
+the more likely that other synchronisation objects are out of bounds. Generally 
+speaking, no other synchronisation objects are available to kernel-mode code that 
+can’t be certain of executing in a non-arbitrary thread at no higher an Interrupt 
+Request Level (IRQL) than <span class="constant">APC_LEVEL</span>. The exceptions 
+at <span class="constant">DISPATCH_LEVEL</span> are very few: some synchronisation 
+objects can be signalled, but waiting never is permitted. Spin locks, in contrast, 
+can be waited on at any IRQL, not just at <span class="constant">DISPATCH_LEVEL</span> 
+but at the even higher IRQL of hardware interrupt routines. </p>
+<p>In another sense, spin locks are the most demanding. They are simple only because 
+they greatly restrict everything else. In ordinary execution at
+<span class="constant">PASSIVE_LEVEL</span> or even at <span class="constant">APC_LEVEL</span>, 
+just asking to acquire a spin lock raises the IRQL to <span class="constant">DISPATCH_LEVEL</span>. 
+This of itself constrains the thread that now owns the lock. Notably, it must cause 
+no exception even from touching pagable memory. But at least this thread can do 
+something: no other can execute at all on the same processor. And if any thread 
+on another processor contends for the lock, then that thread is made to spin in 
+a tight loop, also at <span class="constant">DISPATCH_LEVEL</span>, and no other 
+thread gets to run on this processor either. The potential disruption for other 
+people’s software while holding a spin lock, and especially while multiple processors 
+contend for the same lock, is presumably significant, for Microsoft has been strikingly 
+consistent with its warnings that “No routine should hold a spin lock for longer 
+than 25 microseconds” (even if this warning is not always obeyed by Microsoft itself).
+</p>
+<p>Also special to spin locks is that their simplicity does not allow for re-entering 
+(as if, for instance, a spin lock is some sort of mutex for processors). If a thread 
+tries to acquire a spin lock that it already owns, the thread (and thus the processor 
+that it executes on) hangs. Not for nothing is Microsoft’s documentation of spin 
+locks loaded with warnings about how careful programmers must be when using spin 
+locks. </p>
+<h2>Spin Lock Types </h2>
+<p>There are nowadays two distinct types of spin lock as implemented by the Kernel 
+Core and exposed to programmers through exported functions. The basic spin lock 
+that’s discussed below is ancient. Let’s call it classic. It has to some extent 
+been supplanted by the <a href="../queuelock/index.htm">queued spin lock</a>. This 
+dates from Windows 2000 internally but was not developed for general use until Windows 
+XP. Both these types of lock are a <span class="type">KSPIN_LOCK</span>. A newer 
+type is implemented in the Executive but although its implementation is not so very 
+much different and has the same instrumentation, it is instead an
+<span class="type">EX_SPIN_LOCK</span> and is presently left to be taken up elsewhere.
+</p>
+<p>The kernel’s two types were for many years implemented together, i.e., in the 
+one source file. The .DBG files for the Windows NT 3.1 kernels confirm that spin 
+locks were originally coded in assembly language. The 32-bit source code plausibly 
+was still in assembly language for Windows 7. For 64-bit Windows, meanwhile, the 
+implementation started in C and separated the functions for queued spin locks into 
+their own source file. Not until Windows 8 is this code obviously used for 32-bit 
+Windows. </p>
+<p>For the coding in C, the exported functions for the classic spin lock are defined
+<span class="keyword">inline</span> in headers. This has practical consequences 
+for those who debug or reverse engineer the kernel: many large stretches of code—as 
+long as several dozen instructions in 64-bit Windows 7—are nothing but an inlined 
+acquisition or release of a spin lock. </p>
+<h2>The Classic Spin Lock </h2>
+<p>The classic spin lock really is as basic as can be. Its entire state is just 
+the 0x01 bit of the <span class="type">KSPIN_LOCK</span>. This bit is set while 
+the lock is owned, and clear while the lock is available. </p>
+<p>That said, initialisation clears the whole lock to zero. Starting with the version 
+5.2 from Windows Server 2003 SP1, the spin lock’s state is tested by whether the 
+whole lock is non-zero, but this is only for efficiency and for commonality with 
+the queued spin lock (so that the simple coding of the <span class="function">
+<a href="test.htm">KeTestSpinLock</a></span> function works with both types). While 
+making asides, it may be as well to mention that the whole spin lock is meaningful 
+to debug builds, which these notes ordinarily ignore as being infeasible to cover. 
+Debug builds set the whole lock to the address of the owner’s
+<span class="struct"><a href="../../../inc/ntos/ke/kthread/index.htm">KTHREAD</a></span> 
+but still with the 0x01 bit set. Release by any other thread would be a serious 
+error that the release builds do not catch but which the debug builds pick up as 
+a bug check. </p>
+<p>Given that the IRQL is already at or above <span class="constant">DISPATCH_LEVEL</span>, 
+acquiring an unowned spin lock is a simple matter of setting the 0x01 bit and finding 
+that it wasn’t already set. Even the 80386 has the <span class="instruction">lock 
+bts</span> instruction for doing this atomically. A contending processor need just 
+execute this same instruction over and over for as long as it keeps setting the 
+carry flag. On exiting the loop, the processor owns the lock. There are elaborations, 
+of course, especially to reduce the impact from contention. From the start, the
+<span class="instruction">lock bts</span> instruction is executed only when trying 
+to claim the lock. When this shows the lock was owned, the better loop is just to 
+keep testing the bit, avoiding the inter-processor effects of a
+<span class="instruction">lock</span> prefix, until the lock seems ready to try 
+claiming again. Version 5.0 helps further with a <span class="instruction">pause</span> 
+between the bit tests and the version 6.0 from Windows Vista SP1 conditionally notifies 
+a hypervisor. Version 6.1 adds performance counting and, in 64-bit Windows, instrumentation 
+(which 32-bit Windows picks up in version 6.2). Through all this development, acquiring 
+the spin lock remains at its heart that while the processor is stopped from switching 
+to another thread, a <span class="instruction">lock bts</span> instruction to set 
+the low bit of the lock is repeated until it clears the carry flag. </p>
+<p>Releasing a spin lock is simple: just clear the bit. If any other processor wants 
+the lock, whether it has been spinning on the lock or happens to ask just then, 
+one of them will find that it has set the bit and become the lock’s new owner. To 
+avoid reading from the lock just to clear a bit, even the earliest version clears 
+a whole byte of the lock. Version 5.2 adds the <span class="instruction">lock</span> 
+prefix. The C-language implementation extends this to clearing the whole lock.
+</p>
+<h2>Exported Functions </h2>
+<p>Historically, if not still, the IRQL is the HAL’s business. Spin locks are creatures 
+of the kernel but the HAL’s management of the IRQL was dealt with originally by 
+exporting some of the functionality from the kernel and some from the HAL. The kernel 
+exports only the functions that work with lock but have nothing to do with the IRQL: 
+first for initialising spin locks; and then for acquiring and releasing them while 
+the IRQL stays at or higher than <span class="constant">DISPATCH_LEVEL</span>. Compound 
+functions that both adjust the IRQL and manage the lock are all exported from the 
+HAL. This division got reorganised for 64-bit Windows so that all x64 builds have 
+spin locks entirely as kernel functionality. For 32-bit Windows, this reorganisation 
+waited until version 6.2 adopted the coding in C. The HAL’s functions then moved 
+to the kernel: they continue to be exported from the HAL, but only as forwards to 
+the kernel. </p>
+<table class="Functions">
+  <tr>
+    <th>Function </th>
+    <th>HAL Versions (x86 Only) </th>
+    <th>Kernel Versions </th>
+  </tr>
+  <tr>
+    <td><span class="struct"><a href="../../../../hal/api/thunk/acquire.htm">KeAcquireSpinLock</a></span>
+    </td>
+    <td>all </td>
+    <td>6.2 and higher (x86 only) </td>
+  </tr>
+  <tr>
+    <td><span class="struct">KeAcquireSpinLockAtDpcLevel</span> </td>
+    <td>&nbsp;</td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td><span class="struct">KeAcquireSpinLockRaiseToDpc </span>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64) </td>
+  </tr>
+  <tr>
+    <td><span class="reserved function">KeAcquireSpinLockRaiseToSynch</span>
+    </td>
+    <td>4.0 and higher </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td><span class="function">KeInitializeSpinLock</span> </td>
+    <td>&nbsp;</td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td><span class="function"><a href="../../../../hal/api/thunk/release.htm">KeReleaseSpinLock</a></span>
+    </td>
+    <td>all </td>
+    <td>5.2 from Windows Server 2003 SP1, and higher (x64 only); <br>
+    6.2 and higher (x86) </td>
+  </tr>
+  <tr>
+    <td><span class="function">KeReleaseSpinLockFromDpcLevel</span> </td>
+    <td>&nbsp;</td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td><span class="function">KeTestSpinLock</span> </td>
+    <td>&nbsp;</td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="function">KeTryToAcquireSpinLockAtDpcLevel</span> </td>
+    <td>&nbsp;</td>
+    <td>5.2 from Windows Server 2003 SP1, and higher </td>
+  </tr>
+  <tr>
+    <td><span class="declared function">KefAcquireSpinLockAtDpcLevel</span> </td>
+    <td>&nbsp;</td>
+    <td>3.50 and higher (x86 only) </td>
+  </tr>
+  <tr>
+    <td><span class="declared function">KefReleaseSpinLockFromDpcLevel</span>
+    </td>
+    <td>&nbsp;</td>
+    <td>3.50 and higher (x86 only) </td>
+  </tr>
+  <tr>
+    <td><span class="declared function">
+    <a href="../../../../hal/api/mpspin/acquire.htm">KfAcquireSpinLock</a></span>
+    </td>
+    <td>3.50 and higher </td>
+    <td>6.2 and higher (x86 only) </td>
+  </tr>
+  <tr>
+    <td><span class="declared function">
+    <a href="../../../../hal/api/mpspin/release.htm">KfReleaseSpinLock</a></span>
+    </td>
+    <td>3.50 and higher </td>
+    <td>6.2 and higher (x86 only) </td>
+  </tr>
+  <tr>
+    <td><span class="undocumented function">KiAcquireSpinLock</span> </td>
+    <td>&nbsp;</td>
+    <td>all (x86 only) </td>
+  </tr>
+  <tr>
+    <td><span class="undocumented function">KiReleaseSpinLock</span> </td>
+    <td>&nbsp;</td>
+    <td>all (x86 only) </td>
+  </tr>
+</table>
+<p>The undocumented <span class="function">KefAcquireSpinLockAtDpcLevel</span> and
+<span class="function">KefReleaseSpinLockFromDpcLevel</span> are coded exactly as 
+the documented <span class="function">KeAcquireSpinLockAtDpcLevel</span> and
+<span class="function">KeReleaseSpinLockFromDpcLevel</span> functions except for 
+having the <span class="keyword">__fastcall</span> convention. The
+<span class="function">KfAcquireSpinLock</span> and <span class="function">KfReleaseSpinLock</span> 
+functions are similarly related, though less exactly for the former, to
+<span class="function">KeAcquireSpinLock</span> and <span class="function">KeReleaseSpinLock</span>. 
+All four of these undocumented functions have C-language declarations at least as 
+early as the DDK for Windows NT 3.51 to support macro redefinitions of the older 
+functions so that new drivers use the presumably faster new functions without needing 
+to change the source code. </p>
+<p>Though their names do not say so explicitly, the <span class="function">KiAcquireSpinLock</span> 
+and <span class="function">KiReleaseSpinLock</span> functions do not change the 
+IRQL. In version 3.10, if only in the release builds, they exactly duplicate
+<span class="function">KeAcquireSpinLockAtDpcLevel</span> and
+<span class="function">KeReleaseSpinLockFromDpcLevel</span>. Version 3.50 changed 
+them to the <span class="keyword">__fastcall</span> convention, which left them 
+as exact duplicates of what were then the new <span class="function">KefAcquireSpinLockAtDpcLevel</span> 
+and <span class="function">KefReleaseSpinLockFromDpcLeve</span>l (and also made 
+them the oldest examples of Microsoft breaking an exported function from one version 
+to another). Version 6.2 essentially eliminated them: they continue as kernel exports, 
+but plausibly only as aliases defined in an <span class="keyword">EXPORTS</span> 
+section in the kernel’s module definition file. </p>
+<p>Why <span class="function">KiAcquireSpinLock</span> and
+<span class="function">KiReleaseSpinLock</span> ever existed is unclear. The kernel 
+calls them internally, and even liberally in the early versions, but also calls 
+the documented functions (or, later, their <span class="keyword">__fastcall</span> 
+counterparts), also liberally. The difference is in the debug builds. The oldest 
+obtained for inspection is version 3.51. It has <span class="function">KefAcquireSpinLockAtDpcLevel</span> 
+enforce what was then documented as a requirement: if the IRQL is not exactly
+<span class="constant">DISPATCH_LEVEL</span>, the debug build of this function stops 
+Windows with the <span class="constant">IRQL_NOT_GREATER_OR_EQUAL</span> bugcheck. 
+The internal function <span class="function">KiAcquireSpinLock</span>, by contrast, 
+does not. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 29th
+  <a href="../../../../../../../new/19/11.htm">November 2019</a> and was last modified 
+  on 13th December 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6722" -->
+</div>
+
+</body>
+
+</html>

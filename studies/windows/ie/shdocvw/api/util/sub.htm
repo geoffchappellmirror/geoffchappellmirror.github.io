@@ -1,0 +1,501 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>URL Substitutions</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>URL Substitutions </h1>
+<p>Internet Explorer recognises substitutable parameters in URLs. Each parameter 
+stands for some such thing as a browser version or locale ID. Substitution is handled 
+through several undocumented SHDOCVW and IEFRAME functions. The most general is
+<span class="function"><a href="urlsubstitution.htm">URLSubstitution</a></span>, 
+which processes a URL directly as a string. Two others first get the string from 
+elsewhere: <span class="function"><a href="urlsubloadstring.htm">URLSubLoadString</a></span> 
+from a string resource; and <span class="function"><a href="urlsubregquery.htm">
+URLSubRegQuery</a></span> from a registry value. </p>
+<p>Though the relevant functions are undocumented, Microsoft does grant the notion 
+of substitutable parameters in URLs a passing mention in two Knowledge Base articles. 
+In <a target="_top" href="http://support.microsoft.com/kb/895339">How to configure 
+your Internet Explorer settings after your computer has had malicious software removed</a>, 
+users who have to reset their search options are directed to enter various strings 
+into registry values. Two of these “default” URLs depend on the {SUB_RFC1766} parameter. 
+The much older article
+<a target="_top" href="http://support.microsoft.com/kb/289902">How to Change the 
+Internet Explorer Initial Start Web Page</a> shows a URL that expects resolution 
+of {SUB_CLSID}, {SUB_PRD} and {SUB_PVER}. </p>
+<p>Whether any websites other than Microsoft’s actually do use these substitutions 
+as a means to direct Internet Explorer users to different pages depending on their 
+operating system or locale, I do not know but I would not be surprised. Examples 
+that presumably do work for Microsoft’s sites are readily available in the SHDOCVW 
+and IEFRAME resource strings, and the computer industry is very competent at copying 
+from examples. </p>
+<p>Whether any browsers other than Microsoft’s support any of these substitutable 
+parameters is even more an open question. That they have some knowledge of the parameters 
+is at least plausible. After all, some such browsers offer at installation to transfer 
+settings from Internet Explorer. It will be shown below that Microsoft’s main use 
+for URL substitutions has been for standard locations, such as a home page or search 
+page. How is a non-Microsoft browser to conform to its user’s existing choice of 
+such locations, if the URLs as given in the registry contain substitutable parameters?
+</p>
+<h2>Parameters </h2>
+<p>Eight substitutable parameters are presently defined. The relevant functions 
+resolve only the first occurrence of each parameter that is indicated by a
+<span class="argument">dwFlags</span> argument to the function. </p>
+<table class="Constants">
+  <colgroup>
+    <col class="Remarks" span="2">
+  </colgroup>
+  <tr>
+    <th>Substitutable Parameter </th>
+    <th>Evaluation </th>
+    <th>Flag </th>
+    <th>Applicable Versions </th>
+  </tr>
+  <tr>
+    <td>{SUB_CLCID} </td>
+    <td>user-default locale ID, as hexadecimal digits </td>
+    <td>0x80 </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">{SUB_CLSID} </td>
+    <td rowspan="2">user-default locale ID, as hexadecimal digits </td>
+    <td>0x01 </td>
+    <td>4.71 to 5.50 only </td>
+  </tr>
+  <tr>
+    <td>0x80 </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>{SUB_OLCID} </td>
+    <td>system-default locale ID, as hexadecimal digits </td>
+    <td>0x40 </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>{SUB_OS} </td>
+    <td>operating system, e.g., “N6” </td>
+    <td>0x08 </td>
+    <td>4.72 from Windows 98, and higher </td>
+  </tr>
+  <tr>
+    <td>{SUB_OVER} </td>
+    <td>operating-system version, e.g., “5.1” </td>
+    <td>0x20 </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>{SUB_PRD} </td>
+    <td>product (or browser), e.g., “ie” </td>
+    <td>0x02 </td>
+    <td>4.71 and higher </td>
+  </tr>
+  <tr>
+    <td>{SUB_PVER} </td>
+    <td>product version, e.g., “6.0” </td>
+    <td>0x04 </td>
+    <td>4.71 and higher </td>
+  </tr>
+  <tr>
+    <td>{SUB_RFC1766} </td>
+    <td>web locale, in RFC1766 format, e.g., “en-US” </td>
+    <td>0x10 </td>
+    <td>5.0 and higher </td>
+  </tr>
+</table>
+<h3>Browser Product and Version </h3>
+<p>The {SUB_PRD} and {SUB_PVER} parameters are resolved from string resources: numbers 
+556 and 557, respectively. In U.S. editions of Internet Explorer and Windows, these 
+evaluate as follows: </p>
+<table>
+  <tr>
+    <th>Version </th>
+    <th>SUB_PRD </th>
+    <th>SUB_PVER </th>
+  </tr>
+  <tr>
+    <td>4.71 and 4.72 </td>
+    <td>ie </td>
+    <td>4.0 </td>
+  </tr>
+  <tr>
+    <td>5.0 </td>
+    <td>ie </td>
+    <td>5.0 </td>
+  </tr>
+  <tr>
+    <td>5.50 </td>
+    <td>ie </td>
+    <td>5.5 </td>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>ie </td>
+    <td>6.0 </td>
+  </tr>
+</table>
+<p>Note that {SUB_PVER} continues to resolve as “6.0” even for the IEFRAME from 
+Windows 7. Perhaps Microsoft no longer uses this parameter in any of its own URLs.
+</p>
+<h3>Operating System and Version </h3>
+<p>The original evaluation of {SUB_OS} depends on answers from the SHLWAPI function
+<span class="function"><a href="../../../../shell/shlwapi/api/isos/isos.htm">IsOS</a></span> 
+(as computed when SHDOCVW initialises): </p>
+<table class="Cases">
+  <colgroup>
+    <col class="Condition"><col class="Result">
+  </colgroup>
+  <tr>
+    <th>Condition </th>
+    <th>Evaluation </th>
+  </tr>
+  <tr>
+    <td>if <span class="constant">OS_WIN98ORGREATER</span> </td>
+    <td>“98” </td>
+  </tr>
+  <tr>
+    <td>if not <span class="constant">OS_NT</span> </td>
+    <td>“95” </td>
+  </tr>
+  <tr>
+    <td>if <span class="constant">OS_WIN2000ORGREATER</span> </td>
+    <td>“N5” </td>
+  </tr>
+  <tr>
+    <td>else </td>
+    <td>“N4” </td>
+  </tr>
+</table>
+<p>In version 6.0 from before Windows Vista, the testing is a little more elaborate 
+and makes two new cases (and is computed from <span class="function">IsOS</span> 
+while substituting): </p>
+<table class="Cases">
+  <colgroup>
+    <col class="Conditions" span="2"><col class="Result">
+  </colgroup>
+  <tr>
+    <th class="Conditions" colspan="2">Conditions </th>
+    <th class="Result">Evaluation </th>
+  </tr>
+  <tr>
+    <td rowspan="3">if <span class="constant">OS_WINDOWS</span> </td>
+    <td>if <span class="constant">OS_MEORGREATER </span></td>
+    <td>ME </td>
+  </tr>
+  <tr>
+    <td>if <span class="constant">OS_WIN98ORGREATER</span> </td>
+    <td>98 </td>
+  </tr>
+  <tr>
+    <td>if <span class="constant">OS_WIN95ORGREATER</span> </td>
+    <td>95 </td>
+  </tr>
+  <tr>
+    <td rowspan="3">if <span class="constant">OS_NT</span> </td>
+    <td>if <span class="constant">OS_XPORGREATER</span> </td>
+    <td>N6 </td>
+  </tr>
+  <tr>
+    <td>if <span class="constant">OS_WIN2000ORGREATER</span> </td>
+    <td>N5 </td>
+  </tr>
+  <tr>
+    <td>if <span class="constant">OS_NT4ORGREATER</span> </td>
+    <td>N4 </td>
+  </tr>
+</table>
+<p>If none of these conditions are satisfied, {SUB_OS} resolves to nothing. Note 
+that ME is not a possible evaluation of {SUB_OS} on Windows Me unless Internet Explorer 
+6.0 is installed. </p>
+<p>In version 6.0 from Windows Vista, and higher, installation on older systems 
+is not expected, and description of newer systems seems not to be wanted: {SUB_OS} 
+has the hard-coded evaluation N6. </p>
+<p>The {OS_OVER} parameter is not recognised until version 6.0. In the early builds, 
+if <span class="function">IsOS</span> answers that the operating system is not
+<span class="constant">OS_WINDOWS</span> but is <span class="constant">OS_NT</span> 
+and <span class="constant">OS_XPORGREATER</span>, then {OS_OVER} evaluates to “5.1”, 
+else to nothing. In version 6.0 from Windows Vista, and higher, evaluation of {SUB_OVER} 
+to “5.1” is hard-coded. </p>
+<h3>Web Locale </h3>
+<p>The web locale for {SUB_RFC1766} is obtained from the following registry value:
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\International</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">AcceptLanguage</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td>REG_SZ </td>
+  </tr>
+</table>
+<p>Within the string data for this value, the web locale consists of everything 
+up to but not including the first comma or semicolon. If this is not a locale in 
+RFC1766 format already, or if there is no string data for the registry value, then 
+{SUB_RFC1766} is resolved by converting the user-default locale ID to RFC1766 format.
+</p>
+<h3>System and User Locales </h3>
+<p>For {SUB_CLCID} and {SUB_OLCID}, the user-default and system-default locales 
+are expressed in C-language hexadecimal format, with the prefix 0x and a width of 
+four digits, padding from the left with zeros. </p>
+<p>The {SUB_CLSID} parameter is the original {SUB_CLCID}, and continues to be recognised 
+as an alias. </p>
+<h2>Use By Microsoft </h2>
+<p>Substitutable parameters aren’t recognised in arbitrary URLs that become known 
+to Internet Explorer for arbitrary reasons. They are interpreted only when some 
+module, not necessarily of Internet Explorer, makes a point of asking that substitutable 
+parameters be resolved. </p>
+<h3>Standard Locations </h3>
+<p>Arguably the main use of URL substitutions is in the several URLs that are defined 
+in the registry to provide Internet Explorer with standard locations such as a home 
+page or search page. These are retrieved programmatically by the
+<span class="function"><a href="../dochost/getstdlocation.htm">_GetStdLocation</a></span> 
+function from the following registry values in either of two keys, which are listed 
+below in decreasing order of precedence: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Main</span>
+    <br><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet Explorer\Main</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Values: </td>
+    <td><span class="regvalue">Extensions Off Page</span> (version 7.0 and higher)
+    <br><span class="regvalue">First Home Page</span> <br>
+    <span class="regvalue">Local Page</span> <br><span class="regvalue">Search Bar</span>
+    <br><span class="regvalue">Search Page</span> <br><span class="regvalue">Security 
+    Risk Page</span> (version 7.0 and higher) </td>
+  </tr>
+</table>
+<p>or from one other registry value in any of four keys: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regkey">HKEY_CURRENT_USER\Software\Policies\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet 
+    Explorer\Main</span> <br><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet 
+    Explorer\Main</span> </td>
+  </tr>
+  <tr>
+    <td>Values: </td>
+    <td><span class="regvalue">Start Page</span> </td>
+  </tr>
+</table>
+<p>The data for each registry value (necessarily of type <span class="constant">
+REG_SZ</span> or <span class="constant">REG_EXPAND_SZ</span> in version 7.0 and 
+higher) is the corresponding URL. </p>
+<h3>Help Menu URLs </h3>
+<p class="alert">This section is in progress. Take more than your usual care.
+</p>
+<p>Also configurable through the registry but subject to URL substitutions are the 
+URLs for various items on Internet Explorer’s Help menu. One menu item is represented 
+by name, the others by numbers. Again, each registry value may be in either of two 
+keys: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Help_Menu_URLs</span>
+    <br><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Internet Explorer\Help_Menu_URLs</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Values: </td>
+    <td><span class="regvalue">Online_Support</span> <br><span class="regvalue">
+    <span class="placeholder">number</span></span> </td>
+  </tr>
+</table>
+<p>The data for each registry value (necessarily of type <span class="constant">
+REG_SZ</span> or <span class="constant">REG_EXPAND_SZ</span> in version 7.0 and 
+higher) is the corresponding URL. If no URL can be found from the registry, a default 
+is loaded from string resources. The table below presents the known interpretations. 
+To keep the table to a satisfactory width, two shorthands are used: </p>
+<ul>
+  <li>ar=<span class="placeholder">title</span> and whatever follows means in full 
+  the URL “http://www.microsoft.com/isapi/redir.dll?prd={SUB_PRD}&amp;clcid={SUB_CLSID}&amp;pver={SUB_PVER}&amp;ar=<span class="placeholder">title</span>” 
+  and whatever follows; </li>
+  <li>LinkId=<span class="placeholder">number</span> means in full the URL “http://go.microsoft.com/fwlink/?LinkId=<span class="placeholder">number</span>&amp;clcid={SUB_CLCID}”.
+  </li>
+</ul>
+<p>Not all the following menu items will show on the Help menu in all circumstances. 
+Indeed, most are still being investigated for ways that the relevant code can get 
+executed. </p>
+<table>
+  <tr>
+    <th>Registry Value </th>
+    <th>Menu Item </th>
+    <th>Default URL </th>
+    <th>Applicable Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">0</span> </td>
+    <td rowspan="2">Web Tutorial </td>
+    <td>ar=tutorial </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=58472 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">2</span> </td>
+    <td rowspan="2">Free Stuff </td>
+    <td>ar=free </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=55028 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regvalue">3</span> </td>
+    <td>Product Updates </td>
+    <td>ar=ienews&amp;os={SUB_OS} </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">4</span> </td>
+    <td rowspan="2">Frequently Asked Questions </td>
+    <td>ar=faq </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=54796 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">Online_Support</span> </td>
+    <td rowspan="2">Online Support </td>
+    <td>ar=support </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=54796 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">6</span> </td>
+    <td rowspan="2">Send Feedback <br>Send Feedback... </td>
+    <td>ar=feedback </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=54537 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">7</span> </td>
+    <td rowspan="2">Best of the Web <br>Customer Feedback Options... </td>
+    <td>ar=best </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=55107 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">8</span> </td>
+    <td rowspan="2">Search the Web </td>
+    <td>ar=allinone </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=54896 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">9</span> </td>
+    <td rowspan="2">Microsoft Home Page </td>
+    <td>ar=ms </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=55027 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">10</span> </td>
+    <td rowspan="2">Get Faster Internet Access </td>
+    <td>ar=isdn </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=58473 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2"><span class="regvalue">11</span> </td>
+    <td rowspan="2">Internet Start Page </td>
+    <td>ar=inetstart </td>
+    <td>5.0 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>LinkId=54729 </td>
+    <td>7.0 and higher </td>
+  </tr>
+  <tr>
+    <td><span class="regvalue">161</span> </td>
+    <td>Enhanced Security Configuration </td>
+    <td>res://ieframe.dll/IESecHelp.htm </td>
+    <td>6.0 from Windows 2003 to 7.0 </td>
+  </tr>
+  <tr>
+    <td><span class="regvalue">-32525</span> </td>
+    <td>Product Updates </td>
+    <td>http://windowsupdate.microsoft.com </td>
+    <td>7.0 and higher </td>
+  </tr>
+</table>
+<p>It is at least plausible that the last two (and especially the last) are configurable 
+in the registry only by oversight. The last anyway does not apply if running on 
+Windows Vista or higher (in which case, IEFRAME runs WUAPP.EXE instead of navigating 
+to a URL). </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 18th March 2010 (from material first 
+  published in 2008) and was last modified on 26th March 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0810.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="55263" endspan -->
+</div>
+
+</body>
+
+</html>

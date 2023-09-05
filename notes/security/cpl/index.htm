@@ -1,0 +1,657 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Control Panel Vulnerabilities</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Control Panel Vulnerabilities </h1>
+  <p>Back in <a href="../../../new/10/index.htm">2010</a>, as what I then feared 
+  might be “the last new work that I will ever publish”, I wrote
+  <a href="../stuxnet/ctrlfldr.htm">The CPL Icon Loading Vulnerability</a> about 
+  what Microsoft called a
+  <a target="_top" href="http://www.microsoft.com/technet/security/bulletin/MS10-046.mspx">
+  Shortcut Icon Loading Vulnerability - CVE-2010-2568</a>. You likely will remember 
+  this vulnerability. It was notorious for having been exploited by the Stuxnet 
+  worm to spread between computers via removable media. Just browsing the files 
+  on an infected USB drive was enough to get the worm loaded and executing. </p>
+  <p>Years later, over drinks at a bar in the East Village, I brought up this case 
+  to support a small provocation that the computer security industry does not rate 
+  the pursuit of detail as highly as it might—or even as highly as it likes to claim. 
+  Thus did I recently reread my 2010 article, which I always was unhappy to have 
+  put aside in haste, and look again at what others had written. To my surprise—or 
+  not, given that I had predicted “the defect may not be properly fixed”—I saw that 
+  others had revisited the issue too, in 2015 while I wasn’t looking. As reported 
+  by Dave Weinstein for
+  <a href="https://community.hpe.com/t5/Security-Research/Full-details-on-CVE-2015-0096-and-the-failed-MS10-046-Stuxnet/ba-p/6718459">
+  Full details on CVE-2015-0<wbr>096 and the failed MS10-046 Stuxnet fix</a>, Michael 
+  Heerklotz showed that Microsoft had not properly fixed the vulnerability in 2010. 
+  Numerous others jumped on a bandwagon of scoffing at Microsoft for having needed 
+  a second go. That I write about this vulnerability now is because I think everyone 
+  might do well to have a third look. </p>
+  <p>Don’t get too excited, though. It’s not that Microsoft’s second fix, of a
+  <a href="https://technet.microsoft.com/library/security/ms15-020">DLL Planting 
+  Remote Code Execution Vulnerability - CVE-2015-0096</a>, still hasn’t completely 
+  closed off the possibilities for exploitation. I’m not saying that Microsoft needs 
+  a third attempt. I will show, however, that the exploitation that motivated the 
+  second fix depends on some extraordinarily quirky behaviour that this second fix 
+  left in place. It is not credibly retained for backwards compatibility. That it 
+  persists is arguably a sign that we still have a long way to go for how the computer 
+  security industry examines software for vulnerabilities and for how software manufacturers 
+  fix them. </p>
+  <h2>CVE-2010-2568 </h2>
+  <p>You’d hope that Stuxnet’s trick has long been understood in detail by everyone 
+  who ever cared, but let’s have a quick summary. Among the browsed files is a shortcut 
+  (.LNK) file that presents as its target a Control Panel item whose icon is to 
+  be resolved dynamically. Browsing the shortcut induces Windows to load and execute 
+  the corresponding CPL module to ask it which icon to show. This may be all well 
+  and good if the CPL module actually is registered such that its Control Panel 
+  items would show when browsing the Control Panel. The exploitation is simply that 
+  the target’s CPL module is not (still) registered but is (instead) malware.
+  </p>
+  <p>Chances are that you remember CVE-2010-2568 and its exploitation differently. 
+  After all, Microsoft had it that the vulnerability “exists because Windows incorrectly 
+  parses shortcuts” and is exploited by “a specially crafted shortcut”. Some malware 
+  analysts went further and talked of a “malformed .LNK file”. </p>
+  <p>But that’s all rubbish! A syntactically valid .LNK file for the exploitation 
+  can be created using nothing but the ordinary user interface for creating a shortcut 
+  to a Control Panel item. Suppose an attacker has written malware in the form of 
+  a CPL module that hosts a Control Panel item whose icon is to be resolved dynamically. 
+  Then all the attacker <span class="emphasis">has</span> to do at the attacker’s 
+  computer is: </p>
+  <ul>
+    <li>copy this CPL module to the USB drive; </li>
+    <li>register this CPL module so that it will show in the Control Panel; </li>
+    <li>open the Control Panel and find the Control Panel item; </li>
+    <li>Ctrl-Shift drag this item to the USB drive to create a .LNK file. </li>
+  </ul>
+  <p>Call the result a “specially crafted shortcut” if you want but it looks to 
+  me like a very ordinary shortcut created by very ordinary steps. When the USB 
+  drive is browsed on the victim’s computer, the attacker’s .LNK file on the USB 
+  drive is correctly parsed to discover that it’s a shortcut to a Control Panel 
+  item that’s hosted by the attacker’s CPL module on the USB drive. Though this 
+  CPL module is not registered for execution as a CPL module on the victim’s computer, 
+  it does get executed. The cause of this unwanted execution is entirely that the 
+  Control Panel is credulous that what is said to be a Control Panel item actually 
+  is one. What the Control Panel was vulnerable to was not a parsing error but a 
+  spoof. </p>
+  <p>Microsoft certainly understood this at the time, for even though the words 
+  Control Panel do not appear in Microsoft’s description of the vulnerability (except 
+  in boilerplate directions for such things as applying patches and workarounds), 
+  the essence of the first fix is the addition to SHELL32.DLL of a routine that 
+  symbol files tell us is named <span class="routine">CControlPanelFolder::_IsRegisteredCPLApplet</span>.
+  </p>
+  <h3>Control Panel Icons </h3>
+  <p>This <span class="class">CControlPanelFolder</span> class is the shell’s implementation 
+  of the COM class that is creatable from the Control Panel’s well-known CLSID. 
+  Asking which icon to show for a Control Panel item starts with a call to this 
+  class’s <span class="method">GetUIObjectOf</span> method to get an
+  <span class="interface">IExtractIcon</span> interface to a temporary object that 
+  represents the given item. Calling this interface’s <span class="method">GetIconLocation</span> 
+  method then gets directions for where to load the icon from. </p>
+  <p>The input to <span class="method">GetUIObjectOf</span> is a binary packaging 
+  of the item’s basic characteristics, which I’ll refer to collectively as the
+  <span class="definition">item ID</span>. The important ones for our purposes are: 
+  a pathname to the CPL module that hosts the item; an index for the item’s icon 
+  among the module’s resources; and a display name for the item. The case of interest 
+  is that when the icon index is zero, the icon is not cached from any prior execution 
+  of the CPL module but is to be resolved dyanmically, i.e., by asking the CPL module. 
+  Proceeding to <span class="method">GetIconLocation</span> causes the CPL module 
+  to be loaded, called and unloaded. </p>
+  <p>This is all by design. It’s a design with more moving parts than some would 
+  like, especially for just this one objective. But it fits the generality of shell 
+  folders so that highly abstracted and widely varying shell folders can present 
+  a broadly consistent user interface, while meeting a particular goal for the Control 
+  Panel. It’s what lets a Control Panel item, or a shortcut to one, change its icon 
+  according to the current state of whatever the item exists to control. I stress 
+  this because more than a few commentators blame the vulnerability on what they 
+  say was a bad design decision decades ago to load icons from DLLs, as if this 
+  of itself risks getting the DLL to execute. What happens is instead much more 
+  specific. Though CPL modules are DLLs and do have icons among their resources, 
+  the reason a CPL module may get executed for its icon is not to get the icon but 
+  to ask explicitly which icon to get. </p>
+  <p>Note that I have not tied down who calls <span class="method">GetUIObjectOf</span> 
+  or where the item ID comes from. The usual caller is SHELL32 itself as a consequence 
+  of opening the Control Panel, e.g., in the Windows Explorer, to browse it for 
+  items to show. Each item ID is in this case being fed back to the class, having 
+  been produced by other methods while enumerating the items. In Stuxnet’s exploit 
+  the caller is again SHELL32 but in response to browsing a shortcut to one Control 
+  Panel item. The item ID is in this case parsed from a shortcut (.LNK) file. Another 
+  way the call can come from within SHELL32 is automatically when starting the shell 
+  if a Control Panel item has been pinned to the Start Menu. The item ID is in this 
+  case parsed from registry data. More generally, the call can come from just about 
+  anyone and the item ID can have come from just about anywhere. One thing is common 
+  to all cases, however, because the binary format of this item ID is documented 
+  only as being opaque to everyone but the Control Panel. If everyone plays by the 
+  rules, any item ID that the Control Panel’s <span class="method">GetUIObjectOf</span> 
+  ever receives can only have been obtained from some earlier interaction with the 
+  Control Panel (though not necessarily the <span class="emphasis">same</span> Control 
+  Panel). </p>
+  <h3>Input Validation </h3>
+  <p>As security researchers, we’ve all seen this movie before—in multiple re-runs, 
+  even. Among the lax practices that were common once but which we now regard as 
+  hopelessly naive is that a program trusts what it reads from a file or registry 
+  value, etc, on the grounds that the storage was private to the program or anyway 
+  won’t have got messed with. Not very long ago, programs routinely didn’t even 
+  check that such input was syntactically valid. Nowadays we expect that programs 
+  check not just the syntax of their input but the meaning, so that they are not 
+  tricked into actions for which the present provider is not authorised (or ought 
+  not even know how to ask). </p>
+  <p>For the Control Panel, the risk is that even if the item ID has the correct 
+  syntax what gets parsed from it may be stale. The specified CPL module was perhaps 
+  registered for execution some time ago but is not still. Or perhaps it is still 
+  registered but only for some other user or on some other computer. And these are 
+  just what can go wrong even while all the software that’s involved plays by the 
+  rules. As hackers, we know very well that not all software does play by the rules 
+  and that some deliberately makes mischief. That the format of the item ID is not 
+  documented will not stop a sufficiently skilled reverse engineer from finding 
+  it, which opens up the extra risk that an item ID may be
+  <span class="emphasis">confected</span>. (Stick with me on this, because we’ll 
+  do it ourselves later). </p>
+  <p>Asking which icon to show for a Control Panel item gives an object-lesson in 
+  how messy can be the progress towards what we now think of as minmally prudent 
+  validation. Not until Windows 2000 did the Control Panel implementation make even 
+  the briefest check that an item ID it receives is syntactically plausible. Worse, 
+  even though Windows NT 4.0 had introduced a second format, to support Unicode, 
+  it differentiated the two without questioning whether it had been given either. 
+  When the check for syntax did come, it was only that the item ID is not too small 
+  and that the icon index is within a supported range. Checking that the module’s 
+  pathname and the item’s display name, if present, actually are null-terminated 
+  strings that lie fully within the received data wasn’t even
+  <span class="emphasis">attempted</span> until Windows 7. I say attempted because 
+  this first coding was defective. A malformed item ID can induce SHELL32 to read 
+  a byte from outside the item ID—only as far as 10 bytes beyond, and thus unlikely 
+  to access an invalid address, but outside nonetheless. Even a small bug in code 
+  for input validation is surely not welcome, but what I want to draw attention 
+  to is that this bug conspicuously was not addressed by the fix of CVE-2010-2568. 
+  A serious check of the supposed strings in the item ID came soon, but not as far 
+  as I know until later in 2010 for Windows 7 SP1. </p>
+  <p>Please take this in for a moment. While Microsoft worked to close off the spoof 
+  by having <span class="method">GetUIObjectOf</span> check that the CPL module 
+  as named in the item ID is one that can be allowed to execute, Microsoft described 
+  the vulnerability as a parsing error yet did nothing about errors in pre-existing 
+  code that checks the item ID for syntax. Wouldn’t you think that if you’re telling 
+  the world that the problem is a parsing error, then you’d look hard into everything 
+  nearby that involves any sort of parsing? </p>
+  <p>The suggestion is strong that Microsoft’s talk of a parsing error was only 
+  ever sleight of hand. As programmers, we’ve all written parsing errors. So many 
+  edge cases! To have such an error in your otherwise well-written code is only 
+  inevitable. Software is hand-crafted, after all. To talk of a parsing error is 
+  to appeal to critics’ recognition of fallibility. A parsing error can be the sort 
+  of easy slip-up that’s the difference between getting 99 and 100 on a test. Falling 
+  for a spoof, however, seems more like a conceptual failure. It’s only natural 
+  that Microsoft directed attention to one rather than the other. The only question 
+  for Microsoft is how deliberate was the misdirection. Why so many security researchers 
+  went along with it, I won’t ever know. This too is a conceptual failure—and not 
+  just mine. </p>
+  <h2>First Fix </h2>
+  <p>Still, it’s a plus that fixing CVE-2010-2568 meant that not only had the item 
+  ID been getting checked ever slightly better for syntax but was now being checked 
+  for meaning too. Checking, however, is only the start. What do you do about a 
+  check that fails? </p>
+  <p>Were it up to me, thinking just of what I’d like for my own use of my own computer, 
+  I’d have all <span class="class">CControlPanelFolder</span> methods that take 
+  an item ID as input return an error if given any item ID that specifies a CPL 
+  module that is not currently registered. My view would be that even if the item 
+  ID is only stale rather than confected, then wherever or whenever the specified 
+  CPL module is or was registered, it’s not registered now for my use on this computer, 
+  it wouldn’t show if I browsed the Control Panel, and so I’d rather not accept 
+  it for any purpose at all, let alone risk that it gets executed. </p>
+  <p>Microsoft, whether for good reason or bad, was nothing like this firm. First, 
+  it regarded the problem case as more narrow, not just that the specified CPL module 
+  is not currently registered (so that the item ID is at least stale, if not actually 
+  faked) but also that the specified icon index is zero (this being, we hope, the 
+  only route to unwanted execution) and anyway only for <span class="method">GetUIObjectOf</span> 
+  when queried for an <span class="interface">IExtractIcon</span> interface. Second, 
+  the fix doesn’t reject but <span class="emphasis">sanitises</span>. It lets the 
+  problem case through, but as if the icon index were given as -1 instead of 0.
+  </p>
+  <p>Perhaps this relaxed attitude was motivated just by a general (and understandable) 
+  desire for the least possible change. Perhaps there was a known case that had 
+  to be supported for backwards compatibility. I can’t know either way, but what 
+  I hope you are already awake to is the following contrast between rejection and 
+  sanitisation. To reject suspect input may be more brutal than you need, but it 
+  has the merit of certainty. The suspect input goes no further and any innocent 
+  caller should at least have anticipated that you return an error. To sanitise 
+  suspect input and proceed as if all will now be fine is to depend on the deeper 
+  implementation—which you already know had not checked this input for itself.
+  </p>
+  <h3>What Lies Beneath </h3>
+  <p>By deeper implementation I mean to remind you that <span class="method">GetUIObjectOf</span> 
+  is just the entry point for asking which icon to show. There is still a long, 
+  long way to go: first for the temporary object that supplies the
+  <span class="method">GetIconLocation</span> method for the given item; and then, 
+  though apparently only if the preceding stage has zero for the icon index, to 
+  the more general support for loading and calling CPL modules. Moreover, this long, 
+  long way goes through old, old code, with all the problems that can come from 
+  that. To depend on any of it for fixing a bug, especially one that you know real-world 
+  attackers are probing for edge cases, seems at best brave. </p>
+  <p>To sense how brave, let’s have some demonstrations of where this deeper implementation 
+  can go wrong. An attacker whose one goal is to see if the first fix can be worked 
+  around would most easily follow the execution from <span class="method">GetUIObjectOf</span> 
+  down, and many security researchers would follow, perhaps while mumbling that 
+  their lot is always to be reacting to the attackers and never getting ahead. One 
+  way to get ahead is to study in advance as much of the general as you can so that 
+  you’re better prepared whenever you have to look into the specific. This is why, 
+  when I examine what might go wrong with trying to fix CVE-2010-2568 by letting 
+  sanitised input through to the deeper implementation, I work in what you may think 
+  is the reverse of the natural direction. </p>
+  <h3>Loading and Calling </h3>
+  <p>What we look at first in the deeper implementation is therefore the general 
+  support for loading and calling CPL modules, but particularly a CPL module that 
+  hosts a Control Panel item whose icon is to be resolved dynamically. For my 2010 
+  article I presented a simple example: </p>
+  <ul>
+    <li><a href="_download/test_1_0_src.zip">download TEST.CPL source code</a> (2KB);
+    </li>
+    <li><a href="_download/test_1_0.zip">download TEST.CPL source code and binaries</a> 
+    (4KB). </li>
+  </ul>
+  <p>Whenever this CPL module is loaded, the first call to its exported
+  <span class="function">CPlApplet</span> function produces a message box that asks 
+  “Did you want me?” and whose title shows the CPL module’s pathname. That much 
+  is so that we can see when the CPL module gets loaded. What makes this CPL module 
+  distinctively of the sort we mean to understand is that when the call to
+  <span class="function">CPlApplet</span> is for the <span class="constant">CPL_INQUIRE</span> 
+  message, the answer gives zero for the icon index. </p>
+  <h4>Install </h4>
+  <p>There are several ways to register a CPL module for execution but the easiest 
+  is done through—wait for it—the registry. Save the CPL module as test.cpl in some 
+  directory whose <span class="placeholder">path</span>, for simplicity and definiteness, 
+  contains no spaces and is not ridiculously long. Then create the following registry 
+  value: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Control 
+      Panel\CPLs</span> </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td>anything, e.g., <span class="regvalue">Test</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_SZ</span> or <span class="constant">REG_EXPAND_SZ</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Data: </td>
+      <td><span class="placeholder">path</span>\test.cpl </td>
+    </tr>
+  </table>
+  <p>To test, open the Control Panel so that it shows a list of items, not categories, 
+  and confirm that you don’t just see an item named Test but also see its message 
+  box. Yes, our CPL module gets loaded and executed just for
+  <span class="emphasis">browsing</span> the Control Panel. Indeed, it gets loaded 
+  and executed multiple times. (Watch out for extra message boxes lurking behind 
+  the Control Panel.) Though it’s not necessary for our purposes, you might for 
+  completeness confirm that the Test item does launch. When satisfied with the CPL 
+  module in this configuration as a base state, close any message boxes that remain 
+  open, close the Control Panel too, and then try a few quick demonstrations.
+  </p>
+  <p>By the way—I say as if it’s incidental even though I can’t stress it enough—two 
+  of these demonstrations begin by varying the circumstances as might even a novice 
+  mischief-maker but each depends on a little extra step or rearrangement that you 
+  might stumble onto, especially if your experimental technique is good, but which 
+  is very much easier to add if its relevance is predicted from theoretical analysis. 
+  If you doubt me, don’t read on immediately but instead take my cue about putting 
+  spaces in the pathname and see how easily you come up with suitably quirky behaviour. 
+  Of course, theoretical analysis takes hours of intensive work and often comes 
+  to nothing. There’s a trade-off, but for investigating possibly subtle interactions 
+  with complex software the predictive power of theoretical analysis surely pays 
+  its way in the long run. But enough of my pleas for the computer security industry 
+  to invest more in studying Windows! Let’s get on with the demonstrations. </p>
+  <h4>Default File Extension? </h4>
+  <p>First, remove the file extension from the registry data. Open the Control Panel 
+  and see that the Test item no longer shows. Close the Control Panel. Rename test.cpl 
+  to test.dll. Open the Control panel and see that there’s still no Test item. Evidently, 
+  neither .cpl nor .dll is a default file extension for CPL modules. Close the Control 
+  Panel. Why did I have you try? Create <span class="placeholder">path</span>\test 
+  itself as any file you like, even as a directory. Open the Control Panel. Oh, 
+  now it executes test.dll! </p>
+  <p>Yes, if the pathname in the registry does not have a file extension, the Control 
+  Panel will load and execute a CPL module that has .dll appended as if .dll is 
+  a default file extension—but only if the extension-free name also exists as at 
+  least some sort of file-system object. </p>
+  <h4>Spaces </h4>
+  <p>For our second variation, start undoing the first. Close the Control Panel, 
+  remove the subdirectory, and rename the CPL module to test.cpl. Then, instead 
+  of restoring the registry data to <span class="placeholder">path</span>\test.cpl 
+  make it “<span class="placeholder">path</span>\test.cpl rubbish” (without the 
+  quotes). Open the Control Panel. Of course the Test item does not show. Close 
+  the Control Panel and make a copy of the CPL module as “test.cpl rubbish”. Open 
+  the Control Panel. See first that the copy named “test.cpl rubbish” gets loaded 
+  and executed. This, of course, is just what we’d hope. The quirk starts with the 
+  next message box. It shows that test.cpl gets loaded and executed too! </p>
+  <p>Yes, if the registry data contains a space, the CPL module as registered executes 
+  as expected but then there’s a surprise execution of something else. The Control 
+  Panel finds a new name by truncating the registered filename (the whole of it, 
+  including the <span class="placeholder">path</span>) at the first space. And, 
+  yes, if the result of the truncation has no file extension, then .dll gets appended 
+  (though, no, the extension-free name doesn’t matter now). </p>
+  <p>Please find another taking-in moment. The quirk’s surprise execution surely 
+  counts as a parsing error of some sort. This means that to fix a case of surprise 
+  execution that Microsoft presented as a parsing error, Microsoft trusted old code 
+  in which a parsing error can cause surprise execution. </p>
+  <h4>Length </h4>
+  <p>Finally, play with lengthening the pathname to something like the usual limit 
+  of <span class="constant">MAX_PATH</span> characters (260, but remember that this 
+  includes a terminating null). Close the Control Panel. Make a copy of test.cpl 
+  with some long name and edit the registry data to match the copy that has this 
+  long name. Open the Control Panel. Repeat until bored. Perhaps start with the 
+  259 characters of </p>
+  <blockquote>
+    c:\temp\cpltest\1123456789abcdef2123456789abcdef3123456789abcdef4123456789abcdef…f123456789abcde.cpl
+  </blockquote>
+  <p>and work your way down—or of </p>
+  <blockquote>
+    c:\temp\cpltest\test.cpl 9abcdef2123456789abcdef3123456789abcdef4123456789abcdef…f123456789abcdef012
+  </blockquote>
+  <p>if you want to stay with the curious configuration where one CPL module is 
+  registered but two get executed. (My naming convention is that after the 16 characters 
+  of my chosen path, the filename part has each character show its 0-based index 
+  into the pathname, modulo 16, except that where the index is a multiple of 16 
+  the character shows how many multiples. The ellipses each hide 160 characters.) 
+  Either way, for any version of Windows from the last decade, the Test item does 
+  not show, and the CPL module does not get loaded and executed, until you bring 
+  the pathname down to 250 characters, not including the terminating null. </p>
+  <p>This limit is deliberate. Starting with Windows XP and its support for Side-By-Side 
+  (SxS) assemblies, the Control Panel anticipates loading CPL modules in activation 
+  contexts. There are various ways that a CPL module can affect the choice of activation 
+  context. For one, the Control Panel looks for a file that has the same name as 
+  the CPL module but with “.manifest” appended. Though this manifest need not exist, 
+  the Control Panel has since Windows XP SP2 rejected any CPL module whose pathname 
+  is already too long for the manifest’s name to fit the usual
+  <span class="constant">MAX_PATH</span> limit. (The early builds of Windows XP 
+  just append without checking. That they get away with it is a classic example 
+  of a buffer overflow that turns out to be harmless.) </p>
+  <h3>The Exec Name </h3>
+  <p>As we move toward the specifics of loading and calling a CPL module to ask 
+  which icon to show, it’s as well to observe that this lower-level code for loading 
+  and calling CPL modules in general is not just quirky in some of its behaviour 
+  but also in how it gets its inputs. For reasons that go back to ancient times 
+  and persist so that CPL modules can be loaded and executed via the RUNDLL32.EXE 
+  program, the lower-level code for loading and calling CPL modules receives its 
+  specification of a Control Panel item as text—as if supplied on a command line. 
+  For this purpose, the text appears to be known in Microsoft’s source code as the 
+  item’s <span class="definition">exec name</span>. It is composed as the module’s 
+  pathname between double-quotes, then a comma and then the item’s display name.
+  </p>
+  <p>Perhaps from wanting to use as much of the same code as possible, the loading 
+  and executing of a CPL module specifically to ask which icon to show for one of 
+  that module’s Control Panel items, even though this work it is never on its own 
+  arranged from any command line, is handled as a special case with a slightly modified 
+  exec name: the module’s pathname, a comma, a (signed) decimal representation of 
+  the icon index, another comma, and the item’s display name. </p>
+  <p>The absence of double-quotes around the module’s pathname in this modified 
+  exec name is much of the reason for the quirky behaviour demonstrated above when 
+  the pathname contains a space. More than that, however, I ask you again to take 
+  a moment. The <span class="method">GetUIObjectOf</span> method receives the module’s 
+  pathname, the item’s icon index and the item’s display name, among other things, 
+  in a binary package. It parses them out of the package and then into this modified 
+  exec name, i.e., as text, which the deeper implementation will have to parse. 
+  What could go wrong with that? </p>
+  <p>The immediate answer is that the modified exec name is composed in a buffer 
+  that allows for 0x022A characters, but until Microsoft’s second fix only
+  <span class="constant">MAX_PATH</span> characters are allowed for the copy that’s 
+  kept for the object that gets created to represent the Control Panel item for 
+  the purpose of providing an <span class="interface">IExtractIcon</span> interface. 
+  This mismatch of allowances is ancient. Worse, even though Windows Server 2003 
+  (chronologically, but Windows XP SP2 by the version numbers) had seen Microsoft 
+  introduce the mostly welcome <span class="routine">StringCb</span> and
+  <span class="routine">StringCch</span> families of helper routines for programmers 
+  to work with strings more securely, this particular copying of a string was not 
+  converted to these functions until Windows Vista and even then the programmer 
+  blew away much of the point by not checking it for failure. </p>
+  <p>If the CPL module’s pathname is just long enough, the saved exec name gets 
+  truncated so that it keeps the comma but loses at least some of the icon index. 
+  When the <span class="method">GetIconLocation</span> method parses the (truncated) 
+  exec name, it sees the comma and infers that an icon index is present. If enough 
+  of the icon index is retained such that digits are present, including after a 
+  negative sign, then the only consequence is that the inferred icon index is numerically 
+  wrong. If the CPL module’s pathname is exactly the “right” length, meaning 257 
+  or 258 characters (not including a terminating null), then the icon index looks 
+  to be empty or to be just a negative sign, and is interpreted as zero. </p>
+  <p>It’s time for another of those taking-in moments. To defeat a spoof that Microsoft 
+  misrepresented as a parsing error, Microsoft dealt with a suspect zero by proceeding 
+  as if the zero had been -1, but then an actual parsing error in the deeper implementation 
+  can turn the -1 back to zero! </p>
+  <p>The practical trouble with this parsing error, which is perhaps the reason 
+  it wasn’t noticed at the time, is that it kicks in only if the CPL module’s pathname 
+  is longer than the 250-character maximum that we demonstrated earlier. An item 
+  ID that could trigger this parsing error isn’t ever going to be created by the 
+  Control Panel. It can’t, for instance, get fed to <span class="method">GetUIObjectOf</span> 
+  from a shortcut file that we create simply by a Ctrl-Shift drag. If we want to 
+  demonstrate this parsing error without resorting to a Windows version that’s so 
+  old that the Control Panel doesn’t have the 250-character limit, the item ID will 
+  need to be faked. We need a specially crafted shortcut file after all. </p>
+  <h4>Shortcut Crafting </h4>
+  <p>Making an uncrafted shortcut file is straightforward if you’re already familiar 
+  with programming the Windows shell. The shell provides a creatable COM object 
+  for the job, with interfaces whose methods allow for specifying what the shortcut 
+  will be a shortcut to and for saving the shortcut as a .LNK file. The target, 
+  being an arbitrary item in the shell namespace, is specified as a sequence of 
+  shell item identifiers that generalise the pathname of a file-system object. To 
+  represent a Control Panel item we need just start with a shell item identifier 
+  for the Control Panel itself and append the item ID such as we’ve been talking 
+  about all along. Where crafting comes into it is that we’ve donned hacker hats, 
+  so that the item ID we append for the Control Panel item is confected. But enough 
+  about the mechanism! You can read the source code. We just need the tool: </p>
+  <ul>
+    <li><a href="_download/linkcpl_1_0_src.zip">download LINKCPL.EXE source code</a> 
+    (15KB compressed from 42KB); </li>
+    <li><a href="_download/linkcpl_1_0_wxp.zip">download 32-bit LINKCPL.EXE for 
+    Windows XP and higher</a> (7KB compressed from 13KB). </li>
+  </ul>
+  <p>To build, use the Windows Driver Kit (WDK) for Windows 7. The 32-bit binary 
+  suffices for 64-bit Windows. You may as well build for the oldest supported version, 
+  which is Windows XP, but the program does nothing that shouldn’t work even for 
+  Windows 95. </p>
+  <p>To test, open a Command Prompt in some directory, e.g.,
+  <span class="placeholder">path</span>, where you have a copy of test.cpl from 
+  the earlier demonstrations of general behaviour. Again, for simplicity and definiteness, 
+  start with a <span class="placeholder">path</span> that contains no spaces and 
+  is not ridiculously long. To craft a shortcut to what might be a Control Panel 
+  item named Test that’s hosted by this test.cpl, run the command </p>
+  <pre class="output">linkcpl /module:<span class="placeholder">path</span>\test.cpl /icon:0 /name:Test test.lnk </pre>
+  <p>With the Windows Explorer, browse to this same directory. If running on an 
+  earlier version than Windows 7 SP1 without Microsoft’s first fix, then you should 
+  see the CPL module’s message box even without having registered test.cpl for execution. 
+  For any later Windows version or if the first fix is applied, browsing the folder 
+  executes the CPL module only if it’s registered. </p>
+  <p>For full confidence in this base state, re-craft the shortcut but specify any 
+  number other than zero for the icon index. Confirm that browsing does not cause 
+  any loading and executing unless the shortcut records that the CPL module is of 
+  this sort that always wants to be asked which icon to show. </p>
+  <h4>Very Long Names </h4>
+  <p>The point to crafting the shortcut is that we can easily use it to deliver 
+  to <span class="method">GetUIObjectOf</span> an item ID that we specify in detail. 
+  Do note, however, that the shortcut is only convenient, not necessary. We could 
+  instead have a program confect the item ID, feed it to <span class="method">GetUIObjectOf</span> 
+  by calling directly, and then call <span class="method">GetIconLocation</span> 
+  and report the result. </p>
+  <p>Either way, the details that we want to specify are the module’s pathname and 
+  the icon index. We’ll provide pathnames that are longer than the Control Panel 
+  accepts when enumerating Control Panel items but which nonetheless result in the 
+  expected loading and execution when the icon index is zero. Then, we’ll demonstrate 
+  that when the pathname is just the right length, as predicted above, the loading 
+  and execution happens even when the icon index is non-zero. The assumption throughout 
+  is that the Windows you try this on does not have Microsoft’s second fix. </p>
+  <p>We know anyway not to bother with the very longest possible name (except as 
+  a control case), since the truncation loses the comma from the exec name such 
+  that it will seem to have no icon index at all. Instead make a copy of test.cpl 
+  that has a 258-character name such as </p>
+  <blockquote>
+    c:\temp\cpltest\1123456789abcdef2123456789abcdef3123456789abcdef4123456789abcdef…f123456789abcd.cpl
+  </blockquote>
+  <p>Craft a <span class="switch">/icon:0</span> shortcut that has this same long 
+  name for the module’s pathname. If testing on a Windows that has the first fix, 
+  also edit this long name into the registry. Browse the directory that contains 
+  the shortcut and perhaps be a little disappointed that the CPL module does not 
+  get loaded and executed. </p>
+  <p>But now remember that delicious quirk in which a space in the module’s pathname, 
+  within the 250-character limit, induces the loading and executing of
+  <span class="emphasis">two</span> CPL modules, first as given and then as truncated 
+  at the first space. Copy test.cpl as </p>
+  <blockquote>
+    c:\temp\cpltest\test.cpl 9abcdef2123456789abcdef3123456789abcdef4123456789abcdef…f123456789abcdef01
+  </blockquote>
+  <p>Re-craft the shortcut by giving this name to the <span class="switch">/module</span> 
+  switch in quotes. Update the registration if appropriate. Still the copy with 
+  the long name doesn’t get loaded and executed—but, as you must have suspected, 
+  the copy we’ve left as test.cpl does! Indeed, because the copy with the long name 
+  doesn’t <span class="emphasis">have</span> to execute for this purpose and because 
+  its Control Panel item won’t show in the Control Panel, it doesn’t need to be 
+  a copy. Even an empty file suffices. </p>
+  <h4>Edge Cases </h4>
+  <p>By repeating with ever shorter pathnames but also trying non-zero values for 
+  the icon index, we can now demonstrate that CVE-2010-2568 has its own edge cases, 
+  as predicted from theoretical analysis. The general case has zero for the icon 
+  index. The edge cases are that if the pathname is very long but contains a space 
+  in the first 250 characters, then the icon index need not be zero. The following 
+  table summarises the behaviour on a Windows that does not have CVE-2010-2568 fixed.
+  </p>
+  <table>
+    <tr>
+      <th>Length </th>
+      <th>Icon Index </th>
+      <th>Execution? </th>
+      <th>Remarks </th>
+    </tr>
+    <tr>
+      <td>259 </td>
+      <td>any </td>
+      <td>no </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="2">258 </td>
+      <td>zero </td>
+      <td>yes </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>non-zero </td>
+      <td>yes </td>
+      <td>edge case </td>
+    </tr>
+    <tr>
+      <td rowspan="3">257 </td>
+      <td>zero </td>
+      <td>yes </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>negative </td>
+      <td>yes </td>
+      <td>edge case </td>
+    </tr>
+    <tr>
+      <td>positive </td>
+      <td>no </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td rowspan="2">less </td>
+      <td>zero </td>
+      <td>yes </td>
+      <td>after first fix: executes only if registered </td>
+    </tr>
+    <tr>
+      <td>non-zero </td>
+      <td>no </td>
+      <td>&nbsp;</td>
+    </tr>
+  </table>
+  <p>The length does not include a terminating null. The icon index is assumed to 
+  be syntactically valid: negative means 0xFF000000 to 0xFFFFFFFF inclusive; positive 
+  means 0x00000001 to 0x00FFFFFF inclusive. Execution is of the CPL module that 
+  is named by truncating the very long pathname at its first space (and, if this 
+  has no file extension, appending .dll as a default). </p>
+  <h2>CVE-2015-0096 </h2>
+  <p>The point to Microsoft’s first fix of CVE-2010-2568 is to avoid execution unless 
+  the pathname in the item ID is that of a registered CPL module. But the decision 
+  to test the registration only if the icon index in the item ID is zero means that 
+  the two edge cases are completely unaffected. Worse, when the icon index in the 
+  item ID is zero, changing the zero to -1 can turn the suspect item ID not into 
+  something harmless but into an edge case. Either way, the pathnames must be so 
+  long that the edge cases turn into surprise execution only because of a quirk 
+  even deeper into the code such that the CPL module that executes need not be the 
+  one that’s specified. </p>
+  <p>CVE-2015-0096 appears to be the first public recognition of this, not that 
+  you would ever guess it from the formal description or from anything that I have 
+  yet found that Microsoft has published about it. From Dave Weinstein’s explanation, 
+  it appears that the incompleteness of the first fix was found by following the 
+  mind of an attacker who is frustrated by the first fix and seeks a way around 
+  it. </p>
+  <p>The second fix plausibly does end the exploitability, at least for the purpose 
+  of using shortcuts to Control Panel items as a way to spread a worm. The edge 
+  cases exist only because of a parsing error caused by a buffer overflow. The second 
+  fix increases the size of the destination buffer so that it does not overflow 
+  when receiving its copy of the exec name. For good measure, it also tracks the 
+  icon index separately so that it anyway does not get parsed from that copy.
+  </p>
+  <p>But the CPL module’s filename continues to be parsed from that copy. If it 
+  contains a space, then the Control Panel still can execute two CPL modules, one 
+  as given and one whose name is obtained by truncating at the first space. Only 
+  because of this were the edge cases ever exploitable. Yet even as late as the 
+  original release of Windows 10 (which is as far as I have yet caught up to for 
+  my studies), it remains true that if you can register “<span class="placeholder">path</span>\test.cpl 
+  rubbish” or “<span class="placeholder">path</span>\space test.cpl” for execution 
+  as a CPL module, then you can get <span class="placeholder">path</span>\test.cpl 
+  or <span class="placeholder">path</span>\space.dll loaded and executed by surprise. 
+  Is anyone actually happy about that? </p>
+  <div class="Footer">
+    <p class="Dates">This page was first published as
+    <a href="https://www.alchemistowl.org/pocorgtfo/pocorgtfo14.pdf">PoC||GTFO 14:8</a> 
+    in March 2017. It was created on 23rd February 2017 and was last modified on 
+    6th March 2017 except on 27th October 2018 to add this note about prior publication 
+    elsewhere. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c17.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="41192" -->
+  </div>
+</div>
+
+</body>
+
+</html>

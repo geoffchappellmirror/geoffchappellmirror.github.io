@@ -1,0 +1,345 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SVCHOST Process Initialisation</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="54033" endspan -->
+<h1>SVCHOST Process Initialisation </h1>
+<p>Before a SVCHOST instance receives any requests to start a service, before any 
+service DLLs are loaded, SVCHOST works through various initialisations such as each 
+service might have wanted for itself and would have needed to code for itself (or 
+reproduce, e.g., from libraries) were the service implemented as its own service 
+program. These initialisations are non-trivial, such that writers of service DLLs 
+ought be aware of what has already been set up for them (or could be): </p>
+<ul>
+  <li>the error mode is set to fail critical errors; </li>
+  <li>caching of predefined registry keys is disabled (version 6.0 and higher);
+  </li>
+  <li>COM Security may be initialised; </li>
+  <li>the stack size for threads created by the RPC server is set explicitly (version 
+  5.1 and higher); </li>
+  <li>the SVCHOST instance may be set as a critical process (version 5.2 and higher);
+  </li>
+  <li>terminate-on-corruption is enabled for all heaps (version 6.0 and higher).
+  </li>
+</ul>
+<p>Note that the RPC Run-Time (RPCRT4.DLL) is loaded into every SVCHOST instance, 
+whether or not any service DLLs in that instance ever make any Remote Procedure 
+Calls. By contrast, the COM Run-Time (OLE32.DLL) is not loaded unless initialisation 
+of COM security is configured. </p>
+<h2>COM Security </h2>
+<p>For COM initialisation, if enabled by a registry setting described below, SVCHOST 
+does the following: </p>
+<ul>
+  <li>calls <span class="function">CoInitializeEx</span>; </li>
+  <li>calls <span class="function">CoInitializeSecurity</span>; </li>
+  <li>disables COM Run-Time exception handling (version 5.2 and higher); </li>
+  <li>optionally sets an <span class="regkey">AppID</span> (version 5.2 from Windows 
+  Server 2003 SP2, and higher). </li>
+</ul>
+<p>Version 6.00 allows that all these except for calling <span class="function">
+CoInitializeEx</span> can be deferred until a request is received to start any of 
+a specified set of services (which are presumably the ones that actually will be 
+COM servers). </p>
+<p>SVCHOST initialises COM for the multi-threaded concurrency model, with DDE disabled. 
+The call to <span class="function">CoInitializeSecurity</span> is configurable for 
+the authentication and impersonation levels (version 5.1 and higher) and the authentication 
+capabilities. For access control, early versions provide a NULL DACL, thus allowing 
+all access. Starting with the version 5.1 from Windows XP SP2, SVCHOST provides 
+just the one DACL, for Authenticated Users to have COM execution rights. </p>
+<p class="draft">Early versions set the owner and primary group from the thread 
+token else the process token. Version 6.00 uses only the process token. When security 
+is initialised during process initialisation, as it must be for the earlier versions, 
+then SVCHOST has only its initial thread, which is not impersonating. So, is the 
+earlier coding without practical consequence? </p>
+<h3>Failure </h3>
+<p>Given that COM initialisation is enabled, it is treated as critical in version 
+5.2 and higher. If any of the steps listed above fail during process initialisation, 
+then SVCHOST terminates. The exit code 1 distinguishes this case. Earlier versions 
+ignore the failure and may let their services start, but with security left to the 
+COM Run-Time defaults. </p>
+<p>If some of the steps are deferred, as supported in version 6.00, their failure 
+is critical only to the service that they are performed for. Though the service 
+DLL will be loaded already, it does not get called to start the service. Moroever, 
+so that the service never can start, SVCHOST registers a dummy control handler and 
+puts the service into the stopped state. This case is distinguished by
+<span class="constant">ERROR_FUNCTION_FAILED</span> for the Win32 exit code in the 
+service’s status. A failure for one service does not prevent the initialisation 
+from being attempted again for another service. </p>
+<h2>Per-Instance Registry Parameters </h2>
+<p>A few points of this process-wide initialisation are separately configurable 
+for each SVCHOST instance. The name of the service group that runs in the instance, 
+as from a <span class="switch">-k <span class="placeholder">group</span></span> 
+switch on SVCHOST’s command line, becomes a subkey in which to find this instance’s 
+settings. </p>
+<p>None of these settings are formally documented. It may be, of course, that they 
+are left undocumented because none would be useful even to advanced users or system 
+administrators. On the other hand, see that one of the settings had a change of 
+default and that this was not just for a new version but also for a Service Pack. 
+It would be surprising if there was not someone somewhere to benefit from specifying 
+this setting, either so that an old version gets the tighter security that is the 
+new (and presumably more appropriate) default or so that a new version keeps old 
+behaviour. </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost\<span class="placeholder">group</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">DefaultRpcStackSize</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>0 </td>
+  </tr>
+  <tr>
+    <td>Availability </td>
+    <td>version 5.1 and higher </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DefaultRpcStackSize</span> setting tells the RPC Run 
+Time what size of stack to set for each thread it creates. The unit of measurement 
+is KB. </p>
+<p>Without this setting, or if the setting is zero, SVCHOST specifies whatever size 
+is given (in bytes) by the <span class="member">SizeOfStackCommit</span> field in 
+the header of SVCHOST’s executable image. This is 16KB in all the SVCHOST versions 
+that support the setting. </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost\<span class="placeholder">group</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">SystemCritical</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>0 </td>
+  </tr>
+  <tr>
+    <td>Availability </td>
+    <td>version 5.2 and higher </td>
+  </tr>
+</table>
+<p>If <span class="regvalue">SystemCritical</span> is non-zero, then the SVCHOST 
+instance asks to be treated as a critical process if the “Enable system critical 
+breaks” feature is enabled. What this means is that termination should break to 
+a kernel debugger or stop the system. Without a kernel debugger, the bug check code 
+is <span class="constant">CRITICAL_PROCESS_DIED</span> (0xEF) or
+<span class="constant">CRITICAL_OBJECT_TERMINATION</span> (0xF4), depending on whether 
+the termination is orderly or unexpected. For more of what to expect, see
+<span class="function">
+<a href="../../../ntdll/api/rtl/peb/setprocessiscritical.htm">RtlSetProcessIsCritical</a></span>.
+</p>
+<p>Termination during process initialisation is not affected by this setting, since 
+such exits are taken before SVCHOST gets as far as asking to be a critical process.
+</p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost\<span class="placeholder">group</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">CoInitializeSecurityParam</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>0 </td>
+  </tr>
+</table>
+<p>COM initialisation is enabled if <span class="regvalue">CoInitializeSecurityParam</span> 
+is non-zero. Let it be stressed: none of the remaining settings for COM security 
+are meaningful unless <span class="regvalue">CoInitializeSecurityParam</span> is 
+non-zero. </p>
+<p>For initialising COM security, SVCHOST takes the authentication level, impersonation 
+level and authentication capabilities from the registry, as shown below. Beware 
+that SVCHOST accepts whatever it finds for these settings. Invalid data may cause
+<span class="function">CoInitializeSecurity</span> to fail, with the version-dependent 
+consequences noted above. </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost\<span class="placeholder">group</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">AuthenticationLevel</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>4 (<span class="constant">RPC_C_AUTHN_LEVEL_PKT</span>) </td>
+  </tr>
+  <tr>
+    <td>Availability </td>
+    <td>version 5.1 and higher </td>
+  </tr>
+</table>
+<p>Version 5.0, which does not support <span class="regvalue">AuthenticationLevel</span> 
+in the registry, acts as if set to 4. </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost\<span class="placeholder">group</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">ImpersonationLevel</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>2 (<span class="constant">RPC_C_IMP_LEVEL_IDENTIFY</span>) in version 5.1 
+    from Windows XP SP2, and higher; <br>
+    3 (<span class="constant">RPC_C_IMP_LEVEL_IMPERSONATE</span>) in earlier versions
+    </td>
+  </tr>
+  <tr>
+    <td>Availability </td>
+    <td>version 5.1 and higher </td>
+  </tr>
+</table>
+<p>Version 5.0, which does not support <span class="regvalue">ImpersonationLevel</span> 
+in the registry, acts as if set to 3. </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost\<span class="placeholder">group</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">AuthenticationCapabilities</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>0x3000 (<span class="constant">EOAC_DISABLE_AAA</span> and
+    <span class="constant">EOAC_NO_CUSTOM_MARSHAL</span>) </td>
+  </tr>
+</table>
+<p>Special caution applies to the <span class="regvalue">AuthenticationCapabilities</span> 
+setting with respect to the note above about the data being accepted as is. Do not 
+set either the 0x04 (<span class="constant">EOAC_ACCESS_CONTROL</span>) or 0x08 
+(<span class="constant">EOAC_APPID</span>) bit, else behaviour is undefined. The 
+reason is that when SVCHOST calls <span class="function">CoInitializeSecurity</span>, 
+it specifies the COM access permissions by passing a security descriptor. This style 
+of call requires that both the 0x04 and 0x08 bits be clear in whatever is passed 
+as the authentication capabilities, but SVCHOST simply passes the authentication 
+capabilities that it reads from this registry setting. </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost\<span class="placeholder">group</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">CoInitializeSecurityAppID</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Availability </td>
+    <td>version 5.2 from Windows Server 2003 SP2, and higher </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">CoInitializeSecurityAppID</span> setting specifies 
+a GUID from which COM Security is to obtain an <span class="regkey">AppID</span> 
+key. Note that this registry setting is ignored unless the service group contains 
+only one service. </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost\<span class="placeholder">group</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">DeferredCoInitializeSecurityServices</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_MULTI_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Availability </td>
+    <td>version 6.0 and higher </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">DeferredCoInitializeSecurityServices</span> setting 
+specifies which services in the group are subject to deferred initialisation of 
+COM security. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 30th September 2008 and was last modified 
+  on 25th October 2008. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c08.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62741" endspan -->
+</div>
+
+</body>
+
+</html>

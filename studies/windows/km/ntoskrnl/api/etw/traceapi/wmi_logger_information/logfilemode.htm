@@ -1,0 +1,804 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>LogFileMode</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<!--webbot bot="Include" U-Include="../../../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+<h1>LogFileMode </h1>
+<p>The key to the many options for configuring a tracing session, known informally 
+as a logger, is a set of bit flags that are typically experienced in user mode as 
+the <span class="member">LogFileMode</span> member of an <span class="struct">EVENT_TRACE_PROPERTIES</span> 
+structure. Among the options is that a tracing session may have its buffers in user-mode 
+memory, but if these are not specified, the tracing session is the kernel’s to start 
+and manage. For communication to the kernel, nowadays through the
+<span class="function"><a href="../control/index.htm">NtTraceControl</a></span> 
+function, the session’s properties are repackaged as a <span class="struct">
+<a href="index.htm">WMI_LOGGER_INFORMATION</a></span> structure, still with the 
+bit flags as a <span class="type">ULONG</span> member named <span class="member">
+LogFileMode</span>. This also is how the kernel presents the properties to itself 
+for those sessions that it starts from <span class="regkey">AutoLogger</span> settings 
+in the registry. This note is concerned solely with this kernel-mode interpretation 
+of the <span class="member">LogFileMode</span> in the <span class="struct">WMI_LOGGER_INFORMATION</span> 
+and the eventual retention of this LogFileMode as the <span class="member">LoggerMode</span> 
+in the <span class="struct">
+<a href="../../tracesup/wmi_logger_context/index.htm">WMI_LOGGER_CONTEXT</a></span>.
+</p>
+<p>Most of the log file modes are documented by Microsoft as
+<a href="https://docs.microsoft.com/windows/win32/etw/logging-mode-constants">Logging 
+Mode Constants</a> and are defined as macros in EVNTRACE.H. Not all were documented 
+immediately. For a few, Microsoft’s names are known only from the NTWMI.H header 
+which Microsoft published in the Enterprise edition of the Windows Driver Kit (WDK) 
+for Windows 10 version 1511. </p>
+<p>In the following list of log file modes, the versions are those for which the 
+flag is known to have some explicit recognition by the kernel, even if only to reject 
+it as invalid. Where versions are not shown, the flag is not known to the kernel 
+but may instead be vital to the separate NTDLL implementation that lets user-mode 
+processes do their own event tracing. </p>
+<table>
+  <tr>
+    <th>Value </th>
+    <th>Name </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00000001 </td>
+    <td><span class="constant">EVENT_TRACE_FILE_MODE_SEQUENTIAL</span> </td>
+    <td>5.0 and higher </td>
+    <td>defined in DDK for Windows 2000; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00000002 </td>
+    <td><span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span> </td>
+    <td>5.0 and higher </td>
+    <td>defined in DDK for Windows 2000; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td><span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span> </td>
+    <td>5.1 and higher </td>
+    <td>defined in DDK for Windows XP; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00000008 </td>
+    <td><span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span> </td>
+    <td>5.1 and higher </td>
+    <td>defined in DDK for Windows XP; <br>
+    documented by January 2003 </td>
+  </tr>
+  <tr>
+    <td>0x00000010 </td>
+    <td><span class="constant">EVENT_TRACE_USE_MS_FLUSH_TIMER</span> </td>
+    <td>6.1 and higher </td>
+    <td>defined in Enterprise WDK for 1511 </td>
+  </tr>
+  <tr>
+    <td>0x00000020 </td>
+    <td><span class="constant">EVENT_TRACE_FILE_MODE_PREALLOCATE</span> </td>
+    <td>6.0 and higher </td>
+    <td>defined in DDK for Windows XP; <br>
+    documented by January 2003 </td>
+  </tr>
+  <tr>
+    <td>0x00000040 </td>
+    <td><span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span> </td>
+    <td>6.0 and higher </td>
+    <td>defined in WDK for Windows Vista </td>
+  </tr>
+  <tr>
+    <td>0x00000080 </td>
+    <td><span class="constant">EVENT_TRACE_SECURE_MODE</span> </td>
+    <td>6.0 and higher </td>
+    <td>defined in WDK for Windows Vista </td>
+  </tr>
+  <tr>
+    <td>0x00000100 </td>
+    <td><span class="constant">EVENT_TRACE_REAL_TIME_MODE</span> </td>
+    <td>5.0 and higher </td>
+    <td>defined in DDK for Windows 2000; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00000200 </td>
+    <td><span class="constant">EVENT_TRACE_DELAY_OPEN_FILE_MODE</span> </td>
+    <td>5.0 and higher </td>
+    <td>defined in DDK for Windows 2000; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00000400 </td>
+    <td><span class="constant">EVENT_TRACE_BUFFERING_MODE</span> </td>
+    <td>6.0 and higher </td>
+    <td>defined in DDK for Windows 2000; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00000800 </td>
+    <td><span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>defined in DDK for Windows 2000; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00001000 </td>
+    <td><span class="constant">EVENT_TRACE_ADD_HEADER_MODE</span> </td>
+    <td>6.0 only </td>
+    <td>defined in DDK for Windows 2000; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00002000 </td>
+    <td><span class="constant">EVENT_TRACE_USE_KBYTES_FOR_SIZE</span> </td>
+    <td>6.0 and higher </td>
+    <td>defined in WDK for Windows Vista </td>
+  </tr>
+  <tr>
+    <td>0x00004000 </td>
+    <td><span class="constant">EVENT_TRACE_USE_GLOBAL_SEQUENCE</span> </td>
+    <td>5.1 and higher </td>
+    <td>defined in DDK for Windows XP; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00008000 </td>
+    <td><span class="constant">EVENT_TRACE_USE_LOCAL_SEQUENCE</span> </td>
+    <td>5.1 and higher </td>
+    <td>defined in DDK for Windows XP; <br>
+    documented by January 2001 </td>
+  </tr>
+  <tr>
+    <td>0x00010000 </td>
+    <td><span class="constant">EVENT_TRACE_RELOG_MODE</span> </td>
+    <td>6.2 and higher </td>
+    <td>defined in DDK for Windows XP; <br>
+    documented by January 2003 </td>
+  </tr>
+  <tr>
+    <td>0x00020000 </td>
+    <td><span class="constant">EVENT_TRACE_PRIVATE_IN_PROC</span> </td>
+    <td>&nbsp;</td>
+    <td>defined in WDK for Windows Vista </td>
+  </tr>
+  <tr>
+    <td>0x00040000 </td>
+    <td><span class="constant">EVENT_TRACE_BUFFER_INTERFACE_MODE</span> </td>
+    <td>6.1 and higher </td>
+    <td>defined in Enterprise WDK for 1511 </td>
+  </tr>
+  <tr>
+    <td>0x00080000 </td>
+    <td><span class="constant">EVENT_TRACE_KD_FILTER_MODE</span> </td>
+    <td>6.0 and higher </td>
+    <td>defined in Enterprise WDK for 1511 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00100000 </td>
+    <td><span class="constant">EVENT_TRACE_MODE_RESERVED</span> </td>
+    <td>6.0 only </td>
+    <td>defined in WDK for Windows Vista </td>
+  </tr>
+  <tr>
+    <td><span class="constant">EVENT_TRACE_REALTIME_RELOG_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>defined in Enterprise WDK for 1511 </td>
+  </tr>
+  <tr>
+    <td>0x00200000 </td>
+    <td><span class="constant">EVENT_TRACE_LOST_EVENTS_DEBUG_MODE</span> </td>
+    <td>6.2 and higher </td>
+    <td>defined in Enterprise WDK for 1511 </td>
+  </tr>
+  <tr>
+    <td>0x00400000 </td>
+    <td><span class="constant">EVENT_TRACE_STOP_ON_HYBRID_SHUTDOWN</span> </td>
+    <td>6.2 and higher </td>
+    <td>defined in WDK for Windows 8 </td>
+  </tr>
+  <tr>
+    <td>0x00800000 </td>
+    <td><span class="constant">EVENT_TRACE_PERSIST_ON_HYBRID_SHUTDOWN</span>
+    </td>
+    <td>6.2 and higher </td>
+    <td>defined in WDK for Windows 8 </td>
+  </tr>
+  <tr>
+    <td>0x01000000 </td>
+    <td><span class="constant">EVENT_TRACE_USE_PAGED_MEMORY</span> </td>
+    <td>6.0 and higher </td>
+    <td>defined in DDK for Windows XP; <br>
+    documented by January 2003 </td>
+  </tr>
+  <tr>
+    <td>0x02000000 </td>
+    <td><span class="constant">EVENT_TRACE_SYSTEM_LOGGER_MODE</span> </td>
+    <td>6.2 and higher </td>
+    <td>defined in WDK for Windows 8 </td>
+  </tr>
+  <tr>
+    <td>0x04000000 </td>
+    <td><span class="constant">EVENT_TRACE_COMPRESSED_MODE</span> </td>
+    <td>6.2 and higher </td>
+    <td>defined in WDK for 1607 </td>
+  </tr>
+  <tr>
+    <td>0x08000000 </td>
+    <td><span class="constant">EVENT_TRACE_INDEPENDENT_SESSION_MODE</span> </td>
+    <td>6.3 and higher </td>
+    <td>defined in WDK for Windows 8.1 </td>
+  </tr>
+  <tr>
+    <td>0x10000000 </td>
+    <td><span class="constant">EVENT_TRACE_NO_PER_PROCESSOR_BUFFERING</span>
+    </td>
+    <td>6.1 and higher </td>
+    <td>defined in WDK for Windows 7 </td>
+  </tr>
+  <tr>
+    <td>0x20000000 </td>
+    <td><span class="constant">EVENT_TRACE_BLOCKING_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>defined in Enterprise WDK for 1511 </td>
+  </tr>
+  <tr>
+    <td>0x40000000 </td>
+    <td>apparently unused </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x80000000 </td>
+    <td><span class="constant">EVENT_TRACE_ADDTO_TRIAGE_DUMP</span> </td>
+    <td>6.2 and higher </td>
+    <td>defined in WDK for Windows 8 </td>
+  </tr>
+</table>
+<h2>Validation </h2>
+<p>Very many of the options are incompatible with other <span class="member">LogFileMode</span> 
+flags and in some cases with other <span class="struct">WMI_LOGGER_INFORMATION</span> 
+members. By incompatible is here meant that the combination prevents the tracing 
+session from starting: <span class="function">NtTraceControl</span> fails, returning
+<span class="constant">STATUS_INVALID_PARAMETER</span>. </p>
+<p>The table for each flag shows the constraints that apply if the flag is set when 
+trying to start a tracing session. These constraints are what the programmer (or 
+the user who configures <span class="regkey">AutoLogger</span> settings) would need 
+to know if thinking to use the flag. Note that many of these constraints were not 
+enforced immediately that the flag was defined and many seem never to have been 
+formally documented. </p>
+<p>Less easily tabulated are the many requirements and inconsistencies that do not 
+prevent a tracing session from starting but are instead corrected silently. When 
+one flag requires another, the natural resolution of the other’s absence is to proceed 
+as if the other had been set. The one is said (below) to imply the other. Where 
+two flags are inconsistent, a resolution that stops short of treating them as incompatible 
+is to accept one but proceed as if the other had been clear. The one is said to 
+override the other. The terminology is in flux and perhaps never will be sorted 
+out: if you don’t like it, please consider that Microsoft, who designed this as 
+part of a product that makes money, is not known to have ever published any serious 
+attempt. </p>
+<h3>EVENT_TRACE_FILE_MODE_SEQUENTIAL </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>5.0 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span>
+    </td>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_BUFFERING_MODE</span>
+    </td>
+  </tr>
+</table>
+<p>In version 6.0 and higher, <span class="constant">EVENT_TRACE_FILE_MODE_SEQUENTIAL</span> 
+is implied if either <span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span> 
+or <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span> is set. </p>
+<h3>EVENT_TRACE_FILE_MODE_CIRCULAR </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+    <th>Side-Effects </th>
+  </tr>
+  <tr>
+    <td>5.0 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_SEQUENTIAL</span>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.1 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_BUFFERING_MODE</span>
+    </td>
+    <td>can allow <span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span>
+    </td>
+  </tr>
+  <tr>
+    <td>6.2 and higher </td>
+    <td>requires <span class="member">MaximumFileSize</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Not only are <span class="constant">EVENT_TRACE_FILE_MODE_SEQUENTIAL</span> and
+<span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span> opposed in all versions, 
+but the former is a sort of default. In version 6.0 and higher, to omit
+<span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span> is in effect to set
+<span class="constant">EVENT_TRACE_FILE_MODE_SEQUENTIAL</span> unless both
+<span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span> and
+<span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span> are also omitted.
+</p>
+<p>Also starting with version 6.0, setting <span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span> 
+is one way to allow <span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span> 
+for an AutoLogger session. </p>
+<h3>EVENT_TRACE_FILE_MODE_APPEND </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+    <th>Side-Effects </th>
+  </tr>
+  <tr>
+    <td>5.1 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_PREALLOCATE</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_BUFFERING_MODE</span> </td>
+    <td>implies <span class="constant">EVENT_TRACE_FILE_MODE_SEQUENTIAL</span>
+    </td>
+  </tr>
+  <tr>
+    <td>6.1 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<h3>EVENT_TRACE_FILE_MODE_NEWFILE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+    <th>Side-Effects </th>
+  </tr>
+  <tr>
+    <td>5.1 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span>;
+    <br>
+    requires <span class="member">LogFileName</span>; <br>
+    requires <span class="member">MaximumFileSize</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.2 and higher </td>
+    <td>invalid with <span class="guid">SystemTraceControlGuid</span> </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_PREALLOCATE</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_BUFFERING_MODE</span>; <br>
+    invalid with 0x00000002 bit in <span class="member">Flags</span>; <br>
+    invalid with <span class="guid">CKCLGuid</span> </td>
+    <td>implies <span class="constant">EVENT_TRACE_FILE_MODE_SEQUENTIAL</span>
+    </td>
+  </tr>
+  <tr>
+    <td>6.1 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>6.2 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_SYSTEM_LOGGER_MODE</span>
+    </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>See that <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span> is not permitted 
+for some particular tracing sessions. These are identified, originally, by the GUID 
+that is specified in the <span class="member">Guid</span> member of the
+<span class="member">Wnode</span> or is inferred from the session’s name. The
+<span class="guid">SystemTraceControlGuid</span> and <span class="guid">CKCLGuid</span> 
+identify respectively the NT Kernel Logger and the (essentially undocumented) Circular 
+Kernel Context Logger. That it “should not be used for NT kernel logger sessions” 
+has been documented since at least 2003 and generalises in version 6.2 to
+<span class="constant">EVENT_TRACE_SYSTEM_LOGGER_MODE</span>. </p>
+<p>Not documented, but perhaps not a surprise, is that <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span> 
+is not permitted for AutoLogger sessions. These are distinguished by the 0x00000002 
+bit in the <span class="member">Flags</span>. </p>
+<h3>EVENT_TRACE_FILE_MODE_PREALLOCATE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>;
+    <br>
+    requires <span class="member">MaximumFileSize</span> </td>
+  </tr>
+</table>
+<h3>EVENT_TRACE_NONSTOPPABLE_MODE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>requires at least one other <span class="member">LogFileMode</span> bit, 
+    see below; <br>
+    requires 0x00000002 set in <span class="member">Flags</span> </td>
+  </tr>
+</table>
+<p>Microsoft included <span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span> 
+in its documentation of Logging Mode Constants some time between 2010 and 2012 as 
+being “supported on Windows Vista and later.” As the documentation notes, it is 
+intended for tracing sessions that the kernel starts from <span class="regkey">AutoLogger</span> 
+settings in the registry. Enforcement is through the undocumented
+<span class="member">Flags</span> bit, which the documented
+<span class="function">StartTrace</span> function does not set. </p>
+<p>Even for AutoLogger sessions, <span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span> 
+requires one of: </p>
+<ul>
+  <li><span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span>; </li>
+  <li><span class="constant">EVENT_TRACE_BUFFERING_MODE</span>; </li>
+  <li><span class="constant">EVENT_TRACE_REAL_TIME_MODE</span> but without a
+  <span class="member">LogFileName</span> and, in version 6.0, without
+  <span class="constant">EVENT_TRACE_DELAY_OPEN_FILE_MODE</span>. </li>
+</ul>
+<h3>EVENT_TRACE_SECURE_MODE </h3>
+<p>Nothing invalidates <span class="constant">EVENT_TRACE_SECURE_MODE</span>, but 
+it is implied by <span class="constant">EVENT_TRACE_BUFFER_INTERFACE_MODE</span> 
+in version 6.1 and higher. </p>
+<h3>EVENT_TRACE_REAL_TIME_MODE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Side-Effects </th>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>can allow <span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span>
+    </td>
+  </tr>
+</table>
+<p>Nothing invalidates <span class="constant">EVENT_TRACE_REAL_TIME_MODE</span>, 
+but it is overridden by <span class="constant">EVENT_TRACE_BUFFERING_MODE</span> 
+in version 6.1 and higher. </p>
+<p>In all versions, i.e., 5.0 and higher, <span class="constant">EVENT_TRACE_REAL_TIME_MODE</span> 
+is required if all the following are absent: </p>
+<ul>
+  <li><span class="constant">EVENT_TRACE_DELAY_OPEN_FILE_MODE</span>, in versions 
+  5.0 to 6.0; </li>
+  <li><span class="constant">EVENT_TRACE_BUFFERING_MODE</span>, in version 6.0 and 
+  higher; </li>
+  <li><span class="member">LogFileHandle</span>, in versions 5.0 to 5.2; </li>
+  <li><span class="member">LogFileName</span>, in version 6.0 and higher. </li>
+</ul>
+<p>In version 6.0 and higher, setting <span class="constant">EVENT_TRACE_REAL_TIME_MODE</span> 
+without also providing a <span class="member">LogFileName</span> or setting
+<span class="constant">EVENT_TRACE_DELAY_OPEN_FILE_MODE</span> allows
+<span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span> for an AutoLogger session 
+(see above). </p>
+<h3>EVENT_TRACE_DELAY_OPEN_FILE_MODE </h3>
+<p>The original ETW implementation allowed that a log file for a tracing session 
+need not be opened until an event provider actually does write an event for the 
+tracing session to record. This feature is discontinued for version 5.1 but
+<span class="constant">EVENT_TRACE_DELAY_OPEN_FILE_MODE</span> continues to be recognised 
+in the kernel’s code, though without effect in version 6.1 and higher. </p>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>5.0 only </td>
+    <td>invalid without <span class="member">LogFileName</span> </td>
+  </tr>
+  <tr>
+    <td>6.0 only </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span> 
+    if some other <span class="member">LogFileMode</span> bits are clear, see above
+    </td>
+  </tr>
+</table>
+<p>In versions 5.0 to 6.0, <span class="constant">EVENT_TRACE_DELAY_OPEN_FILE_MODE</span> 
+is required if all the following are absent: </p>
+<ul>
+  <li><span class="constant">EVENT_TRACE_REAL_TIME_MODE</span>; </li>
+  <li><span class="constant">EVENT_TRACE_BUFFERING_MODE</span>, in version 6.0;
+  </li>
+  <li><span class="member">LogFileHandle</span>, in versions 5.0 to 5.2; </li>
+  <li><span class="member">LogFileName</span>, in version 6.0. </li>
+</ul>
+<h3>EVENT_TRACE_BUFFERING_MODE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+    <th>Side-Effects </th>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>invalid with <span class="member">LogFileName</span>; <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_SEQUENTIAL</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span>; <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>
+    </td>
+    <td>can allow <span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span>
+    </td>
+  </tr>
+  <tr>
+    <td>6.1 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_BUFFER_INTERFACE_MODE</span>
+    <br>
+    </td>
+    <td>overrides <span class="constant">EVENT_TRACE_REAL_TIME_MODE</span>; <br>
+    overrides <span class="member">FlushTimer</span> </td>
+  </tr>
+  <tr>
+    <td>6.1 to 6.2 </td>
+    <td>&nbsp;</td>
+    <td>overrides <span class="constant">EVENT_TRACE_KD_FILTER_MODE</span> </td>
+  </tr>
+  <tr>
+    <td>6.3 and higher </td>
+    <td>&nbsp;</td>
+    <td>overrides <span class="member">FlushThreshold</span> </td>
+  </tr>
+  <tr>
+    <td>1607 and higher </td>
+    <td>&nbsp;</td>
+    <td>allows <span class="constant">EVENT_TRACE_COMPRESSED_MODE</span> </td>
+  </tr>
+</table>
+<p>In version 6.0 and higher, <span class="constant">EVENT_TRACE_BUFFERING_MODE</span> 
+is required if all the following are absent: </p>
+<ul>
+  <li><span class="constant">EVENT_TRACE_REAL_TIME_MODE</span>; </li>
+  <li><span class="constant">EVENT_TRACE_DELAY_OPEN_FILE_MODE</span>, in version 
+  6.0 only; </li>
+  <li><span class="member">LogFileName</span>. </li>
+</ul>
+<p>Also starting with version 6.0, setting <span class="constant">EVENT_TRACE_BUFFERING_MODE</span> 
+allows <span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span> for an AutoLogger 
+session. </p>
+<h3>EVENT_TRACE_USE_GLOBAL_SEQUENCE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>5.1 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_USE_LOCAL_SEQUENCE</span>
+    </td>
+  </tr>
+</table>
+<h3>EVENT_TRACE_USE_LOCAL_SEQUENCE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>5.1 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_USE_GLOBAL_SEQUENCE</span>
+    </td>
+  </tr>
+</table>
+<h3>EVENT_TRACE_RELOG_MODE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>6.2 and higher </td>
+    <td>invalid </td>
+  </tr>
+</table>
+<p>Early documentation of <span class="constant">EVENT_TRACE_RELOG_MODE</span> was 
+relatively expansive. Nowadays, documentation has it as “reserved for internal use”, 
+and the whole technical content of what the option exists for is “Logs the event 
+without including <span class="struct">EVENT_TRACE_HEADER</span>.” Once upon a time, 
+Microsoft continued with </p>
+<blockquote>
+  The logger was started to re-log one or more existing log files to a new log file. 
+  Therefore, the variable portion of the re-logged event already has a header from 
+  the old log file.
+</blockquote>
+<p>The option evidently does something useful, just not something that Microsoft 
+wants programmers writing for themselves. But that’s another story. The option only 
+ever has been meaningful for user-mode tracing sessions. It’s unknown to the kernel 
+until version 6.2 makes a point of rejecting it explicitly. </p>
+<h3>EVENT_TRACE_BUFFER_INTERFACE_MODE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+    <th>Side-Effects </th>
+  </tr>
+  <tr>
+    <td>6.1 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_BUFFERING_MODE</span>
+    </td>
+    <td>implies <span class="constant">EVENT_TRACE_SECURE_MODE</span> </td>
+  </tr>
+</table>
+<h3>EVENT_TRACE_KD_FILTER_MODE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Side-Effects </th>
+  </tr>
+  <tr>
+    <td>6.2 and higher </td>
+    <td>overrides <span class="constant">EVENT_TRACE_USE_PAGED_MEMORY</span>
+    </td>
+  </tr>
+</table>
+<p>Nothing invalidates <span class="constant">EVENT_TRACE_KD_FILTER_MODE</span>. 
+It is, however, overridden by <span class="constant">EVENT_TRACE_BUFFERING_MODE</span> 
+in versions 6.1 to 6.2. In version 6.2, this override of <span class="constant">
+EVENT_TRACE_KD_FILTER_MODE</span> still overrides <span class="constant">EVENT_TRACE_USE_PAGED_MEMORY</span>.
+</p>
+<h3>EVENT_TRACE_STOP_ON_HYBRID_SHUTDOWN </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>6.2 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_PERSIST_ON_HYBRID_SHUTDOWN</span>
+    </td>
+  </tr>
+</table>
+<h3>EVENT_TRACE_PERSIST_ON_HYBRID_SHUTDOWN </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>6.2 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_STOP_ON_HYBRID_SHUTDOWN</span>
+    </td>
+  </tr>
+</table>
+<h3>EVENT_TRACE_USE_PAGED_MEMORY </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>6.2 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_SYSTEM_LOGGER_MODE</span>
+    </td>
+  </tr>
+</table>
+<p>A tracing session that has kernel-mode buffers uses non-paged memory by default 
+but can specify <span class="constant">EVENT_TRACE_USE_PAGED_MEMORY</span>. The 
+buffers are then reserved in paged memory, of course. This is not suitable for kernel-mode 
+event providers, which are free to write events when access to paged memory is forbidden. 
+This is in general not a problem if such providers never are enabled for the session, 
+but to specify <span class="constant">EVENT_TRACE_SYSTEM_LOGGER_MODE</span> is to 
+want from the start that the kernel is an event provider and is ruled out. </p>
+<p>Specifying <span class="constant">EVENT_TRACE_KD_FILTER_MODE</span> also declares 
+an intention to receive events when paged memory may be out of bounds, but the resolution 
+(also in version 6.2 and higher) is just that <span class="constant">EVENT_TRACE_USE_PAGED_MEMORY</span> 
+is overridden. </p>
+<h3>EVENT_TRACE_SYSTEM_LOGGER_MODE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>6.2 and higher </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_USE_PAGED_MEMORY</span> </td>
+  </tr>
+</table>
+<h3>EVENT_TRACE_COMPRESSED_MODE </h3>
+<table>
+  <tr>
+    <th>Versions </th>
+    <th>Constraints </th>
+  </tr>
+  <tr>
+    <td>6.2 to 1511 </td>
+    <td>invalid </td>
+  </tr>
+  <tr>
+    <td>1607 and higher </td>
+    <td>requires <span class="constant">EVENT_TRACE_BUFFERING_MODE</span> </td>
+  </tr>
+</table>
+<p>Compression of buffers for writing to the log file dates from version 6.2 for 
+tracing sessions that have user-mode buffers and are managed by NTDLL instead of 
+the kernel. The compression functionality eventually gets some support for kernel-mode 
+tracing sessions in the 1607 release of Windows 10. Until then, the kernel explicitly 
+rejects <span class="constant">EVENT_TRACE_COMPRESSED_MODE</span> as invalid.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 2nd May 2020 from material that was 
+  first published on 31st <a href="../../../../../../../../new/18/12.htm">December 
+  2018</a>. It was last modified on 28th
+  <a href="../../../../../../../../new/20/05.htm">May 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14474" -->
+</div>
+
+</body>
+
+</html>

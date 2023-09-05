@@ -1,0 +1,138 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ZwQueryIntervalProfile</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>ZwQueryIntervalProfile </h1>
+<p>This function obtains the profile interval that is currently set for a given 
+profile source. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+NtQueryIntervalProfile (
+    <a href="../../ke/profobj/kprofile_source.htm">KPROFILE_SOURCE</a> ProfileSource, 
+    ULONG *Interval);</pre>
+<p>in version 3.51 and higher, but </p>
+<pre class="source">NTSTATUS NtQueryIntervalProfile (ULONG *Interval);</pre>
+<p>in versions 3.10 and 3.50. &nbsp;</p>
+<h3>Parameters </h3>
+<p>The <span class="argument">ProfileSource</span> argument selects a possible source 
+of profile interrupts. </p>
+<p>The <span class="argument">Interval</span> argument is the address of a variable 
+that is to receive what is currently set as the interval between profile interrupts 
+that have the given source. The unit of measurement depends on the source. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/ntstatus.htm" TAG="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" -->
+<p>If the given profile source is not supported, the function declares success but 
+the interval is reported as zero. </p>
+<h2>Availability </h2>
+<p>The <span class="function">NtQueryIntervalProfile</span> function and its alias
+<span class="function">ZwQueryIntervalProfile</span> are exported by name from NTDLL 
+in version 3.10 and higher. In kernel mode, where <span class="function">ZwQueryIntervalProfile</span> 
+is a stub and <span class="function">NtQueryIntervalProfile</span> is the implementation, 
+neither is exported until the 1607 release of Windows exports the stub. </p>
+<h2>Documentation Status </h2>
+<p>Neither <span class="function">NtQueryIntervalProfile</span> nor its alias is 
+documented. As <span class="function">ZwQueryIntervalProfile</span>, it is declared 
+in the ZWAPI.H file from the Enterprise edition of the Windows Driver Kit (WDK) 
+for the 1511 release of Windows 10. </p>
+<p>The semi-documented repackaging of <span class="function">NtQueryIntervalProfile</span> 
+in a higher-level user-mode module (than NTDLL) is the <span class="constant">TraceSampledProfileIntervalInfo</span> 
+(0x05) information class of the ADVAPI32 and SECHOST function
+<span class="function">
+<a href="../../../../../win32/advapi32/api/etw/logapi/query.htm">TraceQueryInformation</a></span>. 
+Not that the documentation spells it out, but the information buffer to provide 
+for this information class is the <span class="struct">TRACE_PROFILE_INTERVAL</span>. 
+Though the structure appears to be undocumented, a C-language definition is available 
+in EVNTRACE.H. That structure’s non-zero <span class="member">Source</span> on input 
+is in fact a <span class="enum">KPROFILE_SOURCE</span> and becomes the
+<span class="argument">ProfileSource</span> argument to <span class="function">NtQueryIntervalProfile</span>.
+</p>
+<h2>Behaviour </h2>
+<!--webbot bot="Include" U-Include="../../_include/win10.htm" TAG="BODY" startspan -->
+
+<p>The following implementation notes come mainly from inspection of the kernel 
+from the original release of Windows 10. They may some day get revised to account 
+for other versions. Where anything is written about earlier versions, take it not 
+as an attempt at presenting a comprehensive history but as a bonus from my being 
+unable to resist a quick trip down memory lane. I have no programme of revisiting 
+this analysis for later releases. Updates mean just that I happen to have noticed 
+something and to have found time to add it. </p>
+
+<!--webbot bot="Include" endspan i-checksum="60685" -->
+<h3>User-Mode Defences </h3>
+<p>If executing for a user-mode request, which looks to be necessary given that 
+the function is not exported in kernel mode and is not called internally, the variable 
+at <span class="argument">Interval</span> must start in user-mode address space 
+and be writable. Failure at this defence is failure for the function, typically 
+showing as a return of <span class="constant">STATUS_ACCESS_VIOLATION</span>. If 
+writing to the variable for a successful return causes an exception, the function 
+still returns <span class="constant">STATUS_SUCCESS</span>. </p>
+<h3>Implementation </h3>
+<p>All profile sources other than <span class="constant">ProfileAlignmentFixup</span> 
+(0x01) are managed by the HAL. The kernel queries the HAL via the
+<span class="member">HalQuerySystemInformation</span> pointer in the kernel’s
+<span class="struct"><a href="../../../inc/ntos/hal/hal_dispatch.htm">HAL_DISPATCH</a></span>, 
+specifically for the information class <span class="constant">HalProfileSourceInformation</span> 
+(0x01). If this call succeeds and the HAL indicates that the given
+<span class="argument">ProfileSource</span> is supported, then whatever interval 
+it produces in the requested information becomes the interval that the function 
+reports. Otherwise, the function reports that the interval is zero. Either way, 
+the function returns <span class="constant">STATUS_SUCCESS</span>. </p>
+<p>For <span class="constant">ProfileAlignmentFixup</span>, the function reports 
+whatever interval was last set for this profile source. If no interval has yet been 
+set, the interval is reported as zero. Either way, the function returns
+<span class="constant">STATUS_SUCCESS</span>. </p>
+<h2>Remarks </h2>
+<p>Beware that profile sources are global. The interval can be changed by any sufficiently 
+privileged process’s call to <span class="function"><a href="setinterval.htm">NtSetIntervalProfile</a></span> 
+for the same profile source. An interval reported by <span class="function">NtQueryIntervalProfile</span> 
+can be stale even by the time the function returns. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 7th
+  <a href="../../../../../../../new/17/01.htm">January 2017</a> and was last modified 
+  on 23rd November 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1718.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017-2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5141" -->
+</div>
+
+</body>
+
+</html>

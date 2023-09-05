@@ -1,0 +1,337 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KTIMER</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<h1>KTIMER </h1>
+<p>The <span class="struct">KTIMER</span> is the kernel’s representation of a timer 
+object. Like all dispatcher objects, timers can be waited on until they get signalled. 
+As an elaboration that is not supported for all dispatcher objects, a timer’s usefulness 
+comes not just from being waitable. It can also be configured so that signalling 
+causes a Deferred Procedure Call (DPC) to be scheduled. For timers, signalling is 
+done by the kernel on noticing that a specified time has been reached. This specified 
+time can be <span class="definition">absolute</span> or <span class="definition">
+relative</span>, the former being a system time, the latter being a difference from 
+the current interrupt time. </p>
+<p>Kernel-mode code allocates space for a <span class="struct">KTIMER</span> and 
+gets it ready for use by calling either <span class="function">KeInitializeTimer</span> 
+or the newer, more capable, <span class="function">KeInitializeTimerEx</span>. Thereafter, 
+conditions for the timer’s expiration can be specified through the progressively 
+newer and more capable functions <span class="function">KeSetTimer</span>,
+<span class="function">KeSetTimerEx</span> and <span class="function">KeSetCoalescableTimer</span>. 
+These functions each reset the timer to be non-signalled. </p>
+<p>The kernel itself exposes timer objects to the Object Manager. Code in both kernel 
+mode and user mode can call <span class="function">NtCreateTimer</span> or
+<span class="function">ZwCreateTimer</span>, as appropriate, to get the kernel to 
+create a <span class="struct">KTIMER</span> within an <span class="struct">ETIMER</span>, 
+which is then made accessible through a handle. A timer that is created this way 
+can have a name, such that another handle can be obtained, most usefully in another 
+process, by calling <span class="function">NtOpenTimer</span> or
+<span class="function">ZwOpenTimer</span>. Of course, well-behaved user-mode code 
+doesn’t call these native API functions directly but instead goes through such higher-level 
+functions as <span class="function">CreateWaitableTimerEx</span> and
+<span class="function">OpenWaitableTimer</span> which are exported from KERNEL32.
+</p>
+<h2>Layout </h2>
+<p>In all versions, the <span class="struct">KTIMER</span> is 0x28 and 0x40 bytes 
+in 32-bit and 64-bit Windows respectively. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source"><a href="dispatcher_header/index.htm">DISPATCHER_HEADER</a> Header;</pre>
+    </td>
+    <td>all &nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">ULARGE_INTEGER DueTime;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">LIST_ENTRY TimerListEntry;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>0x30 </td>
+    <td>
+    <pre class="source"><a href="kdpc.htm">KDPC</a> *Dpc;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">&nbsp;</td>
+    <td rowspan="2">0x38 </td>
+    <td>
+    <pre class="source">ULONG Processor;</pre>
+    </td>
+    <td>6.1 to 1903 </td>
+    <td>x86 in <span class="member">Header</span> </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">USHORT Processor;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>0x3A </td>
+    <td>
+    <pre class="source">USHORT TimerType;</pre>
+    </td>
+    <td>2004 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x24 </td>
+    <td rowspan="3">0x38 (late 5.2 to 6.0); <br>
+    0x3C </td>
+    <td>
+    <pre class="source">BOOLEAN Inserted;</pre>
+    </td>
+    <td>3.10 to 3.51 </td>
+    <td>moves to <span class="member">Header</span> </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">LONG Period;</pre>
+    </td>
+    <td>4.0 to 6.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG Period;</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>The <span class="member">DueTime</span> is the interrupt time at which the timer 
+is set to expire. </p>
+<p>Of several expansions of functionality that Windows NT 4.0 brought to timers, 
+automatically restarting the timer at repeating intervals required more storage 
+in the <span class="struct">KTIMER</span>. Three bytes had been left undefined as 
+a side-effect of alignment after the <span class="member">Inserted</span> member. 
+To find four bytes for saving the whole <span class="argument">Period</span> that 
+could be given to the new <span class="function">KeSetTimerEx</span> function, the
+<span class="member">Inserted</span> member was moved into the
+<span class="struct">DISPATCHER_HEADER</span>, taking space from the
+<span class="member">Size</span>. </p>
+<h3>Dispatcher Header </h3>
+<p>Much of the new functionality in successive versions has been accommodated by 
+finding space inside the <span class="member">Header</span>. The
+<span class="struct">DISPATCHER_HEADER</span> is a complex structure that begins 
+all kernel objects that can be waited on. The following tables simplify by disregarding 
+the nested unions, extracting only the branches that apply to timers. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition"><col class="Versions">
+    <col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td rowspan="3">0x00 </td>
+    <td>
+    <pre class="source">SHORT Type;</pre>
+    </td>
+    <td>3.10 to 3.50 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR Type;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR TimerType;</pre>
+    </td>
+    <td>10.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x01 </td>
+    <td>
+    <pre class="source">UCHAR Spare;</pre>
+    </td>
+    <td>3.51 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR Absolute;</pre>
+    </td>
+    <td>4.0 to 6.0 </td>
+    <td>becomes bit in <span class="member">TimerControlFlags</span> </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    UCHAR <a href="dispatcher_header/timercontrolflags.htm">TimerControlFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="4">0x02 </td>
+    <td>
+    <pre class="source">SHORT Size;</pre>
+    </td>
+    <td>3.10 to 3.50 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">USHORT Size;</pre>
+    </td>
+    <td>3.51 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR Size;</pre>
+    </td>
+    <td>4.0 to early 5.2 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR Hand;</pre>
+    </td>
+    <td>late 5.2 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x03 </td>
+    <td>
+    <pre class="source">UCHAR Inserted;</pre>
+    </td>
+    <td>4.0 to 6.0 </td>
+    <td>becomes bit in <span class="member">TimerMiscFlags</span> </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    UCHAR <a href="dispatcher_header/timermiscflags.htm">TimerMiscFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+    </td>
+    <td>6.1 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">LONG SignalState;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">LIST_ENTRY WaitListHead;</pre>
+    </td>
+    <td>3.51 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>As for all dispatchable objects, the low 7 bits of the <span class="member">Type</span>—or 
+all 8 bits in version 3.51—are from the <span class="enum">
+<a href="../ke/kobjects.htm">KOBJECTS</a></span> enumeration. For the
+<span class="struct">KTIMER</span> specifically, these bits are 0x08 (<span class="constant">TimerNotificationObject</span>) 
+or 0x09 (<span class="constant">TimerSynchronizationObject</span>) according to 
+whether <span class="constant">NotificationTimer</span> or
+<span class="constant">SynchronizationTimer</span> is given as the
+<span class="argument">Type</span> argument when initialising the timer through 
+the <span class="function">KeInitializeTimerEx</span> function. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 22nd
+  <a href="../../../../../../../new/16/06.htm">June 2016</a> and was last modified on 
+  27th November 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1620.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4893" -->
+</div>
+
+</body>
+
+</html>

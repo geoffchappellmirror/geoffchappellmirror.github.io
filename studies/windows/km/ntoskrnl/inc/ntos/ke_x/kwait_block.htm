@@ -1,0 +1,324 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KWAIT_BLOCK</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>KWAIT_BLOCK </h1>
+  <p>The <span class="struct">KWAIT_BLOCK</span> (formally <span class="struct">
+  _KWAIT_BLOCK</span>) is the kernel-mode structure for keeping state about a thread’s 
+  waiting on a dispatcher object. A <span class="struct">KWAIT_BLOCK</span> is needed 
+  for each dispatcher object that a thread waits on. That programmers are mostly 
+  not aware of the <span class="struct">KWAIT_BLOCK</span> as anything they need 
+  to provide when making a thread wait on an object is because most such waits use 
+  an array of <span class="struct">KWAIT_BLOCK</span> structures that are built 
+  in to the thread’s <span class="struct"><a href="../ke/kthread/index.htm">KTHREAD</a></span> 
+  structure (as the latter’s <span class="member">WaitBlock</span> member). The 
+  first three in this array are dedicated to supporting the
+  <span class="function">KeWaitForSingleObject</span> and <span class="function">
+  KeWaitForMultipleObject</span> functions. Only when the latter is to wait on more 
+  than three objects must the caller provide its own <span class="struct">KWAIT_BLOCK</span> 
+  array, one structure for each object. </p>
+  <h2>Variability </h2>
+  <p>The <span class="struct">KWAIT_BLOCK</span> is another of the several structures 
+  that looks to be defined for kernel-mode programmers only so that their code has 
+  the structure’s size, in turn only so that their code can allocate space for the 
+  structure, whether dynamically or by nesting it in other structures. Microsoft 
+  might as well have defined it as an opaque array of some number of bytes, with 
+  the kernel free to make whatever internal use it wants, including to change wildly 
+  between versions. Unusually for such structures, not only has the kernel varied 
+  its use but the size of the <span class="struct">KWAIT_BLOCK</span> has varied 
+  too: </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <tbody>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+      <tr>
+        <td>3.10 to 3.50 </td>
+        <td>0x1C </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.51 to 2004 </td>
+        <td>0x18 </td>
+        <td>0x30 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>That the reduction for version 3.51 creates an incompatibility is especially 
+  curious in contrast with the trouble Microsoft took over the reduction of the
+  <span class="struct">ERESOURCE</span> in version 3.50. The concern in each case 
+  is that new drivers built with new headers will allow too little space for safe 
+  use on old Windows versions. For the <span class="struct">ERESOURCE</span>, Microsoft 
+  created a whole family of new functions for new drivers to call for their work 
+  with the reduced structure. For the <span class="struct">KWAIT_BLOCK</span>, callers 
+  of <span class="function">KeWaitForMultipleObjects</span> who wait on more than 
+  three objects (and thus must provide their own <span class="struct">KWAIT_BLOCK</span> 
+  array) were left to discover for themselves that what they provided for version 
+  3.51 is too small for the earlier two versions. </p>
+  <h2>Layout </h2>
+  <p>Offsets, names and types of <span class="struct">KWAIT_BLOCK</span> members 
+  for all Windows versions are known from C-language declarations published in the 
+  corresponding DDK or WDK. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions"><col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+        <th>Remarks </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">LIST_ENTRY WaitListEntry;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>0x10 </td>
+        <td>
+        <pre class="source">UCHAR WaitType;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x16 and 0x2A </td>
+      </tr>
+      <tr>
+        <td>0x09 </td>
+        <td>0x11 </td>
+        <td>
+        <pre class="source">UCHAR volatile BlockState;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x17 and 0x2B </td>
+      </tr>
+      <tr>
+        <td>0x0A </td>
+        <td>0x12 </td>
+        <td>
+        <pre class="source">USHORT WaitKey;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x14 and 0x28 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x14 </td>
+        <td>
+        <pre class="source">LONG SpareLong;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>previously at 0x2C </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x08 (3.10 to 6.1); <br>
+        0x0C </td>
+        <td rowspan="2">0x10 (5.2 to 6.1); <br>
+        0x18 </td>
+        <td>
+        <pre class="source">KTHREAD *Thread;</pre>
+        </td>
+        <td>3.10 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    KTHREAD *Thread;
+    KQUEUE *NotificationQueue;
+};</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0C (3.10 to 6.1); <br>
+        0x10 </td>
+        <td>0x18 (5.2 to 6.1); <br>
+        0x20 </td>
+        <td>
+        <pre class="source">PVOID Object;</pre>
+        </td>
+        <td>all </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x10 (3.10 to 6.1); <br>
+        0x14 </td>
+        <td rowspan="2">0x20 (5.2 to 6.1); <br>
+        0x28 </td>
+        <td>
+        <pre class="source">KWAIT_BLOCK *NextWaitBlock;</pre>
+        </td>
+        <td>3.10 to 6.1 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID SparePtr;</pre>
+        </td>
+        <td>6.2 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x14 (3.10 to 6.1) </td>
+        <td rowspan="2">0x28 (5.2 to 6.1) </td>
+        <td>
+        <pre class="source">CSHORT WaitKey;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT WaitKey;</pre>
+        </td>
+        <td>3.51 to 6.1 </td>
+        <td>next at 0x0A and 0x12 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x18 (3.10 to 3.50); <br>
+        0x16 (3.51 to 6.1) </td>
+        <td rowspan="3">0x2A (5.2 to 6.1) </td>
+        <td>
+        <pre class="source">WAIT_TYPE WaitType;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT WaitType;</pre>
+        </td>
+        <td>3.51 to early 5.2 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR WaitType;</pre>
+        </td>
+        <td>late 5.2 to 6.1 </td>
+        <td>next at 0x08 and 0x10 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x17 (late 5.1 to 6.1) </td>
+        <td rowspan="2">0x2B (5.2 to 6.1) </td>
+        <td>
+        <pre class="source">UCHAR SpareByte;</pre>
+        </td>
+        <td>late 5.2 to 6.0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR volatile BlockState;</pre>
+        </td>
+        <td>6.1 </td>
+        <td>next at 0x09 and 0x11 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x2C (5.2 to 6.1) </td>
+        <td>
+        <pre class="source">LONG SpareLong;</pre>
+        </td>
+        <td>late 5.2 to 6.1 </td>
+        <td>next at 0x14 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">WaitListEntry</span> links the
+  <span class="struct">KWAIT_BLOCK</span> into the <span class="member">WaitListHead</span> 
+  in the <span class="struct">
+  <a href="../ntosdef_x/dispatcher_header/index.htm">DISPATCHER_HEADER</a></span> 
+  of the dispatcher object that is being waited on. </p>
+  <p>The structure’s larger size in the earliest versions is entirely due to having 
+  the <span class="member">WaitType</span> as a four-byte <span class="keyword">enum</span>. Later versions still have this member take 
+  its values from the <span class="enum">WAIT_TYPE</span> enumeration (defined in 
+  NTDEF.H) but reduced to two bytes and even later to just one. </p>
+  <p>The single-byte <span class="member">BlockState</span> takes its values from 
+  the undocumented <span class="enum"><a href="../ke/kwait_block_state.htm">KWAIT_BLOCK_STATE</a></span> 
+  enumeration. </p>
+  <p>The <span class="member">WaitKey</span> has two uses. In the
+  <span class="constant">WaitAny</span> type of wait for multiple objects, the 
+  return value of the <span class="function">KeWaitForMultipleObjects</span> 
+  function can tell which object satisfied the wait. This applies trivially to
+  <span class="function">KeWaitForSingleObject</span>. Either way, the
+  <span class="member">WaitKey</span> in the <span class="struct">KWAIT_BLOCK</span> 
+  for each object is the 0-based index into the <span class="struct">KWAIT_BLOCK</span> 
+  array. The other use is a little obscure. Waiting with a timeout, whether for 
+  a single object or for multiple objects, adds a timer object to the wait. The 
+  timer is built in to the <span class="struct">KTHREAD</span> as its
+  <span class="member">Timer</span> member. Adding it to the wait uses a 
+  built-in <span class="struct">KWAIT_BLOCK</span> from the thread’s
+  <span class="member">WaitBlock</span> array (the second when waiting on a 
+  single object, the last when waiting on multiple objects). In this block, the
+  <span class="member">WaitKey</span> is set to <span class="constant">
+  STATUS_TIMEOUT</span>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 5th
+    <a href="../../../../../../../new/22/10.htm">October 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5890" -->
+  </div>
+</div>
+
+</body>
+
+</html>

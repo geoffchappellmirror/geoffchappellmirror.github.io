@@ -1,0 +1,967 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>LDR_DATA_TABLE_ENTRY</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../win32/_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../win32/_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../win32/_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../win32/toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="41796" -->
+<h1>LDR_DATA_TABLE_ENTRY </h1>
+<p>The <span class="struct">LDR_DATA_TABLE_ENTRY</span> structure is NTDLL’s record 
+of how a DLL is loaded into a process. </p>
+<h2>Access </h2>
+<p>Each process has its own list of loaded modules. In some sense, it has three 
+lists since although there is only the one <span class="struct">LDR_DATA_TABLE_ENTRY</span> 
+structure for each module, each is linked in three different orders. The way to 
+find the list is well known, including to malware. The <span class="member">Ldr</span> 
+member of the process’s <span class="struct"><a href="../../../../../win32/ntdll/structs/peb.htm">PEB</a></span> points 
+to the process’s <span class="struct"><a href="../ntpsapi_x/peb_ldr_data.htm">PEB_LDR_DATA</a></span> 
+which contains the list heads as <span class="member">InLoadOrderModuleList</span>,
+<span class="member">InMemoryOrderModuleList</span> and <span class="member">InInitializationOrderModuleList</span>. 
+Less well known—or less well respected in real-world practice, even by programmers 
+who aren’t writing malware—is that the links in these lists are not safe to follow 
+while modules might be loaded and unloaded. That this can’t happen at the time can 
+be hard enough to ensure even for the current process. </p>
+<h2>Documentation Status </h2>
+<p>In an ideal world, the <span class="struct">LDR_DATA_TABLE_ENTRY</span> might 
+be opaque outside NTDLL. But various high-level modules supplied with Windows over 
+the years have used at least one member of the <span class="struct">LDR_DATA_TABLE_ENTRY</span>, 
+which eventually had to be disclosed. A new header, named WINTERNL.H, for previously 
+internal APIs was added to the Software Development Kit (SDK) apparently in 2002, 
+and remains to this day. Starting with the SDK for Windows 7, WINTERNL.H presents 
+a modified <span class="struct">LDR_DATA_TABLE_ENTRY</span> that has just the
+<span class="member">InMemoryOrderLinks</span>, <span class="member">DllBase</span>,
+<span class="member">FullDllName</span>, <span class="member">CheckSum</span> and
+<span class="member">TimeDateStamp</span> members, plus padding that gets these 
+members to the same offsets as in the true structure. It seems unlikely that Microsoft 
+will change the <span class="struct">LDR_DATA_TABLE_ENTRY</span> in any way that 
+moves these members. </p>
+<h2>Layout </h2>
+<p>Indeed, given that <span class="struct">LDR_DATA_TABLE_ENTRY</span> at least 
+started as an undocumented structure for NTDLL’s internal use, it is surprisingly 
+stable across Windows versions. Until a significant reworking for Windows 8, the 
+structure grew only by extension and many of the original members—which happen to 
+be the most useful in practice—keep their same positions through the whole history. 
+The following table shows the changing sizes: </p>
+<table class="Sizes">
+  <colgroup>
+    <col class="Version"><col class="Size" span="2">
+  </colgroup>
+  <tr>
+    <th>Version </th>
+    <th>Size (x86) </th>
+    <th>Size (x64) </th>
+  </tr>
+  <tr>
+    <td>3.10 to 3.51 </td>
+    <td>0x44 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>4.0&nbsp; to 5.0 </td>
+    <td>0x48 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.1 before Windows XP SP2 </td>
+    <td>0x4C </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.1 from Windows XP SP2 to 5.2 </td>
+    <td>0x50 </td>
+    <td>0x98 </td>
+  </tr>
+  <tr>
+    <td>6.0 </td>
+    <td>0x68 </td>
+    <td>0xC8 </td>
+  </tr>
+  <tr>
+    <td>6.1 </td>
+    <td>0x78 </td>
+    <td>0xE0 </td>
+  </tr>
+  <tr>
+    <td>6.2 </td>
+    <td>0x98 </td>
+    <td>0x0110 </td>
+  </tr>
+  <tr>
+    <td>6.3 to 1511 </td>
+    <td>0xA0 </td>
+    <td>0x0118 </td>
+  </tr>
+  <tr>
+    <td>1607 and higher </td>
+    <td>0xA8 </td>
+    <td>0x0120 </td>
+  </tr>
+</table>
+<p>These sizes, and the offsets, types and names in the tables that follow, are 
+from Microsoft’s symbol files for the kernel starting with Windows 2000 SP3 and 
+for NTDLL starting with Windows XP. Symbol files for earlier versions do not contain 
+type information for the <span class="struct">LDR_DATA_TABLE_ENTRY</span>, but inspection 
+confirms that all but one member that was in use by then had near enough the same 
+usage as far back as Windows NT 3.10. </p>
+<h3>Original </h3>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">LIST_ENTRY InLoadOrderLinks;</pre>
+    </td>
+    <td>3.10 and higher </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">LIST_ENTRY InMemoryOrderLinks;</pre>
+    </td>
+    <td>3.10 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x10 </td>
+    <td rowspan="2">0x20 </td>
+    <td>
+    <pre class="source">LIST_ENTRY InInitializationOrderLinks;</pre>
+    </td>
+    <td>3.10 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    LIST_ENTRY InInitializationOrderLinks;
+    LIST_ENTRY InProgressLinks;
+};</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>0x30 </td>
+    <td>
+    <pre class="source">PVOID DllBase;</pre>
+    </td>
+    <td>3.10 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td>0x38 </td>
+    <td>
+    <pre class="source">PVOID EntryPoint;</pre>
+    </td>
+    <td>3.10 and higher </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>0x40 </td>
+    <td>
+    <pre class="source">ULONG SizeOfImage;</pre>
+    </td>
+    <td>3.10 and higher </td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>0x48 </td>
+    <td>
+    <pre class="source">UNICODE_STRING FullDllName;</pre>
+    </td>
+    <td>3.10 and higher </td>
+  </tr>
+  <tr>
+    <td>0x2C </td>
+    <td>0x58 </td>
+    <td>
+    <pre class="source">UNICODE_STRING BaseDllName;</pre>
+    </td>
+    <td>3.10 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x34 </td>
+    <td rowspan="2">0x68 </td>
+    <td>
+    <pre class="source">ULONG Flags;</pre>
+    </td>
+    <td>3.10 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    UCHAR FlagGroup [4];
+    ULONG Flags;
+    struct {
+        /*  bit fields, see below  */
+    };  
+};</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x38 </td>
+    <td rowspan="2">0x6C </td>
+    <td>
+    <pre class="source">USHORT LoadCount;</pre>
+    </td>
+    <td>3.10 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">USHORT ObsoleteLoadCount;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x3A </td>
+    <td>0x6E </td>
+    <td>
+    <pre class="source">USHORT TlsIndex;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x3C </td>
+    <td rowspan="2">0x70 </td>
+    <td>
+    <pre class="source">union {
+    LIST_ENTRY HashLinks;
+    struct {
+        PVOID SectionPointer;
+        ULONG CheckSum;
+    };
+};</pre>
+    </td>
+    <td>3.10 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">LIST_ENTRY HashLinks;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p>A practical reason to know of this structure is for the debugging exercise of 
+finding why a DLL did not get unloaded when expected or did get unloaded but by 
+surprise. Both are questions of DLL reference counting. Before Windows 8, the
+<span class="member">LoadCount</span> member of this structure
+<span class="emphasis">is</span> the reference count. The <span class="struct">LDR_DATA_TABLE_ENTRY</span> 
+for the DLL in question is most easily found when the DLL has just loaded. A program’s 
+loading and unloading of the DLL can then be tracked easily by setting a write-memory 
+breakpoint on the <span class="member">LoadCount</span> member. At each break to 
+the debugger, look at what the count has changed to and look at a stack dump to 
+see who made the change. </p>
+<h3>Appended for Windows NT 4.0 </h3>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0x44 </td>
+    <td rowspan="2">0x80 </td>
+    <td>
+    <pre class="source">union {
+    ULONG TimeDateStamp;
+    PVOID LoadedImports;
+};</pre>
+    </td>
+    <td>4.0 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG TimeDateStamp;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<h3>Appended for Windows XP </h3>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x48 </td>
+    <td>0x88 </td>
+    <td>
+    <pre class="source">PVOID EntryPointActivationContext;</pre>
+    </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x4C </td>
+    <td rowspan="3">0x90 </td>
+    <td>
+    <pre class="source">PVOID PatchInformation;</pre>
+    </td>
+    <td>5.1 from Windows XP SP2 to 6.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">PVOID Spare;</pre>
+    </td>
+    <td>6.3 only </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">PVOID Lock;</pre>
+    </td>
+    <td>10.0 and higher </td>
+  </tr>
+</table>
+<h3>Appended for Windows Vista </h3>
+<p>Insertion of the <span class="struct">LDR_DATA_TABLE_ENTRY</span> into three 
+more lists for Windows Vista soon enough got undone when Windows 8 greatly reworked 
+the tracking of DLLs as they get loaded and unloaded. These members’ positions have 
+an entirely different use in Windows 8 and higher. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x50 (6.0 to 6.1) </td>
+    <td>0x98 (6.0 to 6.1) </td>
+    <td>
+    <pre class="source">LIST_ENTRY ForwarderLinks;</pre>
+    </td>
+    <td>6.0 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>0x58 (6.0 to 6.1) </td>
+    <td>0xA8 (6.0 to 6.1) </td>
+    <td>
+    <pre class="source">LIST_ENTRY ServiceTagLinks;</pre>
+    </td>
+    <td>6.0 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>0x60 (6.0 to 6.1) </td>
+    <td>0xB8 (6.0 to 6.1) </td>
+    <td>
+    <pre class="source">LIST_ENTRY StaticLinks;</pre>
+    </td>
+    <td>6.0 to 6.1 </td>
+  </tr>
+</table>
+<h4>Redone for Windows 8 </h4>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x50 </td>
+    <td>0x98 </td>
+    <td>
+    <pre class="source"><a href="ldr_ddag_node.htm">LDR_DDAG_NODE</a> *DdagNode;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x54 </td>
+    <td>0xA0 </td>
+    <td>
+    <pre class="source">LIST_ENTRY NodeModuleLink;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x5C </td>
+    <td rowspan="2">0xB0 </td>
+    <td>
+    <pre class="source">LDRP_DLL_SNAP_CONTEXT *SnapContext;</pre>
+    </td>
+    <td>6.2 to 6.3 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">LDRP_LOAD_CONTEXT *LoadContext;</pre>
+    </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x60 </td>
+    <td>0xB8 </td>
+    <td>
+    <pre class="source">PVOID ParentDllBase;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x64 </td>
+    <td>0xC0 </td>
+    <td>
+    <pre class="source">PVOID SwitchBackContext;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x68 </td>
+    <td>0xC8 </td>
+    <td>
+    <pre class="source">RTL_BALANCED_NODE BaseAddressIndexNode;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x74 </td>
+    <td>0xE0 </td>
+    <td>
+    <pre class="source">RTL_BALANCED_NODE MappingInfoIndexNode;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<h3>Appended for Windows 7 </h3>
+<p>One addition for Windows 7 also got caught up in the reorganisation for Windows 
+8. Others are retained but shifted. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x68 (6.1) </td>
+    <td>0xC8 (6.1) </td>
+    <td>
+    <pre class="source">PVOID ContextInformation;</pre>
+    </td>
+    <td>6.1 only </td>
+  </tr>
+  <tr>
+    <td>0x6C (6.1); <br>
+    0x80 </td>
+    <td>0xD0 (6.1); <br>
+    0xF8 </td>
+    <td>
+    <pre class="source">ULONG_PTR OriginalBase;</pre>
+    </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x70 (6.1); <br>
+    0x88 </td>
+    <td>0xD8 (6.1); <br>
+    0x0100 </td>
+    <td>
+    <pre class="source">LARGE_INTEGER LoadTime;</pre>
+    </td>
+    <td>6.1 and higher </td>
+  </tr>
+</table>
+<h3>Appended for Windows 8 </h3>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x90 </td>
+    <td>0x0108 </td>
+    <td>
+    <pre class="source">ULONG BaseNameHashValue;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x94 </td>
+    <td>0x010C </td>
+    <td>
+    <pre class="source">LDR_DLL_LOAD_REASON LoadReason;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p>If only for now, it seems the <span class="enum">LDR_DLL_LOAD_REASON</span> isn’t 
+held elsewhere and may as well be enumerated here: </p>
+<ul>
+  <li>0 for <span class="constant">LoadReasonStaticDependency</span>; </li>
+  <li>1 for <span class="constant">LoadReasonStaticForwarderDependency</span>;
+  </li>
+  <li>2 for <span class="constant">LoadReasonDynamicForwarderDependency</span>;
+  </li>
+  <li>3 for <span class="constant">LoadReasonDelayloadDependency</span>; </li>
+  <li>4 for <span class="constant">LoadReasonDynamicLoad</span>; </li>
+  <li>5 for <span class="constant">LoadReasonAsImageLoad</span>; </li>
+  <li>6 for <span class="constant">LoadReasonAsDataLoad</span>; </li>
+  <li>7 for <span class="constant">LoadReasonEnclavePrimary</span> (1709 and higher);
+  </li>
+  <li>8 for <span class="constant">LoadReasonEnclaveDependency</span> (1709 and 
+  higher); </li>
+  <li>-1 for <span class="constant">LoadReasonUnknown</span>. </li>
+</ul>
+<h3>Appended for Windows 8.1 </h3>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x98 </td>
+    <td>0x0110 </td>
+    <td>
+    <pre class="source">ULONG ImplicitPathOptions;</pre>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+</table>
+<h3>Appended for Windows 10 </h3>
+<p>When Windows 8 extended the <span class="member">LoadCount</span> from its old 
+16 bits, it defined a <span class="member">ReferenceCount</span>, distinct from 
+the <span class="member">LoadCount</span>, but placed it in the
+<span class="struct">LDR_DDAG_NODE</span> with the new <span class="member">LoadCount</span>. 
+Windows 10 moves it here. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x9C </td>
+    <td>0x0114 </td>
+    <td>
+    <pre class="source">ULONG ReferenceCount;</pre>
+    </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0xA0 </td>
+    <td>0x0118 </td>
+    <td>
+    <pre class="source">ULONG DependentLoadFlags;</pre>
+    </td>
+    <td>1607 and higher </td>
+  </tr>
+  <tr>
+    <td>0xA4 </td>
+    <td>0x011C </td>
+    <td>
+    <pre class="source">UCHAR SigningLevel;</pre>
+    </td>
+    <td>1703 and higher </td>
+  </tr>
+</table>
+<h2>Flags </h2>
+<p>Starting with version 6.2, what had just been a <span class="type">ULONG</span> for
+<span class="member">Flags</span> is elaborated formally as bit fields. </p>
+<table>
+  <tr>
+    <th>Mask </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00000001 </td>
+    <td>
+    <pre class="source">ULONG PackagedBinary : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000002 </td>
+    <td>
+    <pre class="source">ULONG MarkedForRemoval : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td>
+    <pre class="source">ULONG ImageDll : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000008 </td>
+    <td>
+    <pre class="source">ULONG LoadNotificationsSent : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000010 </td>
+    <td>
+    <pre class="source">ULONG TelemetryEntryProcessed : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000020 </td>
+    <td>
+    <pre class="source">ULONG ProcessStaticImport : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000040 </td>
+    <td>
+    <pre class="source">ULONG InLegacyLists : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000080 </td>
+    <td>
+    <pre class="source">ULONG InIndexes : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000100 </td>
+    <td>
+    <pre class="source">ULONG ShimDll : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000200 </td>
+    <td>
+    <pre class="source">ULONG InExceptionTable : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG ReservedFlags1 : 2;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00001000 </td>
+    <td>
+    <pre class="source">ULONG LoadInProgress : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00002000 </td>
+    <td>
+    <pre class="source">ULONG ReservedFlags2 : 1;</pre>
+    </td>
+    <td>6.2 to 6.3 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG LoadConfigProcessed : 1;</pre>
+    </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00004000 </td>
+    <td>
+    <pre class="source">ULONG EntryProcessed : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00008000 </td>
+    <td>
+    <pre class="source">ULONG ProtectDelayLoad : 1;</pre>
+    </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">ULONG ReservedFlags3 : 3;</pre>
+    </td>
+    <td>6.2 to 6.3 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG ReservedFlags3 : 2;</pre>
+    </td>
+    <td>10.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00040000 </td>
+    <td>
+    <pre class="source">ULONG DontCallForThreads : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00080000 </td>
+    <td>
+    <pre class="source">ULONG ProcessAttachCalled : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00100000 </td>
+    <td>
+    <pre class="source">ULONG ProcessAttachFailed : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00200000 </td>
+    <td>
+    <pre class="source">ULONG CorDeferredValidate : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00400000 </td>
+    <td>
+    <pre class="source">ULONG CorImage : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00800000 </td>
+    <td>
+    <pre class="source">ULONG DontRelocate : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x01000000 </td>
+    <td>
+    <pre class="source">ULONG CorILOnly : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x02000000 </td>
+    <td>
+    <pre class="source">ULONG ChpeImage : 1;</pre>
+    </td>
+    <td>1803 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">ULONG ReservedFlags5 : 3;</pre>
+    </td>
+    <td>6.2 to 1709 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG ReservedFlags5 : 2;</pre>
+    </td>
+    <td>1803 and higher </td>
+  </tr>
+  <tr>
+    <td>0x10000000 </td>
+    <td>
+    <pre class="source">ULONG Redirected : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG ReservedFlags6 : 2;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x80000000 </td>
+    <td>
+    <pre class="source">ULONG CompatDatabaseProcessed : 1;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+</table>
+<p>In earlier versions, the <span class="member">Flags</span> bits are 
+presumably defined by macros. Names and values for some are known from the
+<span class="command">!dlls</span> command as implemented in debugger extensions 
+(KDEXTX86.DLL in versions 3.51 and 4.0, but EXTS.DLL for Windows XP and higher): </p>
+<table class="Constants">
+  <tr>
+    <th>Mask </th>
+    <th>Symbolic Name </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00000002 </td>
+    <td><span class="constant">LDRP_STATIC_LINK</span> </td>
+    <td>3.51 to 6.1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">LDRP_MARKED_FOR_REMOVAL</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td><span class="constant">LDRP_IMAGE_DLL</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00000008 </td>
+    <td><span class="constant">LDRP_SHIMENG_ENTRY_PROCESSED</span> </td>
+    <td>5.1 to 6.1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">LDRP_LOAD_NOTIFICATIONS_SENT</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000010 </td>
+    <td><span class="constant">LDRP_TELEMETRY_ENTRY_PROCESSED</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00001000 </td>
+    <td><span class="constant">LDRP_LOAD_IN_PROGRESS</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00002000 </td>
+    <td><span class="constant">LDRP_UNLOAD_IN_PROGRESS</span> </td>
+    <td>3.51 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>0x00004000 </td>
+    <td><span class="constant">LDRP_ENTRY_PROCESSED</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00008000 </td>
+    <td><span class="constant">LDRP_ENTRY_INSERTED</span> </td>
+    <td>3.51 to 4.0 </td>
+  </tr>
+  <tr>
+    <td>0x00010000 </td>
+    <td><span class="constant">LDRP_CURRENT_LOAD</span> </td>
+    <td>3.51 to 4.0 </td>
+  </tr>
+  <tr>
+    <td>0x00020000 </td>
+    <td><span class="constant">LDRP_FAILED_BUILTIN_LOAD</span> </td>
+    <td>3.51 to 4.0 </td>
+  </tr>
+  <tr>
+    <td>0x00040000 </td>
+    <td><span class="constant">LDRP_DONT_CALL_FOR_THREADS</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00080000 </td>
+    <td><span class="constant">LDRP_PROCESS_ATTACH_CALLED</span> </td>
+    <td>3.51 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00100000 </td>
+    <td><span class="constant">LDRP_DEBUG_SYMBOLS_LOADED</span> </td>
+    <td>3.51 to 4.0 </td>
+  </tr>
+  <tr>
+    <td>0x00400000 </td>
+    <td><span class="constant">LDRP_COR_IMAGE</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00800000 </td>
+    <td><span class="constant">LDRP_COR_OWNS_UNMAP</span> </td>
+    <td>5.1 to 6.1 </td>
+  </tr>
+  <tr>
+    <td><span class="constant">LDRP_DONT_RELOCATE</span> </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x01000000 </td>
+    <td><span class="constant">LDRP_COR_IL_ONLY</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x10000000 </td>
+    <td><span class="constant">LDRP_REDIRECTED</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+</table>
+<div class="Footer">
+  <p class="Dates">This page was created on 13th June 2016 and was last modified 
+  on 8th September 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../../win32/_include/c1619.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5029" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,322 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SVCHOST</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="21016" endspan -->
+<h1>SVCHOST </h1>
+<p>Services, being an important layer of low-level user-mode code, have long been 
+documented by Microsoft even though relatively few programmers ever write a service. 
+At their simplest, each service is its own executable to run as its own process. 
+More generally, services may be packaged together so that they run in the one process 
+and can benefit from sharing code. Note that there is no requirement that the services 
+in the one process must be coded in the one executable. Especially if each service 
+is substantial, or just if you care about modularisation, you might code each service 
+in its own DLL. </p>
+<p>This is indeed what Microsoft does for many services that are supplied with Windows. 
+Instead of each being its own <span class="definition">service program</span>, each 
+is instead a <span class="definition">service DLL</span> that executes in a service-hosting 
+process. The <a href="../scm/host/index.htm">original host</a> was the Service Control 
+Manager itself, just for a set of services whose names were hard-coded into the 
+SERVICES.EXE program. Windows 2000 generalised the machinery, introducing a program 
+named SVCHOST.EXE which exists only to host services. At any given time there can 
+be multiple instances of SVCHOST, each running its own group of services. Indeed, 
+successive versions of Windows have ever more such instances. </p>
+<p>Since much of the sort of background activity that puzzles users and troubles 
+administrators is done by services in these instances of SVCHOST, it may surprise 
+that Microsoft publishes very little about SVCHOST. The Help and Support in Windows 
+2000 doesn’t give SVCHOST a single mention, but Microsoft obviously was asked about 
+SVCHOST enough (and by the right people) to prompt a Knowledge Base article,
+<a target="_top" href="http://support.microsoft.com/kb/250320">Description of Svchost.exe 
+in Windows 2000</a>, and there is nowadays a page
+<a target="_top" href="http://windowshelp.microsoft.com/Windows/en-US/Help/057580a1-7002-4f43-9240-a74f42cb05c91033.mspx">
+What is svchost.exe?</a> in the Windows Help and Support. Most of the relevant registry 
+parameters, such as system administrators typically like to know about (if just 
+for assurance), seem still to be undocumented. As for the interfaces between SVCHOST 
+and its service DLLs, such as might be useful to a non-Microsoft programmer writing 
+services, the documentation says next to nothing and arguably only then by oversight.
+</p>
+<h2>Command-Line Syntax </h2>
+<p>As with any service program, SVCHOST expects to run from a command line in the 
+registry, specifically from the <span class="regvalue">ImagePath</span> value of 
+some service’s subkey of <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services</span>. 
+The intended syntax for a SVCHOST command line looks to be </p>
+<pre class="input">[<span class="placeholder">path</span><span class="terminal">\</span>]<span class="terminal">svchost.exe</span> <span class="switch">-k</span> <span class="placeholder">group</span> </pre>
+<p>Straightforward variations are that: </p>
+<ul>
+  <li>the <span class="switch">-k</span> may use either the hyphen or forward slash 
+  and is case-insensitive; </li>
+  <li>spaces or tabs to separate <span class="switch">-k</span> from
+  <span class="placeholder">group</span> are optional; </li>
+  <li>the <span class="placeholder">group</span> may be enclosed in double quotes, 
+  else is terminated by the first space or tab. </li>
+</ul>
+<p>Other variations—indeed, quirks—may be unintended and seem anyway to have no 
+consequence in real-world practice. </p>
+<h2>Instances </h2>
+<p>The point to the <span class="placeholder">group</span> argument is to specify 
+indirectly which services will run as service DLLs in this one SVCHOST instance. 
+The list of services that constitute the specified <span class="placeholder">group</span> 
+is found through the registry: </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion\Svchost</span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue"><span class="placeholder">group</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_MULTI_SZ</span> </td>
+  </tr>
+</table>
+<p>Each string in the multi-string data names a service that is implemented as a 
+service DLL. It is surely intended, but is not checked, that each such service should 
+have its <span class="regvalue">ImagePath</span> set to SVCHOST for the same
+<span class="placeholder">group</span>. </p>
+<p>With (similar) services executing in the same process, initialisation that each 
+service might otherwise do for itself, each reproducing the same code, is instead 
+done once for the whole process. A few points of this
+<a href="process/index.htm">SVCHOST process initialisation</a> are separately configurable 
+for each SVCHOST instance. The relevant parameters, which are all optional, are 
+found in the registry by treating <span class="placeholder">group</span> as a subkey.
+</p>
+<h2>Service DLLs </h2>
+<p>When a hosted service is to be started, SVCHOST loads the corresponding service 
+DLL. Details of this DLL are configurable through the service’s registry key, either 
+in a subkey named <span class="regkey">Parameters</span>, if this exists, else in 
+the key itself. (This fall-back is not supported until version 6.0. Earlier versions 
+of SVCHOST recognise these settings in the <span class="regkey">Parameters</span> 
+subkey only.) </p>
+<p>Note that although each service corresponds to one service DLL, the reverse is 
+not required, though it does look to be the intended (or at least favoured) design. 
+After all, if you code multiple services in the one service DLL, then you perhaps 
+do not gain very much over coding them in the one service program. That said, the 
+framework that SVCHOST provides for service DLLs is not insubstantial, especially 
+for COM security, and examples do exist of the one service DLL implementing multiple 
+services. See for instance SHSVCS.DLL, which handles both ShellHWDetection and Themes, 
+and IISW3ADM.DLL, which handles both W3SVC and WAS. (Now, some may wonder if it’s 
+entirely fair that IIS knows anything at all about running under SVCHOST. After 
+all, IIS is just one of potentially many competing web servers that one might want 
+to run on the monopoly product that is Windows. Is it unlawfully favoured, knowing 
+a Windows technology that the Windows SDK doesn’t document?) </p>
+<h3>Name and Location </h3>
+<p>An essential detail is where to find the service DLL for a given service: </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span>\Parameters</span>
+    <br>
+    <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">ServiceDll</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_EXPAND_SZ</span> </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ServiceDll</span> setting is required. There is no 
+default, such as assuming that the DLL has the same name as its service, with “.dll” 
+appended. Neither is there any allowance for an implied location. Indeed, this configuration 
+is quite fussy: the pathname must be given as string data of the type that allows 
+for expansion of environment variables. When the string data expands to a pathname, 
+as would be typical, the loading of associated executables is subject to what the
+<span class="function">LoadLibraryEx</span> documentation describes as the alternate 
+search order. </p>
+<p>A relatively recent development is to provide that the service DLL be loaded 
+in an activation context created from a manifest: </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span>\Parameters</span>
+    <br>
+    <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">ServiceManifest</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_EXPAND_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>empty string </td>
+  </tr>
+  <tr>
+    <td>Availability </td>
+    <td>version 5.2 and higher </td>
+  </tr>
+</table>
+<p>Though this value is optional, its presence with the wrong data type or with 
+an empty string as data is an error, such that the service DLL will not be loaded. 
+If <span class="regvalue">ServiceManifest</span> is present and valid, the path 
+component from <span class="regvalue">ServiceDll</span> is ignored, so that the 
+DLL is instead loaded from wherever the manifest redirects. </p>
+<h3>Exported Functions </h3>
+<p>Just as each service implemented in a service program has a
+<span class="function"><a href="dll/servicemain.htm">ServiceMain</a></span> function, 
+so does each service DLL. An important difference is that service DLLs do not specify 
+this function by calling <span class="function">StartServiceCtrlDispatcher</span> 
+from their initialisation code. Instead, they export <span class="function">ServiceMain</span> 
+so that SVCHOST can find it. The name is replaceable, but from the registry so that 
+SVCHOST can know it: </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span>\Parameters</span>
+    <br>
+    <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">ServiceMain</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td><span class="regsz">ServiceMain</span> </td>
+  </tr>
+</table>
+<p>Except for being exported (and for the note below about registering a stop callback),
+<span class="function">ServiceMain</span> in a service DLL should be coded to follow 
+Microsoft’s documented requirements for this same function in a service program. 
+In particular, it calls <span class="function">RegisterServiceCtrlHandlerEx</span> 
+to set up the handling of control requests for the service. SVCHOST is not involved 
+with control requests for a started service. </p>
+<p>In version 5.1 and higher, SVCHOST provides that each service DLL may export 
+another function, necessarily named <span class="function">
+<a href="dll/svchostpushserviceglobals.htm">SvchostPushServiceGlobals</a></span>, 
+for SVCHOST to call before <span class="function">ServiceMain</span> to tell the 
+service DLL of shared data and common functions. </p>
+<h3>Unloading </h3>
+<p>Recent SVCHOST versions provide that a service DLL may re-involve SVCHOST when 
+a service is stopped. Where the <span class="function">ServiceMain</span> function 
+would otherwise call <span class="function">RegisterWaitForSingleObject</span>, 
+following Microsoft’s documentation, it should instead call SVCHOST’s
+<span class="function"><a href="process/registerstopcallback.htm">RegisterStopCallback</a></span> 
+function, whose address will have been learnt when SVCHOST called the DLL’s exported
+<span class="function">SvchostPushServiceGlobals</span> function. The callback as 
+registered with SVCHOST can be exactly as registered through
+<span class="function">RegisterWaitForSingleObject</span>. On receiving a request 
+to stop the service, the handling can be exactly as before, as far as concerns the 
+service DLL. The difference is that the callback returns to SVCHOST, which can then 
+unload the DLL. To have SVCHOST unload a service DLL whose services are all stopped, 
+the following registry value must be set to 1: </p>
+<table class="Registry">
+  <tr>
+    <td>Key </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span>\Parameters</span>
+    <br>
+    <span class="regkey">HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\<span class="placeholder">service</span></span>
+    </td>
+  </tr>
+  <tr>
+    <td>Value </td>
+    <td><span class="regvalue">ServiceDllUnloadOnStop</span> </td>
+  </tr>
+  <tr>
+    <td>Type </td>
+    <td><span class="constant">REG_DWORD</span> </td>
+  </tr>
+  <tr>
+    <td>Default </td>
+    <td>0 </td>
+  </tr>
+  <tr>
+    <td>Availability </td>
+    <td>version 5.1 from Windows XP SP2, version 5.2 from Windows Server 2003 SP1, 
+    and higher </td>
+  </tr>
+</table>
+<p>The <span class="regvalue">ServiceDllUnloadOnStop</span> setting also supports 
+an old technique which Microsoft’s documentation of <span class="function">ServiceMain</span> 
+notes as having been the “common practice” before Windows 2000 introduced the
+<span class="function">RegisterWaitForSingleObject</span> function. After setting 
+the service’s status as <span class="constant">SERVICE_RUNNING</span>, the
+<span class="function">ServiceMain</span> function can wait on an event instead 
+of returning. Controls are received in a different thread. When the service is to 
+stop, it signals the event that <span class="function">ServiceMain</span> is waiting 
+on. When <span class="function">ServiceMain</span> returns, SVCHOST can unload the 
+DLL. Though this technique is inferior, if only for making the system maintain a 
+thread unnecessarily, it is relied on by many of Microsoft’s service DLLs even as 
+late as Windows Vista. Examples are as varied as BROWSER.DLL, CSCSVC.DLL, IISW3ADM.DLL 
+and SHSVCS.DLL. </p>
+<p>Note that if <span class="regvalue">ServiceDllUnloadOnStop</span> is 1, then 
+the service DLL is assumed to use one or other of these techniques for each of its 
+services. If it returns from <span class="function">ServiceMain</span> without having 
+registered a stop callback, then it is liable to get unloaded. </p>
+<p>Note also that the setting is live. SVCHOST keeps a reference count for each 
+service. This count is incremented before calling <span class="function">ServiceMain</span> 
+and when registering a stop callback. It is decremented when
+<span class="function">ServiceMain</span> returns and after the stop callback has 
+executed. At each decrement (and, curiously, not just the final decrement), SVCHOST 
+reads the registry value afresh. </p>
+<p>The <span class="regvalue">ServiceDllUnloadOnStop</span> setting is unusual for 
+being mentioned in the Windows SDK. See
+<a target="_top" href="http://msdn.microsoft.com/library/aa373653.aspx">Guidelines 
+for Services (Windows)</a> in a section about the Restart Manager. This must be 
+an oversight. Microsoft writes much of (if not all) its documentation for Microsoft’s 
+own programmers first and foremost, and then selects what to publish to the rest 
+of the world. Things sometimes slip out. Here, for instance, we have “Services that 
+run in the context of svchost.exe should register to unload DLLs when the service 
+is shut down”, and the documentation that follows is even accurate, but nowhere 
+in the Windows SDK is there any information on how anyone outside Microsoft might 
+write such a service, let alone know what is meant by <span class="function">SvchostPushServiceGlobals</span> 
+or <span class="function">RegisterStopCallback</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 26th September 2008 and was last modified 
+  on 9th February 2010. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c0810.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="5467" endspan -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,481 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>BitLocker I/O Control</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/km.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="63592" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+  <h1>BitLocker I/O Control </h1>
+  <p>The kernel-mode device driver, FVEVOL.SYS, for BitLocker extends each filtered 
+  volume’s Device I/O Control interface. Without BitLocker, the volume could be 
+  opened, e.g., as \\.\c: from user mode, and be found to respond to some set of 
+  I/O Control (IOCTL) codes. With BitLocker, the same volume responds to more IOCTL 
+  codes. For Windows Vista and Windows 7, this addition of roughly a dozen IOCTL 
+  codes as if supported by the underlying device driver was the
+  <span class="emphasis">whole</span> of BitLocker’s API. </p>
+  <p>Note that a filter driver written by hands other than Microsoft’s, as for full-volume 
+  encryption (FVE) products in an openly competitive market that pre-dated BitLocker, 
+  could not prudently extend the interface this way. A Microsoft driver that filters 
+  the I/O to and from the underlying device drivers for storage volumes can add 
+  IOCTL codes because Microsoft, as owner of these underlying device drivers, controls 
+  what IOCTL codes these drivers respond to, both documented and not, both now and 
+  forever. Were non-Microsoft filter drivers to add IOCTL codes of their own to 
+  whatever devices they filter, they would risk conflict among themselves and with 
+  Microsoft. They instead create at least one separate control device with a name 
+  that can reasonably be taken as unique to them so that the IOCTL codes supported 
+  by these control devices are theirs to define without risk of any conflict (that 
+  they need feel responsible for). Clearly, BitLocker started with the advantage 
+  of a simpler interface. One perspective to this is that simplicity is a natural 
+  benefit for everyone from building full-volume encryption into the operating system.
+  </p>
+  <p>Another perspective is that the security of this extended interface is natively 
+  that of user-mode permissions for accessing the filtered volume as a file. Such 
+  access is needed by many processes for many purposes unrelated to BitLocker. If 
+  all software that can open the volume is not also to have access to BitLocker 
+  secrets, then FVEVOL in these early versions would have to work at being particular 
+  about who calls each BitLocker IOCTL. Since FVEVOL goes no further than distinguishing 
+  kernel-mode and user-mode callers, any user-mode process that can open a protected 
+  volume for read access when running on these versions can call FVEVOL to learn 
+  the VMK (for instance). Were the Device I/O Control interface instead supported 
+  only through a separate control device, the necessary permissions would be those 
+  for opening the control device, not the volume. The interface then could be restricted 
+  to just the SYSTEM account and a specific service account, such that no other 
+  process can even open the device, let alone try any IOCTL code. There actually 
+  are merits, even for Microsoft, to doing what the documentation recommends.
+  </p>
+  <h2>Control Device </h2>
+  <p>For whatever reason, Windows 8 changed to having FVEVOL create a separate control 
+  device. Two of the original IOCTL codes continue to be responded to when sent 
+  to the filtered volume, another is added (and two more in later versions, but 
+  most of the original IOCTL codes and most new codes must be sent instead to the 
+  control device object (CDO). </p>
+  <h3>CDO Paths </h3>
+  <p>Having taken its time about implementing a Device I/O Control interface in 
+  more like the same way that non-Microsoft drivers must, Microsoft of course went 
+  to town with the technique. There is much elaboration. Though the CDO itself presents 
+  as \\.\BitLocker in user mode, this path introduces a multi-level namespace.
+  </p>
+  <p>In effect, the BitLocker control device has a small file system. What a user-mode 
+  or kernel-mode caller sees of BitLocker’s I/O Control interface depends on which 
+  file the caller opened and each file has its own security. This file system runs 
+  three levels deep: </p>
+  <blockquote>
+    \Device\BitLocker\<span class="placeholder">voltype</span>\<span class="placeholder">volnum</span>\<span class="placeholder">interface</span>
+  </blockquote>
+  <h4>Root </h4>
+  <p>The CDO itself is \Device\BitLocker. It has very wide exposure:
+  <span class="constant">GENERIC_ALL</span> for the SYSTEM account, unsurprisingly, 
+  but <span class="constant">GENERIC_READ</span> and <span class="constant">GENERIC_WRITE</span> 
+  for AuthorizedUsers. But it answers to only two IOCTL codes, just enough for navigating 
+  the CDO’s file system (see IOCTL code 0x4C4210CC). Moreover, these relatively 
+  broad permissions are only what the kernel applies before asking the device if 
+  it wants to be opened. The device itself is more fussy: if any write access is 
+  sought, even just <span class="constant">FILE_WRITE_ATTRIBUTES</span>, then the 
+  device declines to open for any user-mode process. </p>
+  <h4>Volume Type </h4>
+  <p>The <span class="placeholder">voltype</span> at the first level can be Unsupported, 
+  Volume or CsvVolume. The last follows such well-established abominations as PIN 
+  number, CSV standing for Cluster Shared Volume. The name
+  <span class="placeholder">voltype</span> is here taken from the recurrence of 
+  VolType in the names of relevant internal routines as known from public symbol 
+  files for FVEVOL, but this level may alternatively be thought of by Microsoft 
+  as some sort of device type: public symbol files for the user-mode FVEAPI.DLL 
+  show that routines written in C++ take among their arguments an enumeration named
+  <span class="enum">FVE_DEVICE_TYPE</span> (formally <span class="enum">_FVE_DEVICE_TYPE</span>) 
+  whose values 0, 1 and 2 select from Unsupported, Volume and CsvVolume, respectively, 
+  for composing a CDO path. </p>
+  <p>Volume and CsvVolume are for volumes whose “physical” device object is implemented 
+  by drivers named volmgr and csvbus, respectively. Unsupported is for all others.
+  </p>
+  <p>The device gives the SYSTEM account and Administrators group all access to 
+  the files at this level. User-mode processes on other accounts are allowed only 
+  what access they have to the root, meaning in practice that they are granted read 
+  access but not write access. Again, this suffices for navigation. </p>
+  <h4>Volume Number </h4>
+  <p>The <span class="placeholder">volnum</span> is an unsigned decimal. It is a 
+  sequence number that FVEVOL itself assigns when attaching to the volume. Each 
+  of the three types of volume has its own sequence. Removing and reinserting a 
+  removable volume changes its volume number. For these reasons, the
+  <span class="placeholder">volnum</span> in a path beneath BitLocker’s control 
+  device need not correspond directly to other numbering of volumes. The correspondence 
+  can instead be discovered by opening a volume and sending an IOCTL to learn the 
+  CDO path (see (0x455610D4). </p>
+  <p>For files at this level, the device allows only the same user-mode access as 
+  for the root. This means that none can open these files for write access. Again, 
+  read access suffices for navigation. </p>
+  <h4>Interface </h4>
+  <p>The longest possible CDO paths end with SEI, HEI or SYS. The first is what 
+  must be opened for the vast majority of BitLocker interaction through the Device 
+  I/O Control interface. The HEI file responds to fewer IOCTL codes but in variant 
+  implementations that are specialised for hardware encryption. It is here guessed 
+  that SEI and HEI stand respectively for Software and Hardware Encryption Interface. 
+  The SYS file responds to only two IOCTL codes, but this is not as limited as it 
+  may sound: they take input that in turn selects from many non-trivial actions 
+  to perform. </p>
+  <p>Roughly speaking, user-mode callers are allowed to open SEI and HEI files with 
+  the same access that they have to the corresponding volume. At the other extreme, 
+  the SYS file can be opened only by the SYSTEM account, which is granted all access.
+  </p>
+  <h2>I/O Control Codes </h2>
+  <p>Microsoft is not known to document any of these IOCTL codes that BitLocker 
+  either adds to the usual interface for storage volumes or implements through a 
+  control device. Microsoft’s names for the codes are presumably defined by macro 
+  and are not known to survive into any public symbol files or as any sort of text 
+  message, e.g., for debug output. It would not surprise if Microsoft’s names turned 
+  out to be <span class="constant">IOCTL_FVE_GET_DATASET</span>, etc., but it seems 
+  safer not to guess. For the summary tables below, a more or less plain-language 
+  Description of each IOCTL code is instead adapted as directly as seems helpful 
+  from the names of corresponding internal routines as known from matching public 
+  symbol files to the binaries. For instance and most straightforwardly, for the 
+  IOCTL code that is handled by a routine named <span class="internal routine">IoctlFveGetDataset</span>, 
+  the summary Description is naturally “get dataset”. One reason for further adaptation 
+  is that the straightforward extraction is not grammatical (to a native English 
+  speaker), as for the internal routine named <span class="internal routine">IoctlFveUnbindAllDataVolume</span>. 
+  Another is that the same routine handles more than one IOCTL code, as with
+  <span class="internal routine">IoctlFveGetKey</span>, and then the further adaptation 
+  is of “get key” to tell of which key. </p>
+  <p>The tables below do not list the IOCTL codes in increasing order of their whole 
+  numerical values. It is well documented that the Windows kernel interprets IOCTL 
+  codes in four fields. From most significant to least, numerically, these are a 
+  16-bit device type, two access bits, a 12-bit function number and two bits for 
+  the buffering method. The table instead lists IOCTL codes in increasing order 
+  just of the function number. Note especially that some IOCTL codes change their 
+  access bits between versions. </p>
+  <!-- <p>Do not miss that the access bits are important. For instance, because IOCTL 
+  code 0x45561083 has both access bits clear, it is permitted even to a caller that 
+  opened an SEI file with only <span class="constant">FILE_READ_ATTRIBUTES</span>, 
+  but IOCTL code 0x45565093 is not since it requires <span class="constant">FILE_READ_ACCESS</span>. 
+  The first allows that even an ordinary user-mode process can obtain the encrypted 
+  FVEK (assuming the programmer knows how to interpret the dataset that is produced 
+  as output). The second would disclose the VMK that encrypted the FVEK. Perhaps 
+  also do not miss that the VMK is readily available to programs that have administrative 
+  privilege. </p> -->
+  <table>
+    <thead>
+      <tr>
+        <th>I/O Control Code </th>
+        <th>Description </th>
+        <th>Applicability </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x45565083 (6.0); <br>
+        0x45561083 </td>
+        <td rowspan="2">get dataset </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI <br>
+        HEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x4556D087 </td>
+        <td rowspan="2">set dataset </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI <br>
+        HEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x45561088 </td>
+        <td rowspan="2">get status </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x4556508F </td>
+        <td rowspan="2">get FVEK </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x45565093 </td>
+        <td rowspan="2">get VMK </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x4556D097 (6.0); <br>
+        0x45561097 </td>
+        <td rowspan="2">provide VMK </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI <br>
+        HEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x4556D0A0 </td>
+        <td rowspan="2">perform action </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI <br>
+        HEI <br>
+        SYS </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x4556D0A7 </td>
+        <td rowspan="2">bind data volume </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x4556D0AB </td>
+        <td rowspan="2">unbind data volume </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x4556D0AC (6.0); <br>
+        0x455650AC (6.1); <br>
+        0x455610AC </td>
+        <td rowspan="2">verify bind data volume </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x4556D0B0 (6.0); <br>
+        0x455650B0 (6.1 to 1607); <br>
+        0x455610B0 </td>
+        <td rowspan="2">check unlock info for data volume </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x4556D0B7 </td>
+        <td rowspan="2">unbind all data volumes </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>SEI </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x4556D0BB </td>
+        <td>prepare hibernate </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>0x4556D0BF </td>
+        <td>cancel hibernate </td>
+        <td>filtered volume </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>0x4556D0C3 </td>
+        <td>register context </td>
+        <td>filtered volume </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x4556D0C7 </td>
+        <td>unregister context </td>
+        <td>filtered volume </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x455610C8 </td>
+        <td rowspan="2">perform action </td>
+        <td>filtered volume </td>
+        <td>6.1 only </td>
+      </tr>
+      <tr>
+        <td>SEI <br>
+        HEI <br>
+        SYS </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x4C4210CC </td>
+        <td>query child information list </td>
+        <td>all CDO files </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x4C4290D0 </td>
+        <td>get namespace reference </td>
+        <td>all CDO files </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x455610D4 </td>
+        <td>get CDO path </td>
+        <td>filtered volume </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x455610D8 </td>
+        <td>lock driver </td>
+        <td>filtered volume </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x455610DC </td>
+        <td>unlock driver </td>
+        <td>filtered volume </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The two IOCTL codes between 0x455610C8 and 0x455610D4 change their device type, 
+  i.e., the high word, to 0x4C42 (presumably for the B and L of BitLocker). They 
+  are answered for all files in the CDO’s file system, including the CDO itself.
+  </p>
+  <h3>The FT Series </h3>
+  <p>For Windows 8.1, Microsoft gave FVEVOL a substantial facility for self-testing 
+  (or had it all the while but now chose to leave it in the released builds). This 
+  testing is configurable through registry settings and is driven by new IOCTL codes. 
+  Their function numbers are disjoint from the others and the device type in the 
+  high word differs too. It is not known if this device type is specific to BitLocker’s 
+  feature tests. </p>
+  <table>
+    <thead>
+      <tr>
+        <th>I/O Control Code </th>
+        <th>Description </th>
+        <th>Applicability </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x5446D804 </td>
+        <td>test RW start </td>
+        <td>SEI </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x5446D808 </td>
+        <td>test RW query </td>
+        <td>SEI </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x5446D80C </td>
+        <td>test RW stop </td>
+        <td>SEI </td>
+        <td>6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x5446D810 </td>
+        <td>test ICE </td>
+        <td>SEI </td>
+        <td>1709 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Some might want that ICE, from the name <span class="internal routine">FveTestIce</span> 
+  of the internal routine that handles the IOCTL 0x5446D810, stands for the encryption 
+  algorithm named Information Concealment Engine. There seems instead to be no relationship. 
+  What is known is that the internal routine <span class="internal routine">FveCheckIceSupport</span> 
+  (in 1703 and higher) queries the storage class driver for its cryptography capability. 
+  This is done through <span class="constant">IOCTL_STORAGE_QUERY_PROPERTY</span>, 
+  asking for the <span class="constant">StorageAdapterCryptoProperty</span>. Microsoft 
+  had squeezed this property into the <span class="enum">STORAGE_PROPERTY_ID</span> 
+  enumeration for the 1703 release (shifting the numerical values of three older 
+  properties). What FVEVOL seeks is support for either algorithm
+  <span class="constant">StorageCryptoAlgorithmXTSAES</span> or
+  <span class="constant">StorageCryptoAlgorithmBitlockerAESCBC</span>. BitLocker’s 
+  use of (and simulation of) hardware cryptography is plausibly worth detailed study.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 5th June 2021 but was not published 
+    until 15th <a href="../../../../../new/21/06.htm">June 2021</a>. It was last 
+    modified on 19th June 2021. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c21.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="46623" -->
+  </div>
+</div>
+
+</body>
+
+</html>

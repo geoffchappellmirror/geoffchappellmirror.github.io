@@ -1,0 +1,137 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EtwCreateTraceInstanceId</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>EtwCreateTraceInstanceId </h1>
+<p>With this function, an event provider creates a locally unique identifier for 
+one instance of an event. This allows that occurrences of events can refer to one 
+another. The typical use is through the <span class="function">EtwTraceEventInstance</span> 
+function to do either or both of tagging the newly written event and linking it 
+to some (previously tagged) <span class="definition">parent</span> event. The event 
+provider needs to have defined one or more <span class="definition">classes</span> 
+of event that it will ever write with any such identifier. These classes are defined 
+when the provider registers through the <span class="function">EtwRegisterTraceGuids</span> 
+function. What the classes represent is entirely up to the provider. Identifiers 
+are maintained separately for the different classes, such that the full identifier 
+for one instance of an event is its class plus the identifier that is created by 
+this function. The class is common to all occurrences of the same event (and typically 
+of others). The identifier differs for each occurrence of any event in the class 
+(while the provider remains registered). </p>
+<h2>Declaration </h2>
+<pre>ULONG 
+EtwCreateTraceInstanceId (
+    HANDLE RegHandle, 
+    EVENT_INSTANCE_INFO *InstInfo);</pre>
+<h3>Parameters </h3>
+<p>The required <span class="argument">RegHandle</span> argument represents a class 
+of event. It is not truly a handle but is instead a pointer to an opaque structure 
+that will have been created while the event provider was registered. The event provider 
+will have given <span class="function">EtwRegisterTraceGuids</span> a
+<span class="struct">TRACE_GUID_REGISTRATION</span> structure whose
+<span class="member">Guid</span> member addresses a GUID for the event class. Successful 
+registration will have filled in this structure’s <span class="member">RegHandle</span> 
+member with a pointer that represents the class and which can now be presented to 
+this function as the <span class="argument">RegHandle</span>. </p>
+<p>The required <span class="argument">InstInfo</span> argument is on input the 
+address of a variable that will on output contain a unique identifier that the caller 
+may then use for one instance of an event from the given class. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../../_include/winerrorlasterror.htm" TAG="BODY" startspan -->
+
+<p>The function returns zero for success, else a Win32 error code (which the function 
+also sets as the thread’s last error). </p>
+
+<!--webbot bot="Include" endspan i-checksum="61401" -->
+<h2>Availability </h2>
+<p>The <span class="function">EtwCreateTraceInstanceId</span> function is exported 
+by name from NTDLL in version 5.2 and higher. It has higher-level availability as 
+a forward from the ADVAPI32 export <span class="function">CreateTraceInstanceId</span> 
+in its versions 5.2 and higher. </p>
+<p>This note is concerned only with the function as implemented in NTDLL version 
+5.2 and higher. The earlier implementations in ADVAPI32 versions 5.0 and 5.1 are 
+left for separate treatment some other time. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">EtwCreateTraceInstanceId</span> function is not documented. 
+Well-behaved user-mode software would call the documented <span class="function">
+CreateTraceInstanceId</span> function instead (though a strict reading of Microsoft’s 
+documentation prohibits calling the higher-level function, but not the lower-level, 
+from a <span class="routine">DllMain</span> routine). </p>
+<h2>Behaviour </h2>
+<p>Both arguments are required. If either is <span class="constant">NULL</span>, 
+the function returns <span class="constant">ERROR_INVALID_PARAMETER</span>. </p>
+<p>Perhaps only as a sanity check, the opaque structure that
+<span class="argument">RegHandle</span> would otherwise just be assumed to point 
+to retains the 32-bit process ID from when the provider registered. If the supposed 
+structure does not have the current process ID at the expected place, the function 
+returns <span class="constant">ERROR_INVALID_PARAMETER</span>. </p>
+<p>The essence of the function is that the opaque structure contains an ever-advancing 
+counter from which to read the next instance identifer for the class. Each call 
+to the function increments the counter, though with some provision for skipping 
+zero should the counter ever wrap around. In the <span class="struct">EVENT_INSTANCE_INFO</span> 
+structure for the function’s output, the <span class="member">RegHandle</span> is 
+set to whatever was given as <span class="argument">RegHandle</span> and the
+<span class="member">InstanceId</span> is the newly incremented counter. </p>
+<p>See that if the provider is unregistered and re-registered (and repeats its class 
+definitions), then the instance identifier for each class restarts at 1. Even putting 
+aside the (unlikely) creation of over 4 billion identifiers until they repeat for 
+any one registration, they are not unique between registrations. If references from 
+one event to another in the same ETL file are not to get confused, there is a strong 
+suggestion that the intended practice is to have a separate tracing session, e.g., 
+writing to a separate ETL file, for each registration. </p>
+<p>Given the function’s success, the contents of the <span class="struct">EVENT_INSTANCE_INFO</span> 
+are usefully passed to one invocation of <span class="function">EtwTraceEventInstance</span> 
+through its <span class="argument">pInstInfo</span> argument so that the event it 
+writes has this new identifer, and may then be passed to any number of subsequent 
+invocations through the <span class="argument">pParentInstInfo</span> argument so 
+that all these subsequently traced events link to the earlier one as their parent. 
+In all such use, <span class="function">EtwTraceEventInstance</span> will assume 
+that the <span class="member">RegHandle</span> member still points to the opaque 
+structure, specifically so that the class’s GUID can be recorded in the event. The 
+contents of the <span class="struct">EVENT_INSTANCE_INFO</span> as prepared by
+<span class="function">EtwCreateTraceInstanceId</span> become unsafe to use the 
+moment that the provider is unregistered. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 23rd
+  <a href="../../../../../../../new/18/12.htm">December 2018</a> and was last modified 
+  on 24th December 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c18.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6594" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,226 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Register User-Mode GUID</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="42787" -->
+<!--webbot bot="Include" U-Include="../../../../../_include/placeholder.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">PLACEHOLDER FOR WORK THAT MAY NEVER BE DONE - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="62046" -->
+<h1>Register User-Mode GUID </h1>
+<p>When given 0x0F as its <span class="argument">FunctionCode</span> argument, the
+<span class="function"><a href="index.htm">NtTraceControl</a></span> function tells 
+the kernel about a user-mode registration of an event provider. Microsoft’s name 
+for this function code is not known. This note deals only with the function’s behaviour 
+that is specific to this function code. The function’s general behaviour is here 
+taken as assumed knowledge. </p>
+<p>A provider is represented by a GUID and can have any number of registrations. 
+For a user-mode registration, the effect really is like opening a provider in that 
+it produces an Object Manager handle to the underlying registration object. As well 
+as opening this handle for the user-mode caller, the function also produces information. 
+In all versions, this includes to describe a tracing session, if any, that has started 
+in anticipation of the provider’s registration. Starting with version 6.1, the output 
+can continue with a description of a schematized event filter that is already known 
+for the GUID. </p>
+<p>The function returns <span class="constant">STATUS_INVALID_PARAMETER</span> if 
+any of the following are true: </p>
+<ul>
+  <li>the input buffer is not exactly 0xA0 bytes; </li>
+  <li>the output buffer is not exactly 0xA0 bytes (in version 6.0 only); </li>
+  <li>the output buffer is too small for 0xA0 bytes; </li>
+  <li>the output buffer is larger than 64KB. </li>
+</ul>
+<p>Microsoft’s name for the 0xA0 bytes of fixed-size input and output is not known. 
+Indeed, it is not known that Microsoft defines them as one structure. They certainly 
+are interpreted in parts, not that Microsoft’s names are known for these either. 
+A 0x28-byte header describes the event provider, both to tell the kernel about the 
+provider and to return the handle that the kernel creates for the registration.
+</p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>the provider’s <span class="struct">GUID</span> </td>
+    <td>6.0 and higher </td>
+    <td>input </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>an <span class="enum"><a href="../notification_type.htm">ETW_NOTIFICATION_TYPE</a></span>
+    </td>
+    <td>6.0 and higher </td>
+    <td>input </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>the process’s 16-bit index for this registration </td>
+    <td>6.0 and higher </td>
+    <td>input </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>a 64-bit allowance for a <span class="type">HANDLE</span> to the provider’s
+    <span class="struct"><a href="../../register/reg_entry/index.htm">ETW_REG_ENTRY</a></span>
+    </td>
+    <td>6.0 and higher </td>
+    <td>output </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x20 </td>
+    <td>apparently reserved for future definition </td>
+    <td>6.0 to 6.2 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>a 64-bit allowance for the address of the provider’s callback function
+    </td>
+    <td>6.3 and higher </td>
+    <td>input </td>
+  </tr>
+</table>
+<p>Incidentally, that the kernel is nowadays told of the provider’s user-mode callback 
+function is not because the kernel has any role in the calling back. It is instead 
+so that the kernel can identify the calling module. This matters in version 6.3 
+and higher because tracing sessions can get system-defined events written to them 
+to record which providers were enabled for the session. </p>
+<p>Though the remaining 0x78 bytes are expected on input, they are used only for 
+output. Moreover, though the header looks to be particular to this function code, 
+the remaining 0x78 bytes (and any variable-size data that follows) are shared with 
+function code 0x11 to describe how a provider is enabled for a tracing session. 
+In this case, the tracing session that’s described as output for function code 0x0F 
+is the logger for which the provider was most recently enabled. Microsoft’s name 
+for this structure is not known. Relevant routines refer to it as an enable notification: 
+the name <span class="struct">ETW_ENABLE_NOTIFICATION_PACKET</span> would follow 
+a pattern that might be induced from the known name for another structure that begins 
+with an <span class="struct">ETW_NOTIFICATION_HEADER</span>, but is too much of 
+a guess to commit to here. </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>an <span class="struct"><a href="../notification_header.htm">ETW_NOTIFICATION_HEADER</a></span>
+    </td>
+    <td>6.0 and higher </td>
+    <td><span class="member">NotificationSize</span> for output <br>
+    (but see note after table) </td>
+  </tr>
+  <tr>
+    <td>0x48 </td>
+    <td>a <span class="struct">TRACE_ENABLE_INFO</span> </td>
+    <td>6.0 and higher </td>
+    <td>output </td>
+  </tr>
+  <tr>
+    <td>0x68 </td>
+    <td>a <span class="struct">TRACE_ENABLE_CONTEXT</span> </td>
+    <td>6.0 and higher </td>
+    <td>output </td>
+  </tr>
+  <tr>
+    <td>0x70 </td>
+    <td>0 to disable events; <br>
+    1 to enable events </td>
+    <td>6.0 and higher </td>
+    <td>output </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x74 </td>
+    <td>apparently reserved for future definition </td>
+    <td>6.0 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>indicator of what data follows </td>
+    <td>6.1 and higher </td>
+    <td>output </td>
+  </tr>
+</table>
+<p>The <span class="struct">ETW_NOTIFICATION_HEADER</span> appears to be just a 
+formality—literally from sharing the form of data that does matter for function 
+code 0x11. For function code 0x0F, the version 6.0 kernel ignores this header completely 
+and in no version does the kernel set anything in this header other than the
+<span class="member">NotificationSize</span>. Even then, versions 6.1 and 6.2 set 
+it only if following with variable-size data. It’s set always on success in versions 
+6.3 and higher, but to the size of the whole output when surely what would be expected 
+is the size just from the notification header onwards. (NTDLL, however, expects 
+nothing.) </p>
+<p>What can follow this fixed-size data is a description of the schematized event 
+filters that yet apply to the provider. The format for this description is version-dependent. 
+In versions 6.1 and 6.2, it is a sequence of <span class="struct">EVENT_FILTER_HEADER</span> 
+structures, each introducing variable-size data. The header’s
+<span class="member">Size</span> member is the total size, in bytes, of the header 
+and data. Its <span class="member">NextOffset</span> member is the possibly larger 
+number of bytes from the header to the next header, or is zero in the last header. 
+In version 6.3 and higher, there is first an <span class="struct">EVENT_FILTER_DESCRIPTOR</span>. 
+Its <span class="member">Ptr</span> member is the number of bytes from the notification 
+header to the <span class="struct">EVENT_FILTER_HEADER</span> sequence. Its
+<span class="member">Size</span> is that of the sequence. This change of format 
+also affects the indicator at offset 0x74. In versions 6.1 and 6.2, this is 0x80000000, 
+which may be intended as the filter type, specifically <span class="constant">EVENT_FILTER_TYPE_SCHEMATIZED</span>. 
+In later versions, the indicator is boolean and the filter type is explicitly in 
+the <span class="member">Type</span> member of the <span class="struct">EVENT_FILTER_DESCRIPTOR</span>.
+</p>
+<p>This function code is expressly not for registering the security provider. If 
+the provider’s GUID is <span class="guid">{54849625-5478-4994-A5BA-3E3B0328C30D}</span>, 
+which Microsoft represents symbolically as <span class="symbol">SecurityProviderGuid</span>, 
+the function fails, returning <span class="constant">STATUS_ACCESS_DENIED</span>.
+</p>
+<p><span class="alert">TO BE DONE</span> </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 22nd April 2020 from material first 
+  published on 31st <a href="../../../../../../../../new/18/12.htm">December 2018</a>. 
+  It was last modified on 28th <a href="../../../../../../../../new/20/05.htm">May 
+  2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1820.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14474" -->
+</div>
+
+</body>
+
+</html>

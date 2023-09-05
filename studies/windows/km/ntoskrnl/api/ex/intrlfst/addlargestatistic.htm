@@ -1,0 +1,142 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>ExInterlockedAddLargeStatistic</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>ExInterlockedAddLargeStatistic </h1>
+<p>This function adds a 32-bit integer to a 64-bit integer in a way that is in some 
+sense safe for multi-processing. </p>
+<h2>Declaration </h2>
+<pre class="source">VOID 
+FASTCALL 
+ExInterlockedAddLargeStatistic (
+    PLARGE_INTEGER Addend, 
+    ULONG Increment);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">Addend</span> argument addresses the 64-bit integer, 
+i.e., the large statistic, that is to be added to. </p>
+<p>The <span class="argument">Increment</span> argument is the amount to add.
+</p>
+<h2>Availability </h2>
+<p>The <span class="function">ExInterlockedAddLargeStatistic</span> function is 
+exported by name from x86 builds of the kernel in version 3.50 and higher. Though 
+the function continues to be exported, it was in effect retired by the Device Driver 
+Kit (DDK) for Windows Server 2003. While defining the function for other architectures 
+by way of macros, this DDK redefined the x86 export in terms of the compiler intrinsic
+<span class="function">_InterlockedAddLargeStatistic</span>. </p>
+<p>That said, the compiler intrinsic is used liberally in the Windows kernel, even 
+as recently as version 10.0, and plausibly still orginates in the source code as 
+macro interpretation of the <span class="function">ExInterlockedAddLargeStatistic</span> 
+function. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">ExInterlockedAddLargeStatistic</span> function has 
+long been documented but was not documented immediately. The first documentation 
+known to this study is from the DDK for Windows 2000. The function has, however, 
+always had a C-language declaration or macro definition in NTDDK.H and/or WDM.H, 
+at least as far back as the DDK for Windows NT 3.51. </p>
+<h2>Behaviour </h2>
+<p>The 32-bit coding, in assembly language, has not changed since version 3.50. 
+The <span class="argument">Increment</span> is added to the low 32 bits at
+<span class="argument">Addend</span>. If this overflows, the carry is added to the 
+high 32 bits. Both additions have the <span class="instruction">lock</span> prefix.
+</p>
+<p>Note that the safety for multi-processing is partial. The 64-bit statistic is 
+updated in halves, not as a whole. Overlapping calls to the function from different 
+processors can interfere with each other when either (or both) causes an overflow 
+of the lower half. The very particular sense in which the function is safe for multi-processing 
+is that even if this interference does occur the function does not lose anything 
+of what’s to be added. All increments are certain to accumulate correctly in the 
+large statistic <span class="emphasis">eventually</span>. If, however, the statistic 
+is read while additions might be attempted, then a concurrent addition need not 
+yet be complete. This is true even if using the <span class="instruction">cmpxchg8b</span> 
+instruction to be sure that all 64 bits of what’s read truly were in memory at one 
+time. What’s read of any statistic that is updated by this function is not reliable, 
+except if it is known separately that updating is paused. Even for a statistic that 
+is only ever incremented by 1, successive reads can show the statistic as having 
+gone backwards. </p>
+<p>The point to the function is presumably in its name. The statistic in the name 
+will be a counter of some sort. The aim is to add to the counter in the fewest instructions 
+possible without risk that concurrent additions get lost. That an addition might 
+not yet be fully accumulated in the statistic when next read is less important than 
+knowing it will be eventually. This will have been an easy compromise before processors 
+were sure to have the <span class="instruction">cmpxchg8b</span> instruction, for 
+the reading and writing back of a 64-bit integer without interruption could not 
+be done without external synchronisation, the acquisition and release of which would 
+typically disturb execution far more than is tolerable for maintaining a counter.
+</p>
+<p>That the function, albeit converted to a compiler intrinsic, continues not just 
+to be defined but used, e.g., in the Windows 10 kernel, suggests that the compromise 
+is still worthwhile even now that unavailability of <span class="instruction">cmpxchg8b</span> 
+is a consideration only for software that may find itself running on an older version 
+than Windows XP. Though the two writes in </p>
+<pre class="source">        lock    add dword ptr [ecx],edx
+        jnc     done
+        lock    adc dword ptr [ecx+4],0
+done:
+</pre>
+<p>(which is what’s coded) allow that the statistic is momentarily incomplete, the 
+code is very much more efficient than </p>
+<pre class="source">        push    esi
+        push    edi
+        mov     esi,ecx
+        mov     edi,edx
+retry:
+        mov     eax,[esi]
+        mov     edx,[esi+4]
+        mov     ecx,eax
+        mov     ebx,edx
+        add     ecx,edi
+        adc     ebx,0
+        lock    cmpxchg8b qword ptr [esi]
+        jne     retry
+        pop     edi
+        pop     esi</pre>
+<p>Even though this unwieldy code ensures that the statistic is only ever written 
+as a whole, the advantage hardly matters unless the consumer of the statistic is 
+willing to do something similar to be sure of reading the statistic without interruption. 
+For these reasons, if not just for backwards compatibility,
+<span class="function">ExInterlockedAddLargeStatistic</span> likely isn’t ever going 
+away. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 24th March 2017 and was last modified 
+  on 7th September 2020. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1720.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5021" -->
+</div>
+
+</body>
+
+</html>

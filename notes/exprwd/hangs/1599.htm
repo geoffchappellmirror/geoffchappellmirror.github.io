@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Expression Web Hangs On Opening First Page</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Expression Web Hangs On Opening First Page </h1>
+  <p>When Expression Web is newly installed, it is configured to “Open last web 
+  site automatically when Expression Web starts”. This is a convenient feature, 
+  since Expression Web otherwise opens an untitled unsaved page which the user may 
+  just want to close immediately in order to open a site and then an existing page 
+  in that site. </p>
+  <h2>Problem </h2>
+  <p>You start the original Expression Web in the configuration that opens the last 
+  site automatically. When the site has opened, you double-click on some page to 
+  edit it, but are instead treated to a wait cursor. Expression Web has stopped 
+  responding. I do not say that these steps always cause Expression Web to stop 
+  responding, not even just for me, let alone for you. However, my experience is 
+  that unless I wait minutes before opening the page, I get this hang about once 
+  in every two startups. </p>
+  <p>Given that Expression Web has stopped responding, attempting to close the program 
+  then produces a dialog box for Windows Error Reporting (WER), not that anything 
+  seems to be achieved by sending information about the problem to Microsoft. Among 
+  the details in the WER dialog, the following will always be present: </p>
+  <pre class="output">Problem Event Name:             AppHangB1
+Hang Type:                      513</pre>
+  <p>but the hang signatures may vary even on the one machine. Two sets occur for 
+  me, running the original Expression Web (version 12.0.4518.1014) on Windows Vista 
+  SP1. The first is much the more common: </p>
+  <pre class="output">Hang Signature:                 1599
+
+Additional Hang Signature 1:    2b1c5f6b9cef857bc1c172946607ad28
+Additional Hang Signature 2:    c66a
+Additional Hang Signature 3:    f54c5eac3d4f0edd6f2c28bd695070d9</pre>
+  <p>but the second is not infrequent: </p>
+  <pre class="output">Hang Signature:                 b726
+
+Additional Hang Signature 1:    dc6a48e1d1f2ecd953da631914523a17
+Additional Hang Signature 2:    df10
+Additional Hang Signature 3:    5c090e48622ba709a1cf17b50ba8f5a1</pre>
+  <p>In both sets, the Additional Hang Signatures continue, but number 4 duplicates 
+  what is given simply as the Hang Signature and numbers 5, 6 and 7 just repeat 
+  numbers 1, 2 and 3. </p>
+  <h2>Workaround </h2>
+  <p>If only for me, the problem is avoided by disabling the option to “Open last 
+  web site automatically when Expression Web starts”. In this configuration, Expression 
+  Web opens a blank page when starting, instead of opening a site. You then close 
+  that page and open the site that you would have liked Expression Web to have opened 
+  for you automatically. It’s stupidly tiresome but at least you only have to put 
+  up with it the once at startup, and you get the benefit of opening a page without 
+  Expression Web hanging itself. </p>
+  <h2>Cause </h2>
+  <p>Though necessary and sufficient conditions for reproducing this hang are not 
+  known, the immediate cause of the hang is easily established after attaching a 
+  debugger. It is a classic case of deadlock. Indeed, that’s pretty much all that 
+  513 means as the Hang Type. The number is better read in hex, as 0x0201, so that 
+  its interpretation as bit flags is clearer. The 0x0200 bit means that the thread 
+  that created the window—remember, WER doesn’t kick in until you close the Expression 
+  Web window—is found to have a wait chain that is circular. The 0x0001 bit means 
+  that at least one wait node is a critical section. That no other bits are set 
+  means that all the wait nodes are critical sections. </p>
+  <p>The simplest case of such a deadlock, which is what happens here, goes as follows. 
+  Thread T1 enters critical section CS1 and executes code there. Meanwhile, thread 
+  T2 enters critical section CS2 and executes code in that section. As thread T1 
+  continues its execution, it gets to a stage where it wants to enter critical section 
+  CS2. It must wait for thread T2 to leave that section. However, thread T2 has 
+  itself executed to a stage where it wants to enter critical section CS1. Neither 
+  thread can then proceed since each is waiting for the other. </p>
+  <p>Now, you may wonder why any software works at all: if threads can enter critical 
+  sections (or other synchronisation objects) willy-nilly, then deadlock must be 
+  very common. One reason that deadlock is thankfully rare is that most programmers 
+  who ever write a call to a function such as <span class="function">EnterCriticalSection</span> 
+  are well aware of the danger and responsibility: if you write code that acquires 
+  one synchronisation object then you need to be very careful about trying to acquire 
+  another, not just in your code but also in any code that you call. That said, 
+  most programming is not done at anything like so low a level. Frameworks for high-level 
+  programming go a long way to sparing programmers the anxiety of thinking through 
+  all the implications for synchronisation in their own code, but there are cracks 
+  to fall between. <span class="highlight">This particular deadlock turns out to 
+  be exactly one that Microsoft itself warns about in one part of its programming 
+  documentation but neglects in another.</span> As an Expression Web user, you pay 
+  for that neglect. As a Microsoft customer, you will likely never learn of this 
+  from Microsoft. </p>
+  <h3>The Loader Lock </h3>
+  <p>A distinctive event in the hang is that Expression Web does not load FPEDITAX.DLL 
+  until it is first asked to edit a file. In this circumstance, FPEDITAX causes 
+  a deadlock because its initialisation code is not written with sufficient awareness 
+  of its obligations regarding critical sections. </p>
+  <p>When a DLL gets loaded, its <span class="function">DllMain</span> function 
+  (if it has one) is called by the system (here meaning NTDLL.DLL). Something that 
+  is very important for programmers to know when writing a
+  <span class="function">DllMain</span> function for a DLL’s initialisation is that 
+  NTDLL has already entered a critical section before calling the function. Microsoft’s
+  <a target="_top" href="http://msdn.microsoft.com/library/ms682583.aspx">documentation 
+  of <span class="function">DllMain</span></a> makes this more or less plain:
+  </p>
+  <blockquote>
+    Access to the entry point is serialized by the system on a process-wide basis. 
+    Threads in <span class="function">DllMain</span> hold the loader lock so no 
+    additional DLLs can be dynamically loaded or initialized.
+  </blockquote>
+  <p>One of many implications is that a programmer who writes a
+  <span class="function">DllMain</span> function must be very careful about acquiring 
+  any synchronisation object. The slightly different
+  <a target="_top" href="http://msdn.microsoft.com/library/ms885202.aspx">documentation 
+  of <span class="function">DllMain</span> in the Platform Builder for Microsoft 
+  Windows CE 5.0</a> is commendably blunt: </p>
+  <blockquote>
+    Although it is acceptable to create synchronization objects in
+    <span class="function">DllMain</span>, do not perform synchronization in
+    <span class="function">DllMain</span> (or a function called by
+    <span class="function">DllMain</span>), because all calls to
+    <span class="function">DllMain</span> are serialized. Waiting on synchronization 
+    objects in <span class="function">DllMain</span> can cause a deadlock.
+  </blockquote>
+  <p>The particular risk with the loader lock is that it is needed not just for 
+  executing <span class="function">DllMain</span>, nor just for any function (such 
+  as <span class="function">LoadLibrary</span>) that might cause the system to want 
+  to call the <span class="function">DllMain</span> of yet another DLL, but also 
+  for any function (such as <span class="function">GetModuleFileName</span>) for 
+  which the system may want to keep the list of loaded modules stable for a while. 
+  There are very many functions that contend for the loader lock. Microsoft does 
+  not publish a list, and perhaps does not itself have a list. Indeed, the list 
+  becomes open-ended if you allow for undocumented programming, since the loader 
+  lock is accessible both through the undocumented NTDLL function
+  <span class="function">
+  <a href="../../windows/win32/ntdll/api/ldrapi/lockloaderlock.htm">LdrLockLoaderLock</a></span> 
+  and through an undocumented member of the semi-documented <span class="struct">
+  PEB</span> structure. </p>
+  <p>The implication that programmers should take on board is that if they code 
+  a DLL to acquire a synchronisation object in its <span class="function">DllMain</span>, 
+  then all other code in every other thread in the same process must know that while 
+  they own that same synchronisation object at any time that a
+  <span class="function">DllMain</span> might execute in another thread. they must 
+  not call any of the “loader lock” functions. Since there is almost no chance in 
+  practice of arranging this with certainty, especially not in complex software 
+  written by many hands, it really is very important to follow Microsoft’s advice 
+  and keep <span class="function">DllMain</span> from using any synchronisation 
+  objects, ever. </p>
+  <p>Really, all programmers who write a DLL should know not to do very much at 
+  all in any <span class="function">DllMain</span>. Again from Microsoft’s own documentation 
+  of <span class="function">DllMain</span>: </p>
+  <blockquote>
+    <b>Warning</b>&nbsp; There are serious limits on what you can do in a DLL entry 
+    point.
+  </blockquote>
+  <p>and </p>
+  <blockquote>
+    The entry-point function should perform only simple initialization or termination 
+    tasks.
+  </blockquote>
+  <p><span class="highlight">If the writers of FPEDITAX had followed this advice 
+  that Microsoft gives to everyone else, then this hang could not occur.</span>
+  </p>
+  <h3>MFC </h3>
+  <p>In this context of following Microsoft’s own advice, it is then unfortunate 
+  that FPEDITAX is written using the Microsoft Foundation Class (MFC) Library. It 
+  seems fair to say that using MFC to write a DLL is an advanced topic for MFC programmers. 
+  Indeed, Microsoft says as much in the MFC documentation by leaving the topic to 
+  a technical note
+  <a target="_top" href="http://msdn.microsoft.com/library/zfz4xb9a.aspx">TN011: 
+  Using MFC as part of a DLL</a>. </p>
+  <p>The problem is that even an advanced MFC programmer might easily not realise 
+  that what he is writing is subject to the documented constraints on
+  <span class="function">DllMain</span> functions. This is because an MFC programmer 
+  writing a DLL does not directly write a <span class="function">DllMain</span> 
+  function. Instead, he instantiates a <span class="class">CWinApp</span> class 
+  and places “all DLL-specific initialization in the <span class="method">InitInstance</span> 
+  member function as in a normal MFC application”. Of course, this means that
+  <span class="function">CWinApp::InitInstance</span> is a function that is called 
+  from <span class="function">DllMain</span> and has all the restrictions that apply 
+  to <span class="function">DllMain</span>, but the MFC documentation leaves the 
+  MFC programmer to work this out for himself. Quite why is anyone’s guess: after 
+  all, the reason most programmers ever touch MFC is precisely that they have decided 
+  that understanding low-level Windows programming is not something they want to 
+  get involved with. </p>
+  <p>Certainly, the writers of FPEDITAX seem to have been completely unaware of 
+  their <span class="function">DllMain</span> obligations. They allow their
+  <span class="method">InitInstance</span> to call lots and lots of functions in 
+  other DLLs, and particularly in MSO.DLL. What matters most about MSO for present 
+  purposes is that it synchronises its multi-threaded work using its own critical 
+  sections. Many MSO functions enter MSO’s own critical sections. The potential 
+  for deadlock is obvious from the preceeding discussion. Calling MSO functions 
+  while inside a <span class="function">DllMain</span> function is not prudent. 
+  Some would say it’s reckless. </p>
+  <h3>Observed Deadlock </h3>
+  <p>What happens in the present case is that FPEDITAX, while handling
+  <span class="function">DllMain</span>, calls a function in FPCUTL.DLL, named
+  <span class="function">LoadLanguageDLLs</span>, which in turn calls the MSO function
+  <span class="function">MsoSetLocale</span>. Procedures called from this function 
+  eventually decide to enter an MSO critical section. (Strictly speaking, Microsoft’s 
+  name for the FPCUTL function is not known since it is exported only by ordinal, 
+  3597, in the version from the original Expression Web. The name given here is 
+  identified from roughly corresponding code in the version supplied with Expression 
+  Web 3, which exports all its functions by name.) </p>
+  <p>The problem is that another thread in the EXPRWD process has been executing 
+  other MSO functions and has already entered that same MSO critical section. Its 
+  execution has got as far as calling a SHELL32 function (named
+  <span class="function">ILIsEqual</span>) whose handling eventually results in 
+  calling the Windows API function <span class="function">GetModuleFileName</span>. 
+  This is a “loader lock” function. The thread in which FPEDITAX is initialising 
+  can’t proceed because the MSO critical section that it needs is owned by another 
+  thread, but this other thread can’t proceed because the NTDLL loader lock that 
+  it needs is busy in the <span class="function">DllMain</span> for FPEDITAX.
+  </p>
+  <p>Note the generality of the problem. Though all occurrences that have blighted 
+  my attempts to start Expression Web turn out to involve these same functions, 
+  there is potentially not just one case. The essential problem is that FPEDITAX 
+  has a <span class="function">DllMain</span> function that has been coded without 
+  concern for Microsoft’s own restrictions on <span class="function">DllMain</span> 
+  functions. <span class="highlight">This problem can only truly be fixed by reworking 
+  FPEDITAX (at least) so that its <span class="function">DllMain</span> function 
+  does not call functions in other DLLs in any way that might conflict with the 
+  documented rules.</span> Until Microsoft has done this, the problem should not 
+  be accepted as fixed. </p>
+  <h3>Hang Signatures </h3>
+  <p>Despite what you might hope of something called a hang signature, the two distinct 
+  sets of hang signatures shown above do represent just one problem with one immediate 
+  cause. As background, you should know that the short hang signatures are derived 
+  from the long hang signatures (2 from 1, 4 from 3). They are useful for quick 
+  reference but provide nothing that is not in the long signatures. These, in turn, 
+  are hashes of information that is gathered from walking the stack. Hang signature 
+  1 hashes just the module names from each stack frame. Hang signature 3 hashes 
+  module names and return-address offsets. Thus, hang signature 3 is the more specific 
+  to the occurrence for any one configuration, but hang signature 1 has the greater 
+  chance of surviving slight changes in the executables, e.g., from a change of 
+  service pack. </p>
+  <p>That one problem can produce different sets of hang signatures even on one 
+  machine with no variation in software is because minor variations in the stack 
+  affect what stack frames WER finds for its hashes. Because WER typically has no 
+  access to symbol files, even for Windows modules let alone for whatever else may 
+  be involved in a problem, it configures DBGHELP.DLL (through the undocumented
+  <span class="command"><a href="../../windows/debug/extcmds/stackdbg.htm">!stackdbg</a></span> 
+  command) to use an aggressive algorithm for stack walking. As with all things 
+  aggressive, it can miscalculate. It may interpret an address on the stack as a 
+  return address without realising that the address persists from earlier execution, 
+  having not yet been overwritten by new activity, and does not actually provide 
+  a meaningful stack frame. By accepting it, the walk of supposed stack frames proceeds 
+  differently, even though more careful inspection confirms that the variation is 
+  immaterial. </p>
+  <h2>Fix </h2>
+  <p>The symptoms of the problem are not observed in Expression Web 3, but is the 
+  bug truly gone? It’s not as if FPEDITAX now follows the <span class="function">
+  DllMain</span> rules. Instead, Microsoft has adjusted the loading sequence, such 
+  that FPEDITAX is reliably loaded earlier, when the site is opened rather than 
+  when first opening a page, and this is enough to avoid contending with MSO for 
+  critical sections while FPEDITAX still has the loader lock. It’s even conceivable 
+  that Microsoft has made the problem go away without ever investigating it specifically.
+  </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 24th November 2008 and was last modified 
+    on 29th July 2010. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c0810.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2008-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="51653" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,319 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SdbGrabMatchingInfoEx</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="54033" -->
+<h1>SdbGrabMatchingInfoEx </h1>
+<!--webbot bot="Include" U-Include="_include/description.htm" TAG="BODY" startspan -->
+
+<p>This function collects into an XML file various sorts of information about files 
+that seem related to a given executable. The intended use seems to be that the executable 
+needs a patch, shim or similar support in particular circumstances and the collected 
+descriptions of the related files, or some extract from them, can help those circumstances 
+be recognised later (and elsewhere) by the presence of so-called
+<span class="definition">matching files</span>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="26035" -->
+<h2>Declaration </h2>
+<pre class="source">INT 
+SdbGrabMatchingInfoEx (
+    PCWSTR szExe, 
+    DWORD dwFilter, 
+    PCWSTR szFile, 
+    BOOL (*lpCallback) (PVOID, PCWSTR, PCWSTR, ATTRINFO *, PCWSTR), 
+    PVOID lpContext);</pre>
+<h3>Parameters </h3>
+<!--webbot bot="Include" U-Include="_include/parameters.htm" TAG="BODY" startspan -->
+
+<p>The <span class="argument">szExe</span> argument addresses a pathname of a file-system 
+object, such as an executable file, and the function is to collect information about 
+the matching files in the same directory and (typically) beneath. The pathname can 
+instead specify just the directory. Depending on other arguments,
+<span class="argument">szExe</span> can be ignored. </p>
+<p>The low 16 bits of the <span class="argument">dwFilter</span> argument define 
+what type of files count as matching files, what type of information to collect, 
+and may even define where to look (overriding <span class="argument">szExe</span>). 
+The high 16 bits of <span class="argument">dwFilter</span> are bit flags that can 
+more generally vary the function’s behaviour, e.g., to stop the search’s recursion 
+through subdirectories, and to arrange for the one output file to collect descriptions 
+from multiple calls to the function. The types and flags that are supported for 
+the <a href="filter.htm">Matching Information Filter</a> are described separately.
+</p>
+<p>The <span class="argument">szFile</span> argument names the output file. </p>
+
+<!--webbot bot="Include" endspan i-checksum="25264" -->
+<p>The optional <span class="argument">lpCallback</span> argument is the address 
+of a function that is to be called for each file that the function examines. For 
+each such call, the <span class="argument">lpContext</span> argument is the callback 
+function’s first argument. </p>
+<h3>Return Value </h3>
+<p>The function returns 1 if wholly successful, 0 for complete failure, and -1 if 
+output is aborted by the callback function. </p>
+<h2>Availability </h2>
+<p>The <span class="function">SdbGrabMatchingInfoEx</span> function is exported 
+by name from APPHELP.DLL in version 5.1 and higher, and before then from SDBAPIU.DLL.
+</p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">SdbGrabMatchingInfoEx</span> function is not documented.
+</p>
+<!--webbot bot="Include" U-Include="_include/names.htm" TAG="BODY" startspan -->
+
+<p>The names given above for the <span class="argument">dwFilter</span> and
+<span class="argument">szFile</span> arguments are plausibly Microsoft’s, being 
+extracted from text that APPHELP can write to a log file. Other names are mere placeholders 
+awaiting the discovery of Microsoft’s. </p>
+
+<!--webbot bot="Include" endspan i-checksum="42598" -->
+<h2>Behaviour </h2>
+<p>The following notes on the function’s behaviour are deduced from inspecting the 
+implementation from the original release of Windows 10. Since the behaviour is complex, 
+it may help to begin with what the function aims for as its externally visible effects, 
+notably for the output file and the callback function. </p>
+<h3>XML Output </h3>
+<p>The output to be produced from one or more calls to the function is an XML file 
+in Unicode characters. There is first the two-byte signifier of byte ordering, thus 
+0xFF 0xFE for both the x86 and x64 platforms. The XML content is a header and a
+<span class="tag">DATABASE</span> tag that contains yet more tags to present the 
+“matching” information for one or more executables, one per call to the function:
+</p>
+<pre class="source">&lt;?xml version="1.0" encoding="UTF-16"?&gt;
+&lt;DATABASE&gt;
+<span class="placeholder">exe-descriptions</span>
+&lt;/DATABASE&gt;</pre>
+<p>Each of the <span class="placeholder">exe-descriptions</span> is an
+<span class="tag">EXE</span> tag whose content describes whatever count as matching 
+files for the one executable: </p>
+<pre class="source">&lt;EXE NAME="<span class="placeholder">exe-name</span>" FILTER="<span class="placeholder">filter-type</span>"&gt;</pre>
+<pre class="source">&nbsp;   <span class="placeholder">file-descriptions</span>
+&lt;/EXE&gt;</pre>
+<p>The <span class="placeholder">exe-name</span> is typically the filename from 
+the <span class="argument">szExe</span> argument, but it may also be either of two 
+literals: <span class="literal">Exe Not Specified</span> or
+<span class="literal">SYSTEM INFO</span>. The <span class="placeholder">filter-type</span> 
+is the symbolic name of the type that’s specified in the low 16 bits of
+<span class="argument">dwFilter</span>. </p>
+<p>Each of the <span class="placeholder">file-descriptions</span> is a self-closing
+<span class="tag">MATCHING_FILE</span> or <span class="tag">SYS</span> tag: </p>
+<pre class="source">    &lt;MATCHING_FILE NAME="<span class="placeholder">file-name</span>" <span class="placeholder">attribute-value-items</span> /&gt;</pre>
+<p>or </p>
+<pre class="source">    &lt;SYS NAME="<span class="placeholder">file-name</span>" <span class="placeholder">attribute-value-items</span> /&gt;</pre>
+<p>in which the <span class="placeholder">file-name</span> is in general a relative 
+pathname—relative to the search path that is specified by or inferred from the
+<span class="argument">szExe</span> argument—and the <span class="placeholder">attribute-value-items</span> 
+are arbitrarily many, including zero, descriptions in the form </p>
+<pre class="placeholder"><span class="placeholder">attribute</span>="<span class="placeholder">value</span>" </pre>
+<p>Typical for <span class="placeholder">attribute</span> are
+<span class="attribute">SIZE</span> and <span class="attribute">CHECKSUM</span>, 
+but there can be very many more (up to 33 in total for Windows 10), as when the 
+matching file is an executable with a version resource. </p>
+<p>Do not let it escape your attention that except for <span class="tag">SYS</span>, 
+which is anyway specific to one type of filter, all the XML tags and all the possibilities 
+for <span class="placeholder">attribute</span> are string representations of supported 
+values for the <span class="type"><a href="../../sdb/tag.htm">TAG</a></span> as 
+known for <a href="../../sdb/index.htm">Shim Database (SDB) files</a>. </p>
+<h3>Callback Function </h3>
+<p>The callback function gives the caller some control over what goes into the XML 
+output and certainly over when to end it. </p>
+<pre class="source">BOOL 
+<span class="placeholder">Callback</span> (
+    PVOID Context, 
+    PCWSTR FileName, 
+    PCWSTR RelativeFileName, 
+    ATTRINFO *AttrInfo, 
+    PCWSTR XmlTag);</pre>
+<h4>Parameters </h4>
+<p>The <span class="argument">Context</span> argument is whatever was passed to
+<span class="function">SdbGrabMatchingInfoEx</span> as its last argument. </p>
+<p>The <span class="argument">FileName</span> argument addresses a pathname for 
+the matching file, constructed by extending whatever search path was specified by 
+or inferred from <span class="argument">szExe</span>. The <span class="argument">
+RelativeFileName</span> argument points into this pathname to that part that follows 
+the search path, i.e., to what gets used as <span class="placeholder">file-name</span> 
+in the XML output. </p>
+<p>The <span class="argument">AttrInfo</span> argument addresses an array of
+<span class="struct">ATTRINFO</span> structures that have been used to prepare the
+<span class="tag">MATCHING_FILE</span> or <span class="tag">SYS</span> tag that 
+is addressed by the <span class="argument">XmlTag</span> argument. </p>
+<h4>Return Value </h4>
+<p>The callback function returns <span class="constant">FALSE</span> to tell
+<span class="function">SdbGrabMatchingInfoEx</span> that no more matching files 
+are wanted. </p>
+<h4>Unknowns </h4>
+<p>Microsoft’s names for the arguments are not known. Neither are the types. That 
+the pointers to strings are specifically pointers to <span class="keyword">const</span> 
+strings is inferred from the symbol file for COMPATUI.DLL, this DLL having used 
+C++ for its callback function. It is not clear, however, that this is what APPHELP 
+expects. Much of the point, if not to the callback function itself, then surely 
+to its last two arguments, would be to allow that the XML output for the matching 
+file can be edited. The string at <span class="argument">XmlTag</span> is not written 
+to the output file until the callback function returns, and APPHELP recomputes the 
+length. That said, if the callback function is permitted to edit the tag, it would 
+either have to know how much space is available (0x1000 characters in all known 
+versions) or be constrained only to reducing the tag. Tight coupling seems to be 
+presumed: see, for instance, that the <span class="argument">AttrInfo</span> argument 
+is entirely useless to the callback function without independent knowledge of how 
+many <span class="struct">ATTRINFO</span> structures are in the array. (The
+<span class="struct"><a href="https://msdn.microsoft.com/library/bb432183.aspx">
+ATTRINFO</a></span> structure, incidentally, is documented by Microsoft but only 
+online.) </p>
+<p>The callback function is hardly used even by Microsoft. Few known callers of
+<span class="function">SdbGrabMatchingInfoEx</span> specify a callback function 
+and these anyway ignore most of the arguments. Much, not just of names and types 
+but even of functionality, may simply be unknowable. </p>
+<h3>Implementation </h3>
+<p>The <span class="argument">dwFilter</span> and <span class="argument">szFile</span> 
+arguments are required in all cases. If <span class="argument">szFile</span> is
+<span class="constant">NULL</span> or if the low 16 bits of
+<span class="argument">dwFilter</span> are not among the supported types, the function 
+fails. </p>
+<h4>Search Path and Executable </h4>
+<p>The <span class="argument">szExe</span> argument is not formally required to 
+be non-<span class="constant">NULL</span>, since it can be ignored. In general, 
+however, it may supply both a search path and filename. The latter typically becomes 
+the <span class="placeholder">exe-name</span> in the XML output. The function allows
+<span class="constant">MAX_PATH</span> characters for it on the stack. For the search 
+path, and for whatever the function appends to it to make pathnames of matching 
+files, the function uses a dynamically allocated buffer with a capacity of 0x1000 
+Unicode characters. If the function cannot get this buffer, it fails. For the remainder 
+of these notes, it is to be understood that if preparation of a pathname in this 
+buffer ever needs a bigger buffer, the function fails. (However, this is not quite 
+true: if this problem occurs during the function’s recursion through subdirectories, 
+the effect can be that the function moves on to the next subdirectory.) </p>
+<p>If the low 16 bits of <span class="argument">dwFilter</span> are
+<span class="constant">GRABMI_FILTER_SYSTEM</span> (4), the matching files are necessarily 
+in the Windows system directory. If the function cannot locate the Windows system 
+directory, it fails. For this filter, the <span class="argument">szExe</span> argument 
+is ignored, and <span class="placeholder">exe-name</span> in the XML output will 
+be <span class="literal">SYSTEM INFO</span>. </p>
+<p>For all other types of filter, the <span class="argument">szExe</span> argument 
+is required to name either a file or directory. If the function cannot get file 
+attributes for the supposed file or directory, it fails. If
+<span class="argument">szExe</span> turns out to name a directory, as learnt from 
+the file attributes, then this is the directory to search for files and the
+<span class="placeholder">exe-name</span> in the XML output will be
+<span class="literal">Exe Not Specified</span>. Ordinarily, the pathname at
+<span class="argument">szExe</span> is both the search path and the
+<span class="placeholder">exe-name</span>, separated at the last backslash. In the 
+special case where <span class="argument">szExe</span> names just a file, with no 
+path, as learnt from the absence of any backslash, then the function adopts the 
+current directory as the search path. </p>
+<p>If the low 16 bits of <span class="argument">dwFilter</span> are
+<span class="constant">GRABMI_FILTER_THISFILEONLY</span> (5), then
+<span class="argument">szExe</span> is required to name a file. If instead it named 
+a directory, the function fails. Or so seems to be the intention. What the function 
+actually tests as the case to reject is that the filename that was just extracted 
+for use as <span class="placeholder">exe-name</span> in the XML output is empty, 
+but this can never happen because of the default to the fake name Exe Not Specified. 
+(The obvious experiment is to create a file named Exe Not Specified in an arbitrary 
+directory and then give the function just the directory as
+<span class="argument">szExe</span> and <span class="constant">GRABMI_FILTER_THISFILEONLY</span> 
+as <span class="argument">dwFilter</span>. The function succeeds, with output that 
+describes the contrived file, when surely it is not meant to.) </p>
+<h4>Output File </h4>
+<p>The function ordinarily creates the output file as new, overwriting the file 
+if it already exists. However, if the 0x20000000 bit is set in
+<span class="argument">dwFilter</span>, the function appends to the file if it already 
+exists. If the function cannot create or open the output file, it fails. (The function 
+requires write access and does not share.) For the remainder of these notes, it 
+is to be understood that whenever the function writes to the output file, success 
+is simply assumed: it never checks for success or failure. </p>
+<p>To complete the output file, the function will go through potentially many cycles 
+of preparing some amount of XML and writing it to the output file. All such preparation 
+is done in the one buffer whose capacity is 0x1000 Unicode characters. If the function 
+cannot get this memory, it fails. For the remainder of these notes, it is to be 
+understood that if preparation of any XML to write to the output file ever needs 
+a bigger buffer, the function fails. Again, however, this description of the error 
+handling is not quite true of problems that occur during the function’s recursion 
+into subdirectories. </p>
+<h4>Enumeration </h4>
+<p>In each directory that the function examines, it looks first for matching files 
+and then (possibly) for subdirectories. If the low 16 bits of
+<span class="argument">dwFilter</span> are <span class="constant">GRABMI_FILTER_THISFILEONLY</span> 
+(5), then the only file to consider as a matching file is the one that is named 
+by <span class="argument">szExe</span>. Otherwise, the function examines all files 
+in the directory. Failure to find a first file is failure for the function at the 
+top level of recursion, else causes the function to proceed to the next subdirectory.
+</p>
+<p>If recursion is not yet in progress, the function at least begins its XML output. 
+Ordinarily, the first output is the XML header and an open <span class="tag">DATABASE</span> 
+tag. If the 0x20000000 bit is set in <span class="argument">dwFilter</span>, the 
+function infers that it is being called in a sequence to generate the one output 
+file for multiple searches, such that the output file has the XML header and
+<span class="tag">DATABASE</span> tag already. Either way, the function writes an 
+open <span class="tag">EXE</span> tag, including its <span class="attribute">NAME</span> 
+and <span class="attribute">FILTER</span>. </p>
+<p>Among the files the function finds in its search of the directory, the ones that 
+count as matching files that are to be described in the output file are determined 
+by the low 16 bits of <span class="argument">dwFilter</span>. The desired match 
+may be with particular file extensions, as with <span class="constant">GRABMI_FILTER_NORMAL</span> 
+(0), <span class="constant">GRABMI_FILTER_PRIVACY</span> (1) and
+<span class="constant">GRABMI_FILTER_DRIVERS</span>, or with particular file names, 
+as with <span class="constant">GRABMI_FILTER_SYSTEM</span>. Some filter types require 
+this match of any file they list in the output. Others count up to 10 non-matching 
+files as matching. For <span class="constant">GRABMI_FILTER_VERBOSE</span> (3), 
+all files match. </p>
+<p>For each matching file, the function prepares a <span class="tag">MATCHING_FILE</span> 
+tag, typically, and fills it with formatted representations of whatever attributes 
+it can obtain (via the documented <span class="function">SdbGetFileAttributes</span> 
+function, formatting the results via the documented <span class="function">SdbFormatAttribute</span> 
+function). The significant variation is that for <span class="constant">GRABMI_FILTER_DRIVERS</span> 
+only, the tag is <span class="tag">SYS</span> and is kept to only a small selection 
+of attributes. The function then describes the matching file to the callback function, 
+if one is provided, and notes the result. Only then is the tag for this matching 
+file written to the output file. If the 0x40000000 bit is set in
+<span class="argument">dwFilter</span>, then enumeration of this directory, both 
+for files and subdirectories, is abandoned if the total count of matching files 
+has reached 25. If the callback function returned <span class="constant">FALSE</span>, 
+then all enumeration is abandoned, and the function returns -1. </p>
+<p>Enumeration of a directory typically continues into its subdirectories, though 
+only to a depth of 3 and not at all if the low 16 bits of dwFilter are
+<span class="constant">GRABMI_FILTER_SYSTEM</span> or <span class="constant">GRABMI_FILTER_THISFILEONLY</span> 
+or if the 0x80000000 bit is set. </p>
+<p>The function ends its enumeration of matching files by closing the
+<span class="tag">EXE</span> tag and, unless the 0x10000000 bit is set in
+<span class="argument">dwFilter</span>, the <span class="tag">DATABASE</span> tag 
+too. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 3rd 
+  <a href="../../../../../../new/16/09.htm">September 2016</a> and was last modified 
+  on 27th October 2016. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c16.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62549" -->
+</div>
+
+</body>
+
+</html>

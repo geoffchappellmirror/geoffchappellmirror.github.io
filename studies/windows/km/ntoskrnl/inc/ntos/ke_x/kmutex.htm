@@ -1,0 +1,204 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KMUTEX</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>KMUTEX </h1>
+  <p>The <span class="struct">KMUTEX</span> (formally <span class="struct">_KMUTEX</span>) 
+  exists as its own structure only in the very first Windows version. As soon as 
+  version 3.50, <span class="struct">KMUTEX</span> was redefined as another name 
+  for the <span class="struct">KMUTANT</span>. It has remained so ever since. Yet 
+  the early fleeting existence of the <span class="struct">KMUTEX</span> as its 
+  own structure is not without instructive significance even decades later. </p>
+  <p>This is because version 3.10 already had the <span class="struct">KMUTANT</span> 
+  and the unification of the two structures for version 3.50 came with the complication 
+  that it was the <span class="struct">KMUTEX</span> (or, rather, the functions 
+  that operate on the <span class="struct">KMUTEX</span>) that had been documented 
+  but it was the undocumented <span class="struct">KMUTANT</span> that had been 
+  chosen to survive. </p>
+  <h2>Use </h2>
+  <p>The <span class="struct">KMUTEX</span> (original) and the
+  <span class="struct">KMUTANT</span> are both dispatcher objects with the particular 
+  property that a thread’s successful wait on the object acquires exclusive owership 
+  of the object by the thread. Until this owning thread releases the object, no 
+  other thread can acquire the object. An object of either type thus provides for 
+  mutually exclusive thread-level access to sections of code that are only entered 
+  by acquiring the object and are only left by releasing it. </p>
+  <h3>Level </h3>
+  <p>What distinguished the <span class="struct">KMUTEX</span> was the assistance 
+  it provided the programmer for tracking the nested acquisition and release of 
+  more than one mutex. The danger of deadlock is well known. This occurs when thread 
+  T1 owns mutex M1 and thread T2 owns mutex M2 but then T1 waits for M2 and T2 waits 
+  for M1. Also well known is a mechanism for avoiding the danger: require that all 
+  threads that ever use M1 and M2 must always acquire them in the same order. If 
+  in the scenario just presented the order is agreed to be M1 before M2, then only 
+  by breaking the rule can T2 be waiting on M1 while owning M2. </p>
+  <p>Windows NT 3.1 generalises this simple scenario so that every mutex is initialised 
+  with an order of acquisition that is named its level. To this day, although the
+  <span class="function">KeInitializeMutex</span> function actually initialises 
+  a <span class="struct">KMUTANT</span>, its second argument is named
+  <span class="argument">Level</span> (but is ignored). In version 3.10, the
+  <span class="argument">Level</span> is saved into the initialised
+  <span class="struct">KMUTEX</span> and acquisition in increasing order is enforced. 
+  It is a serious error—with its own bug check code, <span class="constant">MUTEX_LEVEL_NUMBER_VIOLATION</span>—if 
+  a thread tries to acquire a mutex that it doesn’t already own but whose level 
+  isn’t higher than that of any mutex that the thread does own. If only then, the 
+  deadlock of two threads in kernel-mode execution was reason to stop the execution 
+  of everything! </p>
+  <p>The defined levels, if only for <span class="struct">KMUTEX</span> structures 
+  that are created by the kernel and by Microsoft’s own kernel-mode software, were 
+  published by Microsoft in a header named EXLEVELS.H. This starts as early as the 
+  Device Driver Kit (DDK) for Windows NT 3.1 but continued even to the DDK for Windows 
+  NT 4.0. Incidentally, comments in the header give the date 08-May-1989, confirming 
+  that the definition of levels was among the earliest of known programming for 
+  Windows NT (slightly more than four years before release). </p>
+  <h3>Not the Win32 Mutex </h3>
+  <p>Not fundamental but nonetheless important enough to rate a mention in the DDK 
+  documentation for Windows NT 3.1 is that the <span class="struct">KMUTEX</span> 
+  is not exposed through the Object Manager. It is for kernel-mode use only. The
+  <span class="struct">KMUTANT</span>, by contrast, can be created as a named object 
+  and handles can be created for access to it. There thus exists a native API function 
+  named <span class="function">NtCreateMutant</span> but no
+  <span class="function">NtCreateMutex</span>. Yet even in version 3.10 Microsoft 
+  presented the <span class="struct">KMUTANT</span> to Win32 programs not as a mutant 
+  object but as a mutex: the Win32 API functions that get a <span class="struct">
+  KMUTANT</span> created are <span class="function">CreateMutexA</span> and
+  <span class="function">CreateMutexW</span>. </p>
+  <h2>Layout </h2>
+  <p>The <span class="struct">KMUTEX</span> is 0x20 bytes. The offsets, names and 
+  types of members are known from a C-language definition in the NTDDK.H from the 
+  DDK for Windows NT 3.1. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Definition </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>
+        <pre class="source"><a href="../ntosdef_x/dispatcher_header/index.htm">DISPATCHER_HEADER</a> Header;</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td>
+        <pre class="source">LIST_ENTRY MutexListEntry;</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>0x18 </td>
+        <td>
+        <pre class="source"><a href="../ke/kthread/index.htm">KTHREAD</a> *OwnerThread;</pre>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C </td>
+        <td>
+        <pre class="source">ULONG Level;</pre>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">Header</span>, <span class="member">MutexListEntry</span> 
+  (as <span class="member">MutantListEntry</span>) and <span class="member">OwnerThread</span> 
+  are reproduced in the <span class="struct">KMUTANT</span>. </p>
+  <p>The <span class="member">Header</span> in the <span class="struct">KMUTEX</span> 
+  and <span class="struct">KMUTANT</span> differ in their <span class="member">Type</span>. 
+  As always for the <span class="struct">DISPATCHER_HEADER</span>, the
+  <span class="member">Type</span> takes its values from the <span class="enum">
+  <a href="../ke/kobjects.htm">KOBJECTS</a></span> enumeration. This is 3 for the
+  <span class="struct">KMUTEX</span>. In later versions, this value is
+  <span class="constant">ProcessObject</span> and denotes that the
+  <span class="struct">DISPATCHER_HEADER</span> instead begins a
+  <span class="struct"><a href="../ke/kprocess/index.htm">KPROCESS</a></span>.
+  </p>
+  <p>Within a mutex’s <span class="struct">DISPATCHER_HEADER</span> the
+  <span class="member">SignalState</span> is 1 (signalled) while the mutex is unowned, 
+  as when newly initialised. Acquiring the mutex, including when a thread asks to 
+  wait on a mutex that it already owns, decrements the <span class="member">SignalState</span>. 
+  Releasing the mutex increments the <span class="member">SignalState</span>. Trying 
+  release a mutex that the calling thread does not own causes the bug check
+  <span class="constant">THREAD_NOT_MUTEX_OWNER</span>. Releasing the mutex while 
+  its <span class="member">SignalState</span> is zero not only returns the mutex 
+  to its initial state but also signals the kernel to let a waiting thread acquire 
+  the mutex. Put aside some theoretical but remote possibility of wrap-around and 
+  the logic of acquiring and releasing does not allow the <span class="member">SignalState</span> 
+  to exceed 1. </p>
+  <p>The <span class="member">Level</span> is set at initialisation. it is checked 
+  whenever the kernel tests whether the current thread may acquire the mutex. If 
+  indeed the mutex is unowned such that the thread does acquire the mutex, then 
+  the (approved) <span class="member">Level</span> is transferred to the
+  <span class="struct">KTHREAD</span> as the thread’s <span class="member">MutexLevel</span>. 
+  When the thread relinquishes its ownership of the mutex, the
+  <span class="member">MutexLevel</span> is updated from the necessarily lower
+  <span class="member">Level</span> of the mutex at the tail of the thread’s list 
+  of owned mutexes, else is cleared to zero. </p>
+  <p>In version 3.50 and higher, the <span class="struct">KMUTEX</span> is re-implemented 
+  as an initially unowned <span class="struct">KMUTANT</span> whose
+  <span class="member">ApcDisable</span> is 1. Note that this state cannot be achieved 
+  with <span class="function">KeInitializeMutant</span>, and so
+  <span class="function">KeInitializeMutex</span> persists. In this sense, the
+  <span class="struct">KMUTEX</span> survives as more than an alias of
+  <span class="struct">KMUTANT</span>. Kernel-mode programmers still must know whether 
+  the structure they allocate is a mutant or a mutex (and user-mode programmers 
+  working above NTDLL still work only with mutants, no matter that the nomenclature 
+  suggests there’s only the mutex). </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 1st
+    <a href="../../../../../../../new/22/10.htm">October 2022</a> and was last modified 
+    on 3rd October 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c22.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5890" -->
+  </div>
+</div>
+
+</body>
+
+</html>

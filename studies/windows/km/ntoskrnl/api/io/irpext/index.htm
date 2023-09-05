@@ -1,0 +1,190 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>IRP Extensions</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>IRP Extensions </h1>
+  <p>Starting with Windows 8, an I/O Request Packet (IRP) can have an extension 
+  which can carry multiple new parameters to and from drivers that are in the know. 
+  It seems to be important to Microsoft that the delivery should by-pass drivers 
+  along the way, for although these other drivers see all the I/O requests go up 
+  and down the device-object stacks, they don’t know of the IRP extension that holds 
+  the extra parameters. Microsoft keeps IRP extensions secret. </p>
+  <p>Let’s be clear that Microsoft has gone to unusual trouble to keep IRP Extensions 
+  undocumented. More is going on here than just Microsoft keeping some structures 
+  and functions as internal, not documenting them and perhaps not even declaring 
+  them in the headers that Microsoft publishes in the Windows Driver Kit (WDK). 
+  More is going on than just Microsoft defining some structure as semi-opaque with 
+  members defined in plain sight but as being reserved for the system’s use. IRP 
+  extensions are more reserved than that. They count among the relatively few features 
+  that have Microsoft define a structure differently in public and private. </p>
+  <p>To support IRP extensions, Microsoft has two definitions of the age-old
+  <span class="struct">IRP</span> structure: one for programmers in general; the 
+  other for Microsoft’s own programmers (and perhaps for favoured programmers outside 
+  Microsoft). Symbol files for the kernel in Windows 8 and higher show clearly that 
+  the kernel is now built with an <span class="struct">IRP</span> whose
+  <span class="member">Tail.Overlay</span> ends with a pointer named
+  <span class="member">IrpExtension</span>. The kernel, though, does not get the
+  <span class="struct">IRP</span> from the same headers that Microsoft publishes 
+  in the WDK. Symbol files show that the kernel gets the <span class="struct">IRP</span> 
+  structure from a header file named “io_x.h”. For all we’re to know without access 
+  to all that’s involved in building Microsoft’s source-code tree, even this header 
+  is not the original source of the definition. It could be built by extracting 
+  from yet another file, not even necessarily a C-language header. Somewhere, however, 
+  there seems likely to be a master definition. Whatever may be this master definition, 
+  and however it passes into “io_x.h” for the kernel, it differs from what ends 
+  up in WDM.H for programmers in general. What shows at the end of the
+  <span class="member">Tail.Overlay</span> in WDM.H from the WDK is the same
+  <span class="member">OriginalFileObject</span> that has been at the end since 
+  the definition in NTDDK.H from the Device Driver Kit (DDK) for Windows NT 3.1. 
+  The new <span class="member">IrpExtension</span> isn’t blocked out of the
+  <span class="struct">IRP</span> definition in WDM.H by conditional compilation: 
+  it just isn’t there. </p>
+  <p>Some years after Windows 8, Microsoft briefly published another header that 
+  contains an <span class="struct">IRP</span> definition. This header is named NTOSP.H 
+  and can be found in the WDK for Windows 10, both originally and for the 1511 release, 
+  but not in later editions. Since it is anyway in a subdirectory of a directory 
+  named “um”, as if for user-mode programming in contrast to “km”, its publication 
+  doesn’t seem intended for writing device drivers or file system drivers or anything 
+  else that ever sees an <span class="struct">IRP</span>. Yet its
+  <span class="struct">IRP</span> is either the kernel’s or is much closer. Notably, 
+  it has the otherwise secret <span class="member">IrpExtension</span>—along with 
+  comments that make clear that <span class="member">IrpExtension</span> is intentionally 
+  edited out of WDM.H. </p>
+  <p>Of course, Microsoft does not play these games for fun or mischief. There is 
+  real-world use for the <span class="member">IrpExtension</span>. Especially as 
+  devices become ever more capable, there’s obvious merit to expanding what can 
+  be sent with an I/O request and what sort of detailed error information (such 
+  as a SCSI sense key and additional sense codes) can be returned. The example that 
+  brought IRP extensions to my attention is of hybrid disks that have non-volatile 
+  caches that can be accessed without the penalty of waiting for heads to seek or 
+  disks to spin. These devices can take a hint to use one form of storage rather 
+  than another. That Windows 8.1 can send such hints when writing to a paging file 
+  is surely a great help, but the hint needs to go with the data—not in a separate 
+  control request, but as control data in the same request that supplies the data 
+  that’s to be stored. The hint goes with the write request as an IRP extension. 
+  It’s set by the kernel’s Memory Manager when forming the IRP for an asynchronous 
+  page write. It’s then fished out when the request reaches such drivers as CLASSPNP.SYS, 
+  RDYBOOST.SYS and STORPORT.SYS. Perhaps only drivers from Microsoft could use the 
+  hint even if others knew of it. </p>
+  <h2>Implementation </h2>
+  <p>The <span class="member">IrpExtension</span> is declared as pointing to
+  <span class="type">void</span>. What it actually points to, if anything, is an 
+  undocumented structure named <span class="struct">
+  <a href="iop_irp_extension.htm">IOP_IRP_EXTENSION</a></span> that can hold multiple 
+  types of extension data. In Windows 8, just the one type is defined, for associating 
+  the <span class="struct">IRP</span> with an Activity ID to help with performance 
+  monitoring of I/O requests. But the definition of that structure, as known from 
+  public symbol files, makes clear that multiple types were planned from the start.
+  </p>
+  <p>One type of extension that was added for Windows 8.1 is small enough to fit 
+  in the <span class="struct">IRP</span> in place of the <span class="member">IrpExtension</span> 
+  pointer if it’s the only type of extension that is yet set. New bits in the
+  <span class="member">AllocationFlags</span> of the <span class="struct">IRP</span> 
+  distinguish the cases. (Microsoft’s names for these new bits are known from NTOSP.H.) 
+  When <span class="constant">IRP_EXTENSION_GENERIC_ONLY</span> (0x80) is set, the
+  <span class="struct">IRP</span> has only a <span class="definition">generic IRP 
+  extension</span> whose four bytes overlay the <span class="member">IrpExtension</span> 
+  pointer. When <span class="member">IrpExtension</span> is not
+  <span class="constant">NULL</span>, it points to an <span class="struct">IOP_IRP_EXTENSION</span>. 
+  If this is a separate allocation (from non-paged no-execute pool), the
+  <span class="constant">IRP_EXTENSION_ALLOCATED</span> bit (0x40) is set in the
+  <span class="member">AllocationFlags</span>. The <span class="struct">IOP_IRP_EXTENSION</span> 
+  can instead be in the same memory block as the <span class="struct">IRP</span>, 
+  as an expansion of space allowed for the I/O stack locations. </p>
+  <p>An <span class="struct">IRP</span> that has an <span class="struct">IOP_IRP_EXTENSION</span> 
+  can have multiple types of extension data (though some types are mutually exclusive, 
+  if only for now). To each type there corresponds one bit in the
+  <span class="member">TypesAllocated</span> member. The bit is set if the extension 
+  has the type. Microsoft’s names for these bits are not known. </p>
+  <h2>Functions </h2>
+  <p>Of course, even Microsoft’s device driver programmers who know of IRP extensions 
+  do not access <span class="member">IrpExtension</span> directly and depend on 
+  these implementation details, which Microsoft may change readily, and has already. 
+  Instead, they call functions, which Microsoft may change but rarely does. There 
+  are rather many for a feature seems so slight and obscure: </p>
+  <ul>
+    <li><span class="declared function">IoGetFsTrackOffsetState</span> (10.0 and 
+    higher); </li>
+    <li><span class="declared function">IoGetFsZeroingOffset</span> (10.0 and higher);
+    </li>
+    <li><span class="minwin function"><a href="getgeneric.htm">IoGetGenericIrpExtension</a></span> 
+    (6.3 and higher); </li>
+    <li><span class="declared function">IoIrpHasFsTrackOffsetExtensionType</span> 
+    (10.0 and higher); </li>
+    <li><span class="minwin function">IoPropagateIrpExtension</span> (6.3 and higher);
+    </li>
+    <li><span class="minwin function">IoPropagateIrpExtensionEx</span> (10.0 and 
+    higher); </li>
+    <li><span class="declared function">IoSetFsTrackOffsetState</span> (10.0 and 
+    higher); </li>
+    <li><span class="declared function">IoSetFsZeroingOffset</span> (10.0 and higher);
+    </li>
+    <li><span class="declared function">IoSetFsZeroingOffsetRequired</span> (10.0 
+    and higher); </li>
+    <li><span class="minwin function"><a href="setgeneric.htm">IoSetGenericIrpExtension</a></span> 
+    (6.3 and higher); </li>
+    <li><span class="minwin function">IoSizeofGenericIrpExtension</span> (6.3 and 
+    higher). </li>
+  </ul>
+  <p>None are documented (though an earlier set of functions such as
+  <span class="function">IoGetActivityIdIrp</span>, which use IRP extensions internally, 
+  are). Functions whose names are <span class="declared">shaded orange</span> above 
+  are declared in one or other of NTDDK.H and NTIFS.H from the ordinary WDK, even 
+  for the version that first exports the functions. The others are
+  <span class="minwin">highlighted orange</span> to draw attention to them. They 
+  too are declared but obscurely—in one or both of NTOSP.H and NTOSIFS.H from the 
+  “minwin” subdirectory of headers in some early editions of the WDK for Windows 
+  10. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 25th July 2016 and was last modified 
+    on 8th October 2020. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c1620.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4893" -->
+  </div>
+</div>
+
+</body>
+
+</html>

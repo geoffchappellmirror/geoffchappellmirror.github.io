@@ -1,0 +1,122 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CsrCallServerFromServer</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="54033" -->
+<h1>CsrCallServerFromServer </h1>
+<p>The <span class="function">CsrCallServerFromServer</span> function calls a server 
+DLL from within the CSRSS.EXE process. The intended caller is NTDLL.DLL, specifically 
+for its <span class="function">CsrClientCallServer</span> function. When software 
+in the CSRSS process asks NTDLL for anything that would ordinarily require calling 
+the server, NTDLL realises that because it is already in the server process the 
+call can be made through <span class="function">CsrCallServerFromServer</span> instead 
+of as a Local Procedure Call (LPC) through a port. </p>
+<h2>Declaration </h2>
+<pre class="source">NTSTATUS 
+CsrCallServerFromServer (
+    <a href="api_msg.htm">CSR_API_MSG</a> *Input, 
+    CSR_API_MSG *Output);</pre>
+<h3>Parameters </h3>
+<p>The required <span class="argument">Input</span> and <span class="argument">Output</span> 
+arguments point respectively to structures that provide the input and output. The 
+same address can be given for both input and output. Indeed, this is the only way 
+that NTDLL is known to call this function. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" u-include="../_include/ntstatus.htm" tag="BODY" startspan -->
+
+<p>The function returns <span class="constant">STATUS_SUCCESS</span> if successful, 
+else a negative error code. </p>
+
+<!--webbot bot="Include" endspan i-checksum="8" --><h2>
+Availability </h2>
+<p>The <span class="function">CsrCallServerFromServer</span> function is exported 
+by name from CSRSRV.DLL in all known Windows versions. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">CsrCallServerFromServer</span> function is not documented.
+</p>
+<h2>Behaviour </h2>
+<p>The function is a router to an API routine in a server DLL. The selection is 
+detemined from the <span class="member">ApiNumber</span> in the
+<span class="argument">Input</span>. The high word is the 0-based index of the server 
+DLL. The low word selects from this server DLL’s API routines. CSRSRV knows each 
+server DLL’s index from the corresponding <span class="switch">ServerDLL</span> 
+argument on the CSRSS command line. As each server DLL initialised, it describes 
+its API routines by setting members of a <span class="struct">
+<a href="../srvloadr/server_dll.htm">CSR_SERVER_DLL</a></span>. The
+<span class="member">ApiDispatchTable</span> is an array of pointers to the routines. 
+The numbering for the low word of the <span class="member">ApiNumber</span> begins 
+with <span class="member">ApiNumberBase</span> and (putting aside a coding error 
+in versions before 5.0) continues up to but not including <span class="member">MaxApiNumber</span>. 
+The server DLL may (but in version 3.10 is assumed to) also provide an
+<span class="member">ApiServerValidTable</span>, which is an array of booleans which 
+tell whether the corresponding routine is valid for calling through
+<span class="function">CsrCallServerFromServer</span>. The default is that all routines 
+are valid. </p>
+<p>If the high word does not select a loaded server DLL or if the low word does 
+not select a valid API routine for the selected server DLL, the
+<span class="function">CsrCallServerFromServer</span> function fails:
+<span class="constant">STATUS_ILLEGAL_FUNCTION</span> becomes both the function’s 
+return value and the <span class="member">ReturnValue</span> in the
+<span class="argument">Output</span>. </p>
+<p>Ordinarily, the function calls the indicated API routine for the selected server 
+DLL. The function returns <span class="constant">STATUS_SUCCESS</span> to indicate 
+that the call was at least attempted. This is true even if an exception occurs, 
+though in this case the function sets <span class="constant">STATUS_ACCESS_VIOLATION</span> 
+as the <span class="member">ReturnValue</span> in the <span class="argument">Output</span>.
+</p>
+<h3>API Routine </h3>
+<p>The server DLL’s API routine has the prototype </p>
+<pre class="source">typedef ULONG (*PCSR_API_ROUTINE) (CSR_API_MSG *, CSR_REPLY_STATUS *);</pre>
+<p>The server DLL receives only the <span class="argument">Input</span>, not the
+<span class="argument">Output</span>. It also gets the address of a
+<span class="enum">CSR_REPLY_STATUS</span> but nothing is either set at the address 
+before calling or interpreted after. Whatever <span class="type">ULONG</span> the 
+server DLL returns becomes the <span class="member">ReturnValue</span> in the
+<span class="argument">Output</span>. </p>
+<h3>Coding Error </h3>
+<p>Versions before 5.0 treat the <span class="member">ApiDispatchTable</span> and
+<span class="member">ApiServerValidTable</span> as each having
+<span class="member">MaxApiNumber</span> elements. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 22nd June 2019 and was last modified 
+  on 25th June 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62933" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,421 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KPCR (amd64)</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KPCR (amd64) </h1>
+<p>The name <span class="struct">KPCR</span> stands for (Kernel) Processor Control 
+Region. The kernel keeps a <span class="struct">KPCR</span> (formally a
+<span class="struct">_KPCR</span>) for each logical processor. The
+<span class="struct">KPCR</span> is highly specific to the processor architecture. 
+This page concerns itself only with the <span class="struct">KPCR</span> in 64-bit 
+Windows for the processor architecture that’s variously named amd64 or x64. The
+<a href="../i386_x/kpcr.htm">x86 <span class="struct">KPCR</span></a> is presented 
+separately. </p>
+<h2>Access </h2>
+<p>Kernel-mode code can easily find the <span class="struct">KPCR</span> for whichever 
+processor it’s executing on, because when the processor last entered ring 0, however 
+it got there, the kernel will have loaded the <span class="register">gs</span> register 
+to address that processor’s <span class="struct">KPCR</span>. This is done by the
+<span class="instruction">swapgs</span> instruction. It loads the base address for
+<span class="register">gs</span> from the processor’s Model Specific Register (MSR) 
+0xC0000102, which the kernel initialises with the address of the processor’s
+<span class="struct">KPCR</span>. Intel’s label for this MSR is
+<span class="constant">IA32_KERNEL_GS_BASE</span>. Microsoft’s assembly-language 
+name, defined in KSAMD64.INC, is <span class="constant">MSR_GS_SWAP</span>. </p>
+<p>The <span class="struct">KPCR</span> conveniently holds its own address in the
+<span class="member">Self</span> member so that reading just this one member using 
+a segment register override makes the whole <span class="struct">KPCR</span> accessible 
+without overrides. This is so fundamental that all versions of the 64-bit Windows 
+kernel have it as an internal routine, typically inlined, which is coded very much 
+like: </p>
+<pre class="source">FORCEINLINE
+KPCR *KeGetPcr (VOID)
+{
+    return (KPCR *) __readgsqword (FIELD_OFFSET (KPCR, Self));
+}</pre>
+<p>Beware, though, that this is the address of the <span class="struct">KPCR</span> 
+for the processor that the thread was running on at the time. It remains the address 
+of the current <span class="struct">KPCR</span> only while the thread can ensure 
+it is not switched to another processor. I suspect that more than a few things go 
+very slightly wrong in kernel-mode Windows because this point is insufficiently 
+respected. </p>
+<h2>Documentation Status </h2>
+<p>Not even the role of the segment registers in accessing the
+<span class="struct">KPCR</span> is formally documented, but the
+<span class="struct">KPCR</span> is made at least semi-official by C-language definitions 
+that Microsoft has published in every applicable Device Driver Kit (DDK) or Windows 
+Driver Kit (WDK). </p>
+<p>That said, it must be pointed out that the best-known of such C-language definitions, 
+in NTDDK.H, is incomplete. </p>
+<h2>Variability </h2>
+<p>Whatever was or is the intention, e.g., that the <span class="struct">KPCR</span> 
+before the <span class="struct">KPRCB</span> is per-processor information that the 
+kernel shares but the <span class="struct">KPRCB</span> itself is (more) private 
+to the kernel, one practical consequence is that the start of the
+<span class="struct">KPCR</span> is highly stable across Windows versions while 
+the <span class="struct">KPRCB</span> is highly changeable. </p>
+<p>Indeed, except for changes within the embedded <span class="struct">KPRCB</span>, 
+the x64 <span class="struct">KPCR</span> is so stable that although the structure 
+provides for <span class="member">MajorVersion</span> and <span class="member">MinorVersion</span> 
+numbers, they have never changed—they are both 1 in all versions—and arguably have 
+never needed changing. Except for the early reuse of one member of the unnamed structure 
+that overlays the <span class="struct">NT_TIB</span> at the beginning, the x64
+<span class="struct">KPCR</span> is completely stable. The changing size of the 
+whole <span class="struct">KPCR</span> structure, as shown in the table below, is 
+due entirely to the changing size of the <span class="struct">KPRCB</span> at the 
+structure’s end. All versions have this embedded <span class="struct">KPCR</span> 
+at offset 0x0180. It can be convenient, if not formally correct, to think of the
+<span class="struct">KPCR</span> as just these first 0x0180 bytes. </p>
+<table class="Sizes">
+  <colgroup>
+    <col class="Version"><col class="Size">
+  </colgroup>
+  <tr>
+    <th>Version </th>
+    <th>Size </th>
+  </tr>
+  <tr>
+    <td>late 5.2 </td>
+    <td>0x2600 </td>
+  </tr>
+  <tr>
+    <td>early 6.0 (before SP1) </td>
+    <td>0x3BA0 </td>
+  </tr>
+  <tr>
+    <td>late 6.0 </td>
+    <td>0x3CA0 </td>
+  </tr>
+  <tr>
+    <td>6.1 </td>
+    <td>0x4E80 </td>
+  </tr>
+  <tr>
+    <td>6.2 </td>
+    <td>0x5D00 </td>
+  </tr>
+  <tr>
+    <td>6.3 </td>
+    <td>0x5D40 </td>
+  </tr>
+  <tr>
+    <td>10.0 to 1607 </td>
+    <td>0x6A80 </td>
+  </tr>
+  <tr>
+    <td>1703 </td>
+    <td>0x68C0 </td>
+  </tr>
+  <tr>
+    <td>1709 </td>
+    <td>0x6B00 </td>
+  </tr>
+  <tr>
+    <td>1803 to 1809 </td>
+    <td>0x8040 </td>
+  </tr>
+  <tr>
+    <td>1903 </td>
+    <td>0x9080 </td>
+  </tr>
+  <tr>
+    <td>2004 </td>
+    <td>0xB080 </td>
+  </tr>
+</table>
+<h2>Layout </h2>
+<p>In the tables that follow, C-language definitions are reconstructed from type 
+information in symbol files that Microsoft publishes for the kernel and from definitions 
+in the NTDDK.H files from development kits for driver programming. </p>
+<table>
+  <colgroup>
+    <col class="Offset"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">union {
+    NT_TIB NtTib;
+    struct {
+        /*  slightly changing members, see below  */
+    };
+};</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x38 </td>
+    <td>
+    <pre class="source">KIDTENTRY64 *IdtBase;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x40 </td>
+    <td>
+    <pre class="source">ULONG64 Unused [2];</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x50 </td>
+    <td>
+    <pre class="source">KIRQL Irql;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x51 </td>
+    <td>
+    <pre class="source">UCHAR SecondLevelCacheAssociativity;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x52 </td>
+    <td>
+    <pre class="source">UCHAR ObsoleteNumber;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x53 </td>
+    <td>
+    <pre class="source">UCHAR Fill0;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x54 </td>
+    <td>
+    <pre class="source">ULONG Unused0 [3];</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x60 </td>
+    <td>
+    <pre class="source">USHORT MajorVersion;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x62 </td>
+    <td>
+    <pre class="source">USHORT MinorVersion;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x64 </td>
+    <td>
+    <pre class="source">ULONG StallScaleFactor;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x68 </td>
+    <td>
+    <pre class="source">PVOID Unused1 [3];</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x80 </td>
+    <td>
+    <pre class="source">ULONG KernelReserved [0x0F];</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0xBC </td>
+    <td>
+    <pre class="source">ULONG SecondLevelCacheSize;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0xC0 </td>
+    <td>
+    <pre class="source">ULONG HalReserved [0x10];</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x0100 </td>
+    <td>
+    <pre class="source">ULONG Unused2;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x0108 </td>
+    <td>
+    <pre class="source">PVOID KdVersionBlock;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x0110 </td>
+    <td>
+    <pre class="source">PVOID Unused3;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x0118 </td>
+    <td>
+    <pre class="source">ULONG PcrAlign1 [0x18];</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x0180 </td>
+    <td>
+    <pre class="source">KPRCB Prcb;</pre>
+    </td>
+  </tr>
+</table>
+<p>It seems at least plausible that the unused space ahead of
+<span class="member">KernelReserved</span> exists to place the latter and thus also
+<span class="member">HalReserved</span> at 64-byte cache-line boundaries. The different 
+sizing of <span class="member">KernelReserved</span> and <span class="member">HalReserved</span> 
+seems to have been inherited from the 32-bit implementation’s creation of
+<span class="member">SecondLevelCacheSize</span> at the end of a previously larger
+<span class="member">KernelReserved</span>. </p>
+<p>Curiously, <span class="member">PcrAlign1</span> does not extend exactly to the
+<span class="member">Prcb</span> that follows. That <span class="member">Prcb</span> 
+is meant to be cache-aligned is certain. Cache alignment is plainly a recurring 
+concern within the <span class="struct">KPRCB</span> and is obviously simpler to 
+arrange if the <span class="struct">KPRCB</span> is itself cache aligned. That it 
+isn’t for 32-bit Windows is a recurring trap for Microsoft’s programmers. That it 
+is aligned for 64-bit Windows is evidently nothing to do with
+<span class="member">PcrAlign1</span>. </p>
+<h4>NT_TIB Overlay </h4>
+<p>The <span class="struct">NT_TIB</span> at the beginning of the
+<span class="struct">KPCR</span> is given in union with an unnamed structure whose 
+members change a little between versions: </p>
+<table class="Struct">
+  <tr>
+    <th>Offset </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">KGDTENTRY64 *GdtBase;</pre>
+    </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">KTSS64 *TssBase;</pre>
+    </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x10 </td>
+    <td>
+    <pre class="source">PVOID PerfGlobalGroupMask;</pre>
+    </td>
+    <td>late 5.2 only </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">ULONG64 UserRsp;</pre>
+    </td>
+    <td>6.0 and higher </td>
+    <td>previously at 0x20 in <span class="struct">KPRCB</span> </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">KPCR *Self;</pre>
+    </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">KPRCB *CurrentPrcb;</pre>
+    </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>
+    <pre class="source">KSPIN_LOCK_QUEUE *LockArray;</pre>
+    </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td>
+    <pre class="source">PVOID Used_Self;</pre>
+    </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>This unnamed structure of course models the actual use. In effect, the
+<span class="struct">KPCR</span> begins with a kernel-mode <span class="struct">
+NT_TIB</span> that is nothing like the user-mode <span class="struct">NT_TIB</span> 
+that is defined in NTDDK.H and WINNT.H. Both have the same size, both end with something 
+that’s presented as some sort of pointer to itself, and there the similarities end.
+</p>
+<p>In version 5.2, what would be the <span class="member">StackLimit</span> in a 
+user-mode <span class="struct">NT_TIB</span> instead holds the address of a
+<span class="struct"><a href="../../api/ntwmi/perfinfo_groupmask.htm">PERFINFO_GROUPMASK</a></span>. 
+This is an array of bits for what types of event are enabled in NT Kernel Logger 
+sessions. The intention was presumably to allow the tracing of different selections 
+of events on different processors. Whatever the plan, it didn’t survive even to 
+version 6.0. </p>
+<p>In a user-mode <span class="struct">NT_TIB</span>, the last member is named
+<span class="member">Self</span>, is formally a pointer to an
+<span class="struct">NT_TIB</span>, and does indeed point to the start of the
+<span class="struct">NT_TIB</span>. In a kernel-mode <span class="struct">NT_TIB</span>, 
+it is named <span class="member">Used_Self</span> and is formally a pointer to
+<span class="type">void</span>. If it points to anything, it is to an
+<span class="struct">NT_TIB</span> but to a different <span class="struct">NT_TIB</span>—not 
+the one at the start of the <span class="struct">KPCR</span> but to the user-mode
+<span class="struct">NT_TIB</span> at the start of the <span class="struct">
+<a href="../../api/pebteb/teb/index.htm">TEB</a></span> for whichever thread is 
+currently running on the processor. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 11th December 2020 from material first 
+  published on 21st May 2016. It was last modified on 5th January 2021. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1621.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4909" -->
+</div>
+
+</body>
+
+</html>

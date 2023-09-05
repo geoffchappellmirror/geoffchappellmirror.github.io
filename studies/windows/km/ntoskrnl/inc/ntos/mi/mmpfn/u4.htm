@@ -1,0 +1,486 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MMPFN Union 4</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<h1>MMPFN Union 4 </h1>
+<p>The <span class="struct"><a href="index.htm">MMPFN</a></span> (Memory Manager 
+Page Frame Number) structure is the key to pretty much everything that the Memory 
+Manager knows about a page of physical memory that is in general use. Since an array 
+of these structures for all physical memory needs to be kept in physical memory, 
+the <span class="struct">MMPFN</span> is its own substantial overhead. Presumably 
+to keep this down, ever more gets packed in to the <span class="struct">MMPFN</span> 
+ever more intricately. </p>
+<p>That space is tight in the <span class="struct">MMPFN</span> is demonstrated 
+well by the very last of its fields. Its location within the
+<span class="struct">MMPFN</span> is the same in all versions: </p>
+<table class="Union">
+  <colgroup>
+    <col class="Offset" span="3">
+  </colgroup>
+  <thead>
+    <tr>
+      <th><span class="struct">MMPFN</span> Offset (x86) </th>
+      <th><span class="struct">MMPFN</span> Offset (PAE) </th>
+      <th><span class="struct">MMPFN</span> Offset (x64) </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0x14 </td>
+      <td>0x18 </td>
+      <td>0x28 </td>
+    </tr>
+  </tbody>
+</table>
+<p>Also in all versions, the largest part of this last field is the
+<span class="member">PteFrame</span>. This is the Page Frame Number (PFN) of what 
+the <span class="command"><a href="../../../../../debug/kdexts/pfn.htm">!pfn</a></span> 
+command names the “containing page”. For the physical page that is described by 
+an <span class="struct">MMPFN</span> to be addressable, the page’s physical address 
+must be discoverable from at least one Page Table Entry (PTE) in some page table. 
+This page table is also a physical page. One such page is distinguished as the containing 
+page. Its PFN is the contained page’s <span class="member">PteFrame</span>. </p>
+<p>For the earliest versions, the PFN is only 20 bits which leaves 12 for other 
+use. Space was tight already, and all 12 other bits were put to use. Versions 3.10 
+to 3.51 hold the <span class="member">PteFrame</span> in something like the form 
+of a PTE, i.e., with the PFN in the high 20 bits and bit flags in the low 12, all 
+presumed here to have been packaged as an early form of what public symbol files 
+later present as an <span class="struct"><a href="../mmpfnentry.htm">MMPFNENTRY</a></span> 
+structure. When version 4.0 recovered space by narrowing a 32-bit
+<span class="member">ReferenceCount</span> at offset 0x0C to 16 bits, the flags 
+were moved to this new space and the <span class="member">PteFrame</span> was left 
+alone as the whole of its dword. </p>
+<p>Still, this left 12 unused bits at offset 0x14. Pressure on space soon found 
+use for them. When version 5.1 squeezed in two new bit fields, now as high bits, 
+opportunity was taken to package the lot with the <span class="member">PteFrame</span> 
+and new (and future) bit fields in a union with an integral <span class="member">
+EntireFrame</span>. See that the bit flags have nothing to do with any frame of 
+any containing page: the frame in the name is just historical. Version 6.0 did away 
+with it, so that <span class="member">u4</span> holds just the bit flags in an unnamed 
+structure in the unnamed union. Version 6.2 restores access to the whole as an integral 
+type but now with the arguably better name <span class="member">EntireField</span>.
+</p>
+<table class="Union">
+  <colgroup>
+    <col class="Definition"><col class="Versions">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Definition </th>
+      <th>Versions </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>
+      <pre class="source">ULONG_PTR EntireFrame;</pre>
+      </td>
+      <td>5.1 to 5.2 </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">struct {
+    /*  changing bit fields, see below  */
+};</pre>
+      </td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">ULONG_PTR EntireField;</pre>
+      </td>
+      <td>6.2 and higher </td>
+    </tr>
+  </tbody>
+</table>
+<p>While 32-bit and 64-bit Windows need deal only with 36-bit and 48-bit physical 
+addresses, the PFN of a physical page does not need the whole <span class="type">
+ULONG</span> or <span class="type">ULONGLONG</span> that Microsoft defines for the
+<span class="type">PFN_NUMBER</span>. Wherever a physical page number is kept in 
+anything that’s similar to a PTE, there are always the low 12 bits for flags. What’s 
+left for a PFN is at most 20 or 52 bits in a 4-byte or 8-byte PTE, respectively. 
+In 64-bit Windows, and in 32-bit Windows with PAE, the paging algorithm does not 
+(yet) support a 52-bit physical address space. Instead, a PFN can be at most 20 
+bits for 32-bit Windows without PAE, 24 bits for 32-bit Windows with PAE and 36 
+bits for 64-bit Windows. This leaves many bits for use in any container of a PFN. 
+Finding such use in the <span class="struct">MMPFN</span> member that holds the 
+particular PFN that’s named <span class="member">PteFrame</span> is the reason that 
+the <span class="member">u4</span> exists. The original name,
+<span class="member">PteFrame</span>, survives just as the first of the chaning 
+bit fields in <span class="member">u4</span>. Its width took some time to settle:
+</p>
+<table>
+  <tbody>
+    <tr>
+      <th rowspan="2">Version </th>
+      <th colspan="2"><span class="member">PteFrame</span> Bit Width </th>
+    </tr>
+    <tr>
+      <th>x86 </th>
+      <th>x64 </th>
+    </tr>
+    <tr>
+      <td>5.1 to early 5.2 </td>
+      <td>26 </td>
+      <td>&nbsp;</td>
+    </tr>
+    <tr>
+      <td>late 5.2 </td>
+      <td>25 </td>
+      <td>57 </td>
+    </tr>
+    <tr>
+      <td>6.0 to 6.1 </td>
+      <td>25 </td>
+      <td>52 </td>
+    </tr>
+    <tr>
+      <td>6.2 </td>
+      <td>25 </td>
+      <td>36 </td>
+    </tr>
+    <tr>
+      <td>6.3 and higher </td>
+      <td>24 </td>
+      <td>36 </td>
+    </tr>
+  </tbody>
+</table>
+<p>See that the progressive reduction in what to allow has been more about the need 
+for creating space somewhere in the <span class="struct">MMPFN</span> (both here 
+and in <span class="member"><a href="u1.htm">u1</a></span> and especially in
+<span class="member"><a href="u2.htm">u2</a></span>) than about codifying the width 
+that’s implied by 36-bit and 48-bit physical address spaces. The effective width 
+of a PFN in <span class="member">u4</span> is represented below as
+<span class="constant">PFN_BITS</span>. </p>
+<table class="Flags">
+  <colgroup>
+    <col class="Mask" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>Mask (x86) </th>
+      <th>Mask (x64) </th>
+      <th>Definition </th>
+      <th>Versions </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0x03FFFFFF (5.1 to early 5.2); <br>
+      0x01FFFFFF (late 5.2 to 6.2); <br>
+      0x00FFFFFF </td>
+      <td>0x01FFFFFF`FFFFFFFF (late 5.2); <br>
+      0x000FFFFF`FFFFFFFF (6.0 to 6.1); <br>
+      0x0000000F`FFFFFFFF </td>
+      <td>
+      <pre class="source">ULONG_PTR PteFrame : PFN_BITS;</pre>
+      </td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>0x00000030`00000000 (6.2 to 1903) </td>
+      <td>
+      <pre class="source">ULONG_PTR Channel : 2;</pre>
+      </td>
+      <td>6.2 to 1903 </td>
+    </tr>
+    <tr>
+      <td>0x03000000 </td>
+      <td>0x00000030`00000000 </td>
+      <td>
+      <pre class="source">ULONG_PTR LargePageSize : 2;</pre>
+      </td>
+      <td>2004 and higher </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>0x00000040`00000000 </td>
+      <td>
+      <pre class="source">ULONG_PTR Unused1 : 1;</pre>
+      </td>
+      <td>6.3 and higher </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>0x00000080`00000000 </td>
+      <td>
+      <pre class="source">ULONG_PTR Unused2 : 1;</pre>
+      </td>
+      <td>6.3 and higher </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>0x0003FF00`00000000 </td>
+      <td>
+      <pre class="source">ULONG_PTR Partition : 10;</pre>
+      </td>
+      <td>10.0 and higher </td>
+    </tr>
+    <tr>
+      <td rowspan="4">&nbsp;</td>
+      <td rowspan="4">0x00700000`00000000 (6.0 to 6.1); <br>
+      0x003FFFC0`00000000 (6.2); <br>
+      0x001FFF00`00000000 (6.3); <br>
+      0x000C0000`00000000 (10.0 to 1903) </td>
+      <td>
+      <pre class="source">ULONG_PTR Unused : 3;</pre>
+      </td>
+      <td>6.0 to 6.1 </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">ULONG_PTR Unused : 16;</pre>
+      </td>
+      <td>6.2 only </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">ULONG_PTR Unused3 : 13;</pre>
+      </td>
+      <td>6.3 only </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">ULONG_PTR Spare : 2;</pre>
+      </td>
+      <td>10.0 to 1903 </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>0x00100000`00000000 (10.0 to 1903); <br>
+      0x00040000`00000000 </td>
+      <td>
+      <pre class="source">ULONG_PTR FileOnly : 1;</pre>
+      </td>
+      <td>10.0 and higher </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>0x00400000`00000000 (6.2); <br>
+      0x00200000`00000000 (6.3 to 1903); <br>
+      0x00080000`00000000 </td>
+      <td>
+      <pre class="source">ULONG_PTR PfnExists : 1;</pre>
+      </td>
+      <td>6.2 and higher </td>
+    </tr>
+    <tr>
+      <td>&nbsp;</td>
+      <td>0x0FF00000`00000000 </td>
+      <td>
+      <pre class="source">ULONG Spare : 8;</pre>
+      </td>
+      <td>2004 and higher </td>
+    </tr>
+    <tr>
+      <td>0x02000000 (6.0 to 6.1) </td>
+      <td>0x00800000`00000000 (6.0 to 6.1) </td>
+      <td>
+      <pre class="source">ULONG_PTR PfnImageVerified : 1;</pre>
+      </td>
+      <td>6.0 to 6.1 </td>
+    </tr>
+    <tr>
+      <td>0x0C000000 </td>
+      <td>&nbsp;</td>
+      <td>
+      <pre class="source">ULONG_PTR ModifiedListBucketIndex : 2;</pre>
+      </td>
+      <td>2004 and higher </td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x06000000 (6.2); <br>
+      0x07000000 (6.3 to 1903); <br>
+      0x70000000 </td>
+      <td rowspan="2">0x01800000`00000000 (6.2); <br>
+      0x01C00000`00000000 (6.3 to 1903); <br>
+      0x70000000`00000000 </td>
+      <td>
+      <pre class="source">ULONG_PTR PageIdentity : 2;</pre>
+      </td>
+      <td>6.2 only </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">ULONG_PTR PageIdentity : 3;</pre>
+      </td>
+      <td>6.3 and higher </td>
+    </tr>
+    <tr>
+      <td>0x04000000 (5.1 to early 5.2); <br>
+      0x02000000 (late 5.2) </td>
+      <td>0x02000000`00000000 (late 5.2) </td>
+      <td>
+      <pre class="source">ULONG_PTR InPageError : 1;</pre>
+      </td>
+      <td>5.1 to 5.2 </td>
+    </tr>
+    <tr>
+      <td>0x08000000 (5.1 to early 5.2); <br>
+      0x04000000 (late 5.2) </td>
+      <td>0x04000000`00000000 (late 5.2) </td>
+      <td>
+      <pre class="source">ULONG_PTR VerifierAllocation : 1;</pre>
+      </td>
+      <td>5.1 to 5.2 </td>
+    </tr>
+    <tr>
+      <td>0x10000000 (late 5.1 to early 5.2); <br>
+      0x08000000 (late 5.2); <br>
+      0x04000000 (6.0 to 6.1) </td>
+      <td>0x08000000`00000000 (late 5.2); <br>
+      0x01000000`00000000 </td>
+      <td>
+      <pre class="source">ULONG_PTR AweAllocation : 1;</pre>
+      </td>
+      <td>late 5.1 to 6.1 </td>
+    </tr>
+    <tr>
+      <td>0x08000000 (6.0 to 1903); <br>
+      0x80000000 </td>
+      <td>0x02000000`00000000 (6.0 to 1903); <br>
+      0x80000000`00000000 </td>
+      <td>
+      <pre class="source">ULONG_PTR PrototypePte : 1;</pre>
+      </td>
+      <td>6.0 and higher </td>
+    </tr>
+    <tr>
+      <td>0x20000000 (late 5.1 to early 5.2) </td>
+      <td>&nbsp;</td>
+      <td>
+      <pre class="source">ULONG LockCharged : 1;</pre>
+      </td>
+      <td>late 5.1 to early 5.2 </td>
+    </tr>
+    <tr>
+      <td>0x40000000 (late 5.1 to early 5.2) </td>
+      <td>&nbsp;</td>
+      <td>
+      <pre class="source">ULONG KernelStack : 1;</pre>
+      </td>
+      <td>late 5.1 to early 5.2 </td>
+    </tr>
+    <tr>
+      <td>0x70000000 (late 5.2) </td>
+      <td>0x70000000`00000000 (late 5.2) </td>
+      <td>
+      <pre class="source">ULONG_PTR Priority : 3;</pre>
+      </td>
+      <td>late 5.2 only </td>
+    </tr>
+    <tr>
+      <td>0x80000000 (5.2) </td>
+      <td>0x80000000`00000000 (late 5.2) </td>
+      <td>
+      <pre class="source">ULONG_PTR MustBeCached : 1;</pre>
+      </td>
+      <td>5.2 only </td>
+    </tr>
+    <tr>
+      <td rowspan="2">0xF0000000 (6.0 to 1903) </td>
+      <td rowspan="2">0xFC000000`00000000 (6.0 to 1903) </td>
+      <td>
+      <pre class="source">ULONG_PTR PageColor : 4;</pre>
+      </td>
+      <td>6.0 to 1903 (x86) </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">ULONG_PTR PageColor : 6;</pre>
+      </td>
+      <td>6.0 to 1903 </td>
+    </tr>
+    <tr>
+      <td rowspan="2">0xF0000000 (early 5.1); <br>
+      0x80000000 (late 5.1) </td>
+      <td rowspan="2">&nbsp;</td>
+      <td>
+      <pre class="source">ULONG Reserved : 4;</pre>
+      </td>
+      <td>early 5.1 only </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">ULONG Reserved : 1;</pre>
+      </td>
+      <td>late 5.1 only </td>
+    </tr>
+  </tbody>
+</table>
+<p>Several of the bit fields move between this union and the
+<span class="struct"><a href="../mmpfnentry.htm">MMPFNENTRY</a></span> structure:
+</p>
+<ul>
+  <li><span class="member">InPageError</span> moved here for version 5.1 and moved 
+  back in 6.0; </li>
+  <li><span class="member">VerifierAllocation</span> moved here for version 5.1 
+  and was discontinued in 6.0; </li>
+  <li><span class="member">LockCharged</span> is in both in late 5.1, is only here 
+  in 5.2, and was discontinued in 6.0; </li>
+  <li><span class="member">KernelStack</span> started here in late 5.1 and moved 
+  out in 6.0; </li>
+  <li><span class="member">Priority</span> started here in late 5.2 and moved out 
+  in 6.0; </li>
+  <li><span class="member">PrototypePte</span> moved here for version 6.0 and remains;
+  </li>
+  <li><span class="member">PageColor</span> moved here for version 6.0 and was discontinued 
+  in Version 2004. </li>
+</ul>
+<p>The <span class="member">ModifiedListBucketIndex</span> is new to this union 
+in the 32-bit Windows 10 Version 2004 but the 64-bit build has it as 4 bits at offset 
+0x27 in the <span class="struct">MMPFN</span>. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 29th September 2019 from material first 
+  published on 26th <a href="../../../../../../../../new/19/05.htm">May 2019</a>. 
+  It was last modified on 9th <a href="../../../../../../../../new/22/07.htm">August 
+  2022</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../../_include/c1922.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14634" -->
+</div>
+
+</body>
+
+</html>

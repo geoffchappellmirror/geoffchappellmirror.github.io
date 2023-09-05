@@ -1,0 +1,4493 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Hook IDs For NT Kernel Logger Events</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>Hook IDs For NT Kernel Logger Events </h1>
+  <p>Events that are delivered to the NT Kernel Logger get logged to trace buffers, 
+  as do any other. While there, they begin with either a <span class="struct">
+  <a href="../traceheaders/perfinfo_trace_header.htm">PERFINFO_TRACE_HEADER</a></span> 
+  or a <span class="struct"><a href="../traceheaders/system_trace_header.htm">SYSTEM_TRACE_HEADER</a></span> 
+  in either its full or compact form. If the event tracing session is configured 
+  to flush to an Event Trace Log (ETL) file, the events can be seen raw, with these 
+  headers, because the events are not yet translated to an <span class="struct">
+  EVENT_RECORD</span> or <span class="struct">EVENT_TRACE</span> for presentation 
+  to an event consumer. </p>
+  <p>As events for the NT Kernel Logger go into the trace buffers, the analogue 
+  of an event ID as a unique numerical value for each type of event is the 16-bit
+  <span class="member">HookId</span>, at offset 0x06 in the trace header. This
+  <span class="member">HookId</span> is itself formed in two parts, specifically 
+  a <span class="member">Group</span> and <span class="member">Type</span> as the 
+  high and low bytes, respectively, such that similar types of events are conveniently 
+  managed in groups. </p>
+  <p>By the way, this convenience is not immediate for interpreting an ETL file 
+  from an NT Kernel Logger session using the ordinary Microsoft tools for perusing 
+  logged events. Though the Event Viewer will load an ETL file from an NT Kernel 
+  Logger session and the WEVTUTIL command-line tool will process one, the presentation 
+  is arguably anything but helpful. The <span class="member">HookId</span> uniquely 
+  identifies each type of event, but it does not show as the Event ID. Instead, 
+  when an event that has a <span class="member">HookId</span> is translated to an
+  <span class="struct">EVENT_RECORD</span> or <span class="struct">EVENT_TRACE</span> 
+  for presentation to an event consumer, the high byte, i.e., the
+  <span class="member">Group</span>, is translated to a GUID to show as the
+  <span class="member">ProviderId</span> and the low byte, i.e., the
+  <span class="member">Type</span>, becomes the <span class="member">Opcode</span> 
+  in the <span class="member">EventDescriptor</span>. It’s obvious once you think 
+  about it! </p>
+  <p>The intended bare-bones way to interpret ETL files from an NT Kernel Logger 
+  session is with the Tracefmt and TraceView tools from the Windows Driver Kit (WDK). 
+  These tools’ interpretation of the event-specific data is aided by a text file 
+  named SYSTEM.TMF that tells how to format the data for some (very few) of the 
+  (very many) possible types of event. Not quite so bare-boned are higher-level 
+  tools—which can at least in principle be written by anyone—that learn the formatting 
+  from Managed Object Format (MOF) data that is compiled into the WMI repository. 
+  From SYSTEM.TMF and Microsoft’s documentation of event data “simplified from MOF 
+  code” for the <span class="class">MSNT_SystemTrace</span> class, one might easily 
+  think that the types of events that can be sent to the NT Kernel Logger number 
+  in the dozens, but they are in fact numerous, nowadays running to more than five 
+  hundred. For the overwhelming majority that are hidden, develoment into third-party 
+  tools seems highly unlikely. </p>
+  <p>Microsoft’s higher-level tools than Tracefmt and TraceView have been available 
+  for years now. The Windows Performance Analyzer delivers some pleasingly elaborate 
+  analysis and graphical presentation, and attracts approving reviews of the power 
+  and sophistication that Microsoft has brought to performance analysis not just 
+  of Windows programs and drivers but of Windows itself. But given how much of this 
+  power comes from keeping large tracts of relevant material undocumented, is it 
+  too cynical to suggest that of all the work that Microsoft has been putting into 
+  improved performance monitoring of Windows, a good proportion has been directed 
+  at ensuring that no market develops for tools other than Microsoft’s? </p>
+  <h2>Groups </h2>
+  <p>In the following table, the <span class="member">HookId</span> values that 
+  start each group are named from the NTWMI.H that Microsoft published in early 
+  editions of the Enterprise WDK for Windows 10 (for the original release and for 
+  Version 1511), and the corresponding GUID and its symbolic name are from symbol 
+  files for the SECHOST.DLL from the original release of Windows 10. The relevance 
+  of this DLL is that it implements the <span class="function">ProcessTrace</span> 
+  function which translates the events into the standard presentation for event 
+  consumers. Some of the GUIDs, though not their correspondence to the high byte 
+  of a <span class="member">HookID</span>, are anyway defined in readily available 
+  headers, notably EVNTRACE.H and WMIGUID.H. Some, whether defined in a header or 
+  not, are even documented (as NT Kernel Logger Constants). </p>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Remarks" span="2"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>GUID Value </th>
+        <th>GUID Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0000 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_HEADER</span> </td>
+        <td>{68FDD900-4A3E-11D1-84F4-0000F80464E3} </td>
+        <td><span class="guid">EventTraceGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0100 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_IO</span> </td>
+        <td>{3D6FA8D4-FE05-11D0-9DDA-00C04FD7BA7C} </td>
+        <td><span class="guid">DiskIoGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0200 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_MEMORY</span> </td>
+        <td>{3D6FA8D3-FE05-11D0-9DDA-00C04FD7BA7C} </td>
+        <td><span class="guid">PageFaultGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0300 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_PROCESS</span> </td>
+        <td>{3D6FA8D0-FE05-11D0-9DDA-00C04FD7BA7C} </td>
+        <td><span class="guid">ProcessGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0400 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_FILE</span> </td>
+        <td>{90CBDC39-4A3E-11D1-84F4-0000F80464E3} </td>
+        <td><span class="guid">FileIoGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0500 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_THREAD</span> </td>
+        <td>{3D6FA8D1-FE05-11D0-9DDA-00C04FD7BA7C} </td>
+        <td><span class="guid">ThreadGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0600 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_TCPIP</span> </td>
+        <td>{9A280AC0-C8E0-11D1-84E2-00C04FB998A2} </td>
+        <td><span class="guid">TcpIpGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0700 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_JOB</span> </td>
+        <td>{3282FC76-FEED-498E-8AA7-E70F459D430E }</td>
+        <td><span class="guid">JobGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0800 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_UDPIP</span> </td>
+        <td>{BF3A50C5-A9C9-4988-A005-2DF0B7C80F80} </td>
+        <td><span class="guid">UdpIpGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0900 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_REGISTRY</span> </td>
+        <td>{AE53722E-C863-11D2-8659-00C04FA321A1} </td>
+        <td><span class="guid">RegistryGuid</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0A00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_DBGPRINT</span> </td>
+        <td>{13976D09-A327-438C-950B-7F03192815C7} </td>
+        <td><span class="guid">DbgPrintGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0B00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_CONFIG</span> </td>
+        <td>{01853A65-418F-4F36-AEFC-DC0F1D2FD235} </td>
+        <td><span class="guid">EventTraceConfigGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0C00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_SPARE1</span> </td>
+        <td>{99134383-5248-43FC-834B-529454E75DF3} </td>
+        <td><span class="guid">EventTraceSpare1</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0D00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_WNF</span> </td>
+        <td>{42695762-EA50-497A-9068-5CBBB35E0B95} </td>
+        <td><span class="guid">WnfGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_POOL</span> </td>
+        <td>{0268A8B6-74FD-4302-9DD0-6E8F1795C0CF} </td>
+        <td><span class="guid">PoolGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_PERFINFO</span> </td>
+        <td>{CE1DBFB4-137E-4DA6-87B0-3F59AA102CBC} </td>
+        <td><span class="guid">PerfInfoGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1000 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_HEAP</span> </td>
+        <td>{222962AB-6180-4B88-A825-346B75F2A24A} </td>
+        <td><span class="guid">HeapGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1100 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_OBJECT</span> </td>
+        <td>{89497F50-EFFE-4440-8CF2-CE6B1CDCACA7} </td>
+        <td><span class="guid">ObjectGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1200 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_POWER</span> </td>
+        <td>{E43445E0-0903-48C3-B878-FF0FCCEBDD04} </td>
+        <td><span class="guid">PowerGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1300 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_MODBOUND</span> </td>
+        <td>{A9152F00-3F58-4BEE-92A1-70C7D079D5DD} </td>
+        <td><span class="guid">ModBoundGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1400 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_IMAGE</span> </td>
+        <td>{2CB15D1D-5FC1-11D2-ABE1-00A0C911F518} </td>
+        <td><span class="guid">ImageLoadGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1500 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_DPC</span> </td>
+        <td>{B2D14872-7C5B-463D-8419-EE9BF7D23E04} </td>
+        <td><span class="guid">DpcGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1600 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_CC</span> </td>
+        <td>{7687A439-F752-45B8-B741-321AEC0F8DF9} </td>
+        <td><span class="guid">CcGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1700 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_CRITSEC</span> </td>
+        <td>{3AC66736-CC59-4CFF-8115-8DF50E39816B} </td>
+        <td><span class="guid">CritSecGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1800 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_STACKWALK</span> </td>
+        <td>{DEF2FE46-7BD6-4B80-BD94-F57FE20D0CE3} </td>
+        <td><span class="guid">StackWalkGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1900 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_UMS</span> </td>
+        <td>{9AEC974B-5B8E-4118-9B92-3186D8002CE5} </td>
+        <td><span class="guid">UmsEventGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1A00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_ALPC</span> </td>
+        <td>{45D8CCCD-539F-4B72-A8B7-5C683142609A} </td>
+        <td><span class="guid">ALPCGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1B00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_SPLITIO</span> </td>
+        <td>{D837CA92-12B9-44A5-AD6A-3A65B3578AA8} </td>
+        <td><span class="guid">SplitIoGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1C00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_THREAD_POOL</span> </td>
+        <td>{C861D0E2-A2C1-4D36-9F9C-970BAB943A12} </td>
+        <td><span class="guid">ThreadPoolGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1D00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_HYPERVISOR</span> </td>
+        <td>{7F2A405C-69B5-4BF9-A1F5-30E8F1AFAB5E} </td>
+        <td><span class="guid">HypervisorTraceGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1E00 </td>
+        <td><span class="constant">EVENT_TRACE_GROUP_HYPERVISORX</span> </td>
+        <td>{2CE9A149-EFFE-42F0-A635-A1D39E26C8F2} </td>
+        <td><span class="guid">HypervisorXTraceGuid</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>There looks to be some loose association of these groups with the
+  <span class="struct"><a href="../perfinfo_groupmask.htm">PERFINFO_GROUPMASK</a></span> 
+  that is the modern extension of the <span class="member">EnableFlags</span> of 
+  the <span class="struct">EVENT_TRACE_PROPERTIES</span> structure as passed through 
+  such API function as <span class="function">StartTrace</span> and
+  <span class="function">ControlTrace</span>. It is mostly true that an event with 
+  a given <span class="member">HookId</span> can get logged only if a particular 
+  bit or combination of bits is set in the group mask, but no formal correspondence 
+  between the <span class="member">Group</span> and the bit is yet known. Unless 
+  one is discovered, inferring an informal one might usefully be on someone’s to-do 
+  list. </p>
+  <h2>Types </h2>
+  <p>Though Microsoft leaves formal definition of the groups to a semi-secret header, 
+  some values of the <span class="member">Type</span>, i.e., the low byte of each 
+  hook ID, are defined in the readily available EVNTRACE.H. The first ten types 
+  appear to have been intended from the start as generic: </p>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_INFO</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x01 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_START</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x02 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_END</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="constant">EVENT_TRACE_TYPE_STOP</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_DC_START</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_DC_END</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x05 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_EXTENSION</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x06 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_REPLY</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x07 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_DEQUEUE</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="constant">EVENT_TRACE_TYPE_RESUME</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x08 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_CHECKPOINT</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td><span class="constant">EVENT_TRACE_TYPE_SUSPEND</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x09 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_RESERVED9</span> </td>
+        <td>5.0 to 5.2 </td>
+      </tr>
+      <tr>
+        <td><span class="constant">EVENT_TRACE_TYPE_WINEVT_SEND</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0xF0 </td>
+        <td><span class="constant">EVENT_TRACE_TYPE_WINEVT_RECEIVE</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>See that two of these got aliases for Windows Vista, which also added a generic 
+  type at the high end. Types from 0x0A and up, but not even nearly as far as 0xF0, 
+  are assigned differently in different groups. EVNTRACE.H has always given Microsoft’s 
+  names for a handful. (These are indicated in the tables below as “type alone”.)
+  </p>
+  <h2>Events </h2>
+  <p>As for the hundreds of possible types of event, whether as values of
+  <span class="member">HookId</span> or of combinations of <span class="member">
+  Group</span> and <span class="member">Type</span> (or <span class="member">ProviderId</span> 
+  and <span class="member">Opcode</span>), a complete list would require an exhaustive 
+  search through the code of all modules that might log to an NT Kernel Logger session—which 
+  means not just the kernel, and not just modules in kernel mode, but at least NTDLL, 
+  ADVAPI32 and SECHOST in user mode too. Without such a search, the best that’s 
+  known to be available are macro definitions in Microsoft’s semi-secret NTWMI.H.
+  </p>
+  <p>Of course, that a header from Microsoft defines a macro for an event, and even 
+  a structure for the event data, doesn’t mean that the event actually can ever 
+  be written. Not only may the definition remain from an old version or anticipate 
+  a future version, but the nature of some of these events is that they may be generated 
+  in such high volume that it would not surprise to find they are intended only 
+  for debug releases or only for internal testing. However they’re known, they’re 
+  collected below for easy reckoning in order of increasing <span class="member">
+  HookId</span>. Eventually, each event might be shown with such detail as where 
+  the event can originate, which group mask is required, which header is used, what 
+  data follows the header, and even which versions the event can occur in. (But, 
+  really, how is this not documented by Microsoft? And, given that it’s not documented, 
+  how is it that the rest of the industry hasn’t found a way to make it someone’s
+  <span class="emphasis">paid</span> work? Then, other people’s paid work could 
+  be directed at developing superior tools for performance analysis and everyone 
+  would benefit from knowing more about what these tools actually measure.) </p>
+  <p>Please note a general caution about versions that are indicated for any of 
+  these events. This study is preliminary and episodic at best. That a version is 
+  indicated does mean that use is known in those versions. It does not mean that 
+  earlier versions have no support, just that I don’t know of it or that I haven’t 
+  yet recorded it here. It’s a rough indication only. </p>
+  <h3>Event Tracing </h3>
+  <p>The first group is of events that have to do with the general business of logging 
+  events. Indeed, the event numbered 0x0000 is not even specific to the NT Kernel 
+  Logger but is the first in every ETL file, whatever the trace session. </p>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Remarks"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Event Data </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0000 </td>
+        <td><span class="constant">WMI_LOG_TYPE_HEADER</span> </td>
+        <td><span class="struct">
+        <a href="../../../shared/evntrace/trace_logfile_header.htm">TRACE_LOGFILE_HEADER</a></span>
+        <br>
+        and two null-terminated Unicode strings </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0005 </td>
+        <td><span class="constant">WMI_LOG_TYPE_HEADER_EXTENSION</span> </td>
+        <td><span class="struct">
+        <a href="../../ntetw/etw_kernel_header_extension.htm">ETW_KERNEL_HEADER_EXTENSION</a></span>
+        </td>
+        <td>5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0008 </td>
+        <td><span class="constant">WMI_LOG_TYPE_RUNDOWN_COMPLETE</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x000A </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_GUIDMAP</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>type defined for 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x000B </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>type defined for 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x000C </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_SIDINFO</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>type defined for 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x000D </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_SECURITY</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>type defined for 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0020 </td>
+        <td><span class="constant">WMI_LOG_TYPE_GROUP_MASKS_END</span> </td>
+        <td><span class="struct">ETW_KERNEL_HEADER_EXTENSION</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0030 </td>
+        <td><span class="constant">WMI_LOG_TYPE_RUNDOWN_BEGIN</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0031 </td>
+        <td><span class="constant">WMI_LOG_TYPE_RUNDOWN_END</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0040 </td>
+        <td><span class="constant">WMI_LOG_TYPE_DBGID_RSDS</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_DBGID_RSDS</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0041 </td>
+        <td><span class="constant">WMI_LOG_TYPE_DBGID_NB10</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0042 </td>
+        <td><span class="constant">WMI_LOG_TYPE_BUILD_LAB</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0043 </td>
+        <td><span class="constant">WMI_LOG_TYPE_BINARY_PATH</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Disk I/O </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Remarks">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Event Data </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x010A </td>
+        <td rowspan="3"><span class="constant">WMI_LOG_TYPE_IO_READ</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_IO_READ</span>
+        </td>
+        <td><span class="struct">ETW_DISKIO_READWRITE</span> </td>
+        <td>5.0 only </td>
+      </tr>
+      <tr>
+        <td><span class="struct">ETW_DISKIO_READWRITE_V2</span> </td>
+        <td>5.1 to 6.1 </td>
+      </tr>
+      <tr>
+        <td><span class="struct">ETW_DISKIO_READWRITE_V3</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x010B </td>
+        <td rowspan="3"><span class="constant">WMI_LOG_TYPE_IO_WRITE</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_IO_WRITE</span>
+        </td>
+        <td><span class="struct">ETW_DISKIO_READWRITE</span> </td>
+        <td>5.0 only </td>
+      </tr>
+      <tr>
+        <td><span class="struct">ETW_DISKIO_READWRITE_V2</span> </td>
+        <td>5.1 to 6.1 </td>
+      </tr>
+      <tr>
+        <td><span class="struct">ETW_DISKIO_READWRITE_V3</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x010C </td>
+        <td><span class="constant">WMI_LOG_TYPE_IO_READ_INIT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_IO_READ_INIT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>type defined for 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x010D </td>
+        <td><span class="constant">WMI_LOG_TYPE_IO_WRITE_INIT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_IO_WRITE_INIT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>type defined for 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x010E </td>
+        <td><span class="constant">WMI_LOG_TYPE_IO_FLUSH</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_IO_FLUSH</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>type defined for 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x010F </td>
+        <td><span class="constant">WMI_LOG_TYPE_IO_FLUSH_INIT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_IO_FLUSH_INIT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>type defined for 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0110 </td>
+        <td><span class="constant">WMI_LOG_TYPE_IO_REDIRECTED_INIT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_IO_REDIRECTED_INIT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>type defined for 6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0120 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_INIT</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0121 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_INIT_COMPLETE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0122 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_MAJORFUNCTION_CALL</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0123 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_MAJORFUNCTION_RETURN</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0124 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_COMPLETIONROUTINE_CALL</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0125 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_COMPLETIONROUTINE_RETURN</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0126 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_ADD_DEVICE_CALL</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0127 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_ADD_DEVICE_RETURN</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0128 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_STARTIO_CALL</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0129 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_STARTIO_RETURN</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0130 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PREFETCH_ACTION</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0131 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PREFETCH_REQUEST</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0132 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PREFETCH_READLIST</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0133 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PREFETCH_READ</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0134 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_COMPLETE_REQUEST</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0135 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DRIVER_COMPLETE_REQUEST_RETURN</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0136 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BOOT_PREFETCH_INFORMATION</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0137 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OPTICAL_IO_READ</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_OPTICAL_IO_READ</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0138 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OPTICAL_IO_WRITE</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_OPTICAL_IO_WRITE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0139 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OPTICAL_IO_FLUSH</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_OPTICAL_IO_FLUSH</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x013A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OPTICAL_IO_READ_INIT</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_OPTICAL_IO_READ_INIT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x013B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OPTICAL_IO_WRITE_INIT</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_OPTICAL_IO_WRITE_INIT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x013C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OPTICAL_IO_FLUSH_INIT</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_OPTICAL_IO_FLUSH_INIT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Memory </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Remarks"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Event Data </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x020A </td>
+        <td><span class="constant">WMI_LOG_TYPE_PAGE_FAULT_TRANSITION</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_MM_TF</span> </td>
+        <td><span class="struct">WMI_PAGE_FAULT</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x020B </td>
+        <td><span class="constant">WMI_LOG_TYPE_PAGE_FAULT_DEMAND_ZERO</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_MM_DZF</span> </td>
+        <td><span class="struct">WMI_PAGE_FAULT</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x020C </td>
+        <td><span class="constant">WMI_LOG_TYPE_PAGE_FAULT_COPY_ON_WRITE</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_MM_COW</span> </td>
+        <td><span class="struct">WMI_PAGE_FAULT</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x020D </td>
+        <td><span class="constant">WMI_LOG_TYPE_PAGE_FAULT_GUARD_PAGE</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_MM_GPF</span> </td>
+        <td><span class="struct">WMI_PAGE_FAULT</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x020E </td>
+        <td><span class="constant">WMI_LOG_TYPE_PAGE_FAULT_HARD_PAGE_FAULT</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_MM_HPF</span> </td>
+        <td><span class="struct">WMI_PAGE_FAULT</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x020F </td>
+        <td><span class="constant">WMI_LOG_TYPE_PAGE_FAULT_ACCESS_VIOLATION</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_MM_AV</span> </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0220 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HARDFAULT</span> </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0221 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REMOVEPAGEBYCOLOR</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0222 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REMOVEPAGEFROMLIST</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0223 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PAGEINMEMORY</span> </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0224 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_INSERTINFREELIST</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0225 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_INSERTINMODIFIEDLIST</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0226 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_INSERTINLIST</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0228 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_INSERTATFRONT</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0229 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_UNLINKFROMSTANDBY</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x022A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_UNLINKFFREEORZERO</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x022B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WORKINGSETMANAGER</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x022C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TRIMPROCESS</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x022E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ZEROSHARECOUNT</span> </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x023C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WSINFOPROCESS</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0245 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FAULTADDR_WITH_IP</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0246 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TRIMSESSION</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0247 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MEMORYSNAPLITE</span> </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0248 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PFMAPPED_SECTION_RUNDOWN</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0249 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PFMAPPED_SECTION_CREATE</span>
+        </td>
+        <td><span class="struct">PERFINFO_PFMAPPED_SECTION_INFORMATION</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x024A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WSINFOSESSION</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x024B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CREATE_SESSION</span> </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x024C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SESSION_RUNDOWN_DC_END</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x024D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SESSION_RUNDOWN_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x024E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SESSION_DELETE</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x024F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PFMAPPED_SECTION_DELETE</span>
+        </td>
+        <td><span class="struct">PERFINFO_PFMAPPED_SECTION_INFORMATION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0262 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_VIRTUAL_ALLOC</span> </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0263 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_VIRTUAL_FREE</span> </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0264 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_RANGE_RUNDOWN</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0265 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_RANGE_CREATE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0266 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_RANGE_RESERVE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0267 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_RANGE_RELEASE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0268 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_RANGE_DESTROY</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0269 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PAGEFILE_BACK</span> </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0270 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MEMINFO</span> </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0271 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CONTMEM_GENERATE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0272 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_STORE_FAULT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0273 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_INMEMORY_STORE_FAULT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0274 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_COMPRESSED_PAGE</span> </td>
+        <td>&nbsp;</td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0275 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PAGEINMEMORY_ACTIVE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0276 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PAGE_ACCESS</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0277 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PAGE_RELEASE</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0278 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PAGE_RANGE_ACCESS</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0279 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PAGE_RANGE_RELEASE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x027A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PAGE_COMBINE</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x027B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_KERNEL_MEMUSAGE</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x027C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MM_STATS</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x027D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MEMINFOEX_WS</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x027E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MEMINFOEX_SESSIONWS</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x027F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_VIRTUAL_ROTATE</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0280 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_VIRTUAL_ALLOC_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0281 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_VIRTUAL_ALLOC_DC_END</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0282 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PAGE_ACCESS_EX</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0283 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REMOVEFROMWS</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0284 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WSSHAREABLE_RUNDOWN</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0285 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_INMEMORYACTIVE_RUNDOWN</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0286 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MEM_RESET_INFO</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0287 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PFMAPPED_SECTION_OBJECT_CREATE</span>
+        </td>
+        <td><span class="struct">PERFINFO_PFMAPPED_SECTION_OBJECT_INFORMATION</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0288 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PFMAPPED_SECTION_OBJECT_DELETE</span>
+        </td>
+        <td><span class="struct">PERFINFO_PFMAPPED_SECTION_OBJECT_INFORMATION</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Process </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0301 </td>
+        <td><span class="constant">WMI_LOG_TYPE_PROCESS_CREATE</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0302 </td>
+        <td><span class="constant">WMI_LOG_TYPE_PROCESS_DELETE</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0303 </td>
+        <td><span class="constant">WMI_LOG_TYPE_PROCESS_DC_START</span> </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0304 </td>
+        <td><span class="constant">WMI_LOG_TYPE_PROCESS_DC_END</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x030A </td>
+        <td><span class="constant">WMI_LOG_TYPE_PROCESS_LOAD_IMAGE</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_LOAD</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x030B </td>
+        <td><span class="constant">WMI_LOG_TYPE_PROCESS_TERMINATE</span> ; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_TERMINATE</span>
+        </td>
+        <td>type defined for 6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0320 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PROCESS_PERFCTR_END</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0321 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PROCESS_PERFCTR_RD</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0323 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_INSWAPPROCESS</span> </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0324 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PROCESS_FREEZE</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0325 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PROCESS_THAW</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0326 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BOOT_PHASE_START</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0327 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ZOMBIE_PROCESS</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0328 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PROCESS_SET_AFFINITY</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0330 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CHARGE_WAKE_COUNTER_USER</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0331 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CHARGE_WAKE_COUNTER_EXECUTION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0332 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CHARGE_WAKE_COUNTER_KERNEL</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0333 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CHARGE_WAKE_COUNTER_INSTRUMENTATION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0334 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CHARGE_WAKE_COUNTER_PRESERVE_PROCESS</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0340 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_RELEASE_WAKE_COUNTER_USER</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0341 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_RELEASE_WAKE_COUNTER_EXECUTION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0342 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_RELEASE_WAKE_COUNTER_KERNEL</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0343 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_RELEASE_WAKE_COUNTER_INSTRUMENTATION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0344 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_RELEASE_WAKE_COUNTER_PRESERVE_PROCESS</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0350 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_DROP_USER</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0351 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_DROP_EXECUTION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0352 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_DROP_KERNEL</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0353 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_DROP_INSTRUMENTATION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0354 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_DROP_PRESERVE_PROCESS</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0360 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_EVENT_USER</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0361 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_EVENT_EXECUTION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0362 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_EVENT_KERNEL</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0363 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_EVENT_INSTRUMENTATION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0364 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAKE_EVENT_PRESERVE_PROCESS</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0370 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DEBUG_EVENT</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="constant">WMI_LOG_TYPE_PROCESS_LOAD_IMAGE</span> event gets 
+  special attention when SECHOST translates it for presentation to event consumers. 
+  Specifically, it gets reassigned to the group represented by
+  <span class="guid">ImageLoadGuid</span>. </p>
+  <h3>File </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0400 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILENAME</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0420 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILENAME_CREATE</span> </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0421 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILENAME_SAME</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0422 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILENAME_NULL</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0423 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILENAME_DELETE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0424 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILENAME_RUNDOWN</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0425 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MAPFILE</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0426 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_UNMAPFILE</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0427 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MAPFILE_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0428 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MAPFILE_DC_END</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0440 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_CREATE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0441 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_CLEANUP</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0442 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_CLOSE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0443 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_READ</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0444 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_WRITE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0445 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_SET_INFORMATION</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0446 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_DELETE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0447 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_RENAME</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0448 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_DIRENUM</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0449 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_FLUSH</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x044A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_QUERY_INFORMATION</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x044B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_FS_CONTROL</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x044C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_OPERATION_END</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x044D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_DIRNOTIFY</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x044E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_CREATE_NEW</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x044F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_DELETE_PATH</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0450 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_RENAME_PATH</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0451 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_SETLINK_PATH</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0452 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FILE_IO_SETLINK</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0460 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FLT_PREOP_INIT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_FLT_PREOP_INIT</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0461 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FLT_POSTOP_INIT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_FLT_POSTOP_INIT</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0462 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FLT_PREOP_COMPLETION</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_FLT_PREOP_COMPLETION</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0463 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FLT_POSTOP_COMPLETION</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_FLT_POSTOP_COMPLETION</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0464 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FLT_PREOP_FAILURE</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_FLT_PREOP_FAILURE</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0465 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FLT_POSTOP_FAILURE</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_FLT_POSTOP_FAILURE</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Thread </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Remarks"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Event Data (After Trace Header) </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0501 </td>
+        <td><span class="constant">WMI_LOG_TYPE_THREAD_CREATE</span> </td>
+        <td><span class="struct">WMI_EXTENDED_THREAD_INFORMATION</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0502 </td>
+        <td><span class="constant">WMI_LOG_TYPE_THREAD_DELETE</span> </td>
+        <td><span class="struct">WMI_EXTENDED_THREAD_INFORMATION</span> </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0503 </td>
+        <td><span class="constant">WMI_LOG_TYPE_THREAD_DC_START</span> </td>
+        <td><span class="struct">WMI_EXTENDED_THREAD_INFORMATION</span> </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0504 </td>
+        <td><span class="constant">WMI_LOG_TYPE_THREAD_DC_END</span> </td>
+        <td><span class="struct">WMI_EXTENDED_THREAD_INFORMATION</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0523 </td>
+        <td>convert to GUI thread </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0524 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CONTEXTSWAP</span> </td>
+        <td><span class="struct">
+        <a href="../wmi_contextswap.htm">WMI_CONTEXTSWAP</a></span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0525 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CONTEXTSWAP_BATCH</span>
+        </td>
+        <td><span class="struct">
+        <a href="../perfinfo_ccswap_buffer.htm">PERFINFO_CCSWAP_BUFFER</a></span>
+        <br>
+        and sequence of related structures </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0529 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SPINLOCK</span> </td>
+        <td><span class="struct">
+        <a href="../../../../api/etw/locktrace/wmi_spinlock.htm">WMI_SPINLOCK</a></span>
+        </td>
+        <td>6.1 and higher (x64); <br>
+        6.2 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td>0x052A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_QUEUE</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x052B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_RESOURCE</span> </td>
+        <td><span class="struct">
+        <a href="../../../../api/etw/locktrace/wmi_resource.htm">WMI_RESOURCE</a></span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x052C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PUSHLOCK</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x052D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAIT_SINGLE</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x052E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WAIT_MULTIPLE</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x052F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DELAY_EXECUTION</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0530 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_THREAD_SET_PRIORITY</span>
+        </td>
+        <td><span class="struct">ETW_PRIORITY_EVENT</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0531 </td>
+        <td><span class="constant">PERFINFO_LOT_TYPE_THREAD_SET_BASE_PRIORITY</span>
+        </td>
+        <td><span class="struct">ETW_PRIORITY_EVENT</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0532 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_READY_THREAD</span> </td>
+        <td><span class="struct">ETW_READY_THREAD_EVENT</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0533 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_THREAD_SET_PAGE_PRIORITY</span>
+        </td>
+        <td><span class="struct">ETW_PRIORITY_EVENT</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0534 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_THREAD_SET_IO_PRIORITY</span>
+        </td>
+        <td><span class="struct">ETW_PRIORITY_EVENT</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0535 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_THREAD_SET_AFFINITY</span>
+        </td>
+        <td><span class="struct">ETW_THREAD_AFFINITY_EVENT</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0539 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WORKER_THREAD_ITEM</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x053A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DFSS_START_NEW_INTERVAL</span>
+        </td>
+        <td><span class="struct">ETW_DFSS_START_NEW_INTERVAL</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x053B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DFSS_PROCESS_IDLE_ONLY_QUEUE</span>
+        </td>
+        <td><span class="struct">ETW_DFSS_RELEASE_THREAD_ON_IDLE</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x053C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ANTI_STARVATION_BOOST</span>
+        </td>
+        <td><span class="struct">ETW_ANTI_STARVATION_BOOST_EVENT</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x053D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_THREAD_MIGRATION</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x053E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_KQUEUE_ENQUEUE</span> </td>
+        <td><span class="struct">ETW_KQUEUE_ENQUEUE_EVENT</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x053F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_KQUEUE_DEQUEUE</span> </td>
+        <td><span class="struct">ETW_KQUEUE_DEQUEUE_EVENT</span> <br>
+        with sequence of pointers as <span class="member">Entries</span> array
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0540 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WORKER_THREAD_ITEM_START</span>
+        </td>
+        <td>one pointer; <br>
+        if structure then name unknown </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0541 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WORKER_THREAD_ITEM_END</span>
+        </td>
+        <td>one pointer; <br>
+        if structure, then name unknown </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0542 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_AUTO_BOOST_SET_FLOOR</span>
+        </td>
+        <td><span class="struct">ETW_AUTOBOOST_SET_PRIORITY_FLOOR_EVENT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0543 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_AUTO_BOOST_CLEAR_FLOOR</span>
+        </td>
+        <td><span class="struct">ETW_AUTOBOOST_CLEAR_PRIORITY_FLOOR_EVENT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0544 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_AUTO_BOOST_NO_ENTRIES</span>
+        </td>
+        <td><span class="struct">ETW_AUTOBOOST_NO_ENTRIES_EVENT</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0545 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_THREAD_SUBPROCESSTAG_CHANGED</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Though the NTWMI.H from the WDK for Windows 10 has it that
+  <span class="constant">PERFINFO_LOG_TYPE_DFSS_START_NEW_INTERVAL</span> (0x053A) 
+  and <span class="constant">PERFINFO_LOG_TYPE_DFSS_PROCESS_IDLE_ONLY_QUEUE</span> 
+  (0x053B) are still defined, the kernel has no code for them except in version 
+  6.1. </p>
+  <h3>TCP/IP </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x060A </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_SEND</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_SEND</span> </td>
+        <td>type defined for 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x060B </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_RECEIVE</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_RECEIVE</span>
+        </td>
+        <td>type defined for 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x060C </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_CONNECT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONNECT</span>
+        </td>
+        <td>type defined for 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x060D </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_DISCONNECT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_DISCONNECT</span>
+        </td>
+        <td>type defined for 5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x060E </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_RETRANSMIT</span> ; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_RETRANSMIT</span>
+        </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x060F </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_ACCEPT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_ACCEPT</span> </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0610 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_RECONNECT</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_RECONNECT</span>
+        </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0611 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_FAIL</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONNFAIL</span>
+        </td>
+        <td>type defined for 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0612 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_TCPCOPY</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_COPY_TCP</span>
+        </td>
+        <td>type defined for 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0613 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_ARPCOPY</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_COPY_ARP</span>
+        </td>
+        <td>type defined for 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0614 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_FULLACK</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_ACKFULL</span>
+        </td>
+        <td>type defined for 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0615 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_PARTACK</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_ACKPART</span>
+        </td>
+        <td>type defined for 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0616 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_DUPACK</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_ACKDUP</span> </td>
+        <td>type defined for 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x061A </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_SEND_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x061B </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_RECEIVE_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x061C </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_CONNECT_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x061D </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_DISCONNECT_IPV6</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x061E </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_RETRANSMIT_IPV6</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x061F </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_ACCEPT_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0620 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_RECONNECT_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0621 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_FAIL_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0622 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_TCPCOPY_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0623 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_ARPCOPY_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0624 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_FULLACK_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0625 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_PARTACK_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0626 </td>
+        <td><span class="constant">WMI_LOG_TYPE_TCPIP_DUPACK_IPV6</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Job </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0720 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_CREATE</span> </td>
+      </tr>
+      <tr>
+        <td>0x0721 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_TERMINATE</span> </td>
+      </tr>
+      <tr>
+        <td>0x0722 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_OPEN</span> </td>
+      </tr>
+      <tr>
+        <td>0x0723 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_ASSIGN_PROCESS</span> </td>
+      </tr>
+      <tr>
+        <td>0x0724 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_REMOVE_PROCESS</span> </td>
+      </tr>
+      <tr>
+        <td>0x0725 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_SET</span> </td>
+      </tr>
+      <tr>
+        <td>0x0726 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_QUERY</span> </td>
+      </tr>
+      <tr>
+        <td>0x0727 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_SET_FAILED</span> </td>
+      </tr>
+      <tr>
+        <td>0x0728 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_QUERY_FAILED</span> </td>
+      </tr>
+      <tr>
+        <td>0x0729 </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_SET_NOTIFICATION</span> </td>
+      </tr>
+      <tr>
+        <td>0x072A </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_SEND_NOTIFICATION</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x072B </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_QUERY_VIOLATION</span> </td>
+      </tr>
+      <tr>
+        <td>0x072C </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_SET_CPU_RATE</span> </td>
+      </tr>
+      <tr>
+        <td>0x072D </td>
+        <td><span class="constant">WMI_LOG_TYPE_JOB_SET_NET_RATE</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>UDP/IP </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x080A </td>
+        <td><span class="constant">WMI_LOG_TYPE_UDP_SEND</span> </td>
+      </tr>
+      <tr>
+        <td>0x080B </td>
+        <td><span class="constant">WMI_LOG_TYPE_UDP_RECEIVE</span> </td>
+      </tr>
+      <tr>
+        <td>0x0811 </td>
+        <td><span class="constant">WMI_LOG_TYPE_UDP_FAIL</span> </td>
+      </tr>
+      <tr>
+        <td>0x081A </td>
+        <td><span class="constant">WMI_LOG_TYPE_UDP_SEND_IPV6</span> </td>
+      </tr>
+      <tr>
+        <td>0x081B </td>
+        <td><span class="constant">WMI_LOG_TYPE_UDP_RECEIVE_IPV6</span> </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Registry </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x090A </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGCREATE</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x090B </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGOPEN</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x090C </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGDELETE</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x090D </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGQUERY</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x090E </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGSETVALUE</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x090F </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGDELETEVALUE</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0910 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGQUERYVALUE</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0911 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGENUMERATEKEY</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0912 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGENUMERATEVALUEKEY</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0913 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGQUERYMULTIPLEVALUE</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0914 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGSETINFORMATION</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0915 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGFLUSH</span>
+        </td>
+        <td>5.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0916 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGKCBDMP</span>
+        </td>
+        <td>5.1 to 5.2 </td>
+      </tr>
+      <tr>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGKCBCREATE</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0917 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGKCBDELETE</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0918 </td>
+        <td><span class="constant">WMI_LOG_TYPE_REG_RUNDOWNBEGIN</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_REGKCBRUNDOWNBEGIN</span>
+        </td>
+        <td>type defined for 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0919 </td>
+        <td><span class="constant">WMI_LOG_TYPE_REG_RUNDOWNEND</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_REGKCBRUNDOWNEND</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x091A </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGVIRTUALIZE</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x091B </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGCLOSE</span>
+        </td>
+        <td>type defined for 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x091C </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGSETSECURITY</span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x091D </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGQUERYSECURITY</span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x091E </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGCOMMIT</span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x091F </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGPREPARE</span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0920 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGROLLBACK</span>
+        </td>
+        <td>6.1 </td>
+      </tr>
+      <tr>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CMCELLREFERRED</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0921 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_REGMOUNTHIVE</span>
+        </td>
+        <td>6.1 </td>
+      </tr>
+      <tr>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_SET_VALUE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0922 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_COUNTERS</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0923 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_CONFIG</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0924 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_HIVE_INITIALIZE</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0925 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_HIVE_DESTROY</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0926 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_HIVE_LINK</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0927 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_HIVE_RUNDOWN_DC_END</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0928 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_HIVE_DIRTY</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0930 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_NOTIF_REGISTER</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0931 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REG_NOTIF_DELIVER</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Debug </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0A20 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DEBUG_PRINT</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Configuration </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0B0A </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_CPU</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_CPU</span>
+        </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B0B</td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_PHYSICALDISK</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_PHYSICALDISK</span>
+        </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B0C </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_LOGICALDISK</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_LOGICALDISK</span>
+        </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B0D </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_NIC</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_NIC</span>
+        </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B0E </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_VIDEO</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_VIDEO</span>
+        </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B0F </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_SERVICES</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_SERVICES</span>
+        </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B10 </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_POWER</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_POWER</span>
+        </td>
+        <td>type defined for 5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B11 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_NETINFO</span>
+        </td>
+        <td>type defined for 5.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B12 </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_OPTICALMEDIA</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_OPTICALMEDIA</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B15 </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_IRQ</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_IRQ</span>
+        </td>
+        <td>type defined for 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B16 </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_PNP</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_PNP</span>
+        </td>
+        <td>type defined for 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B17 </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_IDECHANNEL</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_IDECHANNEL</span>
+        </td>
+        <td>type defined for 6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B18 </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_NUMANODE</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_NUMANODE</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B19 </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_PLATFORM</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_PLATFORM</span>
+        </td>
+        <td>type defined for 6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B1A </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_PROCESSORGROUP</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_PROCESSORGROUP</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B1B </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_PROCESSORNUMBER</span>;
+        <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_PROCESSORNUMBER</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B1C </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_DPI</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_DPI</span>
+        </td>
+        <td>type defined for 6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B1D </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_CODEINTEGRITY</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_CI_INFO</span>
+        </td>
+        <td>type defined for 6.3 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B1E </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_MACHINEID</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_MACHINEID</span>
+        </td>
+        <td>type defined for 10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B1F </td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_DEFRAG</span>; <br>
+        type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_DEFRAG</span>
+        </td>
+        <td>type defined for 1511 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B20 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_MOBILEPLATFORM</span>
+        </td>
+        <td>type defined for 1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B21 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_DEVICEFAMILY</span>
+        </td>
+        <td>type defined for 1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B22 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_FLIGHTID</span>
+        </td>
+        <td>type defined for 1607 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0B23 </td>
+        <td>type alone as <span class="constant">EVENT_TRACE_TYPE_CONFIG_PROCESSOR</span>
+        </td>
+        <td>type defined for 1709 and higher </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_OSVERSION</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_VISUALTHEME</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_SYSTEMRANGE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td><span class="constant">WMI_LOG_TYPE_CONFIG_SYSDLLINFO</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The last four are defined in NTWMI.H but evaluation depends on macros that 
+  are not defined in any other known header. </p>
+  <h3>WNF </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0D20 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WNF_SUBSCRIBE</span> </td>
+      </tr>
+      <tr>
+        <td>0x0D21 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WNF_UNSUBSCRIBE</span> </td>
+      </tr>
+      <tr>
+        <td>0x0D22 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WNF_CALLBACK</span> </td>
+      </tr>
+      <tr>
+        <td>0x0D23 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WNF_PUBLISH</span> </td>
+      </tr>
+      <tr>
+        <td>0x0D24 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WNF_NAME_SUB_RUNDOWN</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Pool </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0E20 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ALLOCATEPOOL</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0E21 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ALLOCATEPOOL_SESSION</span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0E22 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FREEPOOL</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0E23 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FREEPOOL_SESSION</span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0E24 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ADDPOOLPAGE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E25 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ADDPOOLPAGE_SESSION</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E26 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BIGPOOLPAGE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E27 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BIGPOOLPAGE_SESSION</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E28 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_POOLSNAP_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E29 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_POOLSNAP_DC_END</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E2A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BIGPOOLSNAP_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E2B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BIGPOOLSNAP_DC_END</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E2C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_POOLSNAP_SESSION_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E2D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_POOLSNAP_SESSION_DC_END</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E2E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SESSIONBIGPOOLSNAP_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E2F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SESSIONBIGPOOLSNAP_DC_END</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Performance Information </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Remarks"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Event Data (After Trace Header) </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x0F20 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_RUNDOWN_CHECKPOINT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F22 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MARK</span> </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F24 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ASYNCMARK</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F26 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_IMAGENAME</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F27 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DELAYS_CC_CAN_I_WRITE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F2E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SAMPLED_PROFILE</span> </td>
+        <td><span class="struct">PERFINFO_SAMPLED_PROFILE_INFORMATION</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F2F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PMC_INTERRUPT</span> </td>
+        <td><span class="struct">PERFINFO_PMC_SAMPLE_INFORMATION</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F30 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PMC_CONFIG</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F32 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MSI_INTERRUPT</span> </td>
+        <td>&nbsp;</td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F33 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SYSCALL_ENTER</span> </td>
+        <td><span class="struct">PERFINFO_SYSCALL_ENTER_DATA</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F34 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SYSCALL_EXIT</span> </td>
+        <td><span class="struct">PERFINFO_SYSCALL_EXIT_DATA</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F35 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BACKTRACE</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F36 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BACKTRACE_USERSTACK</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F37 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SAMPLED_PROFILE_CACHE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F38 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_EXCEPTION_STACK</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F39 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BRANCH_TRACE</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F3A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DEBUGGER_ENABLED</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F3B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DEBUGGER_EXIT</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F40 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BRANCH_TRACE_DEBUG</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F41 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BRANCH_ADDRESS_DEBUG</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F42 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_THREADED_DPC</span> </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F43 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_INTERRUPT</span> </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F44 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DPC</span> </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F45 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TIMERDPC</span> </td>
+        <td>&nbsp;</td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F46 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_IOTIMER_EXPIRATION</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F47 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SAMPLED_PROFILE_NMI</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F48 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SAMPLED_PROFILE_SET_INTERVAL</span>
+        </td>
+        <td><span class="struct">PERFINFO_SAMPLED_PROFILE_CONFIG</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F49 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SAMPLED_PROFILE_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F4A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SAMPLED_PROFILE_DC_END</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F4B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SPINLOCK_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F4C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SPINLOCK_DC_END</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F4D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ERESOURCE_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F4E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_ERESOURCE_DC_END</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F4F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CLOCK_INTERRUPT</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F50 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TIMER_EXPIRATION_START</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F51 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TIMER_EXPIRATION</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F52 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TIMER_SET_PERIODIC</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F53 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TIMER_SET_ONE_SHOT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F54 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TIMER_SET_THREAD</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F55 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TIMER_CANCEL</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F56 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TIME_ADJUSTMENT</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F57 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CLOCK_MODE_SWITCH</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F58 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CLOCK_TIME_UPDATE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F59 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CLOCK_DYNAMIC_TICK_VETO</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F5A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CLOCK_CONFIGURATION</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F5B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_IPI</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F5C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_UNEXPECTED_INTERRUPT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F5D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_IOTIMER_START</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F5E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_IOTIMER_STOP</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F5F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PASSIVE_INTERRUPT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F60 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WDF_INTERRUPT</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F61 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WDF_PASSIVE_INTERRUPT</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F62 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WDF_DPC</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F63 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CPU_CACHE_FLUSH</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F64 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DPC_ENQUEUE</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F65 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DPC_EXECUTION</span> </td>
+        <td>&nbsp;</td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F66 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_INTERRUPT_STEERING</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F67 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_WDF_WORK_ITEM</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F68 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_KTIMER2_SET</span> </td>
+        <td><span class="struct">ETW_SET_KTIMER2_EVENT</span> </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0F69 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_KTIMER2_EXPIRATION</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F6A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_KTIMER2_CANCEL</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F6B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_KTIMER2_DISABLE</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F6C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_KTIMER2_FINALIZATION</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F6D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SHOULD_YIELD_PROCESSOR</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F80 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FUNCTION_CALL</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F81 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FUNCTION_RETURN</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F82 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FUNCTION_ENTER</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F83 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_FUNCTION_EXIT</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F84 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TAILCALL</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F85 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TRAP</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F86 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SPINLOCK_ACQUIRE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F87 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SPINLOCK_RELEASE</span>
+        </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F88 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CAP_COMMENT</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F89 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CAP_RUNDOWN</span> </td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Heap </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1020 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_CREATE</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1021 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_ALLOC</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1022 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_REALLOC</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1023 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_DESTROY</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1024 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_FREE</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1025 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_EXTEND</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1026 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_SNAPSHOT</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1027 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_CREATE_SNAPSHOT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1028 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_DESTROY_SNAPSHOT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1029 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_EXTEND_SNAPSHOT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x102A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_CONTRACT</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x102B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_LOCK</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x102C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_UNLOCK</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x102D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_VALIDATE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x102E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_WALK</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x102F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_SUBSEGMENT_ALLOC</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1030 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_SUBSEGMENT_FREE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1031 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_SUBSEGMENT_ALLOC_CACHE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1032 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_SUBSEGMENT_FREE_CACHE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1033 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_COMMIT</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1034 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_DECOMMIT</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1035 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_SUBSEGMENT_INIT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1036 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_AFFINITY_ENABLE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1038 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_SUBSEGMENT_ACTIVATED</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1039 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_AFFINITY_ASSIGN</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x103A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_HEAP_REUSE_THRESHOLD_ACTIVATED</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Object </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1120 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CREATE_HANDLE</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1121 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CLOSE_HANDLE</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1122 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DUPLICATE_HANDLE</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1124 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OBJECT_TYPE_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1125 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OBJECT_TYPE_DC_END</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1126 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OBJECT_HANDLE_DC_START</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1127 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_OBJECT_HANDLE_DC_END</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1130 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CREATE_OBJECT</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1131 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DELETE_OBJECT</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1132 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_REFERENCE_OBJECT</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1133 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_DEREFERENCE_OBJECT</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Power </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Verions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1220 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_BATTERY_LIFE_INFO</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1221 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_IDLE_STATE_CHANGE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1222 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SET_POWER_ACTION</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1223 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SET_POWER_ACTION_RET</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1224 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SET_DEVICES_STATE</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1225 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SET_DEVICES_STATE_RET</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1226 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PO_NOTIFY_DEVICE</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1227 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PO_NOTIFY_DEVICE_COMPLETE</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1228 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PO_SESSION_CALLOUT</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1229 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PO_SESSION_CALLOUT_RET</span>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1230 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PO_PRESLEEP</span> </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1231 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PO_POSTSLEEP</span> </td>
+        <td>5.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1232 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PO_CALIBRATED_PERFCOUNTER</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1233 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_PERF_STATE_CHANGE</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1234 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_THROTTLE_STATE_CHANGE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1235 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_IDLE_STATE_CHANGE</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1236 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_THERMAL_CONSTRAINT</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1237 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PO_SIGNAL_RESUME_UI</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1238 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PO_SIGNAL_VIDEO_ON</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1239 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_IDLE_STATE_ENTER</span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x123A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_IDLE_STATE_EXIT</span>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x123B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_PLATFORM_IDLE_STATE_ENTER</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x123C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_IDLE_EXIT_LATENCY</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x123D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_IDLE_PROCESSOR_SELECTION</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x123E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_IDLE_PLATFORM_SELECTION</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x123F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_COORDINATED_IDLE_ENTER</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1240 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_PPM_COORDINATED_IDLE_EXIT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Module </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1318 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_COWHEADER</span> </td>
+      </tr>
+      <tr>
+        <td>0x1319 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_COWBLOB</span> </td>
+      </tr>
+      <tr>
+        <td>0x131A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_COWBLOB_CLOSED</span> </td>
+      </tr>
+      <tr>
+        <td>0x1320 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MODULEBOUND_ENT</span> </td>
+      </tr>
+      <tr>
+        <td>0x1321 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MODULEBOUND_JUMP</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1322 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MODULEBOUND_RET</span> </td>
+      </tr>
+      <tr>
+        <td>0x1323 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MODULEBOUND_CALL</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1324 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MODULEBOUND_CALLRET</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1325 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MODULEBOUND_INT2E</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1326 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MODULEBOUND_INT2B</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1327 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_MODULEBOUND_FULLTRACE</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Image </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1401 </td>
+        <td><span class="constant">WMI_LOG_TYPE_IMAGE_LOAD</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1402 </td>
+        <td><span class="constant">WMI_LOG_TYPE_IMAGE_UNLOAD</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1403 </td>
+        <td><span class="constant">WMI_LOG_TYPE_IMAGE_DC_START</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1404 </td>
+        <td><span class="constant">WMI_LOG_TYPE_IMAGE_DC_END</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1420 </td>
+        <td><span class="constant">WMI_LOG_TYPE_IMAGE_RELOCATION</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1421 </td>
+        <td><span class="constant">WMI_LOG_TYPE_IMAGE_KERNEL_BASE</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1422 </td>
+        <td><span class="constant">WMI_LOG_TYPE_IMAGE_HYPERCALL_PAGE</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1480 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_LOCK_ACQUIRE_ATTEMPT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1481 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_LOCK_ACQUIRE_SUCCESS</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1482 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_LOCK_ACQUIRE_FAIL</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1483 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_LOCK_ACQUIRE_WAIT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1484 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_PROC_INIT_DONE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1485 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_CREATE_SECTION</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1486 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_SECTION_CREATED</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1487 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_MAP_VIEW</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1490 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_RELOCATE_IMAGE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1491 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_IMAGE_RELOCATED</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1492 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_HANDLE_OLD_DESCRIPTORS</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1493 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_OLD_DESCRIPTORS_HANDLED</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1494 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_HANDLE_NEW_DESCRIPTORS</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1495 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_NEW_DESCRIPTORS_HANDLED</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1496 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_DLLMAIN_EXIT</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A0 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_FIND_DLL</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A1 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_VIEW_MAPPED</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A2 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_LOCK_RELEASE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A3 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_DLLMAIN_ENTER</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A4 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_ERROR</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A5 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_VIEW_MAPPING</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A6 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_SNAPPING</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A7 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_SNAPPED</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A8 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_LOADING</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14A9 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_LOADED</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14AA </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_FOUND_KNOWN_DLL</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14AB </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_ABNORMAL</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14AC </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_PLACEHOLDER</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14AD </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_RDY_TO_INIT</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14AE </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_RDY_TO_RUN</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14B0 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_NEW_DLL_LOAD</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14B1 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_NEW_DLL_AS_DATA</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14C0 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_EXTERNAL_PATH</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14C1 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_GENERATED_PATH</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14D0 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_APISET_RESOLVING</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14D1 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_APISET_HOSTED</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14D2 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_APISET_UNHOSTED</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14D3 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_APISET_UNRESOLVED</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14D4 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_SEARCH_SECURITY</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x14D5 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_LDR_SEARCH_PATH_SECURITY</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Cache Control </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1600 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_WORKITEM_ENQUEUE</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1601 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_WORKITEM_DEQUEUE</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1602 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_WORKITEM_COMPLETE</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1603 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_READ_AHEAD</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1604 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_WRITE_BEHIND</span> </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1605 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_LAZY_WRITE_SCAN</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1606 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_CAN_I_WRITE_FAIL</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1609 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_FLUSH_CACHE</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x160A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_FLUSH_SECTION</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x160B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_READ_AHEAD_PREFETCH</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x160C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_SCHEDULE_READ_AHEAD</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x160D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_LOGGED_STREAM_INFO</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x160E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CC_EXTRA_WRITEBEHIND_THREAD</span>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Critical Section </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1720 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CRITSEC_ENTER</span> </td>
+      </tr>
+      <tr>
+        <td>0x1721 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CRITSEC_LEAVE</span> </td>
+      </tr>
+      <tr>
+        <td>0x1722 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CRITSEC_COLLISION</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1723 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_CRITSEC_INITIALIZE</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Stack Walking </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1820 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_STACKWALK</span> </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1822 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_STACKTRACE_CREATE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1823 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_STACKTRACE_DELETE</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1824 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_STACKTRACE_RUNDOWN</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1825 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_STACKTRACE_KEY_KERNEL</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x1826 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_STACKTRACE_KEY_USER</span>
+        </td>
+        <td>&nbsp;</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>UMS </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1920 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_UMS_DIRECTED_SWITCH_START</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1921 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_UMS_DIRECTED_SWITCH_END</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1922 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_UMS_PARK</span> </td>
+      </tr>
+      <tr>
+        <td>0x1923 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_UMS_DISASSOCIATE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1924 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_UMS_CONTEXT_SWITCH</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>ALPC </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1A21 </td>
+        <td><span class="constant">WMI_LOG_TYPE_ALPC_SEND_MESSAGE</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1A22 </td>
+        <td><span class="constant">WMI_LOG_TYPE_ALPC_RECEIVE_MESSAGE</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1A23 </td>
+        <td><span class="constant">WMI_LOG_TYPE_ALPC_WAIT_FOR_REPLY</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1A24 </td>
+        <td><span class="constant">WMI_LOG_TYPE_ALPC_WAIT_FOR_NEW_MESSAGE</span>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1A25 </td>
+        <td><span class="constant">WMI_LOG_TYPE_ALPC_UNWAIT</span> </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1A26 </td>
+        <td><span class="constant">WMI_LOG_TYPE_ALPC_CONNECT_REQUEST</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1A27 </td>
+        <td><span class="constant">WMI_LOG_TYPE_ALPC_CONNECT_SUCCESS</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1A28 </td>
+        <td><span class="constant">WMI_LOG_TYPE_ALPC_CONNECT_FAIL</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1A29 </td>
+        <td><span class="constant">WMI_LOG_TYPE_ALPC_CLOSE_PORT</span> </td>
+        <td>6.2 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Split I/O </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1B20 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_SPLITIO_VOLMGR</span> </td>
+        <td>late 5.2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Thread Pool </h3>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x1C20 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_CALLBACK_ENQUEUE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C21 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_CALLBACK_DEQUEUE</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C22 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_CALLBACK_START</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C23 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_CALLBACK_STOP</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C24 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_CALLBACK_CANCEL</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C25 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_POOL_CREATE</span> </td>
+      </tr>
+      <tr>
+        <td>0x1C26 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_POOL_CLOSE</span> </td>
+      </tr>
+      <tr>
+        <td>0x1C27 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_POOL_TH_MIN_SET</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C28 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_POOL_TH_MAX_SET</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C29 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_WORKER_NUMANODE_SWITCH</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C2A </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_TIMER_SET</span> </td>
+      </tr>
+      <tr>
+        <td>0x1C2B </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_TIMER_CANCELLED</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C2C </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_TIMER_SET_NTTIMER</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C2D </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_TIMER_CANCEL_NTTIMER</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C2E </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_TIMER_EXPIRATION_BEGIN</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C2F </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_TIMER_EXPIRATION_END</span>
+        </td>
+      </tr>
+      <tr>
+        <td>0x1C30 </td>
+        <td><span class="constant">PERFINFO_LOG_TYPE_TP_TIMER_EXPIRATION</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 5th
+    <a href="../../../../../../../../new/16/12.htm">December 2016</a> and was last 
+    modified on 10th December 2020. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1620.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14218" -->
+  </div>
+</div>
+
+</body>
+
+</html>

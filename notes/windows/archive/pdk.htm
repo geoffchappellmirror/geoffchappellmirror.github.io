@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Windows 95 DDK does not install after Platform SDK</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>Windows 95 DDK does not install after Platform SDK </h1>
+  <p>The Windows 95 Device Driver Kit (DDK) is supplied on CD-ROM with most files 
+  already in the expected directory tree. Although these files may simply be copied 
+  to the hard disk, a setup program eases the installation and also prepares a batch 
+  file for setting environment variables. </p>
+  <p>For reasons that may be less than obvious to VxD programmers, the Windows 95 
+  DDK requires prior installation of the Win32 SDK. Since the release of the Windows 
+  95 DDK, much of the Win32 SDK has been incorporated into the Platform SDK. The 
+  Win32 SDK and Platform SDK continued to be distributed as separate kits, but for 
+  most practical purposes in 32-bit applications programming (which is surely what 
+  the Win32 SDK would be installed for), the Win32 SDK has been superseded by the 
+  Platform SDK. </p>
+  <h2>Problem </h2>
+  <p>If the Platform SDK has been installed instead of the Win32 SDK, a subsequent 
+  attempt to run the setup program for the Windows 95 DDK meets with the complaint 
+  that “You need to install the SDK first; Please exit this setup program, and run 
+  the Win32 SDK Setup program.” </p>
+  <h3>Applicable Versions </h3>
+  <p>This note applies to versions of the Windows 95 DDK at least as far back as 
+  July 1996, and to versions as recent as July 1998. It applies to versions of the 
+  Platform SDK at least as far back as November 1996. </p>
+  <p>The problem described here is not presented by versions of the Platform SDK 
+  dated from January 1998 onwards. </p>
+  <h2>Cause </h2>
+  <p>Three registry entries are relevant, and it is as well to introduce them before 
+  proceeding. The two for the SDKs use the same value in different keys: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Win32SDK\Directories</span>
+      <br>
+      <span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\PlatformSDK\Directories</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value </td>
+      <td><span class="regvalue">Install Dir</span> </td>
+    </tr>
+    <tr>
+      <td>Type </td>
+      <td><span class="constant">REG_SZ</span> </td>
+    </tr>
+  </table>
+  <p>Take care to note that the value contains a space but the product names in 
+  the keys do not. In the third of the relevant entries, by contrast, the product 
+  name has spaces but the value does not: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows 95 PDK\Directories</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value </td>
+      <td><span class="regvalue">InstallDir</span> </td>
+    </tr>
+    <tr>
+      <td>Type </td>
+      <td><span class="constant">REG_SZ</span> </td>
+    </tr>
+  </table>
+  <p>The setup program for the Win32 SDK prepares the <span class="regkey">Win32SDK</span> 
+  key and sets the <span class="regvalue">Install Dir</span> value to the root of 
+  the SDK directory tree. The setup program for the Platform SDK does the same, 
+  but with the <span class="regkey">PlatformSDK</span> key. </p>
+  <p>The Platform SDK does know the registry entry from the Win32 SDK, but only 
+  to change from one to the other. See that in MSSDK.INF from the Platform SDK, 
+  the line </p>
+  <pre class="source">set KeySDKPath = &quot;Software\Microsoft\Win32SDK\Directories&quot; </pre>
+  <p>as inherited from WIN32.INF in the Win32 SDK, is commented out and </p>
+  <pre class="source">set KeySDKPath = &quot;Software\Microsoft\PlatformSDK\Directories&quot; </pre>
+  <p>is added. </p>
+  <p>The reason that the Windows 95 DDK requires the Win32 SDK specifically is simply 
+  that where the setup program for the Windows 95 DDK tests for prior installation 
+  of an SDK, it recognises entries under <span class="regkey">Win32SDK</span> and
+  <span class="regkey">Windows 95 PDK</span>, but knows nothing of the entry under
+  <span class="regkey">PlatformSDK</span>. </p>
+  <h2>Work-Around </h2>
+  <p>Edit the registry to pretend, if only temporarily, that one of the expected 
+  SDKs is already installed. Create the key and value, as above, under
+  <span class="regkey">Win32SDK</span> (or <span class="regkey">Windows 95 PDK</span>), 
+  giving the path of the Platform SDK’s root directory as the string data, as if 
+  the Win32 SDK (or the Windows 95 PDK) had been installed before the Platform SDK 
+  in the same directory. </p>
+  <p>For Microsoft’s different view of the problem, see the Knowledge Base article 
+  Q169581, titled <span class="citation">PRB: Windows 95 DDK Won’t Install After 
+  Installing Platform SDK</span>. The resolution proposed there is surely a joke:
+  </p>
+  <blockquote>
+    <p>The Windows 95 DDK requires prior installation of the Win32 SDK; the Platform 
+    SDK will not suffice. The Win32 SDK is provided on a separate CD-ROM from the 
+    Platform SDK. </p>
+  </blockquote>
+  <p>For the purposes of VxD programming, it’s far from clear why the Win32 SDK 
+  is required for anything. The asserted dependence is highly artificial, so that 
+  the refusal of the DDK’s setup program to continue without the Win32 SDK in particular 
+  is especially annoying when a programmer already has the Platform SDK installed.
+  </p>
+  <h2>Fix </h2>
+  <p>The Platform SDK dated January 1998 has a new installation method in which 
+  files are extracted from cabinets. Preparation of the registry entries relevant 
+  to the present problem is governed by CORECFG.INF, from which it may be seen that 
+  this new Platform SDK sets <span class="regvalue">Install Dir</span> in both the
+  <span class="regkey">Win32SDK</span> and <span class="regkey">PlatformSDK</span> 
+  keys (and in both <span class="regkey">HKEY_CURRENT_USER</span> and
+  <span class="regkey">HKEY_LOCAL_MACHINE</span>). Thus, with the new Platform SDK 
+  installed, the setup program for the Windows 95 DDK will be satisfied that the 
+  Win32 SDK is installed, just as in the work-around presented above. </p>
+  <p>In a revised Knowledge Base article, still available as
+  <a target="_top" href="http://support.microsoft.com/kb/249286">BUG: Cannot Install 
+  Windows 95 DDK After Installing Platform SDK</a>, Microsoft explains that “Microsoft 
+  Windows Platform SDK doesn’t create the registry keys that are required by the 
+  Windows 95 DDK Setup program” and recommends the work-around as an alternative 
+  to installing the latest Platform SDK. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 3rd March 1998 and was last modified 
+    on 16th September 2008. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c9808.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1998-2008. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="63655" -->
+  </div>
+</div>
+
+</body>
+
+</html>

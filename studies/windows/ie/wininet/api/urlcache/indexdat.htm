@@ -1,0 +1,1212 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The INDEX.DAT File Format</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/ie.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/ie.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<!--webbot bot="Include" U-Include="../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+</p>
+
+<!--webbot bot="Include" i-checksum="5489" endspan -->
+<h1>The INDEX.DAT File Format </h1>
+<p>The large-scale structure of an INDEX.DAT file is a header followed by an array 
+of fixed-sized blocks. The header is 0x4000 bytes. The blocks are 0x80 bytes. Blocks 
+are the allocation units for file-map entries. The name file-map entry is here taken 
+from the WININET symbol file, which shows <span class="struct">FILEMAP_ENTRY</span> 
+as Microsoft’s name for a structure that every file-map entry begins with. A file-map 
+entry can have any size (less than 64KB) but necessarily consumes as many consecutive 
+whole blocks as needed to contain the entry. As more space is required for file-map 
+entries, blocks are added to the file, always in multiples of 0x4000 bytes. There 
+is an upper limit because the allocation state of the blocks is recorded only in 
+the header. Indeed, the header is mostly a bitmap in which successive bits represent 
+successive blocks. Ignoring other data in the header gives 16MB as an approximate 
+maximum size for an INDEX.DAT file. </p>
+<p>File-map entries fall into two broad categories. The sort of entry that the file 
+exists for holds a URL and associates it with other information. Some of this cached 
+information for the URL is stored in the entry itself, but a significant provision 
+is that information to be saved about a URL may be stored as a separate file, called 
+the local file, such that the entry in INDEX.DAT needs only to save some record 
+of where to find the local file. Indeed, the collection of these local files
+<span class="emphasis">is</span> the cache. What needs to be saved in INDEX.DAT 
+for any one URL is therefore rarely huge but is typically a few blocks big, the 
+size being dominated by the length of strings such as the URL itself and the filename 
+for the cached storage. Each URL, together with its associated information, is usefully 
+saved as its own file-map entry. </p>
+<p>The other broad category exists because the file has to support efficient searching 
+for URL entries and also allows for grouping of URL entries. Both purposes need 
+a multitude of small structures that would be wasteful to store in the file as entries 
+in their own right and which may anyway need to be kept together for ready access. 
+Since the file is memory-mapped, a good scale for the notion of ready access is 
+the CPU page size (0x1000 bytes). The INDEX.DAT file therefore has entries that 
+are always page-sized and which hold in turn a collection of small control structures 
+of one sort or another. As an aside, it seems most plausible that 0x80 is chosen 
+as the block size so that a CPU page helpfully corresponds to one dword in the allocation 
+bitmap: free space for a page-aligned page-sized entry could be found just by scanning 
+the bitmap for the first clear dword. File-map entries that are at least a page 
+big are always page-aligned. </p>
+<h2>The File Header </h2>
+<p>Microsoft’s name for the file header is not recorded in the public symbols for 
+WININET. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x1C bytes </td>
+    <td>signature, necessarily “Client UrlCache MMF Ver 5.2”, including null terminator
+    </td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td>dword </td>
+    <td>file size, in bytes </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>dword </td>
+    <td>file offset of first page in hash table, else zero </td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>dword </td>
+    <td>total number of blocks following header </td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>dword </td>
+    <td>number of allocated blocks </td>
+  </tr>
+  <tr>
+    <td>0x2C </td>
+    <td>4 bytes </td>
+    <td>apparently unused </td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td>qword </td>
+    <td>cache limit, in bytes </td>
+  </tr>
+  <tr>
+    <td>0x38 </td>
+    <td>qword </td>
+    <td>cache size, in bytes </td>
+  </tr>
+  <tr>
+    <td>0x40 </td>
+    <td>qword </td>
+    <td>cache usage exempt from scavenging, in bytes </td>
+  </tr>
+  <tr>
+    <td>0x48 </td>
+    <td>dword </td>
+    <td>number of subdirectories in cache </td>
+  </tr>
+  <tr>
+    <td>0x4C </td>
+    <td>0x0180 bytes </td>
+    <td>array of 0x20 structures, each of 0x0C bytes, to describe subdirectories 
+    in cache </td>
+  </tr>
+  <tr>
+    <td>0x01CC </td>
+    <td>0x80 bytes </td>
+    <td>array of 0x20 dwords, apparently called header data </td>
+  </tr>
+  <tr>
+    <td>0x024C </td>
+    <td>4 bytes </td>
+    <td>apparently unused </td>
+  </tr>
+  <tr>
+    <td>0x0250 </td>
+    <td>0x3DB0 bytes </td>
+    <td>allocation bitmap for blocks following header </td>
+  </tr>
+</table>
+<p>The two members that are marked above as unused are plausibly just artefacts 
+of the programming. This would be directly so for the unused dword at offset 0x2C, 
+which could be compiler-generated padding for the 64-bit alignment of the next member. 
+That the dword at offset 0x024C is unused may indicate that Microsoft’s definition 
+of the header as a formal structure does not include the bitmap. Instead, following 
+a typical practice at Microsoft, the programmer may have defined a single-element 
+array (of bytes or dwords) at offset 0x024C to mark the intention of following the 
+header with something else, even though other code then places the something else 
+not at the marker but after the structure. </p>
+<h3>Signature </h3>
+<p>The signature at offset 0x00 is required for an existing INDEX.DAT file to be 
+considered valid and is entered into any INDEX.DAT file that is initialised or re-initialised 
+by this WININET version. It also appears in the registry, in each of several possible 
+keys: </p>
+<table class="Registry">
+  <tr>
+    <td>Key: </td>
+    <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\5.0\Cache</span> <br><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\5.0\Cache</span> <br><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Internet 
+    Settings\5.0\LowCache</span> </td>
+  </tr>
+  <tr>
+    <td>Value: </td>
+    <td><span class="regvalue">Signature</span> </td>
+  </tr>
+  <tr>
+    <td>Type: </td>
+    <td><span class="constant">REG_SZ</span> </td>
+  </tr>
+  <tr>
+    <td>Data: </td>
+    <td><span class="regsz">Client UrlCache MMF Ver 5.2</span> </td>
+  </tr>
+</table>
+<p>Its purpose there is to mark that WININET has already determined whether the 
+current user, at the current process’s integrity level, has a per-user Content cache 
+or must use a shared cache. This and other matters of cache configuration are left 
+for a separate article. </p>
+<h3>Block Allocation </h3>
+<p>Several fields in the header help with bookkeeping for the allocation bitmap 
+at the header’s end. The size of a valid INDEX.DAT file, as saved at offset 0x1C 
+in the header, is 0x4000 for the header plus 0x80 for each block that’s counted 
+at offset 0x24 in the header. The dword at offset 0x28 tells how many of these blocks 
+are allocated to file-map entries. A block is allocated if the corresponding bit 
+at offset 0x0250 is set. The header has space for at most 0x0001ED80 such bits, 
+for a maximum file size of 0x00F70000 bytes. </p>
+<p>Incidentally, some parts of the WININET code allow for a configurable block size. 
+Other parts have hard-coded assumptions about the block size and won’t work correctly 
+unless the block size is 0x80 bytes. </p>
+<h3>Directories </h3>
+<p>Local files for the cache are potentially numerous. They can be distributed among 
+as many as 32 randomly named subdirectories of whichever directory holds the INDEX.DAT 
+file. The number of subdirectories yet created for this purpose is saved at offset 
+0x48 in the file header. The subdirectories themselves are described at offset 0x4C 
+in an array of unnamed structures: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>number of files in this subdirectory </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>8 bytes </td>
+    <td>name of subdirectory, without null terminator </td>
+  </tr>
+</table>
+<p>With these descriptions in the file header, each URL entry that has a local file 
+in the cache need not hold a complete pathname for the local file, nor even reproduce 
+the name of the directory that contains the local file, just the filename: a one-byte 
+index into this array suffices for the path. </p>
+<h3>Header Data </h3>
+<p>The array at offset 0x01CC provides for indexed storage of an arbitrary dword 
+whose interpretation varies with the index. Although this header data takes space 
+in every INDEX.DAT file, most of it is meaningful in the Content container only.
+</p>
+<table class="Constants">
+  <colgroup>
+    <col class="Constant"><col class="Name"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Index </th>
+    <th>Symbolic Name </th>
+    <th>Interpretation </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_CURRENT_SETTINGS_VERSION</span>
+    </td>
+    <td>number of changes to any of many WININET settings </td>
+  </tr>
+  <tr>
+    <td>0x01 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_CONLIST_CHANGE_COUNT</span>
+    </td>
+    <td>number of changes to container list for same registry set </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_COOKIE_CHANGE_COUNT</span> </td>
+    <td>number of changes to Cookies container </td>
+  </tr>
+  <tr>
+    <td>0x03 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_NOTIFICATION_HWND</span> </td>
+    <td>window handle for cache notifications </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_NOTIFICATION_MESG</span> </td>
+    <td>window message for cache notifications </td>
+  </tr>
+  <tr>
+    <td>0x05 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_ROOTGROUP_OFFSET</span> </td>
+    <td>file offset of first <span class="struct">GROUP_ENTRY</span>, else zero
+    </td>
+  </tr>
+  <tr>
+    <td>0x06 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_GID_LOW</span> </td>
+    <td>low 32 bits for generation of most recently allocated <span class="type">
+    GROUPID</span>, else zero </td>
+  </tr>
+  <tr>
+    <td>0x07 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_GID_HIGH</span> </td>
+    <td>high 32 bits for generation of most recently allocated
+    <span class="type">GROUPID</span>, else zero </td>
+  </tr>
+  <tr>
+    <td>0x0E </td>
+    <td><span class="constant">CACHE_HEADER_DATA_SSL_STATE_COUNT</span> </td>
+    <td><span class="alert">potted description needed here! </span></td>
+  </tr>
+  <tr>
+    <td>0x15 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_NOTIFICATION_FILTER</span> </td>
+    <td>bit flags to filter cache notifications </td>
+  </tr>
+  <tr>
+    <td>0x16 </td>
+    <td><span class="constant">CACHE_HEADER_DATA_ROOT_LEAK_OFFSET</span> </td>
+    <td>file offset of first leak entry </td>
+  </tr>
+  <tr>
+    <td>0x1B </td>
+    <td><span class="constant">CACHE_HEADER_DATA_ROOT_GROUPLIST_OFFSET</span>
+    </td>
+    <td>file offset of first <span class="struct">GROUP_LIST_ENTRY</span>, else 
+    zero </td>
+  </tr>
+</table>
+<p>This list is of all that are meaningful to WININET. The header data cannot be 
+defined exhaustively from inspection of WININET, because of exposure through the 
+exported functions <span class="function">GetUrlCacheHeaderData</span>,
+<span class="function">IncrementUrlCacheHeaderData</span> and
+<span class="function">SetUrlCacheHeaderData</span>. Since these functions are undocumented, 
+external users may be few. The only ones supplied with Windows (Vista) are INETCPL.CPL 
+and MSDRM.DLL, and they access only <span class="constant">CACHE_HEADER_DATA_SSL_STATE_COUNT</span>, 
+for purposes not yet studied. These functions anyway affect only the Content container.
+</p>
+<p>Perusal of earlier WININET versions confirms that more of the header data used 
+to be meaningful, even as recently as version 6.0. </p>
+<p>Indices 0x05, 0x16 and 0x1B point to the start of one or another chain of structures 
+in file-map entries. Much like the dword at offset 0x20 in the header, which points 
+to the hash table, they are essential for navigating the file. This is not so for 
+the other indices. They appear to be kept in the file header because the file can 
+be accessed from multiple processes concurrently and its memory-mapped image is 
+conveniently to hand as shared memory. </p>
+<p>The first three indices and 0x0E are global counters. Each counter governs some 
+state that may be maintained by multiple processes but is invalidated for all if 
+changed by one. For index zero, the relevant state is a large collection of settings, 
+mostly loaded from the registry, that have no obvious or direct conection with URL 
+caching. </p>
+<p>Indices 0x03, 0x04 and 0x15 support the (undocumented) <span class="function">
+RegisterUrlCacheNotification</span> function. No software supplied with Windows 
+Vista imports it. That the header data is more valuable as shared memory than as 
+persistent storage is especially marked for index 0x03: it holds a window handle, 
+whose persistence in a file from one Windows session to another really can’t be 
+much use. </p>
+<h2>File Map Entries </h2>
+<p>All file-map entries, meaning entries allocated as whole blocks of an INDEX.DAT 
+file, begin with an 8-byte <span class="struct">FILEMAP_ENTRY</span> structure:
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>signature </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>number of blocks allocated to entry </td>
+  </tr>
+</table>
+<p>Some types of file-map entry are distinguished by their signature: </p>
+<table>
+  <tr>
+    <td>“HASH” </td>
+    <td>0x48534148 </td>
+    <td>page in the hash table </td>
+  </tr>
+  <tr>
+    <td>“LEAK” </td>
+    <td>0x4B41454C </td>
+    <td>leak entry, actually a modified URL entry </td>
+  </tr>
+  <tr>
+    <td>“REDR” </td>
+    <td>0x52444552 </td>
+    <td>redirection entry </td>
+  </tr>
+  <tr>
+    <td>“URL ” </td>
+    <td>0x204C5255 </td>
+    <td>standard URL entry </td>
+  </tr>
+</table>
+<p>Here, for easier reading, each dword signature is presented first as characters, 
+starting from the least significant. No signature is set explicitly for the page-sized 
+entries that hold the several structures for supporting groups of URL entries. For 
+these, the signature is 0xDEADBEEF, this being what all dwords in all the blocks 
+for any entry are filled with when the entry is newly allocated (before the count 
+of blocks is recorded at offset 0x04). </p>
+<p>Incidentally, the WININET code provides for filling blocks with 0x0BADF00D when 
+they are deallocated from a file-map entry, but the option to do this is never exercised. 
+Code for deleting URL entries is called with either “DEL ” or “UPD ” as an argument, 
+presumably so that this signature can be set into the deleted entry. However, the 
+called code never acts on this argument. Perusal of earlier WININET versions confirms 
+that the code for both these cases used to be active. </p>
+<h2>The Hash Table </h2>
+<p>A typical problem for accessing the cache is that a URL is known and information 
+about this URL is either to be retrieved from the cache or saved into the cache. 
+Of course, WININET does not search the whole INDEX.DAT file, nor even just where 
+URLs are known to be stored. Instead, a 32-bit hash is computed of the URL and a 
+small portion of the file is searched for matching hash items. This portion is here 
+called the hash table. It is built as page-sized file-map entries, which are typically 
+scattered through the file. </p>
+<p>Each page in the hash table has a 0x10-byte <span class="struct">LIST_FILEMAP_ENTRY</span> 
+structure as a header. This begins in turn as a <span class="struct">FILEMAP_ENTRY</span>, 
+with “HASH” as its signature and 0x20 as its block count: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>dword </td>
+    <td>file offset to next page of hash table, else zero </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td>0-based serial number of this page within hash table </td>
+  </tr>
+</table>
+<p>Pages that are allocated to the hash table are never deallocated. The file offset 
+of the first page is recorded in the file header, at offset 0x20. The hash table 
+is always examined from the first-allocated page to the last, following the links 
+at offset 0x08 and checking each for the correct serial number at offset 0x0C.
+</p>
+<h3>Hash Items </h3>
+<p>The <span class="struct">LIST_FILEMAP_ENTRY</span> on each page of the hash table 
+is followed immediately by an array of 8-byte <span class="struct">HASH_ITEM</span> 
+structures: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>5 bits </td>
+    <td>flags </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>1 bit </td>
+    <td>apparently unused </td>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>26 bits </td>
+    <td>high 26 bits of hash </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>file offset of corresponding file-map entry, else 3 </td>
+  </tr>
+</table>
+<p>The array of hash items on the page is two-dimensional. Specifically, the hash 
+items are arranged as 64 sets of 7. The 64 comes about because the sets are indexed 
+by the low 6 bits of the hash. That there are 7 items per set is because that’s 
+as big as each set can be for 64 of them to fit the page. Space after the hash items, 
+i.e., from offset 0x0E10, is unused. To enumerate all the URLs about which information 
+is cached in an INDEX.DAT file, the hash table is examined by working upwards through 
+all the hash items on each page of the hash table, from the first-allocated page 
+to the last. To look up a particular URL is also to search the hash table from the 
+first page to the last, but looking only at the seven hash items per page that are 
+selected by the low 6 bits of the URL’s hash. </p>
+<p>Since the low 6 bits of the hash are implied by the hash item’s position on the 
+page, the whole hash need not be held in the hash item itself, just the high 26 
+bits. That leaves each hash item with 6 bits to use as flags. </p>
+<p>The <a href="hashkey.htm">hash algorithm for URL caching</a> is presented separately. 
+For most practical purposes, it suffices to know just that the input for the computation 
+is the URL exactly as given, i.e., without case conversion, up to but not including 
+the null terminator, except to ignore at most one trailing forward slash. This last 
+point helps when an original URL is redirected simply by appending a forward slash: 
+with or without the slash, the lookup is the same. </p>
+<h4>Hash Item Flags </h4>
+<p>The hash table has a <span class="struct">HASH_ITEM</span> for every file-map 
+entry that might be sought from a URL. Such entries come in two types: URL entries 
+and redirection entries. What type a hash item represents is recorded in the flags, 
+along with a few other properties that might usefully be known immediately from 
+the hash item without following the file offset to the file-map entry (which would 
+have to be validated and interpreted). </p>
+<p>The low 3 bits of the flags in a <span class="struct">HASH_ITEM</span> are more 
+or less, but not formally, a single field. They are sometimes examined for equality 
+after masking by 0x07, but are sometimes tested individually. The interpretation 
+adopted here is that if the 0x01 bit is clear, then the hash item represents a URL 
+entry and the other bits are independent: </p>
+<table>
+  <tr>
+    <td>0x01 </td>
+    <td>clear: file offset in hash item is of URL entry and hash is of URL </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td>corresponding URL entry is locked </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>corresponding URL entry has trivial redirection </td>
+  </tr>
+</table>
+<p>A URL entry is locked while its local file is being accessed, most notably for 
+the <span class="function">RetrieveUrlCacheEntryFile</span> and
+<span class="function">RetrieveUrlCacheEntryStream</span> functions, which require 
+a subsequent call to <span class="function">UnlockUrlCacheEntryFile</span> or
+<span class="function">UnlockUrlCacheEntryStream</span>. Nested locking is supported 
+through a count in the URL entry itself, at offset 0x58 (see later). An entry cannot 
+be deleted while locked. An attempt at such deletion may appear to succeed, but 
+the entry is not actually deleted until the final unlock. </p>
+<p>The 0x04 flag eases a common case of URL redirection. It means simply that the 
+redirection appended a forward slash. Put another way, the URL that is saved in 
+the URL entry is the original URL plus a forward slash. With such a simple relationship, 
+there’s no need to save the original URL separately as a redirection entry (see 
+later). A search for either URL produces the one hash item for the one URL entry.
+</p>
+<p>When the 0x01 flag is set, the hash item represents something other than a URL 
+entry and the low 3 bits are better interpreted as one field: </p>
+<table>
+  <tr>
+    <td>0x01 </td>
+    <td>hash item is free; <br>whole first dword of hash item should be 1 </td>
+  </tr>
+  <tr>
+    <td>0x03 </td>
+    <td>hash item is unused; <br>whole first dword of hash item should be 3 </td>
+  </tr>
+  <tr>
+    <td>0x05 </td>
+    <td>file offset is of redirection entry; <br>hash is of original URL </td>
+  </tr>
+</table>
+<p>Hash items in a new page for the hash table are initialised with 3 in both dwords, 
+presumably just as a quick way to set 0x03 for the flags in the first dword. When 
+searching the hash table, seven items per page, for a particular URL, finding an 
+item that has 0x03 as its first dword means that the search is over and the URL 
+is not in the hash table. If the URL is to be entered into the hash table, then 
+the first free hash item, with 0x01 as its first dword, that was noticed on the 
+way, is allocated to the URL. If there was no free hash item, then the unused item 
+is allocated to the URL. If the search ended at the last page of the hash table 
+without finding an unused item, then the hash table gets a new page. </p>
+<h4>Group Status </h4>
+<p>Other flags in a hash item are particular to the grouping of URL entries, and 
+appear to be meaningful only in hash items for URL entries: </p>
+<table>
+  <tr>
+    <td>0x08 </td>
+    <td>corresponding URL entry belongs to a group </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>corresponding URL entry belongs to a list of groups </td>
+  </tr>
+</table>
+<p>These flags are not independent: the 0x10 flag is never set unless the 0x08 flag 
+is also set. The 0x10 flag must, of course, be set if the URL entry belongs to more 
+than one group. However, if the URL entry belongs to exactly one group, then this 
+flag can be either set or clear. The difference is in the linkage from entry to 
+group. If the flag is clear, the entry links directly to its group. If the flag 
+is set, the entry links to a list of groups which happens to be a list of one.
+</p>
+<p>The descriptions above are anyway offered only as interpretations of what seems 
+to be intended, not what actually is coded. It can happen that the 0x08 flag is 
+set even though the URL entry does not belong to any group, but this is here taken 
+to be the consequence of a coding error—indeed, of two coding errors. The essential 
+point for both is that when a group is deleted, any entries that belong to the group 
+but which will not be deleted with the group would better not be left still referring 
+to the group. The main such reference is the dword at offset 0x28 in the
+<span class="struct">IE6_URL_FILEMAP_ENTRY</span> (see later). In one case, code 
+that supports the <span class="function"><a href="cacheapi/deletegroup.htm">DeleteUrlCacheGroup</a></span> 
+function clears this dword but does nothing about the 0x08 flag in the hash item. 
+This might not matter—indeed, the intended meaning of the 0x08 flag could be just 
+that the corresponding URL entry <span class="emphasis">may</span> belong to a group—except 
+that some code for enumerating entries takes for granted that if the 0x08 flag is 
+set in the hash item then the dword at offset 0x28 in the URL entry is a meaningful 
+file offset. It just doesn’t defend against this dword being zero. One or other 
+piece of code is faulty, though I must admit I can find no serious consequence, 
+just a quirk: </p>
+<ol>
+  <li>create a group; </li>
+  <li>create a URL entry (but avoid any cache entry type that is not in
+  <span class="constant">URLCACHE_FIND_DEFAULT_FILTER</span> or
+  <span class="constant">INCLUDE_BY_DEFAULT_CACHE_ENTRY</span>); </li>
+  <li>assign the URL entry to the group; </li>
+  <li>delete the group (without setting <span class="constant">CACHEGROUP_FLAG_FLUSHURL_ONDELETE</span>);
+  </li>
+  <li>search for URL entries in a fake group whose group ID is 0x5520746E65696C43 
+  and be surprised to see the entry from step 2. </li>
+</ol>
+<p>The cumbersome parenthesis at step 2 is not just a necessary condition for triggering 
+the coding error. It hints at a second coding error. For entries whose cache entry 
+type has any set bit that is not in either of the collections
+<span class="constant">URLCACHE_FIND_DEFAULT_FILTER</span> or
+<span class="constant">INCLUDE_BY_DEFAULT_CACHE_ENTRY</span>, the cleanup of links 
+from entry to group isn’t even attempted. Both the dword and the flag persist as 
+if the entry still belongs to the deleted group. Creating this anomalous state is 
+as easy as: </p>
+<ol>
+  <li>create a group; </li>
+  <li>create a URL entry of type <span class="constant">EDITED_CACHE_ENTRY</span> 
+  or <span class="constant">SPARSE_CACHE_ENTRY</span> (for instance); </li>
+  <li>assign the URL entry to the group; </li>
+  <li>delete the group (with or without setting <span class="constant">CACHEGROUP_FLAG_FLUSHURL_ONDELETE</span>).
+  </li>
+</ol>
+<p>For confirmation that the state created by these steps genuinely is anomalous, 
+create another group immediately and enumerate it for entries of whatever type you 
+created at step 2. The entry from step 2 magically appears in the new group (whose 
+creation reuses memory that held the definition of the old group, such that the 
+entry’s stale references to those definitions are picked up for the new group).
+</p>
+<h2>URL Entries </h2>
+<p>The main type of file-map entry in an INDEX.DAT file is one that associates a 
+URL with information that is cached for that URL. Each such entry has a fixed-sized 
+header which is followed by variable-sized data, typically strings. The header is 
+an <span class="struct">IE6_URL_FILEMAP_ENTRY</span> structure, based on
+<span class="struct">FILEMAP_ENTRY</span>. The signature is typically “URL ” but 
+can be modified to “LEAK” as a special case. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col span="2" class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th colspan="2">Description </th>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>8 bytes </td>
+    <td colspan="2">last modified time, as <span class="struct">FILETIME</span> 
+    structure </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>8 bytes </td>
+    <td colspan="2">last access time, as <span class="struct">FILETIME</span> structure
+    </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>dword </td>
+    <td colspan="2">expiry time, as DOS time </td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td>dword </td>
+    <td colspan="2"><span class="alert">potted description needed here! </span>
+    </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>dword </td>
+    <td colspan="2">size of local file, in bytes </td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>dword </td>
+    <td colspan="2">apparently unused, except for explicit initialisation to zero
+    </td>
+  </tr>
+  <tr>
+    <td>0x28 </td>
+    <td>dword </td>
+    <td colspan="2">file offset of <span class="struct">GROUP_ENTRY</span> or
+    <span class="struct">LIST_GROUP_ENTRY</span> </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x2C </td>
+    <td rowspan="2">dword </td>
+    <td>in URL entry: </td>
+    <td>exempt delta </td>
+  </tr>
+  <tr>
+    <td>in leak entry: </td>
+    <td>file offset of next leak entry </td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td>dword </td>
+    <td colspan="2">size of structure in excess of <span class="struct">FILEMAP_ENTRY</span>, 
+    in bytes </td>
+  </tr>
+  <tr>
+    <td>0x34 </td>
+    <td>dword </td>
+    <td colspan="2">offset from start of structure to URL, as saved in entry after 
+    header </td>
+  </tr>
+  <tr>
+    <td>0x38 </td>
+    <td>byte </td>
+    <td colspan="2">index of directory containing local file </td>
+  </tr>
+  <tr>
+    <td>0x39 </td>
+    <td>byte </td>
+    <td colspan="2">synchronisation count </td>
+  </tr>
+  <tr>
+    <td>0x3A </td>
+    <td>byte </td>
+    <td colspan="2"><span class="alert">potted description needed here! </span>
+    </td>
+  </tr>
+  <tr>
+    <td>0x3B </td>
+    <td>byte </td>
+    <td colspan="2"><span class="alert">potted description needed here! </span>
+    </td>
+  </tr>
+  <tr>
+    <td>0x3C </td>
+    <td>dword </td>
+    <td colspan="2">offset from start of structure to name of local file, as saved 
+    in entry after header </td>
+  </tr>
+  <tr>
+    <td>0x40 </td>
+    <td>dword </td>
+    <td colspan="2">cache entry type, as bit flags </td>
+  </tr>
+  <tr>
+    <td>0x44 </td>
+    <td>dword </td>
+    <td colspan="2">offset from start of structure to header information, as saved 
+    in entry after header </td>
+  </tr>
+  <tr>
+    <td>0x48 </td>
+    <td>dword </td>
+    <td colspan="2">size of header information, in bytes </td>
+  </tr>
+  <tr>
+    <td>0x4C </td>
+    <td>dword </td>
+    <td colspan="2">offset from start of structure to file extension, as saved in 
+    entry after header </td>
+  </tr>
+  <tr>
+    <td>0x50 </td>
+    <td>dword </td>
+    <td colspan="2">last synchronisation time, as DOS time </td>
+  </tr>
+  <tr>
+    <td>0x54 </td>
+    <td>dword </td>
+    <td colspan="2">number of times entry has been locked </td>
+  </tr>
+  <tr>
+    <td>0x58 </td>
+    <td>dword </td>
+    <td colspan="2">nesting level of locks on entry </td>
+  </tr>
+  <tr>
+    <td>0x5C </td>
+    <td>dword </td>
+    <td colspan="2">creation time, as DOS time </td>
+  </tr>
+  <tr>
+    <td>0x60 </td>
+    <td>dword </td>
+    <td colspan="2"><span class="alert">potted description needed here! </span>
+    </td>
+  </tr>
+  <tr>
+    <td>0x64 </td>
+    <td>4 bytes </td>
+    <td colspan="2">apparently unused </td>
+  </tr>
+</table>
+<p>That the last dword may truly be unused is again plausible as a programming artefact. 
+The structure is perhaps defined with a a one-element character array at the end 
+as an allowance for variable-sized data to follow the structure, even though the 
+data actually gets placed after the structure. </p>
+<p>Perusal of symbol files for earlier WININET versions confirms that there has 
+been defined an <span class="struct">IE5_URL_FILEMAP_ENTRY</span> and, before that, 
+a plain <span class="struct">URL_FILEMAP_ENTRY</span>. The byte at offset 0x3A appears 
+to exist, nowadays, only to distinguish an <span class="struct">IE6_URL_FILEMAP_ENTRY</span> 
+from an <span class="struct">IE5_URL_FILEMAP_ENTRY</span>. It and the byte at offset 
+0x3B are set to 0x10 for the newer structure and 0x00 for the older. The two structures 
+have the same layout except that the older is only 0x60 bytes. The member at offset 
+0x60 is not present unless the byte at offset 0x3A is at least 0x10, and is anyway 
+barely used in version 7.0. Indeed, the dword at offset 0x60, the bytes at offsets 
+0x3A and 0x3B, and even the dwords at offsets 0x24 and 0x30 are all so little used, 
+but with the look of having been more used, that meaningful description ought not 
+be attempted without closer inspection of earlier WININET versions. </p>
+<h3>Cache Entry Type </h3>
+<p>The cache entry type at offset 0x40 is a collection of bit flags. The following 
+are generally meaningful: </p>
+<table>
+  <tr>
+    <td>0x00000001 </td>
+    <td><span class="constant">NORMAL_CACHE_ENTRY</span> </td>
+    <td>set initially for all entries in Content container </td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td><span class="constant">STICKY_CACHE_ENTRY</span> </td>
+    <td>entry is exempt from scavenging </td>
+  </tr>
+  <tr>
+    <td>0x00000008 </td>
+    <td><span class="constant">EDITED_CACHE_ENTRY</span> </td>
+    <td>local file need not be in cache </td>
+  </tr>
+  <tr>
+    <td>0x00010000 </td>
+    <td><span class="constant">SPARSE_CACHE_ENTRY</span> </td>
+    <td><span class="alert">potted description needed here! </span></td>
+  </tr>
+  <tr>
+    <td>0x00100000 </td>
+    <td><span class="constant">COOKIE_CACHE_ENTRY</span> </td>
+    <td>set initially for all entries in Cookies container </td>
+  </tr>
+  <tr>
+    <td>0x00200000 </td>
+    <td><span class="constant">URLHISTORY_CACHE_ENTRY</span> </td>
+    <td>set initially for all entries in History container </td>
+  </tr>
+  <tr>
+    <td>0x00400000 </td>
+    <td><span class="constant">PENDING_DELETE_CACHE_ENTRY</span> </td>
+    <td>set when deletion is attempted while entry is locked </td>
+  </tr>
+  <tr>
+    <td>0x10000000 </td>
+    <td><span class="constant">INSTALLED_CACHE_ENTRY</span> </td>
+    <td><span class="alert">potted description needed here! </span></td>
+  </tr>
+  <tr>
+    <td>0x80000000 </td>
+    <td><span class="constant">IDENTITY_CACHE_ENTRY</span> </td>
+    <td><span class="alert">potted description needed here! </span></td>
+  </tr>
+</table>
+<p>These are the bits that are interpreted, set or cleared by WININET itself while 
+managing URL entries as a file-format feature. All bits in the cache entry type 
+are exposed to external interpretation and control, even at the risk of conflicts 
+with WININET’s own bookkeeping. See especially that the <span class="function">SetUrlCacheEntryInfo</span> 
+function can set the cache entry type in a URL entry to anything (exactly as given 
+in the <span class="member">CacheEntryType</span> member of the
+<span class="struct">INTERNET_CACHE_ENTRY_INFO</span> structure, when either
+<span class="constant">CACHE_ENTRY_ATTRIBUTE_FC</span> or <span class="constant">
+CACHE_ENTRY_TYPE_FC</span> is specified in the <span class="argument">dwFieldControl</span> 
+argument). </p>
+<p>Perusal of earlier WININET versions suggests that some of these flags have meant 
+more. The <span class="constant">INSTALLED_CACHE_ENTRY</span> and
+<span class="constant">IDENTITY_CACHE_ENTRY</span> types look to be particularly 
+affected by a reduction of support in version 7.0, such that description ought not 
+be attempted without closer inspection of earlier versions. </p>
+<h3>Retrieval Counts </h3>
+<p>The dwords at offsets 0x54 and 0x58 can be inspected through the
+<span class="function">GetUrlCacheEntryInfo</span> function, in the
+<span class="member">dwHitRate</span> and <span class="member">dwUseCount</span> 
+members of the <span class="struct">INTERNET_CACHE_ENTRY_INFO</span> structure. 
+Both the hit rate and use count are incremented in the URL entry each time the entry 
+is locked for retrieval of its local file. Only the use count is decremented each 
+time the entry is unlocked. </p>
+<p>Interpretation of the hit rate as the number of times the entry has been locked 
+is, however, not strictly justfied. The <span class="function">SetUrlCacheEntryInfo</span> 
+function can set the hit rate to anything (from the <span class="member">dwHitRate</span> 
+member of the <span class="struct">INTERNET_CACHE_ENTRY_INFO</span> structure, when
+<span class="constant">CACHE_ENTRY_HITRATE_FC</span> is specified in the
+<span class="argument">dwFieldControl</span> argument). </p>
+<h2>Leak Entries </h2>
+<p>When a URL entry is deleted, the corresponding local file, if any, would ideally 
+be deleted too. If it happens that the local file cannot be deleted because of an 
+error that may just be temporary, which means specifically
+<span class="constant">ERROR_ACCESS_DENIED</span> or <span class="constant">ERROR_SHARING_VIOLATION</span>, 
+then the URL entry is converted to a leak entry and is removed from the hash table. 
+Leak entries are essentially URL entries with “LEAK” as the signature. Though they 
+are removed from being found as URL entries, they are kept in a list so that deletion 
+of the local file can eventually be re-attempted. The file offset of the leak entry 
+at the head of the list is found from the header data, in the dword indexed by
+<span class="constant">CACHE_HEADER_DATA_ROOT_LEAK_OFFSET</span>. In each leak entry, 
+the member at offset 0x2C is unnecessary (else there would have been no attempt 
+to delete the leak entry while it was a URL entry) and is reused for linking to 
+the next leak entry. </p>
+<h2>Redirection Entries </h2>
+<p>When a URL is entered into the cache, as through the <span class="function">CommitUrlCacheEntry</span> 
+function, it can be given together with a URL that it was redirected from, i.e., 
+the original URL. Either URL can be searched for. When the redirection is just a 
+matter of appending a forward slash, the redirection is accommodated by ignoring 
+the forward slash when computing the hash and marking the URL entry’s hash item 
+by setting its 0x04 flag. In general however, both URLs are represented in the hash 
+table. The URL that actually is entered into the cache has a hash item which links 
+to an <span class="struct">IE6_URL_FILEMAP_ENTRY</span>. The original URL has a 
+separate hash item that links to a structure which is not named in the public symbol 
+file but is here called a redirection entry. It too is a file-map entry, based on
+<span class="struct">FILEMAP_ENTRY</span>, but with “REDR” as its signature: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>dword </td>
+    <td>file offset of hash item for URL entry </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td>hash of (target) URL, but with low 6 bits clear </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>varies </td>
+    <td>original URL </td>
+  </tr>
+</table>
+<p>The WININET code for creating a redirection entry computes the size of entry 
+as a header of 0x14 bytes plus the original URL as a null-terminated string. Presumably, 
+the structure is defined with a single-element character array at offset 0x10, and 
+in this case the programmer actually does copy the characters to that placeholder 
+instead of to the end of the structure. </p>
+<p>Any number of redirection entries may link to one URL entry, to model that any 
+number of original URLs redirect to the same target URL. Perhaps because of this, 
+there is no link back from the URL entry. When a URL entry is deleted, the redirection 
+entries that link to it are left alone. They retain the file offset of a hash item 
+that may be reused, sooner or later, for a different URL entry or even for a redirection 
+entry. The defence is provided by the saved hash at offset 0x0C. A redirection entry 
+is invalid unless the hash item pointed to from offset 0x08 is plausibly still the 
+one the redirection entry was created for. Specifically, the first dword of the 
+supposed hash item must have the 0x01 flag clear (as expected of a hash item for 
+a URL entry) and must have the same hash as saved at offset 0x0C in the redirection 
+entry. </p>
+<h2>Group Entries </h2>
+<p>URL entries in a Content container can be grouped. Since groups are not much 
+used nowadays, at least not by Microsoft in software supplied with Windows, a brief 
+review may help. An empty group is created through the exported function
+<span class="function"><a href="cacheapi/creategroup.htm">CreateUrlCacheGroup</a></span>, 
+which returns a 64-bit group ID to represent the group in calls to other functions. 
+There is also a built-in group with a preset group ID (used most notably by IEFRAME 
+when caching FAVICON.ICO files). Properties can be set for a group by calling the 
+exported function <span class="function">SetUrlCacheGroupAttribute</span>. URL entries 
+can be assigned to a group through the exported function <span class="function">
+SetUrlCacheEntryGroup</span>. The most prominent merit to grouping URL entries is 
+that enumeration of URL entries can be refined by supplying the group ID as a search 
+parameter. A less prominent but conceivably very useful feature is that URL entries 
+can be made sticky simply by assigning them to a sticky group. Another is that URL 
+entries assigned to a group can be deleted <span class="foreign">en masse</span> 
+by assigning them to a group and then deleting the group (with a suitable flag specified). 
+To delete a group, call the <span class="function">DeleteUrlCacheGroup</span> function.
+</p>
+<p>In the INDEX.DAT file format, each group is represented by a 0x28-byte
+<span class="struct">GROUP_ENTRY</span> structure: </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col span="2" class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th colspan="2">Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>qword </td>
+    <td colspan="2">group ID, else zero in a free entry, or -1 in an index entry
+    </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x08 </td>
+    <td rowspan="2">dword </td>
+    <td>in allocated entry: </td>
+    <td>group flags </td>
+  </tr>
+  <tr>
+    <td>in index entry: </td>
+    <td>file offset of first <span class="struct">GROUP_ENTRY</span> on next page 
+    of such structures, else zero </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>dword </td>
+    <td colspan="2">group type </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>qword </td>
+    <td colspan="2">disk usage, in bytes </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>dword </td>
+    <td colspan="2">disk quota, in kilobytes </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x1C </td>
+    <td rowspan="2">dword </td>
+    <td>in allocated entry: </td>
+    <td>file offset of <span class="struct">GROUP_DATA_ENTRY</span> structure containing 
+    optional attributes, else zero </td>
+  </tr>
+  <tr>
+    <td>in first index entry: </td>
+    <td>file offset of first free <span class="struct">GROUP_DATA_ENTRY</span> structure, 
+    else zero </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>8 bytes </td>
+    <td colspan="2">apparently unused </td>
+  </tr>
+</table>
+<p>The unused space at offset 0x20 may be an alignment artefact. For instance, in 
+anticipation of variable-sized data at the end of the structure, a programmer may 
+have thought to mark the spot with a one-element byte array. A wasteful side-effect, 
+because of members that demand 64-bit alignment, would be that the structure acquires 
+eight more bytes. </p>
+<p>Note that a group entry is not a file-map entry. It is too small to justify consuming 
+a whole block. Group entries are instead prepared collectively in page-sized file-map 
+entries. Each such page is a <span class="struct">FILEMAP_ENTRY</span> followed 
+immediately by an array of as many <span class="struct">GROUP_ENTRY</span> structures 
+as fit the page. The file offset of the first group entry on the first page of group 
+entries is saved in the file header, as the <span class="constant">CACHE_HEADER_DATA_ROOTGROUP_OFFSET</span> 
+index in the header data. The last group entry on each page is marked specially 
+as an index entry. It can never represent a group but instead provides the link 
+to the next page of group entries. Group entries are always scanned from the first 
+on a page up to but not including the index entry on that page, repeating for each 
+page, starting from the first page that was ever allocated, proceeding to the most 
+recently allocated. </p>
+<p>A group entry is free, for representing a new group, simply because its group 
+ID is zero. Deleting a group frees the corresponding group entry for reallocation 
+to a subsequently created group. (Indeed, deleting a group clears all the bytes 
+of the group entry.) Deleting all the groups that are defined on a page of group 
+entries merely leaves a page of free group entries: once a file-map entry is allocated 
+to hold group entries, it stays allocated. </p>
+<h3>Flags </h3>
+<p>The flags at offset 0x08 are acquired only from the <span class="argument">dwFlags</span> 
+argument of the <span class="function">CreateUrlCacheGroup</span> function. It would 
+seem then that only two bits can ever be set: </p>
+<table>
+  <tr>
+    <td>0x01 </td>
+    <td><span class="constant">CACHEGROUP_FLAG_NONPURGEABLE</span> </td>
+  </tr>
+  <tr>
+    <td>0x02 </td>
+    <td><span class="constant">CACHEGROUP_FLAG_FLUSHURL_ONDELETE</span> </td>
+  </tr>
+</table>
+<p>Neither is directly meaningful. The former records that the group was created 
+to be sticky, but what matters for whether a group actually is sticky is that the 
+0x1000000000000000 bit is set in the group ID. The other flag can usefully be given 
+to the <span class="function">DeleteUrlCacheGroup</span> function but whether it 
+is set or clear in the group entry appears to be entirely meaningless. Useful or 
+not, the flags as recorded in the group entry can be retrieved through the
+<span class="function">GetUrlCacheGroupAttribute</span> function, in the
+<span class="member">dwGroupFlags</span> member of the <span class="struct">INTERNET_CACHE_GROUP_INFO</span> 
+structure. </p>
+<h3>Disk Usage </h3>
+<p>The disk usage at offset 0x10 is maintained by WININET as the total size of local 
+files for all URL entries that belong to the group. Its current value, converted 
+to KB, can be retrieved through the <span class="function">GetUrlCacheGroupAttribute</span> 
+function, in the <span class="member">dwDiskUsage</span> member of the
+<span class="struct">INTERNET_CACHE_GROUP_INFO</span> structure. </p>
+<h3>Not Exactly Unused </h3>
+<p>The type member at offset 0x0C is exactly as accessed through the
+<span class="member">dwGroupType</span> member of the <span class="struct">INTERNET_CACHE_GROUP_INFO</span> 
+structure given to the <span class="function">GetUrlCacheGroupAttribute</span> and
+<span class="function">SetUrlCacheGroupAttribute</span> functions. Neither function 
+interprets this member in any way. Except for access through these functions, the 
+type appears to be unused. </p>
+<h2>Group Data Entries </h2>
+<p>The remaining attributes that can be set for a group through the
+<span class="function">SetUrlCacheGroupAttribute</span> function are, or can be, 
+relatively substantial. Since they are anyway optional, it would be wasteful to 
+provide for storing them in every group entry. If they ever are set for a group, 
+they are held separately, in a <span class="struct">GROUP_DATA_ENTRY</span> structure:
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col span="2" class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th colspan="2">Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td><span class="constant">GROUPNAME_MAX_LENGTH</span> bytes </td>
+    <td colspan="2">group name </td>
+  </tr>
+  <tr>
+    <td>0x78 </td>
+    <td><span class="constant">GROUP_OWNER_STORAGE_SIZE</span> dwords </td>
+    <td colspan="2">owner storage </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x88 </td>
+    <td rowspan="2">dword </td>
+    <td>in allocated entry: </td>
+    <td>zero </td>
+  </tr>
+  <tr>
+    <td>in free entry: </td>
+    <td>file offset of next free <span class="struct">GROUP_DATA_ENTRY</span>, else 
+    zero </td>
+  </tr>
+</table>
+<p>Again, <span class="struct">GROUP_DATA_ENTRY</span> structures are not file-map 
+entries but are instead prepared collectively in page-sized file-map entries. Each 
+such page is a <span class="struct">FILEMAP_ENTRY</span> followed immediately by 
+an array of as many <span class="struct">GROUP_DATA_ENTRY</span> structures as fit 
+the page. No page of group data entries is allocated until either a group name or 
+owner storage is set for some group. The dword at offset 0x1C in an allocated
+<span class="struct">GROUP_ENTRY</span> is the file offset of its associated group 
+data entry. Group data entries that are not allocated to a group, i.e., the free 
+entries, are kept in a chain, linked through the member at offset 0x88. The current 
+head of the chain is found from offset 0x1C in the index entry on the first page 
+of group entries. Group data entries are allocated from the head of the chain. When 
+a group data entry is freed, all its bytes are cleared and it is then returned to 
+the head of the chain of free entries. </p>
+<p>The name and owner storage at offsets 0x00 and 0x78 are exactly as accessed through 
+the <span class="member">szGroupName</span> and <span class="member">dwOwnerStorage</span> 
+members of the <span class="struct">INTERNET_CACHE_GROUP_INFO</span> as given to 
+the <span class="function">GetUrlCacheGroupAttribute</span> and
+<span class="function">SetUrlCacheGroupAttribute</span> functions. The only interpretation 
+of either member by either function is that <span class="function">SetUrlCacheGroupAttribute</span> 
+checks that a proposed group name is not too large. Except for access through these 
+functions, the group name and owner storage appear to be unused. </p>
+<h2>List Group Entries </h2>
+<p>Importantly, granted that groups have any importance at all, a URL entry may 
+be assigned to multiple groups. When this happens, the dword at offset 0x28 in the 
+URL entry no longer shows the way directly to a single <span class="struct">GROUP_ENTRY</span> 
+but to a list of them (and the change is marked by setting the 0x10 flag in the 
+URL entry’s hash item). Each element of the list is a <span class="struct">LIST_GROUP_ENTRY</span>:
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Size"><col class="Remarks">
+  </colgroup>
+  <tr>
+    <th>Offset </th>
+    <th>Size </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>dword </td>
+    <td>file offset of <span class="struct">GROUP_ENTRY</span> structure, else zero
+    </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>dword </td>
+    <td>file offset of next <span class="struct">LIST_GROUP_ENTRY</span>, else zero
+    </td>
+  </tr>
+</table>
+<p>These <span class="struct">LIST_GROUP_ENTRY</span> structures are prepared collectively 
+in page-sized file-map entries. Each such page is a <span class="struct">FILEMAP_ENTRY</span> 
+structure followed immediately by an array of as many <span class="struct">LIST_GROUP_ENTRY</span> 
+structures as fit the page. Note that no page of list group entries is allocated 
+until at least one URL entry is assigned to more than one group. </p>
+<p>Each list group entry is intended to be always (for all practical purposes) in 
+exactly one list, linked through the dword at offset 0x04. It can be in a list for 
+a URL, in which case the dword at offset 0x28 in the URL entry gives the file offset 
+of the first entry in the list. Otherwise, the list group entry should be in a list 
+of free entries. This free list, once it exists, has a permanent head. The file 
+offset of this head entry is maintained in the file header, as the
+<span class="constant">CACHE_HEADER_DATA_ROOT_GROUPLIST_OFFSET</span> index in the 
+header data. </p>
+<h2>Applicability </h2>
+<p>Except where otherwise noted, this article is specific to the 32-bit WININET.DLL 
+version 7.0.6000.16386 from the original Windows Vista. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 13th September 2010 and was last modified 
+  on 27th September 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c10.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="61781" endspan -->
+</div>
+
+</body>
+
+</html>

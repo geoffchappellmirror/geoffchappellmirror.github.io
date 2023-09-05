@@ -1,0 +1,171 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Trigraphs</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="24274" endspan -->
+<!--webbot bot="Include" U-Include="../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED 
+- PREVIEW ONLY </p>
+
+<!--webbot bot="Include" i-checksum="42246" endspan -->
+<h1>Trigraphs </h1>
+<p>The C++ language recognises some escape sequences introduced by two question 
+marks. </p>
+<table>
+  <tr>
+    <td>Trigraph </td>
+    <td>Translation </td>
+  </tr>
+  <tr>
+    <td class="source">??! </td>
+    <td class="source">| </td>
+  </tr>
+  <tr>
+    <td class="source">??&#39; </td>
+    <td class="source">^ </td>
+  </tr>
+  <tr>
+    <td class="source">??( </td>
+    <td class="source">[ </td>
+  </tr>
+  <tr>
+    <td class="source">??) </td>
+    <td class="source">] </td>
+  </tr>
+  <tr>
+    <td class="source">??- </td>
+    <td class="source">~ </td>
+  </tr>
+  <tr>
+    <td class="source">??/ </td>
+    <td class="source">\ </td>
+  </tr>
+  <tr>
+    <td class="source">??&lt; </td>
+    <td class="source">{ </td>
+  </tr>
+  <tr>
+    <td class="source">??= </td>
+    <td class="source"># </td>
+  </tr>
+  <tr>
+    <td class="source">??&gt; </td>
+    <td class="source">} </td>
+  </tr>
+</table>
+<p>When a trigraph is recognised in the input stream, the leading question marks 
+are discarded and the last character of the trigraph is reinterpreted as if the 
+input stream had instead provided the character that the trigraph translates to. 
+For example, </p>
+<pre class="source">??=define RTL_NUMBER_OF(a) ( ??/
+    sizeof (a) / sizeof ((a) ??(0??)) ??/
+)</pre>
+<p>translates to </p>
+<pre class="source">#define RTL_NUMBER_OF(a) ( \
+    sizeof (a) / sizeof ((a) [0]) \
+)</pre>
+<h2>Translation Precedence </h2>
+<p>Trigraphs have the highest translation precedence. For a trigraph to be 
+recognised, the three characters really must be consecutive in the input stream. 
+Even the intrusion of a line splice, as allowed for the <span class="operator">
+&lt;&lt;</span> token in
+</p>
+<pre class="source">int x = 1 &lt;\
+&lt; 3;</pre>
+<p>stops the recognition of trigraphs. </p>
+<p>The other side to this high precedence is that the characters for all other 
+programming elements are read as if trigraphs are already translated. As 
+Microsoft says in the product documentation, “translation of trigraphs takes 
+place in the first translation phase, before the recognition of escape 
+characters in string literals and character constants.” </p>
+<h3>False Positives </h3>
+<p>Support for trigraphs leads to two types of trouble. The type that seems to 
+have concerned Microsoft for its documentation (and a handful of articles in the 
+Knowledge Base) is in some sense a false positive, namely that a trigraph is 
+detected where the programmer (perhaps in ignorance) had not intended one. As 
+suggested by the documentation, a typical case would have consecutive question 
+marks in a string constant, whether because the programmer goes overboard with 
+punctuation, as in Microsoft’s example </p>
+<pre class="source">printf (&quot;What??!\n&quot;);</pre>
+<p>or (perhaps less plausibly) because question marks are used as 
+single-character wildcards in filenames, as in </p>
+<pre class="source">FindFirstFile (&quot;???-schedule.txt&quot;, &amp;data);</pre>
+<h3>False Negatives </h3>
+<p>The other type of trouble is the false negative, so that a properly formed 
+trigraph is left untranslated. This is not a misunderstanding by the programmer 
+but by the preprocessor. Although the product documentation talks of <span class="citation">
+Phases of Translation</span>, it does not mean that the input stream is 
+subjected to multiple passes such that the first sees every trigraph reduced to 
+one character. Indeed, in the <span class="citation">Overview of File 
+Translation</span>, the documentation makes plain that there is an “actual 
+order” of translation, done “as if” in multiple passes over the whole input 
+stream. </p>
+<p>Of course, an “as if” implementation requires rather more care. There is a 
+risk of being too clever and missing cases, such that what look like properly 
+formed trigraphs are left untranslated. Perhaps because Microsoft expects that 
+trigraphs are simply never intended nowadays in any real-world programming and 
+really can’t care to look for defects, let alone sort them out, there are rather 
+many cases of oversight. </p>
+<p>The most notable occur in various preprocessor directives that are 
+interpreted ahead of formal tokenisation. Where these directives allow white 
+space, they sometimes provide for line splicing and the discarding of comments 
+but neglect to recognise trigraphs. For example, in </p>
+<pre class="source"># ??/
+define TEST</pre>
+<p>the trigraph is translated to a backslash and thence interpreted as a line 
+splice, so that the two lines make a <span class="directive">#define</span> for 
+the identifier
+<span class="macro">TEST</span> as a trivial macro. However, in the slightly 
+different
+</p>
+<pre class="source">#define ??/
+TEST</pre>
+<p>the expectation that <span class="directive">#define</span> be followed by 
+white space and an identifier is defeated: the trigraph is not translated, its 
+leading question mark gets dismissed as an error (C2007), the lines do not get 
+spliced, and the identifier <span class="identifier">TEST</span> seems to be on 
+its own line (which is most likely also an error). </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 24th November 2006 and was last 
+  modified on 6th January 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0610.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2006-2010. Geoff Chappell. All rights reserved.
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62416" endspan -->
+</div>
+
+</body>
+
+</html>

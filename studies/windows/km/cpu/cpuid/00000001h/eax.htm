@@ -1,0 +1,449 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EAX From CPUID Leaf 1</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="43332" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../../../_include/preview.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">CURRENT WORK ITEM - PREVIEW ONLY </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="8381" -->
+  <h1>EAX From CPUID Leaf 1 </h1>
+  <p>Executing the <a href="../index.htm"><span class="instruction">cpuid</span></a> 
+  instruction with 1 in <span class="register">eax</span> loads a
+  <span class="definition">processor identification signature</span> into
+  <span class="register">eax</span>. This is a broad description of the processor 
+  in terms of its family, model and stepping. It developed from what the 80386 processor 
+  loads into the <span class="register">dx</span> register as an initial state and 
+  is still what later processors have as their initial <span class="register">edx</span>. 
+  If exposing it without the contortions of somehow regaining control after resetting 
+  the processor was a primary motivation for the <span class="instruction">cpuid</span> 
+  instruction, then this processor identification signature is
+  <span class="emphasis">the</span> identifier that gives
+  <span class="instruction">cpuid</span> its name. </p>
+  <h2>Family, Model and Stepping </h2>
+  <p>As far as interests the Windows kernel, the processor identification signature 
+  comprises a family, model and stepping in decreasing order of significance. For 
+  reasons that may have as much to do with Microsoft and the early history of Windows 
+  as with any manufacturer of processors, the physical layout of the signature is 
+  not as clear as the logical: </p>
+  <table class="Bits">
+    <tr>
+      <th>Mask </th>
+      <th>Interpretation </th>
+      <th>Versions </th>
+    </tr>
+    <tr>
+      <td>0x0000000F </td>
+      <td>stepping </td>
+      <td>all </td>
+    </tr>
+    <tr>
+      <td>0x000000F0 </td>
+      <td>model </td>
+      <td>all </td>
+    </tr>
+    <tr>
+      <td>0x00000700 (3.10 to very late 4.0); <br>
+      0x00000F00 </td>
+      <td>family </td>
+      <td>all </td>
+    </tr>
+    <tr>
+      <td>0x000F0000 </td>
+      <td>extended model </td>
+      <td>5.1 and higher </td>
+    </tr>
+    <tr>
+      <td>0x0FF00000 </td>
+      <td>extended family </td>
+      <td>5.1 and higher </td>
+    </tr>
+  </table>
+  <p>All Windows versions since 5.1 recognise that the family and model can each 
+  be expanded from 4 bits to 8 by combining with the extended model and extended 
+  family. Expansion is indicated for both the family and model when the 4-bit family 
+  is full, i.e., contains 15: </p>
+  <ul>
+    <li>the 8-bit family is computed by <span class="emphasis">adding</span> the 
+    4-bit family, i.e., 15, to the 8-bit extended family; </li>
+    <li>the 8-bit model is formed by taking the 4-bit model for the low bits and 
+    the 4-bit extended model for the high bits. </li>
+  </ul>
+  <p>Starting with version 5.1 from Windows XP SP2 and version 5.2 from Windows 
+  Server 2003 SP1, expansion is also indicated for the model only, i.e., not the 
+  family, if the 4-bit family is 6—but only for processors from Intel and, in version 
+  6.2 and higher, from Centaur. </p>
+  <p>A Revision History in <span class="citation">Intel® Processor Identification 
+  and the CPUID Instruction</span> (Application Note 485, apparently no longer available 
+  online from Intel) dates Intel’s documentation of the extended model and family 
+  fields to November 2000. If this is roughly when they were introduced to the processor, 
+  then Windows XP will indeed have been the first major release that could support 
+  them. Recognition of them is not back-fitted into the chronologically later service 
+  packs of Windows 2000. </p>
+  <p>There was perhaps no great hurry. Family and model numbers for Intel’s processors 
+  at the time were still some way from overflowing four bits each. Yet Intel will 
+  have known well before late 2000 that having only 4 bits for the family presented 
+  more than the general problem of how the family might ever increase beyond 15. 
+  See that late in 1999, Windows NT 4.0 SP6—which is specifically what’s meant by 
+  “very late 4.0” in the table above—corrected the kernel’s interpretation of the 
+  family as having only 3 bits. </p>
+  <p>That Windows ever had the family as just 3 bits instead of 4 surely caused 
+  a lot more trouble than first appears. It seems at least plausible as the reason 
+  that Intel’s processors for Windows don’t have families between 8 and 14 (with 
+  the Xeon Phi as perhaps the lone exception). It can’t be much of a concern now, 
+  but it would have been in 1999: a new processor with any such family would have 
+  looked to recently contemporary Windows versions like an old processor—and even 
+  like an impossibly old processor. Intel’s very particular design for forming the 
+  8-bit family by a numerical addition, rather than extending with high bits elsewhere 
+  as for the model, ensures for all practical effect that new processors that use 
+  the extended family have family 15 or higher in such a way that they will look 
+  to those early Windows versions as if they are family 7, presumably advancing 
+  on any processors these early versions expected. </p>
+  <h2>Family </h2>
+  <p>There’s no rule that a higher family number implies a more advanced processor, 
+  but it had been roughly true as the 80386 (family 3) gave way to the 80486 (family 
+  4) and then to the Pentium (family 5), Pentium Pro, Pentium II and Pentium III 
+  (all family 6) and Pentium 4 (family 15). Then the progression becomes less clear. 
+  Some would even say muddled as the brand names Xeon and Celeron have models in 
+  both families 6 and 15. With multiple families in production concurrently, especially 
+  with no sense that one supersedes another, it’s inevitable that advanced features 
+  from some models of one family turn up also on some models of another family.
+  </p>
+  <p>Much of the point to the <span class="instruction">cpuid</span> instruction’s 
+  extensibility is that additional leaves can tell with some precision which features 
+  are present. Much as software that depends on an operating system would better 
+  test for this or that capability by querying the operating system for the existence 
+  of relevant components (such as exported functions) rather than assume availability 
+  in this or that version, operating-system software (and less usually other software, 
+  too) should not infer the presence of this or that processor feature from supposed 
+  correlations with the family, model and stepping but should query the processor 
+  through <span class="instruction">cpuid</span>. </p>
+  <p>Querying the processor for precise feature support is not always possible, 
+  of course. This applies especially to early Windows versions which realistically 
+  faced being run on processors that pre-date the Pentium. For instance, version 
+  3.10 knows of no assurance that the <span class="bit">WP</span> and
+  <span class="bit">AM</span> bits (16 and 18) exist in <span class="register">cr0</span> 
+  except that the processor family is greater than 3, or that the
+  <span class="register">cr4</span> register exists at all except that the family 
+  is at least 5. Is such dependence on the family number avoidable? That the test 
+  for bits in <span class="register">cr0</span> was retained up to and including 
+  version 6.2 was more plausibly not that the test is unavoidable but just that 
+  the code wasn’t pruned away when the 80386 lost support for version 4.0. Inferring 
+  existence of <span class="register">cr4</span> just from the family was done away 
+  with in version 4.0, but the replacement is not obviously cleaner:
+  <span class="register">cr4</span> is inferred to exist if any of the
+  <span class="bit">VME</span>, <span class="bit">PSE</span> or
+  <span class="bit">PGE</span> bits are set in the <a href="edx.htm">feature flags 
+  that <span class="instruction">cpuid</span> leaf 1 returns in
+  <span class="register">edx</span></a>. </p>
+  <h3>Architectural Differences </h3>
+  <p>As modern Windows sheds ever more of its support for old processors and as 
+  Intel’s families 6 and 15 live ever longer, this sort of reliance on the family 
+  number to learn of architectural detail is tending to go away. Two examples that 
+  remain in Windows 10 stand out, if only for their age. The one that has stayed 
+  in Windows the longest concerns the update signature that may be readable from 
+  the Model Specific Register (MSR) that Intel names <span class="register">IA32_BIOS_SIGN_ID</span> 
+  (0x8B). When Windows first cares, in version 4.0, to have the update signature, 
+  it’s only for Intel processors in family 6. Not until version 5.1 does it allow 
+  processors from higher families, still only from Intel. When 32-bit version 6.2 
+  extends this to AMD, it’s only for AMD’s family 15 and higher. There plausibly 
+  is no better-defined way to know whether this MSR exists than to infer from the 
+  family. For 64-bit Windows, the update signature is still Intel-specific before 
+  version 6.2, but family never matters, presumably now because the update signature 
+  and its MSR are architectural to all processors that have the 64-bit instruction 
+  set. </p>
+  <h3>Errata </h3>
+  <p>The other stand-out example of Windows 10 varying behaviour for a processor 
+  family dates from Windows NT 4.0 SP4 and hints at the main reason that operating 
+  systems will forever have an occasional need to infer from the family, model and 
+  stepping. Processors, like operating systems, have bugs. The first that the Windows 
+  kernel is known to work around, as long ago as Windows NT 3.50 SP1, showed as 
+  defective floating-point arithmetic by some early Pentium processors. To know 
+  which processors is unnecessary for detecting this defect: if it’s present, known 
+  inputs to the <span class="instruction">fdiv</span> instruction produce a result 
+  that is easily seen to be incorrect. Code to check this was retained up to and 
+  including version 6.0. </p>
+  <p>The dubious advantage of being discoverable by experiment is not available 
+  for the second processor defect that the Windows kernel is known to work around, 
+  starting with Windows NT 4.0 SP4. For this defect, execution of a
+  <span class="instruction">lock cmpxchg8b</span> instruction that is encoded as 
+  if to take its explicit operand from a register instead of memory hangs the processor. 
+  The encoding is invalid and should cause an Invalid Opcode exception but never 
+  does, the defect being that the <span class="instruction">lock</span> induces 
+  the processor to wait for a write that will never come. In
+  <a href="https://www.intel.com/content/dam/support/us/en/documents/processors/invalid_instruction_cmpxchg8b_erratum1.pdf">
+  Intel® Pentium® Processor Invalid Instruction Erratum Overview</a>, Intel presents 
+  two workarounds which “should only be implemented on Intel processors that return 
+  Family=5 via the CPUID instruction.” A detailed account of whether the defect 
+  is fixed in any particular model and stepping surely will have existed, and Microsoft 
+  surely would have had access. Indeed, the <span class="citation">Pentium® Processor 
+  Specification Update</span> (order number 242480-041, dated January 1999 and apparently 
+  long gone from Intel’s website) lists the bug as fixed for model 8 stepping 2. 
+  But perhaps because the workaround has next to no cost for normal execution Windows 
+  activates it for any Intel processor whose family is 5. The code for this is still 
+  present at least as recently as the 1803 release of Windows 10. </p>
+  <h2>Model and Stepping </h2>
+  <p>More usual now is that if Windows must resort to the processor identification 
+  signature, then the need is precise enough to depend not just on the family but 
+  on the model and even the stepping. Within a family, models may vary signficantly. 
+  It’s easily imagined that models released roughly concurrently may have very different 
+  feature sets, but as the model number increases over time there plausibly is a 
+  tendency that higher model numbers mean greater functionality. Within a model, 
+  steppings are something like bug fixes, which should mean that a higher stepping 
+  is reliably an advance. </p>
+  <p>The kernel often takes the model and stepping together as working roughly like 
+  a major and minor version number. Perhaps the most widely known example affects 
+  software that wants to know if the processor has the <span class="instruction">
+  sysenter</span> and <span class="instruction">sysexit</span> instructions. The 
+  ideal is to query directly for the feature, as represented by the
+  <span class="bit">SEP</span> bit (11) in the feature flags that
+  <span class="instruction">cpuid</span> leaf 1 returns in
+  <span class="register">edx</span>, but Intel documents that in family 6 before 
+  model 3 stepping 3 the feature flag may be set without the feature being unusable. 
+  And so from version 5.1 until at least the 1803 release of version 10.0, the 32-bit 
+  kernel ignores <span class="bit">SEP</span> if either: the family is less than 
+  6; or it equals 6 but the model and stepping as a pair are less than 3.3. </p>
+  <p><span class="alert">WORK IN PROGRESS</span> </p>
+  <h2>Persistence </h2>
+  <p>All versions of the Windows kernel keep each processor’s family, model and 
+  stepping in the processor’s control block (<span class="struct"><a href="../../../ntoskrnl/inc/ntos/kprcb.htm">KPRCB</a></span>):
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition"><col class="Version">
+    </colgroup>
+    <tr>
+      <th>Offset (x86) </th>
+      <th>Offset (x64) </th>
+      <th>Definition </th>
+      <th>Versions </th>
+    </tr>
+    <tr>
+      <td>0x18 (3.10 to 6.0); <br>
+      0x14 </td>
+      <td>0x05F0 (5.2 to 1607); <br>
+      0x40 </td>
+      <td>
+      <pre class="source">CHAR CpuType;</pre>
+      </td>
+      <td>all </td>
+    </tr>
+    <tr>
+      <td>0x19 (3.10 to 6.0); <br>
+      0x15 </td>
+      <td>0x05F1 (5.2 to 1607); <br>
+      0x41 </td>
+      <td>
+      <pre class="source">CHAR CpuID;</pre>
+      </td>
+      <td>all </td>
+    </tr>
+    <tr>
+      <td rowspan="2">0x1A (3.10 to 6.0); <br>
+      0x16 </td>
+      <td rowspan="2">0x05F2 (5.2 to 1607); <br>
+      0x42 </td>
+      <td>
+      <pre class="source">USHORT CpuStep;</pre>
+      </td>
+      <td>3.10 to 5.2 </td>
+    </tr>
+    <tr>
+      <td>
+      <pre class="source">union {
+    USHORT CpuStep;
+    struct {
+        UCHAR CpuStepping;
+        UCHAR CpuModel;
+    };
+};</pre>
+      </td>
+      <td>6.0 and higher </td>
+    </tr>
+  </table>
+  <p>See that their offsets into the structure have been strikingly stable. They 
+  are shared not just with the HAL and with other kernel-mode software, but also 
+  with code that is written in assembly language. </p>
+  <p>For reasons that may date back to before Intel talked of its processors as 
+  belonging to families, the member that holds the family is named
+  <span class="member">CpuType</span>. In 32-bit Windows up to and including version 
+  6.2, the kernel has code that can confect <span class="member">CpuType</span> 
+  as 3, 4 or even 5 for processors that do not have a usable
+  <span class="instruction">cpuid</span> instruction. That this has happened, with 
+  the model and stepping also confected, is then shown by <span class="member">CpuID</span> 
+  being zero. Except for sufficiently early versions, this state can exist only 
+  briefly before the processor’s inadequacy stops Windows. Ordinarily,
+  <span class="member">CpuID</span> is 1 to record that <span class="member">CpuType</span>,
+  <span class="member">CpuModel</span> and <span class="member">CpuStepping</span> 
+  all come what <span class="instruction">cpuid</span> leaf 1 returned in
+  <span class="register">eax</span> as the kernel initialised its use of the processor.
+  </p>
+  <h3>Registry </h3>
+  <p>All versions of the Windows kernel save each processor’s family, model and 
+  stepping in the registry: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_LOCAL_MACHINE\Hardware\Description\System\CentralProcessor\<span class="placeholder">index</span></span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">Identifier</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_SZ</span> </td>
+    </tr>
+  </table>
+  <p>The string data has decimal representations of the
+  <span class="placeholder">family</span>, <span class="placeholder">model</span> 
+  and <span class="placeholder">stepping</span> as read from
+  <span class="instruction">cpuid</span> leaf 1 and kept in the
+  <span class="struct">KPRCB</span>. The enclosing text starts with what seems intended 
+  as naming the instruction set and varies because Microsoft is perhaps no more 
+  able or willing to settle on one name than is everyone else: </p>
+  <ul>
+    <li><span class="regsz">x86 Family <span class="placeholder">family</span> Model
+    <span class="placeholder">model</span> Stepping <span class="placeholder">stepping</span></span> 
+    in 32-bit Windows; </li>
+    <li><span class="regsz">AMD64 Family <span class="placeholder">family</span> 
+    Model <span class="placeholder">model</span> Stepping
+    <span class="placeholder">stepping</span></span> for AuthenticAMD processor 
+    in 64-bit Windows; </li>
+    <li><span class="regsz">EM64T Family <span class="placeholder">family</span> 
+    Model <span class="placeholder">model</span> Stepping
+    <span class="placeholder">stepping</span></span> for GenuineIntel processor 
+    in 64-bit Windows version 5.2 to 6.0; </li>
+    <li><span class="regsz">Intel64 Family <span class="placeholder">family</span> 
+    Model <span class="placeholder">model</span> Stepping
+    <span class="placeholder">stepping</span></span> for GenuineIntel processor 
+    in 64-bit Windows version 6.1 and higher; </li>
+    <li><span class="regsz">VIA64 Family <span class="placeholder">family</span> 
+    Model <span class="placeholder">model</span> Stepping
+    <span class="placeholder">stepping</span></span> for CentaurHauls processor 
+    in 64-bit Windows version 6.1 and higher. </li>
+  </ul>
+  <p>It is presently not understood how this string data is formed for HygonGenuine 
+  processors in Windows 10 Version 1803. The 64-bit kernel’s code for writing this 
+  registry value looks like it should stop with the bug check
+  <span class="constant">UNSUPPORTED_PROCESSOR</span> (0x5D) unless the vendor is 
+  one of the three listed above. </p>
+  <h2>Archaeology </h2>
+  <p>How can it be that the Windows kernel ever thought the family is just 3 bits? 
+  To answer just that Microsoft’s programmers were somehow inept, as Jeff Atwood 
+  seems to for
+  <a href="https://blog.codinghorror.com/nasty-software-hacks-and-intels-cpuid/">
+  Nasty Software Hacks and Intel’s CPUID</a>, would fall well short of satisfactory. 
+  Microsoft certainly wasn’t on the ball not to have recognised until 1999 that 
+  its interpretation had for many years not matched Intel’s documentation, but nobody 
+  coding this for the Windows kernel in 1993 (or earlier) will have been the slightest 
+  bit incompetent at working with bits in bytes and neither will they have gratuitously 
+  lopped off a bit. No, that they coded for 3 bits instead of the 4 that Intel documented 
+  in the formally published&nbsp; <span class="citation">Pentium™ Processor User’s 
+  Manual</span> from 1993 has a much more plausible reason: I think they coded from 
+  pre-release descriptions. </p>
+  <p>In pre-release builds of Windows NT 3.1 such as can be found easily on the 
+  Internet now that they are treated by hobbyists as abandon-ware, it is apparent 
+  that Microsoft was working to a volatile specification of the processor identification 
+  signature to expect from <span class="instruction">cpuid</span>—assuming that 
+  what they had was formal enough to count as a specification. Five pre-release 
+  builds of NTKRNLMP.EXE from Windows NT 3.1 have yet been found for study: </p>
+  <ul>
+    <li>3.10.297.1 built on 28th June 1992; </li>
+    <li>3.10.328.1 built on 12th October 1992; </li>
+    <li>3.10.397.1 built on 6th March 1993; </li>
+    <li>3.10.428.1 built on 22nd April 1993; </li>
+    <li>3.10.4752.1 built on 9th June 1993. </li>
+  </ul>
+  <p>The oldest does none of its own processor identification at all. It instead 
+  trusts what the loader passes in the <span class="struct">
+  <a href="../../../ntoskrnl/inc/api/arc/loader_parameter_block.htm">LOADER_PARAMETER_BLOCK</a></span>, 
+  not that the loader in this build knows of <span class="instruction">cpuid</span>. 
+  What the build from October 1992 knows of <span class="instruction">cpuid</span> 
+  is that once the instruction’s existence is confirmed by changing the
+  <span class="bit">ID</span> bit in the <span class="register">eflags</span>, execution 
+  with no input prepared for <span class="register">eax</span> loads
+  <span class="register">eax</span> with the processor identification signature. 
+  This significant difference from the familiar behaviour of
+  <span class="instruction">cpuid</span> is not directly relevant, but is background 
+  to a picture of Microsoft’s programmers (and Intel’s too) dealing with changing 
+  specifications. What is directly relevant is that this build of the kernel extracts 
+  the family as 4 bits. The first two pre-release builds from 1993 know that the 
+  instruction has developed further into taking a function number in
+  <span class="register">eax</span> as input and that the processor identification 
+  signature is in <span class="register">eax</span> after executing with 1 as the 
+  input. Again, the family is extracted as 4 bits. </p>
+  <p>The narrowing of the family to 3 bits was done very late. The last of the pre-release 
+  builds listed above has it, barely seven weeks before the first known public release 
+  (3.10.5098.1) was built on 24th July 1993. It’s scarcely credible that Microsoft 
+  made this late change without some sort of guidance from Intel, except perhaps 
+  in reaction to confusion from Intel. </p>
+  <p><span class="alert">WORK IN PROGRESS</span> </p>
+  <!-- p>Confusion will have been in no short supply. Not only had the instruction changed 
+  to needing two calls with different inputs but the precise form of the processor 
+  identification signature seems to have changed too. Indeed, it was arguably not 
+  settled even by the time of the Pentium’s formal release. The
+  <span class="citation">Pentium Processor User’s Manual</span>, for its
+  <span class="citation">Volume 3: Architecture and Programming Manual</span> (order 
+  number 241430) presents three slightly different descriptions. Where a chapter 
+  on Application Programming surveys the instructions, Figure 4-22 shows the now-familiar 
+  family, model and stepping. (Whether this figure’s title “EAX Following the CPUID 
+  Instruction” omits the necessary input just for brevity or because it remains 
+  from the instruction’s early form is not known.) </p -->
+  <div class="Footer">
+    <p class="Dates">This page was created on 8th
+    <a href="../../../../../../new/19/12.htm">January 2020</a> and was last modified 
+    on 4th February 2020. </p>
+    <!--webbot bot="Include" U-Include="../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="61845" -->
+  </div>
+</div>
+
+</body>
+
+</html>

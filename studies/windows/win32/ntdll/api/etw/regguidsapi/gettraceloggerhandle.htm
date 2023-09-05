@@ -1,0 +1,121 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>EtwGetTraceLoggerHandle</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>EtwGetTraceLoggerHandle </h1>
+<p>A classic event provider calls this function from within a notification callback 
+to retrieve a handle to the event tracing session that is the subject of the notification.
+</p>
+<h2>Declaration </h2>
+<pre>TRACEHANDLE EtwGetTraceLoggerHandle (PVOID Buffer);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">Buffer</span> is the address of a
+<span class="struct">WNODE_HEADER</span> that the provider has received as the callback 
+routine’s <span class="argument">Buffer</span> argument. The provider will have 
+set the callback routine as the <span class="argument">RequestAddress</span> argument 
+when registering through the <span class="function">
+<a href="registertraceguids.htm">EtwRegisterTraceGuids</a></span> function. </p>
+<h3>Return Value </h3>
+<p>The function returns a 64-bit trace handle for success, else
+<span class="constant">INVALID_HANDLE_VALUE</span> (cast to the
+<span class="constant">TRACEHANDLE</span> type). </p>
+<!--webbot bot="Include" U-Include="../../_include/lasterror.htm" TAG="BODY" startspan -->
+
+<p>On failure, a non-zero Win32 error code will have been set as the thread’s last 
+error and may be retrieved through such functions as <span class="function">GetLastError</span>.
+</p>
+
+<!--webbot bot="Include" endspan i-checksum="17125" -->
+<h2>Availability </h2>
+<p>The <span class="function">EtwGetTraceLoggerHandle</span> function is exported 
+by name from NTDLL in version 5.2 and higher. It has higher-level availability as 
+a forward from the ADVAPI32 export <span class="function">GetTraceLoggerHandle</span> 
+in its versions 5.2 and higher. </p>
+<p>This note is concerned only with the function as implemented in NTDLL version 
+5.2 and higher. The earlier implementations in ADVAPI32 versions 5.0 and 5.1 are 
+left for separate treatment some other time. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">EtwGetTraceLoggerHandle</span> function is not documented. 
+Well-behaved user-mode software would call the documented <span class="function">
+GetTraceLoggerHandle</span> function instead. Note, however, that a strict reading 
+of Microsoft’s documentation prohibits calling the higher-level function, but not 
+the lower-level, from a <span class="routine">DllMain</span> routine. For some hint 
+that Microsoft has experience either of or closely related to this point, see the 
+cautionary note about the loader lock in Microsoft’s documentation of the
+<a href="https://docs.microsoft.com/windows/desktop/etw/controlcallback">WMIDPREQUEST 
+callback function</a>. </p>
+<h2>Behaviour </h2>
+<p>This function lets the event provider extract the <span class="type">TRACEHANDLE</span> 
+from the <span class="member">HistoricalContext</span> member of the
+<span class="struct">WNODE_HEADER</span> without having to depend on being given 
+specifically a <span class="struct">WNODE_HEADER</span>. NTDLL creates this structure 
+expressly for the callback routine. The structure does not outlive the routine. 
+It also does not continue with more data. Indeed, it contains little that is meaningful 
+and is best treated as opaque. </p>
+<p>That said, while talking of implementation details, note that in the expected 
+circumstances, i.e., during the callback routine, this <span class="type">TRACEHANDLE</span> 
+as put in the <span class="struct">WNODE_HEADER</span> is actually a
+<span class="struct">TRACE_ENABLE_CONTEXT</span> and therefore contains the logger 
+ID and the logger’s enable flags and level. It is arguably only for learning these 
+last two that the provider needs the handle—as if this function’s intended, and 
+perhaps only, use is as preparation for calling the <span class="function">
+<a href="gettraceenableflags.htm">EtwGetTraceEnableFlags</a></span> and
+<span class="function"><a href="gettraceenablelevel.htm">EtwGetTraceEnableLevel</a></span> 
+functions. </p>
+<p>If <span class="argument">Buffer</span> is <span class="constant">NULL</span>, 
+the function fails, with <span class="constant">ERROR_INVALID_PARAMETER</span> as 
+its error code. The function also fails, but with <span class="constant">ERROR_BAD_LENGTH</span> 
+as its error code, if the <span class="member">BufferSize</span> member of the presumed
+<span class="struct">WNODE_HEADER</span> is not at least the size of a
+<span class="struct">WNODE_HEADER</span>. </p>
+<p>As always for a <span class="type">TRACEHANDLE</span>, the low 16 bits are the 
+logger ID. Except that 0xFFFF conventionally represents the NT Kernel Logger, the 
+logger ID is a 0-based index into the kernel’s list of loggers and must be less 
+than <span class="constant">MAXLOGGERS</span> (64 in the applicable versions, at 
+least to the original Windows 10), else the function fails, with
+<span class="constant">ERROR_INVALID_HANDLE</span> as its error code. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 23rd
+  <a href="../../../../../../../new/18/12.htm">December 2018</a> and was last modified 
+  on 24th December 2018. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c18.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2018. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="6594" -->
+</div>
+
+</body>
+
+</html>

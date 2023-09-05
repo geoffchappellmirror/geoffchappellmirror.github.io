@@ -1,0 +1,132 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CL.EXE Command Files</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="22580" endspan -->
+<h1>CL.EXE Command Files </h1>
+<p>Where a command-line token begins with an @ sign (and is not, exceptionally, 
+an argument for some earlier option), the remainder of the token names a command 
+file, which the product documentation also sometimes refers to as a response file. 
+The purpose of a command file is that its text is to provide more command-line tokens. 
+In effect, a command-line token that names a command file is a command-line macro, 
+expanding in place to whatever command-line tokens are found in the named file.
+</p>
+<p>The ordinary processing of command files is recursive. It is an error (<a href="errors/d2035.htm">D2035</a>) 
+if the recursion goes too far. The present implementation allows the recursion depth 
+to reach 13 (counting the top-level command file as 1). It is an error (<a href="errors/d2022.htm">D2022</a>) 
+if the command file cannot be opened with read access (in text mode). The filename 
+used is exactly as given in the command-line token, beginning immediately after 
+the @ sign, white space included. The command file is parsed line by line, for as 
+long as lines can be read. A read error for the file becomes an error (<a href="errors/d2034.htm">D2034</a>) 
+for CL. Parsing line by line has as an implication that although a line may contain 
+multiple tokens, no token or option can carry beyond the line it starts on. </p>
+<p>Support for command files is very greatly reduced during an
+<a href="early.htm">early pass</a> of the command line, during which the compiler 
+seeks the state of a handful of options (<span class="switch"><a href="options/b$e.htm">/Be</a></span>,
+<span class="switch"><a href="options/clr.htm">/clr</a></span>,
+<span class="switch"><a href="options/nologo.htm">/nologo</a></span>,
+<span class="switch"><a href="options/noover.htm">/noover</a></span> and
+<span class="switch"><a href="options/zx.htm">/ZX</a></span>) in advance of the 
+ordinary processing. A quick summary is that: there is no recursion; only the first 
+line is examined; and read errors go unremarked. </p>
+<p>Unless the early pass finished with the <span class="switch">/nologo</span> switch 
+active, the ordinary processing of command files is reported by echoing each line 
+to standard error. The first echoed line has the prefix <span class="command">cl</span> 
+as if to show how the tokens extracted from the command files might have been given 
+as a command line. </p>
+<h2>Demonstrations </h2>
+<p>It may help if special cases and parenthetical remarks in the general discussion 
+above are elaborated with examples. </p>
+<h3>Hidden @ Token </h3>
+<p>For an example of a command-line token that begins with an @ sign but does not 
+count as naming a command file, consider the following command </p>
+<pre class="input">cl /c /I @test.txt test.cpp </pre>
+<p>in which “test.txt” is intended as a command file, to provide options for the 
+compilation of the source file “test.cpp”, but an editing error (perhaps due to 
+some subtlety in a makefile) has left an incomplete <span class="switch">/I</span> 
+option. The command is syntactically valid and causes no error or warning, but “test.txt” 
+is ignored as a command file because the token that might be thought to name it 
+as a command file is instead interpreted by CL as the required argument for the
+<span class="switch">/I</span> option. </p>
+<h3>Recursion </h3>
+<p>It is perhaps necessary to present an example of recursive command files, especially 
+because the product documentation states plainly that “it is not possible to specify 
+the @ option from within a response file.” This is on a page titled
+<span class="citation">@ (Specify a Compiler Response File)</span>. That response 
+files can in fact be nested is documented in the description of
+<span class="citation">Command-Line Error D2035</span>, not that users who wonder 
+whether command files can be nested would think to look there, and not that they 
+could know easily which of two contradictory pages to trust. </p>
+<p>If the file “test1.txt” contains just </p>
+<pre class="source">@test2.txt </pre>
+<p>and the file “test2.txt” in turn contains nothing but the name of a source file 
+“test.cpp”, then the command </p>
+<pre class="input">cl /c @test1.txt </pre>
+<p>compiles the source file, even though it can only have found the name in the 
+nested command file. </p>
+<h3>Lines </h3>
+<p>Each line in a command file is parsed separately, as if it were a whole command 
+line. This has non-trivial implications for those options that are permitted to 
+spread to one or more subsequent command-line tokens. Such sequences end with the 
+line that they started on. </p>
+<p>Consider the <span class="switch">/I</span> option (already used in an example 
+above). Its required argument is either the remainder of its own command-line token, 
+else the whole of the next command-line token. In the command file </p>
+<pre class="source">/I
+c:\path\include</pre>
+<p>there is no next command-line token before the end of the line. The
+<span class="switch">/I</span> therefore has no argument and causes error
+<a href="errors/d2004.htm">D2004</a>. </p>
+<p>For another example, consider the <span class="switch">/link</span> option. Its 
+(optional) argument is whatever follows in its own command-line token plus all subsequent 
+command-line tokens. In the command file </p>
+<pre class="source">/link/arg1 /arg2
+/arg3</pre>
+<p>the fictitious arguments <span class="switch">/arg1 /arg2</span> are not interpreted 
+by CL, which regards them as arguments for the <span class="switch">/link</span> 
+option, to be passed to and interpreted by the linker. However, the sequence ends 
+with the line and <span class="switch">/arg3</span> therefore is an argument for 
+the compiler. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 29th October 2005 and was last modified 
+  on 9th June 2009. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c0509.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2005-2009. Geoff Chappell. All rights reserved.
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="57989" endspan -->
+</div>
+
+</body>
+
+</html>

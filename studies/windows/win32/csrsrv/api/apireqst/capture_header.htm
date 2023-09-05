@@ -1,0 +1,324 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CSR_CAPTURE_HEADER</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="54033" -->
+<h1>CSR_CAPTURE_HEADER </h1>
+<p>A CSRSS client’s call to an API routine in a CSRSS server DLL is essentially 
+the sending of an LPC message through a port. Versions before 4.0, for which calls 
+to CSRSS were more frequent, have an alternative named QLPC that passes the same 
+message through shared memory instead. In either mechanism, each message must fit 
+a relatively small maximum that is not in the client’s control (being set, for instance, 
+by the server when creating the port). In all Windows versions, this maximum is 
+the size of the <span class="struct"><a href="api_msg.htm">CSR_API_MSG</a></span> 
+structure and in no version is this more than a few hundred bytes. One way that 
+a client can send more data, such as lengthy strings, is to send just the address 
+in the message, having arranged separately that the data is in memory that is shared 
+with the server. A capture buffer is NTDLL’s help with this. The
+<span class="struct">CSR_CAPTURE_HEADER</span> is what begins each capture buffer.
+</p>
+<p>Passing pointers in the message comes with complications. One is that although 
+what’s pointed to is in shared memory, the addresses are ordinarily not the same 
+for both the client and the server. The client will want to see client-side addresses, 
+the server to see server-side addresses, and both will want that the work of converting 
+and validating the addresses and then of capturing the data into private memory 
+is all buried in the message’s transport, i.e., inside the client’s call to
+<span class="function">
+<a href="../../../ntdll/api/csrutil/clientcallserver.htm">CsrClientCallServer</a></span> 
+and before the server-side distribution to the API routine. </p>
+<p>To make this work like magic, the <span class="struct">CSR_CAPTURE_HEADER</span> 
+doesn’t just introduce an area of shared memory for the message’s extra data but 
+also tracks where the pointers are. Early versions allow that pointers into the 
+capture buffer can be either in the message itself or elsewhere in the capture buffer. 
+They are then message pointers and capture pointers, respectively. Though support 
+for capture pointers is natural in theory, they are an extravagance in practice 
+and were discontinued in version 5.0. </p>
+<p>A CSRSS client obtains a capture buffer by calling the NTDLL export
+<span class="function">
+<a href="../../../ntdll/api/csrutil/allocatecapturebuffer.htm">CsrAllocateCaptureBuffer</a></span> 
+and specifying how many pointers to allow for and how much space they may point 
+into. Wherever the client wants a pointer into the capture buffer, it calls either
+<span class="function">
+<a href="../../../ntdll/api/csrutil/allocatemessagepointer.htm">CsrAllocateMessagePointer</a></span> 
+or <span class="function">
+<a href="../../../ntdll/api/csrutil/allocatecapturepointer.htm">CsrAllocateCapturePointer</a></span>, 
+including implicitly through embellishments such as <span class="function">
+<a href="../../../ntdll/api/csrutil/capturemessagebuffer.htm">CsrCaptureMessageBuffer</a></span>. 
+For relatively little trouble, these record into the <span class="struct">CSR_CAPTURE_HEADER</span> 
+the locations of all pointers that will be sent with the message. Conversions to 
+server-side addresses are then done as if by magic inside <span class="function">
+CsrClientCallServer</span> on the client side before the message is sent through 
+the port. When CSRSRV receives the message, it validates that the supposed capture 
+buffer is indeed in the expected shared memory, captures the whole capture buffer 
+into the server’s own memory, and validates the pointers while redirecting them 
+to the private copy. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="struct">CSR_CAPTURE_HEADER</span> structure is not documented. 
+Neither is Microsoft known to have disclosed a C-language definition in any header 
+from any publicly released kit for any sort of software development. Type information 
+for the <span class="struct">CSR_CAPTURE_HEADER</span> is in public symbol files 
+for CSRSS.EXE in Windows Vista only. Earlier type information is known in a statically 
+linked library, named GDISRVL.LIB, which Microsoft published with the Device Driver 
+Kit (DDK) for Windows NT 3.51. </p>
+<h2>Variability </h2>
+<p>Perhaps because the structure is shared not just between modules but across processes, 
+it has been stable. The one change is from discontinuing capture pointers. The following 
+changes of size are known: </p>
+<table class="Sizes">
+  <colgroup>
+    <col class="Version"><col class="Size" span="2">
+  </colgroup>
+  <tr>
+    <th>Version </th>
+    <th>Size (x86) </th>
+    <th>Size (x64) </th>
+  </tr>
+  <tr>
+    <td>3.10 to 4.0 </td>
+    <td>0x1C </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.0 and higher </td>
+    <td>0x14 </td>
+    <td>0x28 </td>
+  </tr>
+</table>
+<h2>Layout </h2>
+<p>These sizes and the names and types in the table that follows are from type information 
+in public symbol files (or such as would ordinarily be in symbol files) for versions 
+3.51 and 6.0. What’s known of Microsoft’s names and types for other versions is 
+something of a guess, being inferred from inspecting different versions of CSRSRV 
+for what use they make of the structure and assuming that continuity of use speaks 
+strongly for continuity of names and types. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ULONG Length;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">CSR_CAPTURE_HEADER *RelatedCaptureBuffer;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">ULONG CountMessagePointers;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x0C (3.10 to 4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG CountCapturePointers;</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10 (3.10 to 4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG *MessagePointerOffsets;</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>next as array at end </td>
+  </tr>
+  <tr>
+    <td>0x14 (3.10 to 4.0) </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG *CapturePointerOffsets;</pre>
+    </td>
+    <td>3.10 to 4.0 </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x18 (3.10 to 4.0); <br>
+    0x0C </td>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">CHAR *FreeSpace;</pre>
+    </td>
+    <td>all </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">ULONG_PTR MessagePointerOffsets [ANYSIZE_ARRAY];</pre>
+    </td>
+    <td>5.0 and higher </td>
+    <td>previously as pointer at 0x10 </td>
+  </tr>
+</table>
+<p>The <span class="member">Length</span> is the size in bytes of the whole capture 
+buffer: </p>
+<ul>
+  <li>the header; </li>
+  <li>an array of offsets for message pointers; </li>
+  <li>in versions before 5.0, an array of offsets for capture pointers; </li>
+  <li>the message’s extra data, i.e., which can be pointed to. </li>
+</ul>
+<p>When CSRSRV receives a message that has a capture buffer, it copies the whole 
+capture buffer from shared memory to private memory so that all further server-side 
+work can no longer be subverted by a mischeivous client. In the copy in private 
+memory, <span class="member">RelatedCaptureBuffer</span> points to the input in 
+shared memory. </p>
+<p>The <span class="member">CountMessagePointers</span> and <span class="member">
+CountCapturePointers</span> members tell how many elements are in the
+<span class="member">MessagePointerOffsets</span> and <span class="member">CapturePointerOffsets</span> 
+arrays. Each element locates one pointer into the capture buffer. On the client 
+side, outside of <span class="function">CsrClientCallServer</span>, these elements 
+hold client-side addresses of the pointers. Inside and on the server side, they 
+are the offsets of these pointers from the start of the message or of the capture 
+buffer, respectively. </p>
+<p>In all versions, the <span class="struct">CSR_CAPTURE_HEADER</span> is followed 
+immediately by the array of pointers to or offsets of message pointers. Version 
+5.0 formalises this and gains by not keeping a pointer to the array. </p>
+<h2>Server-Side Validation and Capture </h2>
+<p>By the time CSRSRV receives a message that has a capture buffer, all the known 
+pointers in the message (and, in early versions, the capture buffer) hold server-side 
+addresses and the elements in the offsets array (or, in early versions, arrays) 
+truly are offsets to those pointers. This much is expected to have been arranged 
+on the client-side by the NTDLL function <span class="function">CsrClientCallServer</span>, 
+but it is not trusted. Validation and the capture from shared memory to the server’s 
+own memory are built in from the start. After all, CSRSS.EXE is a critical process 
+such that subversion of it by a mischievous client is arguably as serious for security 
+as is subversion of the kernel by mischievious input from user mode. Yet Microsoft 
+took some time over making the validation thorough. </p>
+<p>In version 3.10, CSRSRV doesn’t even have exception handling around its reads 
+from whatever <span class="struct">CSR_CAPTURE_HEADER</span> is supposedly pointed 
+to from the <span class="member">CaptureBuffer</span> in the
+<span class="struct">CSR_API_MSG</span>. It does at least try to check that the 
+capture buffer is in the range of server-side addresses for the memory that’s shared 
+with the client process, but even allowing for limited ambition this check is defective 
+on two counts. First, it reads the <span class="member">Length</span> before it 
+has yet established that the header even starts in the shared memory (let alone 
+that it starts low enough to leave room to have a <span class="member">Length</span> 
+if not a whole header). Second, when testing whether the capture buffer ends within 
+the shared memory, it assumes that adding the <span class="member">Length</span> 
+to the header’s address does not wrap round. Both these early defects were fixed 
+in version 5.0. Not only is the supposed capture buffer rejected if it starts below 
+the shared memory but also if there is not room for a header before the end of shared 
+memory. Only then is the <span class="member">Length</span> read to establish that 
+the capture buffer, now marked out by address and size, does not overflow the shared 
+memory. </p>
+<p>Version 5.0 also tightened interpretation within the buffer. As noted above, 
+the whole buffer is in parts. Earlier versions have pointers to arrays of offsets 
+but just assume that these actually do point to space after the header and that 
+the corresponding counts of elements would not have the arrays overflow the buffer. 
+To the simplification of having no such pointers and only one array, version 5.0 
+adds checks that the <span class="member">CountMessagePointers</span> is less than 
+64K (as a surely generous limit) and that the header and array together do not exhaust 
+the buffer. </p>
+<p>Version 3.51 introduced exception handling but (in effect) only for reading the
+<span class="member">Length</span>. The tightening for version 5.0 added only
+<span class="member">CountMessagePointers</span>. As long as the capture buffer 
+passes these preliminary tests based on its address and one or two members from 
+the header, the whole of it is assumed to be safe to capture. Not until version 
+5.2 (chronologically, but Windows XP SP2 by the version numbers) was exception handling 
+extended to the copying of the whole capture buffer from shared memory to private 
+memory. It is not known how this can have got overlooked for so long, given that 
+this copying for security is the essence of why the capture buffer is called a capture 
+buffer. Can mischievous clients really have had no means to cause this copying to 
+fault? </p>
+<p>Mischievous clients would not have been starved of other opportunity. Also tightened 
+in version 5.2—I leave it as henceforth understood that this was soon back-fitted 
+to Windows XP for the chronologically next service pack—is the server’s trust of 
+the offsets. Earlier versions are wide open. The offsets are added to the appropriate 
+base, i.e., the address of the <span class="struct">CSR_API_MSG</span> for offsets 
+to message pointers and the address of the <span class="struct">CSR_CAPTURE_HEADER</span> 
+for offsets to capture pointers, and then CSRSRV reads from whatever address this 
+addition produces. If the offset was prepared as the design intends, then the address 
+will be that of a pointer in the message or in the capture buffer, and this pointer 
+will in turn point into the capture buffer. This is plainly the intended design 
+since it is only the capture buffer that gets captured and the pointer, into the 
+capture buffer as received in shared memory, is now to be repointed to the same 
+place in the capture buffer in the server’s own memory. Yet versions before 5.2 
+accept any pointer that points to anywhere in the shared memory. Where it gets repointed 
+to is anyone’s guess but the mischievous client’s opportunity. </p>
+<p>Version 5.2, by contrast, checks each supposed offset to see if it would place 
+the pointer on a pointer-aligned address wholly within the allowance that the
+<span class="struct">CSR_API_MSG</span> has for <span class="member">ApiMessageData</span>. 
+Only then does it read from the supposed pointer and only if it gets an address 
+that is in the capture buffer after the array of offsets does it redirect the pointer 
+to the capture buffer in private memory. </p>
+<p>It’s all but unimaginable that the programmers who reworked this for version 
+5.2 did not appreciate immediately and keenly how broadly susceptible CSRSRV had 
+been to bringing down Windows for receipt of ill-formed messages. See especially 
+that although the <span class="member">ApiNumber</span> in the
+<span class="struct">CSR_API_MSG</span> must be valid for the
+<span class="struct">CSR_CAPTURE_HEADER</span> to be looked at, the vulnerabilities 
+in the validation and capture have nothing to do with the particular API routine 
+that is the indicated target. Whether Microsoft ever disclosed its knowledge of 
+this very general slackness, e.g., by putting it in some sort of security bulletin, 
+is not known. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 21st
+  <a href="../../../../../../new/19/06.htm">June 2019</a> and was last modified 
+  on 30th June 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62933" -->
+</div>
+
+</body>
+
+</html>

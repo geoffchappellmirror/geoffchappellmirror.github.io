@@ -1,0 +1,576 @@
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>StartTrace</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<!--webbot bot="Include" U-Include="../../../../_include/sketch.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">SKETCH OF HOW RESEARCH MIGHT CONTINUE AND RESULTS BE PRESENTED
+  </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="5204" -->
+<h1>StartTrace </h1>
+<p>This function starts an Event Tracing for Windows (ETW) tracing session, also 
+known informally as an event logger. </p>
+<h2>Declaration </h2>
+<pre class="source">ULONG
+StartTrace (
+    TRACEHANDLE *SessionHandle,
+    LPCTSTR InstanceName,
+    <a href="event_trace_properties.htm">EVENT_TRACE_PROPERTIES</a> *Properties);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">SessionHandle</span> argument is the address of an 
+8-byte variable that is to receive a handle to the started session. </p>
+<p>The <span class="argument">InstanceName</span> argument is the address of a null-terminated 
+case-insensitive string that names the session. </p>
+<p>The <span class="argument">Properties</span> argument is the address of a buffer 
+that is used for both input and output to describe the session. On input, it 
+specifies what properties are wanted for the session. The successful function 
+updates the buffer to show what properties are accepted for the session. </p>
+<h3>Return Value </h3>
+<p>The function returns zero for success, else an error code (which is also set 
+as the thread’s last Win32 error). </p>
+<h2>Availability </h2>
+<p>The <span class="function">StartTrace</span> function is exported by name 
+from ADVAPI32.DLL in both ANSI and Unicode variants, <span class="function">
+StartTraceA</span> and <span class="function">StartTraceW</span>, in version 5.0 
+and higher. </p>
+<p>As with many ETW functions, the <span class="function">StartTrace</span> 
+implementation has moved. It is natively in ADVAPI32 only in versions 5.0 to 5.1 
+and again in 6.0 to 6.1. In version 5.2 only, the export from ADVAPI32 is merely 
+a forward to the NTDLL function <span class="function">EtwStartTrace</span>, 
+again in ANSI and Unicode variants. In version 6.2 and higher, the ADVAPI32 
+implementations are merely stubs for jumping to or calling the true 
+implementations elsewhere: KERNELBASE.DLL in version 6.2, but SECHOST.DLL in 
+versions 6.3 and higher; <span class="function">StartTraceA</span> as a direct 
+import but <span class="function">StartTraceW</span> via the API Set 
+api-ms-win-eventing-controller-l1-1-0.dll. </p>
+<h2>Documentation Status </h2>
+<p>The <span class="function">StartTrace</span> function has always been 
+documented. A curiosity is that for nearly two decades, the documentation used
+<span class="argument">SessionName</span> for the argument that the declaration 
+in EVNTRACE.H has always had as <span class="argument">InstanceName</span>. &nbsp;</p>
+<h2>Behaviour </h2>
+<p>Broadly speaking, the successful function proceeds in distinct stages: </p>
+<ul>
+  <li>validates its arguments, with some slight reinterpretation; </li>
+  <li>transfers its inputs from the <span class="argument">InstanceName</span> 
+  and <span class="argument">Properties</span> to new memory that begins with a
+  <span class="struct">
+  <a href="../../../../../km/ntoskrnl/api/etw/traceapi/wmi_logger_information/index.htm">WMI_LOGGER_INFORMATION</a></span> structure; </li>
+  <li>provides this new memory to the kernel or to NTDLL, as appropriate, as 
+  input for getting the session created; </li>
+  <li>transfers the output from the kernel or NTDLL to the
+  <span class="argument">SessionHandle</span> and <span class="argument">
+  Properties</span> as the function’s own output. </li>
+</ul>
+<h3>Validation </h3>
+<p>All three arguments are required. The returned error code is <span class="constant">
+ERROR_INVALID_PARAMETER</span> if either of <span class="argument">SessionHandle</span> 
+or <span class="argument">Properties</span> is <span class="constant">NULL</span>, but
+<span class="constant">ERROR_INVALID_NAME</span> if <span class="argument">
+InstanceName</span> 
+is <span class="constant">NULL</span>. Note that although Microsoft’s 
+documentation has long gone to unusual trouble to list “some common errors”, it 
+somehow misses this second possibility. </p>
+<h4>Properties Buffer </h4>
+<p>The buffer at <span class="argument">Properties</span> begins with an
+<span class="struct">EVENT_TRACE_PROPERTIES</span> structure which directly 
+specifies many properties for the session but which is in general a fixed-size 
+header to be followed by variable-size properties. The total size in bytes must 
+be supplied as the
+<span class="member">BufferSize</span> in the <span class="member">Wnode</span>. 
+If this is not large enough for at least the <span class="struct">
+EVENT_TRACE_PROPERTIES</span> structure, the function fails, returning
+<span class="constant">ERROR_BAD_LENGTH</span>. </p>
+<p>The variable-size properties on input can be: </p>
+<ul>
+  <li>the name of the log file that the tracing session is to log to; </li>
+  <li>in version 5.1 and higher, various extensions that are enabled by an 
+  undocumented reinterpretation of the <span class="member">EnableFlags</span>;
+  </li>
+  <li>in version 5.1 and higher, arbitrary data to support a set
+  <span class="constant">EVENT_TRACE_RELOG_MODE</span> in the
+  <span class="member">LogFileMode</span>. </li>
+</ul>
+<p>On the function’s success, the variable-size output can be: </p>
+<ul>
+  <li>the name of the tracing session (typically a copy of the
+  <span class="argument">InstanceName</span>). </li>
+</ul>
+<p>All are optional. The original two are indicated by obviously named 
+members of the <span class="struct">EVENT_TRACE_PROPERTIES</span>. A non-zero <span class="member">LogFileNameOffset</span> on input is the 
+offset in bytes from <span class="argument">Properties</span> to the filename 
+that the tracing session is to log to. If only in principle (see below), a 
+non-zero <span class="member">LoggerNameOffset</span> on input is the offset from <span class="argument">
+Properties</span> to where the function is to place 
+the tracing session’s name. It is an error (<span class="constant">ERROR_INVALID_PARAMETER</span>) 
+if either offset is non-zero but would place the corresponding name to start 
+inside the <span class="struct">EVENT_TRACE_PROPERTIES</span> or beyond the buffer.
+</p>
+<h4>Session Name </h4>
+<p>Every tracing session has a GUID and a name. The GUID can be specified in the
+<span class="member">Guid</span> member of the <span class="member">Wnode</span>. 
+The name is supplied by the <span class="argument">InstanceName</span> argument. </p>
+<p>If the session name is either of the reserved names in the following table, then 
+the <span class="member">Guid</span> in the <span class="member">Wnode</span> is forced to 
+the corresponding GUID. Conversely, if the <span class="member">Guid</span> is 
+either of these but the <span class="argument">InstanceName</span> is not the 
+corresponding reserved name, the function returns
+<span class="constant">ERROR_INVALID_PARAMETER</span>. Comparison is 
+case-sensitive before version 6.0 but case-insensitive since. </p>
+<table>
+  <tr>
+    <th>Session Name </th>
+    <th>GUID </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>NT Kernel Logger </td>
+    <td>{9E814AAD-3204-11D2-9A82-006008A86939} </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>Circular Kernel Context Logger </td>
+    <td>{54DEA73A-ED1F-42A4-AF71-3E63D056F174} </td>
+    <td>6.0 and higher </td>
+  </tr>
+</table>
+<h4>Log File Name </h4>
+<p>If the <span class="argument">Properties</span> name a log file, i.e., if <span class="member">LogFileNameOffset</span> 
+is non-zero, then the function attempts to obtain the full pathname to use instead 
+of the given name. Failure to get the full pathname is not of itself an error, but 
+if sufficient memory cannot be found for the attempt, the function fails, returning
+<span class="constant">ERROR_NOT_ENOUGH_MEMORY</span> in version 5.2 and higher 
+(but <span class="constant">ERROR_OUTOFMEMORY</span> before). </p>
+<h4>Name Lengths </h4>
+<p>Whether the function obtains the full pathname or persists with the filename 
+as given, if the name is empty or is too long, then (except for the point in the 
+next paragraph) the function proceeds as if no log file is named. Too long 
+means more than 65,536 characters. </p>
+<p>Even if the function obtains the full pathname or rejects the name as too 
+long, it requires that the <span class="argument">Properties</span> buffer 
+continues far enough to hold the log file name as given and to be capable of 
+receiving a copy of the <span class="argument">InstanceName</span>. Otherwise, 
+the function returns <span class="constant">ERROR_BAD_LENGTH</span>. </p>
+<p>If the <span class="argument">InstanceName</span> is empty or too long, the 
+function fails, returning <span class="constant">ERROR_INVALID_NAME</span>. </p>
+<h4>Log File Mode </h4>
+<p>There are numerous constraints on the <span class="member">LogFileMode</span>, 
+sometimes in conjunction with other input, most notably to require that a log file is named or 
+that
+<span class="member">MaximumFileSize</span> is non-zero.
+</p>
+<p>The function requires at 
+least one of the following, else it fails, returning <span class="constant">ERROR_BAD_PATHNAME</span>:
+</p>
+<ul>
+  <li><span class="constant">EVENT_TRACE_REAL_TIME_MODE</span> is set; </li>
+  <li><span class="constant">EVENT_TRACE_BUFFERING_MODE</span> is set, in 
+  version 6.0 and higher; </li>
+  <li>a log file is named. </li>
+</ul>
+<p>From the error code, the thinking may be surmised as: a usable log file name 
+(see above) is required except in real-time or buffering mode. As may be seen 
+below, the converse is not true: even in real-time or buffering mode, a log file 
+name may be required because some other mode is set too. </p>
+<p>For other invalid combinations, as listed next, the returned error code is
+<span class="constant">ERROR_INVALID_PARAMETER</span>. Be aware that the kernel 
+or NTDLL, 
+should the function proceed that far,&nbsp;impose yet more constraints. What
+<span class="function">StartTrace</span> aims for is apparently just to reject 
+the main inconsistencies. </p>
+<table class="Constants">
+  <tr>
+    <th>Numerical Value </th>
+    <th>Symbolic Name </th>
+    <th>Requirements </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00000001 </td>
+    <td><span class="constant">EVENT_TRACE_FILE_MODE_SEQUENTIAL</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00000002 </td>
+    <td rowspan="2"><span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span>
+    </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_RELOG_MODE</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>requires non-zero <span class="member">MaximumFileSize</span> </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000004 </td>
+    <td><span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span> </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_REAL_TIME_MODE</span>; <br>
+    invalid with <span class="constant">EVENT_TRACE_RELOG_MODE</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="3">0x00000008 </td>
+    <td rowspan="3"><span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>
+    </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_PREALLOCATE</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_RELOG_MODE</span>; <br>
+    requires non-zero <span class="member">MaximumFileSize</span>; <br>
+    requires log file name </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>invalid with <span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span>
+    </td>
+    <td>5.2 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>invalid for NT Kernel Logger </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000010 </td>
+    <td><span class="constant">EVENT_TRACE_USE_MS_FLUSH_TIMER</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00000020 </td>
+    <td rowspan="2"><span class="constant">EVENT_TRACE_FILE_MODE_PREALLOCATE</span>
+    </td>
+    <td>requires non-zero <span class="member">MaximumFileSize</span>; <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>;
+    <br>
+    requires log file name </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>invalid with <span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span>
+    </td>
+    <td>5.2 only </td>
+  </tr>
+  <tr>
+    <td>0x00000040 </td>
+    <td><span class="constant">EVENT_TRACE_NONSTOPPABLE_MODE</span> </td>
+    <td>invalid </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000080 </td>
+    <td><span class="constant">EVENT_TRACE_SECURE_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00000100 </td>
+    <td rowspan="2"><span class="constant">EVENT_TRACE_REAL_TIME_MODE</span>
+    </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span>
+    </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span>
+    </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00000200 </td>
+    <td><span class="constant">EVENT_TRACE_DELAY_OPEN_FILE_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00000400 </td>
+    <td><span class="constant">EVENT_TRACE_BUFFERING_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td rowspan="6">0x00000800 </td>
+    <td rowspan="6"><span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span>
+    </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_REAL_TIME_MODE</span>
+    </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>required by <span class="constant">EVENT_TRACE_RELOG_MODE</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_PREALLOCATE</span>
+    </td>
+    <td>5.2 only </td>
+  </tr>
+  <tr>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>
+    </td>
+    <td>5.2 to 6.0 </td>
+  </tr>
+  <tr>
+    <td>required by <span class="constant">EVENT_TRACE_PRIVATE_IN_PROC</span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>required by <span class="constant">EVENT_TRACE_INDEPENDENT_SESSION_MODE</span>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00001000 </td>
+    <td><span class="constant">EVENT_TRACE_ADD_HEADER_MODE</span> </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_REAL_TIME_MODE</span>
+    </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00002000 </td>
+    <td><span class="constant">EVENT_TRACE_USE_KBYTES_FOR_SIZE</span> </td>
+    <td>requires non-zero <span class="member">MaximumFileSize</span>; <br>
+    requires log file name </td>
+    <td>5.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00004000 </td>
+    <td><span class="constant">EVENT_TRACE_USE_GLOBAL_SEQUENCE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00008000 </td>
+    <td><span class="constant">EVENT_TRACE_USE_LOCAL_SEQUENCE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00010000 </td>
+    <td><span class="constant">EVENT_TRACE_RELOG_MODE</span> </td>
+    <td>invalid with <span class="constant">EVENT_TRACE_FILE_MODE_CIRCULAR</span>;
+    <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_APPEND</span>; <br>
+    invalid with <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span>;
+    <br>
+    requires <span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span> </td>
+    <td>5.1 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00020000 </td>
+    <td><span class="constant">EVENT_TRACE_PRIVATE_IN_PROC</span> </td>
+    <td>requires <span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x00040000 </td>
+    <td><span class="constant">EVENT_TRACE_BUFFER_INTERFACE_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00080000 </td>
+    <td><span class="constant">EVENT_TRACE_KD_FILTER_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00100000 </td>
+    <td><span class="constant">EVENT_TRACE_REAL_TIME_RELOG_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00200000 </td>
+    <td><span class="constant">EVENT_TRACE_LOST_EVENTS_DEBUG_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00400000 </td>
+    <td><span class="constant">EVENT_TRACE_STOP_ON_HYBRID_SHUTDOWN</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x00800000 </td>
+    <td><span class="constant">EVENT_TRACE_PERSIST_ON_HYBRID_SHUTDOWN</span>
+    </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x01000000 </td>
+    <td><span class="constant">EVENT_TRACE_USE_PAGED_MEMORY</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x02000000 </td>
+    <td><span class="constant">EVENT_TRACE_SYSTEM_LOGGER_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x04000000 </td>
+    <td><span class="constant">EVENT_TRACE_COMPRESSED_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x08000000 </td>
+    <td><span class="constant">EVENT_TRACE_INDEPENDENT_SESSION_MODE</span> </td>
+    <td>requires <span class="constant">EVENT_TRACE_PRIVATE_LOGGER_MODE</span>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x10000000 </td>
+    <td><span class="constant">EVENT_TRACE_NO_PER_PROCESSOR_BUFFERING</span>
+    </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x20000000 </td>
+    <td><span class="constant">EVENT_TRACE_BLOCKING_MODE</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x40000000 </td>
+    <td>apparently unused </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>0x80000000 </td>
+    <td><span class="constant">EVENT_TRACE_ADDTO_TRIAGE_DUMP</span> </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>A set <span class="constant">EVENT_TRACE_FILE_MODE_NEWFILE</span> means that 
+the log file’s name is only the basis from which the implementation is to 
+generate new names for new log files. In version 5.2 and higher, the name (as 
+given or as the full pathname) must contain exactly one percent sign which is 
+followed immediately by a lower-case d to make a %d placeholder in the style of 
+the <span class="function">printf</span> 
+function from the C Run-Time. Otherwise, the function fails, returning
+<span class="constant">ERROR_INVALID_NAME</span>. </p>
+<p>Version 5.1 also requires a numerical placeholder in this case but is less 
+particular. It rejects the log file name only if a trial resolution of 1 for the 
+placeholder does not change the name. Though this flexibility soon was lost from 
+the code, it remains in Microsoft’s documentation of
+<a href="https://docs.microsoft.com/windows/win32/etw/logging-mode-constants">
+Logging Mode Constants</a>, which to this day might easily be read as suggesting 
+%d only “for example”. </p>
+<h4>Enable Flag Extensions </h4>
+<p>Except on one point, the <span class="member">EnableFlags</span> in the
+<span class="struct">EVENT_TRACE_PROPERTIES</span> are no direct concern to the
+<span class="function">StartTrace</span> function. They are meaningful 
+to the kernel only if the tracing session is the NT Kernel Logger or, in version 6.2 and 
+higher, has <span class="constant">EVENT_TRACE_SYSTEM_LOGGER_MODE</span> in the
+<span class="member">LogFileMode</span>. They 
+then select broad categories of events that the tracing session seeks from the 
+system trace provider. </p>
+<p>The exception applies in version 5.1 and higher if the highest bit of the
+<span class="member">EnableFlags</span> is set. That Microsoft names this bit
+<span class="constant">EVENT_TRACE_FLAG_EXTENSION</span> has been known from 
+EVNTRACE.H since at least 1999, but it has otherwise been left undocumented for 
+two decades. Its effect is that the 32-bit <span class="member">EnableFlags</span> 
+is re-interpreted as a 4-byte <span class="struct">
+<a href="../../../../../km/ntoskrnl/api/etw/tracesup/trace_enable_flag_extension.htm">TRACE_ENABLE_FLAG_EXTENSION</a></span> 
+structure. The low 16 bits are an <span class="member">Offset</span> in bytes 
+from the <span class="argument">Properties</span> to the extension. The next 8 
+bits are the extension’s <span class="member">Length</span> in dwords. </p>
+<p>Originally, the extension is opaque to the function but version 
+6.0 extended the extensibility to allow for multiple items which are each opaque. This 
+is indicated when the <span class="member">Length</span> 
+is 0xFF. The extension then begins as a 4-byte <span class="struct">
+TRACE_ENABLE_FLAG_EXT_HEADER</span> that supplies the extension’s true
+<span class="member">Length</span> in dwords (including the header just 
+mentioned) and the count of <span class="member">Items</span> that follow. Each 
+item is its own 4-byte <span class="struct">TRACE_ENABLE_FLAG_EXT_ITEM</span> as 
+a header to introduce the item’s opaque contents. The item’s header supplies as
+<span class="member">Offset</span> and a <span class="member">Type</span>. 
+Perhaps confusingly, this <span class="member">Offset</span> is the item’s 
+length in dwords (including the header). </p>
+<p>Given that the <span class="constant">EVENT_TRACE_FLAG_EXTENSION</span> bit 
+is set in the <span class="member">EnableFlags</span>, the function aims to 
+enforce that a properly formed extension is supplied within the
+<span class="argument">Properties</span> buffer 
+after the <span class="struct">EVENT_TRACE_PROPERTIES</span> header, else to 
+return <span class="constant">ERROR_INVALID_PARAMETER</span>. The following are 
+required always:&nbsp; </p>
+<ul>
+  <li><span class="member">Length</span> and <span class="member">Offset</span> 
+  in the <span class="struct">TRACE_ENABLE_FLAG_EXTENSION</span> are both 
+  non-zero; </li>
+  <li><span class="member">Offset</span> would have the extension start in space 
+  after the <span class="struct">EVENT_TRACE_PROPERTIES</span> but within the
+  <span class="argument">Properties</span> buffer; </li>
+  <li>this space is large enough for the extension. </li>
+</ul>
+<p>If <span class="member">Length</span> is not 0xFF, then this last requirement 
+is simply for <span class="member">Length</span> dwords. </p>
+<p>If <span class="member">Length</span> is 0xFF, then this space in the
+<span class="argument">Properties</span> buffer must be large enough for a 
+4-byte <span class="struct">TRACE_ENABLE_FLAG_EXT_HEADER</span> </p>
+<p><span class="alert">TO BE DONE?</span> </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 2nd November 2008 but was not 
+  published until 28th <a href="../../../../../../../new/20/05.htm">May 2020</a>. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c20.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2020. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5634" -->
+</div>
+
+</body>
+
+</html>

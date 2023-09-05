@@ -1,0 +1,140 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DPA_Grow</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="14798" endspan -->
+<h1>DPA_Grow </h1>
+<p>This function sets a new capacity for a DPA. </p>
+<h2>Declaration </h2>
+<pre class="source">BOOL
+DPA_Grow (
+    HDPA pdpa,
+    int cpCapacity);</pre>
+<h3>Parameters </h3>
+<p>The <span class="argument">pdpa</span> argument provides a handle to the DPA.
+</p>
+<p>The <span class="argument">cpCapacity</span> argument provides the new capacity 
+for the array, measured as a number of pointers. </p>
+<h3>Return Value </h3>
+<p>The function returns TRUE to indicate success, else FALSE for failure. </p>
+<h2>Behaviour </h2>
+<p>The function fails if the given DPA handle is NULL or if the desired capacity 
+is negative. The function cannot reduce the memory used for the pointer array: it 
+succeeds trivially if <span class="argument">cpCapacity</span> is not greater than 
+the existing capacity. </p>
+<p>Otherwise, the function arranges for the given DPA to have at least the given 
+capacity for storing pointers. If the DPA has no memory currently allocated to its 
+pointer array, the function seeks fresh memory from whichever heap was specified 
+or implied when the DPA was created. If memory exists already for the pointer array 
+but is not as large as wanted, the function seeks a reallocation. Either way, the 
+capacity sought is calculated by rounding up from <span class="argument">cpCapacity</span> 
+to a multiple of the current allocation unit. The function fails if the rounded-up 
+capacity would be too large for a positive signed integer. </p>
+<p>The allocation unit is set when the DPA is created, but this function may change 
+it (including when called internally for other DPA functions). Specifically, after 
+a successful allocation or reallocation of memory for the pointer array, if the 
+allocation unit is less than 256 pointers, it gets doubled. </p>
+<h3>Variations </h3>
+<!--webbot bot="Include" U-Include="_include/null40.htm" TAG="BODY" startspan -->
+
+<p>Defence against a NULL <span class="argument">pdpa</span> argument begins in 
+a build of version 4.0. Specifically, there is no defence in the version 4.0 from 
+Windows 95, or in any earlier version, but there is in the version 4.0 for Internet 
+Explorer 3.00 for Windows NT. (I have no copy of an Internet Explorer 3.00 for Windows 
+95. See the list of <a href="../../../history/index.htm">COMCTL32 versions</a> 
+found for this survey.) </p>
+
+<!--webbot bot="Include" i-checksum="61182" endspan -->
+<p>Doubling the allocation unit dates from version 4.70. </p>
+<h4>Arithmetic </h4>
+<p>For later versions of the function, Microsoft’s programmers make rather heavy 
+work of the possibility of arithmetic overflow when rounding up the desired capacity. 
+Historically, the function has a simple computation in signed arithmetic: </p>
+<pre class="source">int capacity = (cpCapacity + pdpa -&gt; cpGrow - 1) / pdpa -&gt; cpGrow * pdpa -&gt; cpGrow;</pre>
+<p>The versions 5.82 and 6.0 from Windows Server 2003 SP2 introduce an explicit 
+defence against a negative <span class="argument">cpCapacity</span>, and change 
+to unsigned arithmetic, and require that the result be less than 0x3FFFFFFF: </p>
+<pre class="source">UINT capacity = (UINT) (cpCapacity + pdpa -&gt; cpGrow - 1) / pdpa -&gt; cpGrow * pdpa -&gt; cpGrow;
+if (capacity &gt;= MAXSIZE_T / sizeof (PVOID)) return FALSE;</pre>
+<p>The version 5.82 from Windows Vista retains the defence against a negative capacity, 
+but calls a function (named <span class="symbol">DXA_RoundUp</span> according to 
+the symbol files) to do the rounding up. The effect of the function, if inlined 
+into <span class="function">DPA_Grow</span>, would be: </p>
+<pre class="source">UINT temp = cpCapacity + pdpa -&gt; cpGrow - 1;
+if (temp &lt; (UINT) cpCapacity) return FALSE;
+int capacity = temp / pdpa -&gt; cpGrow * pdpa -&gt; cpGrow;
+if ((UINT) capacity &gt; (UINT) MAXINT) return FALSE;</pre>
+<p>Though version 6.10 is contemporaneous with the version 5.82 from Windows Vista, 
+it removes the explicit defence against a negative capacity, and changes the arithmetic 
+yet again: </p>
+<pre class="source">UINT temp = cpCapacity + pdpa -&gt; cpGrow - 1;
+if (temp &lt; (UINT) cpCapacity) return FALSE;
+if (temp &gt; (UINT) MAXINT) return FALSE;
+int capacity = (int) temp / pdpa -&gt; cpGrow * pdpa -&gt; cpGrow;</pre>
+<p>Is it a relief that even Microsoft’s programmers, presumably even from among 
+their best and brightest (to be trusted with an executable as important as COMCTL32), 
+have so much trouble with signed versus unsigned integers and with arithmetic overflow?
+</p>
+<h2>Availability </h2>
+<p>The <span class="function">DPA_Grow</span> function is exported from COMCTL32.DLL 
+as ordinal 330 in version 3.50 and higher. The implementation for version 6.10 
+and higher is built into a statically linked library and thence is also exported 
+from the Internet Explorer module IERTUTIL.DLL as ordinal 84 in version 7.0 and 
+higher. </p>
+<!--webbot bot="Include" U-Include="../../_include/undoc400.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 1995, it was still not 
+documented by Microsoft in the MSDN Library at least as late as the CD edition 
+dated January 2004. </p>
+
+<!--webbot bot="Include" i-checksum="42917" endspan -->
+<!--webbot bot="Include" U-Include="../../_include/doc06.htm" TAG="BODY" startspan -->
+
+<p>This function did, however, get documented in 2006. This article now uses 
+Microsoft’s nomenclature. </p>
+
+<!--webbot bot="Include" i-checksum="42077" endspan -->
+<div class="Footer">
+  <p class="Dates">This page was created on 9th April 2005 (from material first 
+  published in 1997) and was last modified 
+  on 23rd June 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c9710.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 1997-2010. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="5797" endspan -->
+</div>
+
+</body>
+
+</html>

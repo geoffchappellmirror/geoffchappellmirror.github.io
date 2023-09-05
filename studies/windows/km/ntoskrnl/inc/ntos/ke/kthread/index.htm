@@ -1,0 +1,407 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KTHREAD</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<h1>KTHREAD </h1>
+<div class="Main">
+  <!--webbot bot="Include" U-Include="_include/intro.htm" TAG="BODY" startspan -->
+
+<p>The <span class="struct">KTHREAD</span> structure is the Kernel Core’s portion 
+of the <span class="struct"><a href="../../ps/ethread/index.htm">ETHREAD</a></span> 
+structure. The latter <span class="emphasis">is</span> the thread object as exposed 
+through the Object Manager. The <span class="struct">KTHREAD</span> is the core 
+of it. </p>
+
+<!--webbot bot="Include" endspan i-checksum="54584" -->
+  <h2>Variability </h2>
+  <p>The <span class="struct">KTHREAD</span> structure is plainly internal to the 
+  kernel and its layout varies greatly between Windows versions and even between 
+  builds. Indeed, it is the most highly variable of all significant kernel-mode 
+  structures. It has been treated multiple times to large-scale rearrangements in 
+  which members are brought together from opposite ends of the structure only to 
+  have the next build scatter them again. Tracking the structure’s history on one 
+  page looks to be impossible and is therefore spread over several: </p>
+  <ul>
+    <li><a href="310.htm">versions 3.10 to 3.50</a>; </li>
+    <li><a href="351.htm">versions 3.51 to to 5.1</a>; </li>
+    <li><a href="early52.htm">version 5.2 before SP1</a>; </li>
+    <li><a href="late52.htm">versions 5.2 SP1 to 6.1</a>; </li>
+    <li><a href="62.htm">versions 6.2 and higher</a>. </li>
+  </ul>
+  <p>Be aware, please, that notes about any particular member are on the page for 
+  the version that introduced the member. Yes, this means that the page about version 
+  3.10 is not merely for historians! </p>
+  <p>Even were attention narrowed just to recent Windows versions, description of 
+  the <span class="struct">KTHREAD</span> would be unusually complicated. Specially 
+  notable is the packing of small members into spare fields in other members. Some 
+  such reused fields are explicitly spare, as with several members of the
+  <span class="struct">KAPC</span> structure. WDM.H even defines macros to ease 
+  the reference to these fields by their offsets. Other reuse is available only 
+  because of alignment padding, as with the last byte of the
+  <span class="struct">KAPC_STATE</span> for 32-bit Windows. As if this weren’t 
+  messy enough by itself, the greater opportunity for this reuse in the 64-bit builds, 
+  whose wider pointers tend to create more alignment padding as a side-effect, allows 
+  that more than a few members are placed very differently in the 32-bit and 64-bit 
+  builds.</p>
+  <h3>Size </h3>
+  <p>Some quick sense of this structure’s unusual variability can be gained just 
+  from the changing size. In the following table, different builds of the same version 
+  are distinguished as early, late and even very late because they are known to 
+  vary the structure even if they don’t change the size. These descriptions are 
+  then used as a shorthand throughout this article and its companions. </p>
+  <table class="Sizes">
+    <colgroup>
+      <col class="Version"><col class="Size" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Version </th>
+        <th>Size (x86) </th>
+        <th>Size (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>3.10 </td>
+        <td>0x01D8 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>3.50 to 5.0 </td>
+        <td>0x01B0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>5.1 </td>
+        <td>0x01C0 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>early 5.2 (before SP1) </td>
+        <td>0x01C8 </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>late 5.2 (SP1) </td>
+        <td>0x01B8 </td>
+        <td>0x0320 </td>
+      </tr>
+      <tr>
+        <td>very late 5.2 (SP2) </td>
+        <td>0x01B8 </td>
+        <td>0x0308 </td>
+      </tr>
+      <tr>
+        <td>early 6.0 (before SP1); <br>
+        late 6.0 (SP1 and higher) </td>
+        <td>0x01E0 </td>
+        <td>0x0330 </td>
+      </tr>
+      <tr>
+        <td>6.1 </td>
+        <td>0x0200 </td>
+        <td>0x0360 </td>
+      </tr>
+      <tr>
+        <td>6.2 </td>
+        <td>0x01E8 </td>
+        <td>0x0348 </td>
+      </tr>
+      <tr>
+        <td>6.3 </td>
+        <td>0x0338 </td>
+        <td>0x05D0 </td>
+      </tr>
+      <tr>
+        <td>10.0 to 1511 </td>
+        <td>0x0348 </td>
+        <td>0x05D8 </td>
+      </tr>
+      <tr>
+        <td>1607 </td>
+        <td>0x0348 </td>
+        <td>0x05E0 </td>
+      </tr>
+      <tr>
+        <td>1703 </td>
+        <td>0x0350 </td>
+        <td>0x05E8 </td>
+      </tr>
+      <tr>
+        <td>1709 to 1809 </td>
+        <td>0x0350 </td>
+        <td>0x05F0 </td>
+      </tr>
+      <tr>
+        <td>1903 </td>
+        <td>0x0358 </td>
+        <td>0x0600 </td>
+      </tr>
+      <tr>
+        <td>2004 </td>
+        <td>0x0280 </td>
+        <td>0x0430 </td>
+      </tr>
+    </tbody>
+  </table>
+  <h2>Layout (Header) </h2>
+  <p>It is well known that the <span class="struct">KTHREAD</span> is a kernel object 
+  that can be waited on until it gets signalled, which happens when the thread ends 
+  its execution. This is possible because the <span class="struct">KTHREAD</span> 
+  is specifically a dispatcher object: in all versions, it begins with a
+  <span class="struct"><a href="../../ntosdef_x/dispatcher_header/index.htm">DISPATCHER_HEADER</a></span>. 
+  Indeed, this <span class="member">Header</span> is the only
+  <span class="struct">KTHREAD</span> member that has not been moved forwards, backwards 
+  and round about the structure from version to version. This is here taken as reason 
+  for special treatment, independently of the version-specific pages. </p>
+  <p>Though the <span class="member">Header</span> always begins the
+  <span class="struct">KTHREAD</span>, it has changed internally. Significant new 
+  functionality has sometimes been accommodated by finding space inside the
+  <span class="member">Header</span>. In one case, old functionality was moved into 
+  the <span class="member">Header</span> and then developed. The following table 
+  simplifies by disregarding the nested unions and other such scaffolding that provide 
+  for the <span class="struct">DISPATCHER_HEADER</span> to begin all types of waitable 
+  kernel object. The table instead extracts only the construction that applies to 
+  threads. The intention is convenience: after all, if you’re looking at a thread 
+  in the debugger (or other disassembly), then what you want at each offset is the 
+  interpretation that applies to threads. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x00 </td>
+        <td>
+        <pre class="source">SHORT Type;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Type;</pre>
+        </td>
+        <td>3.51 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR ThreadType;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="5">0x01 </td>
+        <td>
+        <pre class="source">UCHAR Spare;</pre>
+        </td>
+        <td>3.51 only </td>
+      </tr>
+      <tr>
+        <td>defined, but meaningful only for other objects </td>
+        <td>4.0 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR ThreadReserved;</pre>
+        </td>
+        <td>10.0 to 1709 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR ThreadSpecControl;
+    struct {
+        UCHAR SpecControlIbrs : 1;
+        UCHAR SpecControlStibp : 1;
+        UCHAR SpecControlReserved : 6;
+    };
+};</pre>
+        </td>
+        <td>1803 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR ThreadReserved;</pre>
+        </td>
+        <td>1809 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x02 </td>
+        <td>
+        <pre class="source">SHORT Size;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT Size;</pre>
+        </td>
+        <td>3.51 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">UCHAR Size;</pre>
+        </td>
+        <td>4.0 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="../../ntosdef_x/dispatcher_header/threadcontrolflags.htm">ThreadControlFlags</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="4">0x03 </td>
+        <td>defined, but meaningful only for other objects </td>
+        <td>4.0 to 5.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN DebugActive;</pre>
+        </td>
+        <td>5.2 to 6.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR <a href="../../ntosdef_x/dispatcher_header/debugactive.htm">DebugActive</a>;
+    struct {
+        /*  bit fields, follow link  */
+    };
+};</pre>
+        </td>
+        <td>6.1 only (x86); <br>
+        6.1 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">BOOLEAN DebugActive;</pre>
+        </td>
+        <td>6.2 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>
+        <pre class="source">LONG SignalState;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">LIST_ENTRY WaitListHead;</pre>
+        </td>
+        <td>all </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>As for all dispatcher objects, the low 7 bits of the <span class="member">
+  Type</span>—or all 8 bits in version 3.51 and all 16 bits before then—are from 
+  the <span class="enum"><a href="../kobjects.htm">KOBJECTS</a></span> enumeration. 
+  In a <span class="struct">KTHREAD</span>, the <span class="member">Type</span> 
+  is specifically <span class="constant">ThreadObject</span>. This is 6 in all versions 
+  except for being 5 in version 3.10 only. </p>
+  <p>At offset 0x01, the <span title="member" class="member">ThreadSpecControl</span>, 
+  including the union and its strucure of bit fields, is from public symbol files 
+  for the kernel. The C-language definition in WDM.H from the WDK for the 1803 release 
+  of Windows 10 persists with <span class="member">ThreadReserved</span>. </p>
+  <p>The <span class="member">Size</span> at offset 0x02 is originally that of the
+  <span class="struct">KTHREAD</span> in bytes. With the narrowing to 8 bits for 
+  version 4.0, it measures in dwords. Starting with version 6.1, the
+  <span class="struct">KTHREAD</span> joins the <span class="struct">KTIMER</span> 
+  in not having a <span class="member">Size</span> in its <span class="member">
+  Header</span>. Where other objects have their <span class="member">Size</span>, 
+  the <span class="struct">KTHREAD</span> instead has the <span class="member">
+  ThreadControlFlags</span> (in union with a structure of bit fields). </p>
+  <p>The byte at offset 0x03, freed by the narrowing of the <span class="member">
+  Size</span>, was at first used only for timer objects. Its first use for thread 
+  objects was simply to bring in the ancient <span class="member">DebugActive</span> 
+  boolean. It was originally very nearly at the end of the <span class="struct">KTHREAD</span> 
+  (at offset 0x01C5 in version 3.10 when the whole structure was 0x01D8 bytes). Version 
+  3.51 brought it near to the front and version 5.2 brought it into the
+  <span class="member">Header</span>. This was concurrent with defining the 
+  first four bytes as a <span class="member">Lock</span>. The intention seems at 
+  least plausible of working with <span class="member">DebugActive</span> using 
+  interlocked operations, but no instance of this is known until version 6.0. </p>
+  <p>Interpretation of <span class="member">DebugActive</span> as bit flags is a 
+  subject for research. C-language definitions in WDM.H and even the type 
+  information in public symbol files plainly do not capture anything like the 
+  32-bit kernel’s use of the byte. It can safely be said on one hand that the 
+  byte was still treated as a <span class="type">BOOLEAN</span> in the original 
+  Windows Server 2003 and just as safely on the other that it hasn’t been in any 
+  later version of 32-bit Windows, no matter that Microsoft defines it as bit 
+  fields only for Windows 7. Indeed, the definition with bit fields for 32-bit 
+  Windows 7 appears to be an oversight which the C-language definition in the 
+  WDK for Windows 8 corrects with a conditional compilation block. </p>
+  <p>For 64-bit Windows, the formal definition leaves <span class="member">
+  DebugActive</span> as a simple <span class="type">BOOLEAN</span> until Windows 
+  7 but interpretation as bit flags starts even in the 64-bit Windows Server 
+  2003 (SP1), This has code that sets and clears <span class="member">
+  DebugActive</span> as a <span class="type">BOOLEAN</span> but also has code 
+  that tests for the boolean’s <span class="constant">TRUE</span> as the bit 
+  that Microsoft later defines as the <span class="member">ActiveDR7</span>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 15th
+    <a href="../../../../../../../../new/16/06.htm">June 2016</a> and was last modified 
+    on 8th October 2022. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14250" -->
+  </div>
+</div>
+
+</body>
+
+</html>

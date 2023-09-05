@@ -1,0 +1,197 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CL.EXE Early Options</title>
+<link rel="stylesheet" type="text/css" href="../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="22580" endspan -->
+<h1>CL.EXE Early Options </h1>
+<p>A handful of options are intended to have at least some of their effect as early 
+as possible. To learn the state of these options in advance of the ordinary processing 
+of the command line, the compiler makes an early pass over the command line. This 
+is not so much an early processing of the command line, done the same as later but 
+specialised to finding just these few particular options. It is instead a cursory 
+scan for these few options. There is a significant relaxation of syntax. </p>
+<h2>Syntax </h2>
+<p>The options in question are: <span class="switch"><a href="options/b$e.htm">/Be</a></span>,
+<span class="switch"><a href="options/clr.htm">/clr</a></span>,
+<span class="switch"><a href="options/nologo.htm">/nologo</a></span>,
+<span class="switch"><a href="options/noover.htm">/noover</a></span> and
+<span class="switch"><a href="options/zx.htm">/ZX</a></span>. Note that
+<span class="switch">/clr</span> is ordinarily case-insensitive, but to be noticed 
+for its early effect, it must be entirely in lower case or entirely in upper case. 
+Each option is permitted a negative form, with a trailing hyphen. The
+<span class="switch">/ZX</span> option is allowed an argument. So too is
+<span class="switch">/clr</span>, but not if found in a command file. For both, 
+the argument must follow immediately, i.e., without white space, but is otherwise 
+not interpreted. </p>
+<h3>Precedence </h3>
+<p>For each option, the instance that counts is in general the first among the following 
+sources in the following order: </p>
+<ul>
+  <li>the value of the <span class="env">_CL_</span> environment variable; </li>
+  <li>the actual command line; </li>
+  <li>the value of the <span class="env">CL</span> environment variable. </li>
+</ul>
+<p>This is not quite the same as for the <a href="syntax.htm">ordinary processing</a>, 
+in which the instance that counts is the last among these same sources but in the 
+reverse order. Moreover, there are special cases. Within each of the contributing 
+sources, what “first” means specifically is: </p>
+<ul>
+  <li>the first instance with either no argument or just a trailing hyphen; </li>
+  <li>else, the first instance with an argument (<span class="switch">/clr</span> 
+  and <span class="switch">/ZX</span> only); </li>
+  <li>else the first instance extracted from a command file. </li>
+</ul>
+<p>By “argument” is meant the characters, if any, that follow immediately the characters 
+of the option, except that if there is only one such character and it is a hyphen, 
+then it is not an argument but instead signifies that the option is negated. </p>
+<p>In the first two cases, where the instance is found directly in the contributing 
+source rather than in a command file, “instance” means any token that matches the 
+option, with no allowance for whether the token would ordinarily be a continuation 
+of some earlier option. </p>
+<h3>Command Files </h3>
+<p>The early pass does recognise command files, but only to scan the first line 
+(and only then the first 1022 characters) and with no support for recursion. If 
+a command file cannot be opened (with read access in text mode) or its first line 
+cannot be read, then it is ignored without complaint. </p>
+<p>Where an option that is subject to early parsing has multiple instances on the 
+first line of the command file, the one that counts is the last. </p>
+<p>As for finding instances of the option on that first line of a command file, 
+there is no formal parsing into tokens. Instead, an instance is recognised within 
+the command file wherever the characters of the option (with or without a trailing 
+hyphen): </p>
+<ul>
+  <li>are found either at the very start of the line or immediately after a tab, 
+  space or double-quote; </li>
+  <li>and either end the line or are followed immediately by a tab, space or double-quote.
+  </li>
+</ul>
+<p>The second of these conditions is skipped when scanning for the
+<span class="switch">/ZX</span> option, since it is allowed an argument of arbitrary 
+length. </p>
+<h2>Demonstrations </h2>
+<p>It seems unlikely that all the differences between the early and ordinary processing 
+of command-line options are intended. The early processing is just a quick scan 
+and has perhaps understandably not been implemented with much concern for rigour. 
+Even so, the differences can have unexpected consequences, at least for anyone who 
+looks carefully enough. </p>
+<p>For simplicity, all the demonstrations sketched below assume that the
+<span class="env">CL</span> and <span class="env">_CL_</span> environment variables 
+are empty. </p>
+<h3>First Line Only in Command Files </h3>
+<p>Perhaps the greatest practical implication of the differences between the early 
+and ordinary processing of command-line options is that an option in a command file 
+can have its intended early effect only if placed on the command file’s very first 
+line. </p>
+<p>To see this, prepare command files, here named “test1.txt” and “test2.txt”, the 
+first with <span class="switch">/nologo</span> on the first line, the other with 
+an empty first line and <span class="switch">/nologo</span> on the second line. 
+Given an arbitrary C-language source file “test.cpp”, run the commands </p>
+<pre class="input">cl /c @test1.txt test.cpp
+cl /c @test2.txt test.cpp</pre>
+<p>and see that the logo is suppressed when <span class="switch">/nologo</span> 
+is on the first line of the command file but not when on the second. </p>
+<h3>No /CLR with Argument in Command Files </h3>
+<p>To see that the early processing does not recognise <span class="switch">/clr</span> 
+with an argument in command files even on the first line, first run the command
+</p>
+<pre class="input">cl /c /clr:noAssembly test.cpp</pre>
+<p>to see that when this option is recognised, the compiler describes itself as 
+“Version 13.00.9466 for .NET Framework”, this change from the usual title being 
+perhaps the main point to recognising <span class="switch">/clr</span> early. Now 
+prepare a command file, here named “test.txt”, containing just
+<span class="switch">/clr:noAssembly</span>. Run </p>
+<pre class="input">cl /c @test.txt test.cpp</pre>
+<p>and see that the title in the logo is just the ordinary “Version 13.00.9466 for 
+80x86”. The <span class="switch">/clr:noAssembly</span> is still detected in the 
+ordinary processing of the command line, but its early effect is missed when the 
+option is given in a command file. </p>
+<h3>Mistaken Identity </h3>
+<p>That the early parsing may accept as an option a token that would ordinarily 
+be a continuation of some other option also is demonstrated most readily with
+<span class="switch">/nologo</span> since it is a valid option both for the compiler 
+and linker. A feature of the compiler’s <span class="switch">/link</span> option 
+is that it absorbs as its own arguments all subsequent command-line tokens, which 
+then become command-line arguments for the linker. However, the command </p>
+<pre class="input">cl test.cpp /link /nologo</pre>
+<p>suppresses the logo for the compiler not because that’s what the programmer actually 
+asked for but because the <span class="switch">/nologo</span> intended for the linker 
+is accepted during early parsing as applying also to the compiler. </p>
+<h3>Order </h3>
+<p>To see that in simple cases, without complications from command files or options 
+with arguments, an option’s first instance counts for the early effect even though 
+the last instance ends up counting later, run the commands </p>
+<pre class="input">cl /nologo /nologo- test.cpp
+cl /nologo- /nologo test.cpp</pre>
+<p>Whether the logo is suppressed depends on the first instance, even though the 
+compiler claims (in a warning message) to have overridden the first with the second.
+</p>
+<p>To demonstrate a special case involving a command file, prepare two command files, 
+here named “clr.txt” and “noclr.txt”, containing just <span class="switch">/clr</span> 
+and <span class="switch">/clr-</span> respectively. Run the following two sets of 
+commands </p>
+<pre class="input">cl /c /clr /clr:noAssembly @noclr.txt test.cpp
+cl /c /clr @noclr.txt /clr:noAssembly test.cpp
+cl /c /clr:noAssembly /clr @noclr.txt test.cpp
+cl /c /clr:noAssembly @noclr.txt /clr test.cpp
+cl /c @noclr.txt /clr /clr:noAssembly test.cpp
+cl /c @noclr.txt /clr:noAssembly /clr test.cpp</pre>
+<p>and </p>
+<pre class="input">cl /c /clr- /clr:noAssembly @clr.txt test.cpp
+cl /c /clr- @clr.txt /clr:noAssembly test.cpp
+cl /c /clr:noAssembly /clr- @clr.txt test.cpp
+cl /c /clr:noAssembly @clr.txt /clr- test.cpp
+cl /c @clr.txt /clr- /clr:noAssembly test.cpp
+cl /c @clr.txt /clr:noAssembly /clr- test.cpp</pre>
+<p>The first set goes through all the combinations of <span class="switch">/clr</span> 
+with and without an argument on the command line and <span class="switch">/clr-</span> 
+in a command file. The second set changes to <span class="switch">/clr-</span> on 
+the command line with <span class="switch">/clr</span> in the command file. All 
+the commands in the first set but none in the second produce the “.NET Framework” 
+description in the logo. For this early effect, a <span class="switch">/clr</span> 
+or <span class="switch">/clr-</span> anywhere on the command line takes precedence 
+over a <span class="switch">/clr:noAssembly</span> (which has an argument) on the 
+command line and over any <span class="switch">/clr</span> variant in any command 
+file. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 29th October 2005 and was last modified 
+  on 9th June 2009. </p>
+  <!--webbot bot="Include" U-Include="../../_include/c0509.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2005-2009. Geoff Chappell. All rights reserved.
+<a href="../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="57989" endspan -->
+</div>
+
+</body>
+
+</html>

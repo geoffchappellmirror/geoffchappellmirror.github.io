@@ -1,0 +1,125 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>DUMPBIN /MAP</title>
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/msvc.css">
+<script type="text/javascript" src="../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/msvc.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="24274" endspan -->
+<h1>DUMPBIN /MAP </h1>
+<p>This option asks to dump the Section Contribution Map, if available, else an 
+extract from the COFF Symbol Table. </p>
+<h2>Syntax </h2>
+<p>No arguments are anticipated. The option is <span class="switch">/map</span> 
+only. </p>
+<h2>Behaviour </h2>
+<p>This option applies to executables in PE format and to debug files. </p>
+<h3>Section Contribution Map </h3>
+<p>The Section Contribution Map can come only from a PDB file that matches the 
+input file. It lays out the executable image as a succession of contributions 
+from the modules (object files, etc) that the executable was linked from. Each 
+contribution has an address and size, a record of the contributing module, and 
+section characteristics (the same as in a section header). </p>
+<p>DUMPBIN has no direct knowledge of the Section Contribution Map as data in a 
+PDB. The work of finding a matching PDB and of enumerating the section 
+contributions falls to MSPDB70.DLL, which DUMPBIN calls through an undocumented 
+interface. </p>
+<p>The Section Contribution Map is more to DUMPBIN than just something to dump. 
+DUMPBIN uses it to improve its disassemblies (enabled by the
+<span class="switch"><a href="disasm.htm">/disasm</a></span> option). With 
+section characteristics known on a finer scale than for whole sections, DUMPBIN 
+can identify data that has been merged into a code section and can recognise 
+code fragments that use an alternate instruction set. </p>
+<h3>Symbol Map </h3>
+<p>If no Section Contribution Map is available, DUMPBIN looks instead to the 
+COFF Symbol Table in the input file. From this, if present, DUMPBIN extracts 
+something that it calls a Symbol Map. This too is a description of the 
+executable image in terms of blocks, each with an address and a size. </p>
+<p>DUMPBIN makes its own determination of these blocks. Each runs from one 
+external symbol up to but not including the next in the same section, else to 
+the end of the section. </p>
+<h3>Optimisation Map </h3>
+<p>For both maps, the usefulness of the dumps is reduced significantly by their 
+not accounting for the Optimisation Map (OMAP). In terms of the OMAP , the 
+addresses in both the Section Contribution Map and the Symbol Map, whether 
+expressed as RVAs or as offsets in sections, are <span class="definition">source</span> 
+addresses. They are generally not the addresses in the optimised executable. </p>
+<p>DUMPBIN is well aware that symbolic information is recorded in terms of OMAP 
+source addresses. Its code to look up the symbol for an address in the 
+executable first feeds the address through the “to source” OMAP. Unfortunately, 
+when DUMPBIN seeks symbols for addresses in the Section Contribution Map or the 
+Symbol Map, it still puts them through the “to source” OMAP, apparently not 
+realising that they are already source addresses. Thus, the symbols that DUMPBIN 
+shows for both the Section Contribution Map and the Symbol Map will generally be 
+wrong, if the executable has an OMAP. </p>
+<p>Something similar affects the Symbol Map. A block that begins with the last 
+external symbol in a section runs to the end of that same section, but DUMPBIN 
+uses the source address for the symbol but the actual address for the section. 
+The computed size can be wildly implausible. For example, take EXPLORER.DBG for 
+the free build of NT 4.0 (374,160 bytes, dated 14th October 1996) and run <span class="command">
+dumpbin /map explorer.dbg</span> and see that the last line of the map tells of 
+a block whose size is 4294963332 bytes. </p>
+<h3>Standard Error </h3>
+<p>A side-effect of the <span class="switch">/map</span> option is that the 
+announcement of each input file goes to standard error, rather than to standard 
+output or to whatever file is named for output via a <span class="switch">/out</span> 
+option.
+</p>
+<h2>Documentation Status </h2>
+<p>The <span class="switch">/map</span> option is apparently undocumented. If 
+so, it is surely no oversight. In the option’s long history (being at least as 
+old as version 3.00.5270, from Visual C++ 4.0), it has benefited from a 
+significant enough upgrade of functionality, namely to support dumping the 
+Section Contribution Map, that someone must have wondered about the change’s 
+implications for the documentation.
+</p>
+<p>Someone at Microsoft, some time, thought enough of the <span class="switch">
+/map</span> 
+option to establish it in the master makefile that Microsoft uses for its own 
+builds and publishes with its kits for writing NT device drivers. At least as 
+far back as the NT 4.0 DDK, if the <span class="macro">NTDUMPAMAP</span> macro 
+is defined, then a <span class="command">link -dump -map</span> command is run 
+after linking. That said, the output is piped to the <span class="command">sort</span> 
+command with a direction to sort (in reverse order) at column 62, which seems to 
+have no particular relevance to the current layout of either the Section 
+Contribution Map or Symbol Map. There are, of course, no comments. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 22nd September 2005 and was last 
+  modified on 7th January 2010. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c0510.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2005-2010. Geoff Chappell. All rights reserved.
+<a href="../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="62288" endspan -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,221 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Matching Information Filter</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="54033" -->
+<h1>Matching Information Filter </h1>
+<p>The APPHELP functions <span class="function">
+<a href="sdbgrabmatchinginfo.htm">SdbGrabMatchingInfo</a></span> and
+<span class="function"><a href="sdbgrabmatchinginfoex.htm">SdbGrabMatchingInfoEx</a></span> 
+functions collect into an XML file various sorts of information about files that 
+seem related to a given executable. The intended use seems to be that the executable 
+needs a patch, shim or similar support in particular circumstances and the collected 
+descriptions of the related files, or some extract from them, can help those circumstances 
+be recognised later (and elsewhere) by the presence of matching files. The XML output 
+is suitable for use as input for creating, or editing, an SDB file that describes 
+patches, shims, etc. </p>
+<p>Both functions have an argument that Microsoft names <span class="argument">dwFilter</span> 
+(inferred from text that APPHELP can write to log files). The low 16 bits define 
+what type of files to look for and what information to collect. The high 16 bits 
+are bit flags that more generally vary the operation of the functions. </p>
+<h2>Types </h2>
+<p>The supported values for the low 16 bits of the <span class="argument">dwFilter</span> 
+argument are: </p>
+<table>
+  <tr>
+    <th>Numeric Value </th>
+    <th>Symbolic Name </th>
+    <th>Search Path </th>
+    <th>Matching Files </th>
+  </tr>
+  <tr>
+    <td>0 </td>
+    <td><span class="constant">GRABMI_FILTER_NORMAL</span> </td>
+    <td>path from <span class="argument">szExe</span>; <br>
+    plus subdirectories </td>
+    <td>any number of files with certain extensions (see below); <br>
+    up to 10 others per directory </td>
+  </tr>
+  <tr>
+    <td>1 </td>
+    <td><span class="constant">GRABMI_FILTER_PRIVACY</span> </td>
+    <td>path from <span class="argument">szExe</span>; <br>
+    plus subdirectories </td>
+    <td>any number of files with certain extensions (see below) </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td><span class="constant">GRABMI_FILTER_DRIVERS</span> </td>
+    <td>path from <span class="argument">szExe</span>; <br>
+    plus subdirectories </td>
+    <td>any number of files with .sys extension; <br>
+    up to 10 others per directory </td>
+  </tr>
+  <tr>
+    <td>3 </td>
+    <td><span class="constant">GRABMI_FILTER_VERBOSE</span> </td>
+    <td>path from <span class="argument">szExe</span>; <br>
+    plus subdirectories </td>
+    <td>all files </td>
+  </tr>
+  <tr>
+    <td>4 </td>
+    <td><span class="constant">GRABMI_FILTER_SYSTEM</span> </td>
+    <td>Windows system directory; <br>
+    no subdirectories </td>
+    <td>pre-set list of system DLLs (see below) </td>
+  </tr>
+  <tr>
+    <td>5 </td>
+    <td><span class="constant">GRABMI_FILTER_THISFILEONLY</span> </td>
+    <td>path from <span class="argument">szExe</span>; <br>
+    no subdirectories </td>
+    <td>file from <span class="argument">szExe</span> </td>
+  </tr>
+</table>
+<p>Here, <span class="argument">szExe</span> is an invented name for the first argument 
+of both functions. The symbolic names that Microsoft’s programmers use for the numeric 
+values can be known with confidence from the XML files that these functions produce 
+as their output (and, in one case, from text that APPHELP can write to a log file). 
+Whether Microsoft defines these names as macros or as members of a formal enumeration 
+is not known. </p>
+<p>Some types of filter do not permit recursion into subdirectories. Where recursion 
+is permitted, it is limited to three levels and is defeated by the 0x80000000 flag.
+</p>
+<p>The <span class="constant">GRABMI_FILTER_NORMAL</span> and
+<span class="constant">GRABMI_FILTER_PRIVACY</span> filters are concerned primarily 
+to find files whose names have particular extensions: </p>
+<ul>
+  <li>.exe </li>
+  <li>.icd </li>
+  <li>._mp </li>
+  <li>.msi </li>
+  <li>.dll </li>
+</ul>
+<p>The difference between these two filters is that the Normal filter reports on 
+at least some files with other extensions but the Privacy filter does not. Even 
+the Normal filter ignores files with other extensions once it has found too many. 
+This limit is hard-coded as 10 in all known versions but is re-applied for each 
+subdirectory that is searched. </p>
+<p>The <span class="constant">GRABMI_FILTER_DRIVER</span> filter is similar to
+<span class="constant">GRABMI_FILTER_NORMAL</span> in the sense of finding files 
+whose names have a particular extension but of reporting other files until there 
+are too many. It differs in two notable respects. First, the descriptions of each 
+file are put in <span class="tag">SYS</span> tags, not <span class="tag">MATCHING_FILE</span>. 
+Second, the descriptions are limited to just four attributes: </p>
+<ul>
+  <li><span class="tag">BIN_PRODUCT_VERSION</span> </li>
+  <li><span class="tag">UPTO_BIN_PRODUCT_VERSION</span> </li>
+  <li><span class="tag">LINK_DATE</span> </li>
+  <li><span class="tag">UPTO_LINK_DATE</span> </li>
+</ul>
+<p>It is not known why these are the only attributes that are thought relevant or 
+what is meant by the <span class="tag">SYS</span> tag. </p>
+<p>The <span class="constant">GRABMI_FILTER_SYSTEM</span> reports only the following 
+DLLs from the Windows system directory: </p>
+<ul>
+  <li>ntdll.dll </li>
+  <li>user32.dll </li>
+  <li>kernel32.dll </li>
+  <li>gdi32.dll </li>
+  <li>wininet.dll </li>
+  <li>winsock.dll </li>
+  <li>advapi32.dll </li>
+  <li>shell32.dll </li>
+  <li>ole32.dll </li>
+  <li>advapi32.dll </li>
+  <li>oleaut32.dll </li>
+  <li>repcrt32.dll </li>
+</ul>
+<p>It is not known why advapi32.dll appears twice in APPHELP’s list. The second 
+is redundant. It is not as if each file is sought in turn: the search is of all 
+files in the directory, checking each for appearance in the list. </p>
+<h2>Flags </h2>
+<p>Four flags are known to be defined in the high 16 bits of
+<span class="argument">dwFilter</span>: </p>
+<table>
+  <tr>
+    <th>Flag </th>
+    <th>Description </th>
+  </tr>
+  <tr>
+    <td>0x10000000 </td>
+    <td>do not close <span class="tag">DATABASE</span> tag </td>
+  </tr>
+  <tr>
+    <td>0x20000000 </td>
+    <td>append to output file; <br>
+    assume XML header and open <span class="tag">DATABASE</span> tag </td>
+  </tr>
+  <tr>
+    <td>0x40000000 </td>
+    <td>limit to 25 matching files </td>
+  </tr>
+  <tr>
+    <td>0x80000000 </td>
+    <td>do not examine subdirectories </td>
+  </tr>
+</table>
+<p>Microsoft’s names for these flags are not known. </p>
+<p>The 0x10000000 and 0x20000000 bits allow that multiple calls to the function 
+can build one XML file with one <span class="tag">DATABASE</span> tag that lists 
+matching information for multiple executables. Of course, the XML will not be satisfactory 
+without coordinating these multiple calls so that the output file gets only one 
+XML header, one opening of a <span class="tag">DATABASE</span> tag and one closing. 
+For the first call, set the 0x10000000 bit so that the function knows not to close 
+the <span class="tag">DATABASE</span> tag. For subsequent calls except the last, 
+set both bits, so that the function knows to append to the file’s open
+<span class="tag">DATABASE</span> tag, still without closing the
+<span class="tag">DATABASE</span> tag. For the last call, set the 0x20000000 bit 
+but not the 0x10000000 bit. The <span class="tag">DATABASE</span> tag gets closed 
+and the XML is complete. </p>
+<p>The description given above for the 0x40000000 bit is correct if the limit is 
+reached in the first directory that is searched. Otherwise, it is at best a summary 
+and might better be regarded just as my thought on what Microsoft’s programmers 
+may have intended. If the limit isn’t reached before the recursion into subdirectories, 
+the recursion can continue and report one more matching file per subdirectory.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 3rd
+  <a href="../../../../../../new/16/09.htm">September 2016</a> and was last modified 
+  on 20th September 2016. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c16.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62549" -->
+</div>
+
+</body>
+
+</html>

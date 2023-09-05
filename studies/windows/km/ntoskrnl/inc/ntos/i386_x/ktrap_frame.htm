@@ -1,0 +1,572 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KTRAP_FRAME (i386)</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>KTRAP_FRAME (i386) </h1>
+<p>The <span class="struct">KTRAP_FRAME</span> (formally a <span class="struct">
+_KTRAP_FRAME</span>) is a structure in which the kernel saves the state of execution 
+that gets interrupted for diversion to the kernel, whether from external hardware, 
+the processor itself (for a trap or fault) or by software executing an
+<span class="instruction">int</span> or <span class="instruction">sysenter</span> 
+instruction. The <span class="struct">KTRAP_FRAME</span> is highly specific to the 
+processor architecture. This page concerns itself only with 32-bit Windows for the 
+processor architecture that’s variously named i386 or x86. The
+<a href="../amd64_x/ktrap_frame.htm">x64 <span class="struct">KTRAP_FRAME</span></a> 
+is presented separately. </p>
+<p>Knowing this structure’s significance, layout and location is valuable for effective 
+debugging. In the ancient history of Windows, it was not just valuable but vital. 
+Although even the first of Microsoft’s kernel-mode debuggers has a
+<span class="command">!trap</span> command, later promoted to
+<span class="command">.trap</span>, whose work is to “dump trap frame” at a known 
+address, there was initially little help with finding the address, especially when 
+debugging without good enough symbols. The programmer was left to recognise a
+<span class="struct">KTRAP_FRAME</span> in a stack dump or to know where to expect 
+one. </p>
+<p>Because of the structure’s role in all ways in and out of the kernel, the
+<span class="struct">KTRAP_FRAME</span> may be the best known of all formally undocumented 
+kernel-mode structures. Indeed, this article exists only for the occasional convenience 
+of having the names and offsets for ready reckoning (and, for the historian, of 
+tracking the strikingly few changes). Or so I thought when first writing it! On 
+reflection, it seems that the structure may be well known but less well understood.
+</p>
+<h2>Documentation Status </h2>
+<p>Though the <span class="struct">KTRAP_FRAME</span> structure is not formally 
+documented, its name is disclosed as an opaque type by C-language declarations in 
+NTDDK.H all the way back to the Device Driver Kit (DDK) for Windows NT 3.10. No 
+C-language definition of the x86 <span class="struct">KTRAP_FRAME</span> is known 
+to have been published in a DDK or Windows Driver Kit (WDK) until the NTOSP.H from 
+the WDK for the original Windows 10 and for Version 1511—and this header’s disclosure 
+looks to have been an oversight which Microsoft has cared not to repeat. </p>
+<p>That said, a C-language definition of the x86 <span class="struct">KTRAP_FRAME</span> 
+was published in 1995, just not in a DDK. It instead slipped out in a Software Development 
+Kit (SDK) for user-mode programming. Among the samples in the Win32 SDK from August 
+1995 for Windows NT 3.51 is source code for IMAGEHLP.DLL. The x86
+<span class="struct">KTRAP_FRAME</span> is there defined in a header named I386.H. 
+Whether this disclosure too was an oversight is not known, but the whole directory 
+was gone from ostensibly the same kit one year later for Windows NT 4.0. </p>
+<p>Even without a C-language definition, Microsoft’s names and types for the structure’s 
+members have long been disclosed in debugger output and for slightly less long as 
+type information in public symbol files for the kernel. Symbol files before Windows 
+2000 SP3 do not have type information for the <span class="struct">KTRAP_FRAME</span>, 
+but type information for Windows NT 4.0 somehow found its way into a statically 
+linked library, named LIBCNTPR.LIB, in the contemporaneous DDK and into another, 
+named CRASHLIB.LIB, for the Dr. Watson tool among the user-mode programming samples 
+in the Win32 SDK. </p>
+<h2>Layout </h2>
+<p>The <span class="struct">KTRAP_FRAME</span> for 32-bit Windows is 0x8C bytes 
+in all known versions, but there have been changes within, mostly just to squeeze 
+in a new member or two for Windows Vista and again for Windows 8. A new member for 
+Windows 8.1, however, removes another and shifts more. Names, types and offsets 
+in the following are from public symbol files in the applicable versions. For earlier 
+versions, continuity is inferred where inspection of the kernel over multiple versions 
+shows similar use of the structure. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">ULONG DbgEbp;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x04 </td>
+    <td>
+    <pre class="source">ULONG DbgEip;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">ULONG DbgArgMark;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x0C (3.10 to 6.2) </td>
+    <td>
+    <pre class="source">ULONG DbgArgPointer;</pre>
+    </td>
+    <td>3.10 to 6.2 </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x10 (3.10 to 6.2); <br>
+    0x0C </td>
+    <td>
+    <pre class="source">ULONG TempSegCs;</pre>
+    </td>
+    <td>3.10 to 5.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">USHORT TempSegCs;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x12 (6.0 to 6.2); <br>
+    0x0E </td>
+    <td>
+    <pre class="source">UCHAR Logging;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x13 (6.0 to 6.2); <br>
+    0x0F </td>
+    <td>
+    <pre class="source">UCHAR Reserved;</pre>
+    </td>
+    <td>6.0 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR FrameType;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x14 (3.10 to 6.2); <br>
+    0x10 </td>
+    <td>
+    <pre class="source">ULONG TempEsp;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x18 (3.10 to 6.2); <br>
+    0x14 </td>
+    <td>
+    <pre class="source">ULONG Dr0;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x1C (3.10 to 6.2); <br>
+    0x18 </td>
+    <td>
+    <pre class="source">ULONG Dr1;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x20 (3.10 to 6.2); <br>
+    0x1C </td>
+    <td>
+    <pre class="source">ULONG Dr2;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x24 (3.10 to 6.2); <br>
+    0x20 </td>
+    <td>
+    <pre class="source">ULONG Dr3;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x28 (3.10 to 6.2); <br>
+    0x24 </td>
+    <td>
+    <pre class="source">ULONG Dr6;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x2C (3.10 to 6.2); <br>
+    0x28 </td>
+    <td>
+    <pre class="source">ULONG Dr7;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x30 (3.10 to 6.2); <br>
+    0x2C </td>
+    <td>
+    <pre class="source">ULONG SegGs;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x34 (3.10 to 6.2); <br>
+    0x30 </td>
+    <td>
+    <pre class="source">ULONG SegEs;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x38 (3.10 to 6.2); <br>
+    0x34 </td>
+    <td>
+    <pre class="source">ULONG SegDs;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x3C (3.10 to 6.2); <br>
+    0x38 </td>
+    <td>
+    <pre class="source">ULONG Edx;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x40 (3.10 to 6.2); <br>
+    0x3C </td>
+    <td>
+    <pre class="source">ULONG Ecx;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x44 (3.10 to 6.2); <br>
+    0x40 </td>
+    <td>
+    <pre class="source">ULONG Eax;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x48 (3.10 to 6.2); <br>
+    0x44 </td>
+    <td>
+    <pre class="source">ULONG PreviousPreviousMode;</pre>
+    </td>
+    <td>3.10 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">UCHAR PreviousPreviousMode;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x49 (6.2); <br>
+    0x45 </td>
+    <td>
+    <pre class="source">UCHAR EntropyQueueDpc;</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x4A (6.2); <br>
+    0x46 </td>
+    <td>
+    <pre class="source">UCHAR Reserved [2];</pre>
+    </td>
+    <td>6.2 and higher </td>
+  </tr>
+  <tr>
+    <td>0x48 </td>
+    <td>
+    <pre class="source">ULONG MxCsr;</pre>
+    </td>
+    <td>6.3 and higher </td>
+  </tr>
+  <tr>
+    <td>0x4C </td>
+    <td>
+    <pre class="source">PEXCEPTION_REGISTRATION_RECORD ExceptionList;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x50 </td>
+    <td>
+    <pre class="source">ULONG SegFs;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x54 </td>
+    <td>
+    <pre class="source">ULONG Edi;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x58 </td>
+    <td>
+    <pre class="source">ULONG Esi;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x5C </td>
+    <td>
+    <pre class="source">ULONG Ebx;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x60 </td>
+    <td>
+    <pre class="source">ULONG Ebp;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x64 </td>
+    <td>
+    <pre class="source">ULONG ErrCode;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x68 </td>
+    <td>
+    <pre class="source">ULONG Eip;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x6C </td>
+    <td>
+    <pre class="source">ULONG SegCs;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x70 </td>
+    <td>
+    <pre class="source">ULONG EFlags;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x74 </td>
+    <td>
+    <pre class="source">ULONG HardwareEsp;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x78 </td>
+    <td>
+    <pre class="source">ULONG HardwareSegSs;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x7C </td>
+    <td>
+    <pre class="source">ULONG V86Es;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x80 </td>
+    <td>
+    <pre class="source">ULONG V86Ds;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x84 </td>
+    <td>
+    <pre class="source">ULONG V86Fs;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>0x88 </td>
+    <td>
+    <pre class="source">ULONG V86Gs;</pre>
+    </td>
+    <td>all </td>
+  </tr>
+</table>
+<p>See that the <span class="struct">KTRAP_FRAME</span> ends—from offset 0x64 onwards—with 
+items that the processor itself either does or may push onto the stack before the 
+kernel sees the interrupt. The kernel builds the preceding members underneath whatever 
+it gets from the processor, mostly by continuing with the pushing. The result is 
+typically not the full structure. For instance, the <span class="member">V86Es</span> 
+to <span class="member">V86Gs</span> members are present only if the interruption 
+was of virtual-8086 execution and the <span class="member">HardwareEsp</span> and
+<span class="member">HardwareSegSs</span> are present only on interrupts from an 
+outer ring. Some ways into the kernel see the processor put nothing on the stack, 
+in which case the kernel builds what it wants of this part of the
+<span class="struct">KTRAP_FRAME</span>. </p>
+<p>Even though the <span class="struct">KTRAP_FRAME</span> before offset 0x64 is 
+built only by the kernel, not all members need be meaningful. Much of the point 
+to the structure is that members preserve a resource, typically a register, that 
+will change during the kernel-mode handling such that it must be saved on entry 
+and restored on exit. Though such preservation is needed in general, the kernel 
+may know that particular circumstances mean that the resource is expected not to 
+be used during kernel-mode execution or that its preservation is the responsibility 
+of whatever kernel-mode code uses it or that preservation is unnecessary because 
+its change should have no consequence for the interrupted execution. </p>
+<p>For instance, <span class="member">Dr0</span> to <span class="member">Dr7</span> 
+are loaded from the corresponding <span class="register">dr0</span> to
+<span class="register">dr7</span> registers if the current thread is being debugged 
+and the interrupt has come from user mode. In this circumstance,
+<span class="register">dr0</span> to <span class="register">dr7</span> had better 
+be changed so that the kernel’s continued execution is subject to whatever debugging, 
+if any, is expected in kernel mode. In all other circumstances, the registers are 
+left unchanged, <span class="member">Dr7</span> is set to 0 and
+<span class="member">Dr0</span> to <span class="member">Dr6</span> are left undefined 
+(and clearing <span class="member">Dr7</span> didn’t start until version 5.2).
+</p>
+<p>Another important example is when the transition to kernel mode is explicitly 
+initiated by executing an <span class="instruction">int</span> or
+<span class="instruction">sysenter</span> instruction as if to call the kernel’s 
+interface for providing system services (or, more obscurely, to return from the 
+kernel’s simulation of calling out to user mode). In this case, the registers before 
+and after are not arbitrary. The interface has the calling convention that
+<span class="register">eax</span> is used to return the result and
+<span class="register">ecx</span> and <span class="register">edx</span> are to be 
+regarded as corrupt. The <span class="member">Eax</span>, <span class="member">Ecx</span> 
+and <span class="member">Edx</span> members are not loaded from the corresponding 
+registers on entry—and neither are <span class="member">SegDs</span> and
+<span class="member">SegEs</span>. </p>
+<p>Curiously, it’s not until version 6.2 that the structure is provided with any 
+explicit classification such as might help identify which members are meaningful. 
+The <span class="member">FrameType</span> member may be </p>
+<ul>
+  <li><span class="constant">INTERRUPT_FRAME</span> (0); </li>
+  <li><span class="constant">EXCEPTION_FRAME</span> (1); </li>
+  <li><span class="constant">SYSCALL_FRAME</span> (2). </li>
+</ul>
+<p>Microsoft’s assembly-language names for these are known from KS386.INC in the 
+WDKs for Windows 8 and higher. That they are also C-language names is confirmed 
+by the NTOSP.H that Microsoft published in the Windows 10 WDK. </p>
+<p>That Windows 8.1 shifted most members has surely complicated Microsoft’s own 
+use of the structure from outside the kernel in modules that need not be the same 
+version—including on other computers, as during kernel-mode debugging. Public symbols 
+for the kernel in versions 6.3 and 10.0 show <span class="struct">X86_KTRAP_FRAME</span> 
+and <span class="struct">X86_KTRAP_FRAME_BLUE</span> structures that reproduce the 
+old and new layouts, respectively (except for having <span class="member">ExceptionList</span> 
+as a simple <span class="type">ULONG</span>). Neither name is known in any header 
+from any development kit. Indeed, both structures are defined separately from the
+<span class="struct">KTRAP_FRAME</span>, the latter in I386_X.H, the other two in 
+NTDBG.H, apparently just for debugger support. </p>
+<p>The shift seems to have been motivated by wanting version 6.3 to allow the easy 
+use of XMM instructions in kernel mode. This is not for floating-point arithmetic, 
+which arguably should be used only sparingly in kernel mode and always requires 
+explicit saving and restoration of state. It is instead so that the 128-bit XMM 
+registers are available for moving data more efficiently than with the 32-bit general 
+registers. For this to work when the interrupted code may have been using the XMM 
+registers, transition to and from kernel mode must save and restore the XMM registers 
+much as for the general registers. The eight 128-bit registers
+<span class="register">xmm0</span> through <span class="register">xmm7</span> are 
+saved beneath the <span class="struct">KTRAP_FRAME</span>, typically with a gap 
+for 16-byte alignment. Note, however, that the registers are presumed not to matter 
+to callers of system services and are therefore not saved on these transitions.
+</p>
+<p>Since the Control and Status Register, <span class="register">mxcsr</span>, must 
+be refreshed on each entry to kernel mode, the pre-transition contents of
+<span class="register">mxcsr</span> must be preserved too. To make space for an
+<span class="member">MxCsr</span> member in the <span class="struct">KTRAP_FRAME</span> 
+without changing the size, Microsoft removed the ancient <span class="member">DbgArgPointer</span>. 
+Why the new <span class="member">MxCsr</span> was not inserted simply as a replacement, 
+without shifting other members, can’t be known with certainty but it seems at least 
+plausible that the <span class="struct">KTRAP_FRAME</span> is thought of in regions, 
+the middle of which is for resources that the kernel changes on every entry and 
+restores on every exit, and that <span class="member">MxCsr</span> belongs more 
+naturally there. </p>
+<p>Except that versions 6.0 and 6.2 each recovered a byte from the previous use 
+of a whole dword for <span class="member">TempSegCs</span> (which needs only a word), 
+the start of the <span class="struct">KTRAP_FRAME</span> has always been set aside 
+for debugger support. Though the first four members are known to have their present 
+definitions from as long ago as Windows NT 3.51, it is not until Windows Server 
+2003 SP1 that any get used (in the retail builds, anyway). Even then, this use is 
+only that they are set on entry. It is not known where they are ever interpreted 
+(except in debug builds). The <span class="member">DbgEbp</span> and
+<span class="member">DbgEip</span> members are copies of <span class="member">Ebp</span> 
+and <span class="member">Eip</span> as set on entry. The <span class="member">DbgArgMarker</span> 
+is set to 0xBADB0D00, which the assembly-language header KS386.INC equates to
+<span class="constant">TRAP_FRAME_MARKER</span>. The <span class="member">DbgArgPointer</span> 
+records the address at which the caller provided arguments for a system service 
+(and appears to be meaningless when entry to the kernel has any other cause).
+</p>
+<p>The <span class="member">TempSegCs</span> and <span class="member">TempEsp</span> 
+members are meaningful only for handling exceptions that occur in kernel-mode execution 
+and only then if the handler seeks to change the <span class="register">esp</span> 
+register with which execution is to continue. Because the processor was already 
+in kernel mode for the exception, it will have pushed the <span class="register">
+eflags</span>, <span class="register">cs</span> and <span class="register">eip</span> 
+registers to wherever <span class="register">ss:esp</span> pointed at the time. 
+These become the <span class="member">EFlags</span>, <span class="member">SegCs</span> 
+and <span class="member">Eip</span> members of the new <span class="struct">KTRAP_FRAME</span>, 
+which does not extend further. To return from the exception with a changed
+<span class="register">esp</span>, the new <span class="register">esp</span> (which 
+is, by the way, necessarily higher than the old) is placed in
+<span class="member">TempEsp</span> and <span class="member">SegCs</span> is made 
+into a null selector having saved the pre-exception value in
+<span class="member">TempSegCs</span>. Then, just as the kernel would return by 
+executing an <span class="instruction">iret</span> while <span class="register">
+esp</span> points to the <span class="member">Eip</span>, <span class="member">SegCs</span> 
+and <span class="member">EFlags</span> in the <span class="struct">KTRAP_FRAME</span>, 
+it sees the null selector and instead executes the <span class="instruction">iret</span> 
+after pointing <span class="register">esp</span> to an <span class="member">Eip</span>,
+<span class="member">TempSegCs</span> and <span class="member">EFlags</span> that 
+it builds beneath the desired new <span class="register">esp</span> from
+<span class="member">TempEsp</span>. </p>
+<p>The <span class="member">Logging</span> member which dates from Windows Vista 
+is non-zero to indicate that this entry (or re-entry) to the kernel is to have its 
+entry and exit traced to an NT Kernel Logger session. To have this member get set 
+on entry, at least one such session must be currently enabled for this tracing. 
+The documented way is to set <span class="constant">EVENT_TRACE_FLAG_SYSCALL</span> 
+in the <span class="member">EnableFlags</span> member of the
+<span class="struct">EVENT_TRACE_PROPERTIES</span> structure that is given for starting 
+or controlling the session. Entry and exit show as events whose
+<a href="../../../api/etw/callouts/hookid.htm">hook ID</a> is
+<span class="constant">PERFINFO_LOG_TYPE_SYSCALL_ENTER</span> (0x0F33) and
+<span class="constant">PERFINFO_LOG_TYPE_SYSCALL_EXIT</span> (0x0F34) respectively.
+</p>
+<div class="Footer">
+  <p class="Dates">This page was created on 29th December 2020 from material first 
+  published on 6th <a href="../../../../../../../new/17/01.htm">January 2017</a> 
+  It was last modified on 14th January 2021. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1721.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017-2021. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5037" -->
+</div>
+
+</body>
+
+</html>

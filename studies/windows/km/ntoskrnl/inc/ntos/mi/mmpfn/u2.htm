@@ -1,0 +1,389 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MMPFN Union 2</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>MMPFN Union 2 </h1>
+  <p>The <span class="struct"><a href="index.htm">MMPFN</a></span> (Memory Manager 
+  Page Frame Number) structure is the key to pretty much everything that the Memory 
+  Manager knows about a page of physical memory that is in general use. Since an 
+  array of these structures for all physical memory needs to be kept in physical 
+  memory, the <span class="struct">MMPFN</span> is its own substantial overhead. 
+  Presumably to keep this down, ever more gets packed in to the
+  <span class="struct">MMPFN</span> ever more intricately. </p>
+  <p>However untidy the construction of the <span class="struct">MMPFN</span>, it 
+  has several fields that are recognisably the same through all versions. A field 
+  that public symbol files (starting with Windows 2000 SP3) name as
+  <span class="member"><a href="u1.htm">u1</a></span> is reliably at the start of 
+  the <span class="struct">MMPFN</span>. Another, named <span class="member">u2</span>, 
+  is similarly ancient but has moved around within the <span class="struct">MMPFN</span>:
+  </p>
+  <table class="Union">
+    <colgroup>
+      <col class="Offset" span="2">
+    </colgroup>
+    <thead>
+      <tr>
+        <th><span class="struct">MMPFN</span> Offset (x86) </th>
+        <th><span class="struct">MMPFN</span> Offset (x64) </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x08 (3.10 to 5.2); <br>
+        0x04 (6.0 to 6.3); <br>
+        0x10 </td>
+        <td>0x10 (late 5.2); <br>
+        0x08 (6.0 to 6.3); <br>
+        0x18 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>As a type, <span class="member">u2</span> is an unnamed union until Windows 
+  10 turns into an <span class="struct">MIPFNBLINK</span> structure (formally
+  <span class="struct">_MIPFNBLINK</span>) whose one direct member is the unnamed 
+  union. Either way, the unnamed union’s members are: </p>
+  <table class="Union">
+    <colgroup>
+      <col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+        <pre class="source">PFN_NUMBER Blink;</pre>
+        </td>
+        <td>3.10 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">struct {
+    /*  see below: Blink Bits  */
+};</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">MMPTE *ImageProtoPte;</pre>
+        </td>
+        <td>6.0 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR ShareCount;</pre>
+        </td>
+        <td>3.10 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">struct {
+    /*  see below: ShareCount Bits  */
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG SecondaryColorFlink;</pre>
+        </td>
+        <td>5.0 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR EntireField;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    LONG_PTR volatile Lock;
+    struct {
+        /*  see below: Lock Bits  */
+    };
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="member">Blink</span> is meaningful when the physical page 
+  represented by the <span class="struct">MMPFN</span> is on any of several lists, 
+  e.g., of free pages. It is specifically the Page Frame Number (PFN) of the previous 
+  physical page on the same list. </p>
+  <h4>Blink Bits </h4>
+  <p>While 32-bit and 64-bit Windows need deal only with 36-bit and 48-bit physical 
+  addresses, pages of physical memory need only 24 or 36 bits of the
+  <span class="type">ULONG</span> or <span class="type">ULONGLONG</span> that Microsoft 
+  defines for the <span class="type">PFN_NUMBER</span>. Use for the excess bits 
+  was found for Windows 8. </p>
+  <p>Starting with 64-bit Windows 8, pages on a standby list can also be linked 
+  in a list just of pages that are on the same NUMA node. The ancient
+  <span class="member">Blink</span> coexists with what might be named
+  <span class="member">NodeBlink</span> except that its 36 bits are separated into
+  <span class="member">NodeBlinkHigh</span> and <span class="member">NodeBlinkLow</span>. 
+  The high 20 bits are crammed into the one <span class="type">ULONGLONG</span> 
+  with all 36 bits of the <span class="member">Blink</span>. The low 16 bits replace 
+  the <span class="member">UsedPageTableEntries</span> in the
+  <span class="struct">MMPFN</span> directly. </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask" span="2"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask (x86) </th>
+        <th>Mask (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x01FFFFFF (6.2); <br>
+        0x00FFFFFF </td>
+        <td rowspan="3">0x0000000F`FFFFFFFF </td>
+        <td>
+        <pre class="source">ULONG_PTR Blink : 25;</pre>
+        </td>
+        <td>6.2 only (x86) </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR Blink : 24;</pre>
+        </td>
+        <td>6.3 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR Blink : 36;</pre>
+        </td>
+        <td>6.2 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>0x00FFFFF0`00000000 </td>
+        <td>
+        <pre class="source">ULONG_PTR NodeBlinkHigh : 20;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td>0x1E000000 (6.2); <br>
+        0x0F000000 </td>
+        <td>0x0F000000`00000000 </td>
+        <td>
+        <pre class="source">ULONG_PTR TbFlushStamp : 4;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">&nbsp;</td>
+        <td rowspan="3">&nbsp;</td>
+        <td>
+        <pre class="source">ULONG_PTR SpareBlink : 3;</pre>
+        </td>
+        <td>6.2 to 6.3 (x86) </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR SpareBlink : 4;</pre>
+        </td>
+        <td>6.2 to 6.3 (x64) </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR Unused : 2;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x40000000 </td>
+        <td>0x40000000`00000000 </td>
+        <td>
+        <pre class="source">ULONG_PTR PageBlinkDeleteBit : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000000 </td>
+        <td>0x80000000`00000000 </td>
+        <td>
+        <pre class="source">ULONG_PTR PageBlinkLockBit : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>It’s not ordinarily a concern for these notes to track the masks of those bits 
+  that Microsoft labels spare, reserved or unused, but note that the narrowing of
+  <span class="member">Blink</span> by one bit for 32-bit Windows 8.1 is not accompanied 
+  by a widening of <span class="member">SpareBlink</span>, which then does not account 
+  for <span class="emphasis">all</span> the spare bits. The highest two bits become 
+  meaningful in Windows 10 and are defined in all three sets of
+  <span class="member">u2</span> bit fields, i.e., in union with
+  <span class="member">Blink</span> and <span class="member">ShareCount</span> (where 
+  they apparently just mark space) and <span class="member">Lock</span> (where they 
+  are meant to be used). </p>
+  <h4>ShareCount Bits </h4>
+  <p>The <span class="member">ShareCount</span> in Windows 10 loses the highest 
+  two bits to the <span class="member">Lock</span>: </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask" span="2"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask (x86) </th>
+        <th>Mask (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x3FFFFFFF </td>
+        <td rowspan="2">0x3FFFFFFF`FFFFFFFF </td>
+        <td>
+        <pre class="source">ULONG ShareCount : 30;</pre>
+        </td>
+        <td>10.0 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG ShareCount : 62;</pre>
+        </td>
+        <td>10.0 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td>0x40000000 </td>
+        <td>0x40000000`00000000 </td>
+        <td>
+        <pre class="source">ULONG_PTR PageShareCountDeleteBit : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000000 </td>
+        <td>0x80000000`00000000 </td>
+        <td>
+        <pre class="source">ULONG_PTR PageShareCountLockBit : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h4>Lock Bits </h4>
+  <p>Although the <span class="member">Lock</span> is newly in
+  <span class="member">u2</span> for Windows 10, it developed from the use in version 
+  6.1 of the low bit of the <span class="member">PteAddress</span> as a lock that 
+  must be held while setting the <span class="member">PteAddress</span>. The adaptation 
+  for Windows 10 uses the highest two bits. Even this may be just a formality, no 
+  use yet being known for the second bit. The lock itself is much like a
+  <span class="type">KSPIN_LOCK</span> but with no instrumentation and using the 
+  high bit instead of the low. </p>
+  <table class="Flags">
+    <colgroup>
+      <col class="Mask" span="2"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Mask (x86) </th>
+        <th>Mask (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x3FFFFFFF </td>
+        <td rowspan="2">0x3FFFFFFF`FFFFFFFF </td>
+        <td>
+        <pre class="source">ULONG LockNotUsed : 30;</pre>
+        </td>
+        <td>10.0 and higher (x86) </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONGLONG LockNotUsed : 62;</pre>
+        </td>
+        <td>10.0 and higher (x64) </td>
+      </tr>
+      <tr>
+        <td>0x40000000 </td>
+        <td>0x40000000`00000000 </td>
+        <td>
+        <pre class="source">ULONG_PTR DeleteBit : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x80000000 </td>
+        <td>0x80000000`00000000 </td>
+        <td>
+        <pre class="source">ULONG_PTR LockBit : 1;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 29th September 2019 from material 
+    first published on 26th <a href="../../../../../../../../new/19/05.htm">May 
+    2019</a>. It was last modified on 9th
+    <a href="../../../../../../../../new/22/07.htm">August 2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1922.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14634" -->
+  </div>
+</div>
+
+</body>
+
+</html>

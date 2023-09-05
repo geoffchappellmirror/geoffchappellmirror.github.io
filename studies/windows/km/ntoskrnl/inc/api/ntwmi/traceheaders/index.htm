@@ -1,0 +1,350 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Trace Headers</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <p class="alert">This page is being substantially reworked to account for its 
+  subject’s early history. Some content is temporarily missing. Temporarily may 
+  turn into indefinitely. New content may be more than usually defective. The page 
+  is published only as a revision in progress. Use with caution. </p>
+  <h1>Trace Headers </h1>
+  <p>An event provider delivers an event to Event Tracing for Windows (ETW) by specifying 
+  some general description of the event in combination with arbitrary data that 
+  is specific to that occurrence of the event. ETW marshals the description and 
+  the data, along with system properties such as times and the current process and 
+  thread, into one data block in a trace buffer. Each such buffer is a fixed-size
+  <span class="struct"><a href="../wmi_buffer_header/index.htm">WMI_BUFFER_HEADER</a></span> 
+  and a sequence of these variable-size data blocks, each with (nowadays) 8-byte 
+  alignment. If the event tracing session is configured to flush the trace buffers 
+  to an Event Trace Log (ETL) file, the buffers and thus also the events in this 
+  raw form become more than a transitory implementation detail and instead persist 
+  for easy inspection. </p>
+  <p>Broadly speaking, each data block that describes some event’s occurrence is 
+  in two parts: </p>
+  <ul>
+    <li>a fixed-size header that contains general properties and some sort of event 
+    identifier; </li>
+    <li>variable-size event data whose interpretation may depend on the general 
+    properties and always depends on the event identifier. </li>
+  </ul>
+  <p>The fixed-size header might ideally be the same structure for all events, but 
+  the implementation is not nearly so neat. ETW has accreted through the decades 
+  by fitting together several schemes that appear to have been developed not quite 
+  independently but also not in continuous progression. This can be seen, for instance, 
+  in the documentation’s separate talk of classic and manifest-based event providers, 
+  each with their own sets of API functions. One way it shows within the implementation 
+  is that several types of header are defined for events as held in trace buffers. 
+  They fall naturally into two sets according to whether they begin with a size. 
+  This difference also aligns roughly with whether their use is external or internal, 
+  and with some sense of their being old or new. For now, however, it suffices just 
+  to list the known types of trace header alphabetically, which has the advantage 
+  of starting with the most prosaically named: </p>
+  <ul>
+    <li><span class="struct">
+    <a href="../../../shared/evntcons/event_header.htm">EVENT_HEADER</a></span>;
+    </li>
+    <li><span class="struct"><a href="event_instance_guid_header.htm">EVENT_INSTANCE_GUID_HEADER</a></span>;
+    </li>
+    <li><span class="struct">
+    <a href="../../../shared/evntrace/event_instance_header.htm">EVENT_INSTANCE_HEADER</a></span>;
+    </li>
+    <li><span class="struct">
+    <a href="../../../shared/evntrace/event_trace_header.htm">EVENT_TRACE_HEADER</a></span>;
+    </li>
+    <li><span class="struct"><a href="message_trace_header.htm">MESSAGE_TRACE_HEADER</a></span>;
+    </li>
+    <li><span class="struct"><a href="perfinfo_trace_header.htm">PERFINFO_TRACE_HEADER</a></span>;
+    </li>
+    <li><span class="struct"><a href="system_trace_header.htm">SYSTEM_TRACE_HEADER</a></span>.
+    </li>
+  </ul>
+  <p>This article aims only for an overview. It goes no further than to differentiate 
+  these types of trace header according to what they have in common near their start. 
+  For details of how each trace header continues and is used, follow the links.
+  </p>
+  <h2>Documentation Status </h2>
+  <p>The <span class="struct">EVENT_INSTANCE_HEADER</span> and
+  <span class="struct">EVENT_TRACE_HEADER</span> are documented, and have been from 
+  the beginning. The corresponding C-language definitions are in
+  <a href="../../../../source/inc/evntrace.htm">EVNTRACE.H</a>. What counts as the 
+  beginning is Windows 2000 as far as released versions go, but these structures 
+  and their supporting interfaces had been in development for years: as supplied 
+  with the Device Driver Kit (DDK) for Windows 2000, EVENTRACE.H has a comment that 
+  dates its creation to “15-Sep-1997”. For no known reason, this comment disappeared 
+  as soon as the DDK for Windows XP. </p>
+  <p>The <span class="struct">EVENT_HEADER</span> also is documented, and has been 
+  since its introduction for Windows Vista. Its C-language definition is in
+  <a href="../../../../source/inc/evntcons.htm">EVNTCONS.H</a>. A comment in this 
+  header dates its creation to “26-Aug-2004”. The substantial reworking of ETW for 
+  Windows Vista also must be reckoned in years. </p>
+  <p>None of the other trace headers are documented, but they all have C-language 
+  definitions in a header file named <a href="../../../../source/inc/ntwmi.htm">
+  NTWMI.H</a> which Microsoft published, apparently by oversight, in the original 
+  and Version 1511 editions of the Windows Driver Kit (WDK) for Windows 10. A comment 
+  near the top of this header dates a “Public/Private header split” to “23-Jan-2003”. 
+  The file is surely older and whatever was split does not seem to have affected 
+  which trace headers are public or private. </p>
+  <p>The practical equivalent of C-language definitions (for having almost all the 
+  content that’s meaningful to the compiler, though none of the comments that might 
+  help a human reader but often don’t) is available for many more versions in the 
+  form of type information in symbol files for a very small selection of Windows 
+  binaries and, even more rarely, in statically linked libraries. </p>
+  <h3>Documented Usage </h3>
+  <p>That any of the trace headers are documented is plainly not so that programmers 
+  or other interested computer users can read the events directly in ETL files. 
+  There have always been documented API functions both for providing events and 
+  for consuming them. New and preferred API functions abstract the events at both 
+  ends, but in the relatively simple architecture that preceded Windows Vista, what’s 
+  kept in the trace buffers and gets saved in ETL files is very much closer to what 
+  the API functions feed into the ETW machinery or get from it. </p>
+  <h4>Provision </h4>
+  <p>The <span class="struct">EVENT_TRACE_HEADER</span> and <span class="struct">
+  EVENT_INSTANCE_HEADER</span> are involved right from the start for some types 
+  of event. They are the forms in which a so-called classic event provider describes 
+  an event to ETW through the documented user-mode API functions
+  <span class="function">TraceEvent</span> and <span class="function">TraceInstanceEvent</span> 
+  and through the documented kernel export <span class="function">IoWMIWriteEvent</span>. 
+  Note that although these functions are not formally deprecated, they all have 
+  some sense of legacy to them. </p>
+  <h4>Consumption </h4>
+  <p>The <span class="strut"><span class="struct">EVENT_TRACE_HEADER</span></span> 
+  and <span class="struct">EVENT_HEADER</span> also have essential roles at the 
+  end of an event’s lifetime. No matter what type of header an event had when presented 
+  to ETW or had while in the trace buffers or still has in an ETL file, what an 
+  event consumer is told of the event is a translation that starts with either an
+  <span class="struct">EVENT_TRACE_HEADER</span> or an <span class="struct">EVENT_HEADER</span>. 
+  To retrieve events, an event consumer supplies the documented
+  <span class="function">OpenTrace</span> function with an <span class="struct">
+  EVENT_TRACE_LOGFILE</span> structure that specifies a callback function, and then 
+  calls the documented <span class="function">ProcessTrace</span> function to get 
+  the callback called back, recurrently, once for each available event. The original 
+  form of callback presents each event as an <span class="struct">EVENT_TRACE_HEADER</span> 
+  as the beginning of an <span class="struct">EVENT_TRACE</span>. A new style gets 
+  an <span class="struct">EVENT_HEADER</span> as the beginning of an
+  <span class="struct">EVENT_RECORD</span>. </p>
+  <h2>Layout </h2>
+  <p>Several of the trace headers show signs of having developed from (or in common 
+  with) the <span class="struct">WNODE_HEADER</span> structure from the Windows 
+  Management Infrastructure (WMI). See especially that the <span class="struct">
+  EVENT_TRACE_HEADER</span> and the <span class="struct">WNODE_HEADER</span> have 
+  the same size and duplicate several members at the same offsets. </p>
+  <p>Historically, anything that might be a <span class="struct">WNODE_HEADER</span> 
+  is reinterpreted as an <span class="struct">EVENT_TRACE_HEADER</span> if it has
+  <span class="constant">WNODE_FLAG_TRACED_GUID</span> set among its
+  <span class="member">Flags</span> at offset 0x2C. The reverse—given what might 
+  be a trace header, what sort is it, or is it instead a <span class="struct">WNODE_HEADER</span>—is 
+  complicated by the proliferation of trace headers, most types of which do not 
+  share the <span class="member">Flags</span>. </p>
+  <p>What counts for differentiating the trace headers among themselves is the first 
+  four bytes. The <span class="struct">WNODE_HEADER</span> has these as a 32-bit
+  <span class="member">BufferSize</span>. That the highest bit would ever be set 
+  is all but unimaginable, and so a set high bit in this first dword is a convenient 
+  marker that what might be a <span class="struct">WNODE_HEADER</span> is instead 
+  some type of trace header. The rest of the dword is then available for reinterpretation.
+  </p>
+  <p>Most types of trace header keep the size at offset 0x00 but reduced to 16 bits. 
+  The high 16 bits are used for differentiating the types. The scheme for differentiation 
+  looks like it accommodated originally separate considerations and then settled. 
+  What remains is a mixture of bit flags for the byte at offset 0x03 and an enumeration 
+  for the byte at offset 0x02, but with few enough combinations in actual use that 
+  they are alternatively defined as values for the word at offset 0x02 or as masks 
+  from which to form the whole dword, e.g., by combining with the size. </p>
+  <h3>Header Types </h3>
+  <p>Though the high byte’s history as bit fields is plain enough from the high 
+  bit’s use for differentiating trace headers from a <span class="struct">WNODE_HEADER</span>, 
+  the neater presentation is to start with the values that most types of trace headers 
+  have for the byte at offset 0x02. The neatness is that values are defined even 
+  for types of trace header that don’t keep the value at offset 0x02 (or anywhere). 
+  No formal enumeration is known, just macro definitions from NTWMI.H: </p>
+  <table class="Constants">
+    <colgroup>
+      <col class="Value"><col class="Name"><col class="Versions">
+      <col class="Remarks">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Value </th>
+        <th>Name </th>
+        <th>Versions </th>
+        <th>Header </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x01 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_SYSTEM32</span> </td>
+        <td>5.0 and higher </td>
+        <td><span class="struct">SYSTEM_TRACE_HEADER</span> <br>
+        followed by 32-bit event data </td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_SYSTEM64</span> </td>
+        <td>5.0 and higher </td>
+        <td><span class="struct">SYSTEM_TRACE_HEADER</span> <br>
+        followed by 64-bit event data </td>
+      </tr>
+      <tr>
+        <td>0x03 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_COMPACT32</span> </td>
+        <td>6.2 and higher </td>
+        <td>compact <span class="struct">SYSTEM_TRACE_HEADER</span> <br>
+        followed by 32-bit event data </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_COMPACT64</span> </td>
+        <td>6.2 and higher </td>
+        <td>compact <span class="struct">SYSTEM_TRACE_HEADER</span> <br>
+        followed by 64-bit event data </td>
+      </tr>
+      <tr>
+        <td>0x0A </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_FULL_HEADER32</span> </td>
+        <td>5.0 and higher </td>
+        <td><span class="struct">EVENT_TRACE_HEADER</span> <br>
+        followed by 32-bit event data </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x0B </td>
+        <td rowspan="2"><span class="constant">TRACE_HEADER_TYPE_INSTANCE32</span>
+        </td>
+        <td>5.0 to 5.1 </td>
+        <td><span class="struct">EVENT_INSTANCE_HEADER</span> <br>
+        followed by 32-bit event data </td>
+      </tr>
+      <tr>
+        <td>5.2 and higher </td>
+        <td><span class="struct">EVENT_INSTANCE_GUID_HEADER</span> <br>
+        followed by 32-bit event data </td>
+      </tr>
+      <tr>
+        <td>0x0C </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_TIMED</span> </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0D </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_ERROR</span> </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0E </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_WNODE_HEADER</span> </td>
+        <td>5.0 and higher </td>
+        <td>&nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x0F </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_MESSAGE</span> </td>
+        <td>5.1 and higher </td>
+        <td><span class="struct">MESSAGE_TRACE_HEADER</span> <br>
+        followed by message arguments </td>
+      </tr>
+      <tr>
+        <td>0x10 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_PERFINFO32</span> </td>
+        <td>5.1 and higher </td>
+        <td><span class="struct">PERFINFO_TRACE_HEADER</span> <br>
+        with 32-bit event data as <span class="member">Data</span> array </td>
+      </tr>
+      <tr>
+        <td>0x11 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_PERFINFO64</span> </td>
+        <td>5.1 and higher </td>
+        <td><span class="struct">PERFINFO_TRACE_HEADER</span> <br>
+        with 64-bit event data as <span class="member">Data</span> array </td>
+      </tr>
+      <tr>
+        <td>0x12 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_EVENT_HEADER32</span> </td>
+        <td>6.0 and higher </td>
+        <td><span class="struct">EVENT_HEADER</span> <br>
+        followed by 32-bit event data </td>
+      </tr>
+      <tr>
+        <td>0x13 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_EVENT_HEADER64</span> </td>
+        <td>6.0 and higher </td>
+        <td><span class="struct">EVENT_HEADER</span> <br>
+        followed by 64-bit event data </td>
+      </tr>
+      <tr>
+        <td>0x14 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_FULL_HEADER64</span> </td>
+        <td>6.0 and higher </td>
+        <td><span class="struct">EVENT_TRACE_HEADER</span> <br>
+        followed by 64-bit event data </td>
+      </tr>
+      <tr>
+        <td>0x15 </td>
+        <td><span class="constant">TRACE_HEADER_TYPE_INSTANCE64</span> </td>
+        <td>6.0 and higher </td>
+        <td><span class="struct">EVENT_INSTANCE_GUID_HEADER</span> <br>
+        followed by 64-bit event data </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>See that even in the late 1990s, the definition of these types anticipated 
+  that the event-specific data may have different layouts when written by 32-bit 
+  and 64-bit event providers. These differences need to be distinguished for correct 
+  interpretation by 32-bit and 64-bit event consumers. </p>
+  <p>Though types 0x0C to 0x0E were still defined in 2015 for Microsoft’s disclosure 
+  of NTWMI.H, all three have long been out of use in one sense or another. </p>
+  <p class="alert">WORK IN PROGRESS </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 5th
+    <a href="../../../../../../../../new/16/12.htm">December 2016</a> and was last 
+    modified on 30th <a href="../../../../../../../../new/22/10.htm">November 2022</a>.
+    </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1622.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2016-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14250" -->
+  </div>
+</div>
+
+</body>
+
+</html>

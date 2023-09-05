@@ -1,0 +1,759 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Lookaside Lists</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="29544" -->
+<h1>Lookaside Lists </h1>
+<p>Software doesn’t have to be very complex before its performance-aware programmer 
+wonders whether some of its dynamic memory allocations come and go with such frequency 
+that they might better be freed not by returning them to the operating system’s 
+memory manager but instead by caching them for quick reuse. This is especially attractive 
+when the allocations are for a particular purpose and are all the same size, so that the 
+cache for that purpose need be nothing more sluggish than a single-linked list. 
+In a simple implementation, allocations are sought from the cache first and only 
+then from the memory manager, and freed memory goes only to the cache. This works 
+well enough when the demand is persistent, but more sophistication is needed when 
+demand has significant peaks. Between such peaks, the cached allocations become 
+a large amount of memory that is unavailable for other use and which might 
+better be returned to the operating system after all. The aim, then, is for the 
+operating system to provide for quickly reusing fixed-size blocks of memory with 
+light-weight management of demand and waste. </p>
+<p>The Windows kernel certainly counts as complex software, especially in combination 
+with its ecology of drivers that execute in kernel mode, and so even version 3.10 
+provides some sort of caching of fixed-size memory allocations. That first draft, 
+based around exported functions such as <span class="function">ExInitializeZone</span> 
+and macros such as <span class="macro">ExAllocateFromZone</span>, is perhaps better 
+described as batching its memory allocations. It also is perhaps better passed over. 
+Though the code that supports this early feature is retained to this day, the relevant 
+functions and macros were documented as obsolete as early as the Device Driver Kit 
+(DDK) for Windows 2000 in favour of the lookaside lists that had been introduced 
+for Windows NT 4.0. </p>
+<h2>Supporting Functions </h2>
+<p>Each lookaside list has a control structure that provides access to a 
+single-linked list of cached memory allocations. When they were introduced, 
+lookaside lists came in two types, distinguished by whether the allocations are 
+intended to be of non-paged or paged memory. Separate sets of exported functions 
+and inline routines provided for operating on these separate types of lookaside 
+list. Windows Vista unified these two types of lookaside list at the price of 
+introducing a third set of functions and routines. </p>
+<table>
+  <tr>
+    <th>Function or Routine </th>
+    <th>Versions </th>
+    <th>Remarks </th>
+  </tr>
+  <tr>
+    <td><span class="routine">ExAllocateFromLookasideListEx</span> </td>
+    <td>&nbsp;</td>
+    <td>inline routine defined in WDM.H, starting with Windows Vista </td>
+  </tr>
+  <tr>
+    <td><span class="routine">ExAllocateFromNPagedLookasideList</span> </td>
+    <td>&nbsp;</td>
+    <td>inline routine defined in NTDDK.H or WDM.H, starting with Windows NT 4.0
+    </td>
+  </tr>
+  <tr>
+    <td><span class="function">ExAllocateFromPagedLookasideList</span> </td>
+    <td>4.0 and higher (x86); <br>
+    5.2 only (x64) </td>
+    <td>also as inline routine defined in WDM.H, starting with Windows XP, <br>
+    except for x86 if <span class="macro">_WIN2K_COMPAT_SLIST_USAGE</span> defined
+    </td>
+  </tr>
+  <tr>
+    <td><span class="function">ExDeleteLookasideListEx</span> </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="function">ExDeleteNPagedLookasideList</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="function">ExDeletePagedLookasideList</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="function">ExFlushLookasideListEx</span> </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="routine">ExFreeToLookasideListEx</span> </td>
+    <td>&nbsp;</td>
+    <td>inline routine defined in WDM.H, starting with Windows Vista </td>
+  </tr>
+  <tr>
+    <td><span class="routine">ExFreeToNPagedLookasideList</span> </td>
+    <td>&nbsp;</td>
+    <td>inline routine defined in NTDDK.H or WDM.H, starting with Windows NT 4.0
+    </td>
+  </tr>
+  <tr>
+    <td><span class="routine">ExFreeToPagedLookasideList</span> </td>
+    <td>4.0 and higher (x86); <br>
+    5.2 only (x64) </td>
+    <td>also as inline routine defined in WDM.H, starting with Windows XP, <br>
+    except for x86 if <span class="macro">_WIN2K_COMPAT_SLIST_USAGE</span> defined
+    </td>
+  </tr>
+  <tr>
+    <td><span class="function">ExInitializeLookasideListEx</span> </td>
+    <td>6.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="function">ExInitializeNPagedLookasideList</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td><span class="function">ExInitializePagedLookasideList</span> </td>
+    <td>4.0 and higher </td>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+<p>Each type of lookaside list has exported functions to initialise the list and 
+eventually to delete it. Initialisation prepares the control structure, but not 
+only to enter caller-supplied parameters for the list’s later explicit 
+operation. It also links the control structure into a double-linked list of all 
+control structures of the same type. This provides for the kernel’s implicit 
+operation on the list, as when trimming the cache between peaks in demand. The 
+corresponding deletion (before the control structure is itself removed from 
+memory) is therefore vital. As Microsoft puts it, though not until the DDK for 
+Windows XP: “It is a serious programming error to do otherwise.” </p>
+<p>Between initialisation and deletion, inline routines allocate from or free to 
+the list. Allocation from the list means first to pop one entry from the list’s 
+single-linked cache, else to obtain a fresh allocation according to the 
+caller-supplied parameters. Among these can be a caller-supplied allocation 
+routine, but the default is to allocate from the non-paged or paged pool. For 
+all practical effect, the <span class="routine">ExAllocateFrom<span class="placeholder">...</span></span> 
+routines are the closely corresponding <span class="function">
+ExAllocatePoolWithTag</span> but with the frequent gain of retrieving from the 
+specialised list instead of contending with the many other callers of the 
+general function. To free to the list is to push the allocation onto the list’s 
+single-linked cache in anticipation of quick reuse, but again with a fallback: 
+if the list is deemed to be big enough, it is instead freed more permanently by 
+passing it through a caller-supplied routine, the default being to return the 
+allocation to whichever pool it came from. </p>
+<h2>Supporting Structures </h2>
+<p>Each set of functions that operate on lookaside lists works with a 
+corresponding control structure: </p>
+<ul>
+  <li><span class="function">Ex<span class="placeholder">…</span>NPagedLookasideList</span> 
+  for non-paged lookaside lists has <span class="struct">NPAGED_LOOKASIDE_LIST</span> 
+  as the control structure; </li>
+  <li><span class="function">Ex<span class="placeholder">…</span>PagedLookasideList</span> 
+  for paged lookaside lists has <span class="struct">PAGED_LOOKASIDE_LIST</span> 
+  as the control structure; </li>
+  <li><span class="function">Ex<span class="placeholder">…</span>LookasideListEx</span> 
+  for extended lookaside lists has <span class="struct">LOOKASIDE_LIST_EX</span> 
+  as the control structure. </li>
+</ul>
+<p>All three control structures are documented as opaque, much of the point being that all manipulation of 
+them (if not all useful inspection of them) can be done through the documented functions. 
+If you looked only at the sizes of these structures as known to the kernel, e.g., 
+from type information in public symbol files, you might think the structures have 
+seen non-trivial change: </p>
+<table class="Sizes">
+  <colgroup>
+    <col class="Version"><col class="Size" span="6">
+  </colgroup>
+  <tr>
+    <th rowspan="2">Version </th>
+    <th colspan="2"><span class="struct">NPAGED_LOOKASIDE_LIST</span> </th>
+    <th colspan="2"><span class="struct">PAGED_LOOKASIDE_LIST</span> </th>
+    <th colspan="2"><span class="struct">LOOKASIDE_LIST_EX</span> </th>
+  </tr>
+  <tr>
+    <th>Size (x86) </th>
+    <th>Size (x64) </th>
+    <th>Size (x86) </th>
+    <th>Size (x64) </th>
+    <th>Size (x86) </th>
+    <th>Size (x64) </th>
+  </tr>
+  <tr>
+    <td>4.0 to 5.0 </td>
+    <td>0x50 </td>
+    <td>&nbsp;</td>
+    <td>0x68 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.1 to early 5.2 </td>
+    <td>0x0100 </td>
+    <td>&nbsp;</td>
+    <td>0x0100 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>late 5.2 </td>
+    <td>0xC0 </td>
+    <td>0x80 </td>
+    <td>0xC0 </td>
+    <td>0x80 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>0xC0 </td>
+    <td>0x80 </td>
+    <td>0xC0 </td>
+    <td>0x80 </td>
+    <td>0x48 </td>
+    <td>0x60 </td>
+  </tr>
+</table>
+<p>It happens, however, that the variation in the sizes of the
+<span class="struct">NPAGED_LOOKASIDE_LIST</span> and <span class="struct">
+PAGED_LOOKASIDE_LIST</span> is all explained by the introduction 
+of cache alignment, a consequent shift of the last member, and then a change in 
+the alignment requirement. When cache-alignment was first applied to lookaside lists 
+for Windows XP, the cache line was taken as 0x80 bytes. Windows Server 2003 SP1 
+reduced it to 0x40. Either way, the cache-aligned size would be 0x80 bytes for 
+both x86 and x64 builds were it not for the particular way that the cache 
+alignment is done: it applies not only to the whole structure but also to the 
+x86 build’s last member which thus shifts to offset 0x80. It is some sort of 
+irony that this last member is ignored by the kernel’s x86 builds in all these 
+versions that have cache alignment: this structure that is designed for 
+efficient memory use is a cache block bigger for what looks to be no benefit to 
+anyone. </p>
+<p>Cache alignment is anyway not universal. The C-language definitions in WDM.H 
+omit the specification of cache alignment when building for 32-bit Windows if WDM.H 
+is included from any of the usual headers for kernel-mode programming, i.e., NTDDK.H, 
+NTIFS.H or NDIS.H. For most kernel-mode programming, including Microsoft’s, the 
+32-bit <span class="struct">NPAGED_LOOKASIDE_LIST</span> and
+<span class="struct">PAGED_LOOKASIDE_LIST</span> are 0x50 and 0x68 bytes in all 
+versions. </p>
+<h3>General Lookaside List </h3>
+<p>All three public structures for lookaside lists are based in some sense on what 
+was originally the <span class="struct">GENERAL_LOOKASIDE</span> but has since Windows 
+Vista been named the <span class="struct">GENERAL_LOOKASIDE_POOL</span>. </p>
+<table class="Sizes">
+  <colgroup>
+    <col class="Version"><col class="Size" span="4">
+  </colgroup>
+  <tr>
+    <th rowspan="2">Version </th>
+    <th colspan="2"><span class="struct">GENERAL_LOOKASIDE</span> </th>
+    <th colspan="2"><span class="struct">GENERAL_LOOKASIDE_POOL</span> </th>
+  </tr>
+  <tr>
+    <th>Size (x86) </th>
+    <th>Size (x64) </th>
+    <th>Size (x86) </th>
+    <th>Size (x64) </th>
+  </tr>
+  <tr>
+    <td>4.0 to 5.0 </td>
+    <td>0x48 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>5.1 to early 5.2 </td>
+    <td>0x80 </td>
+    <td>0x80 </td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td>6.0 and higher </td>
+    <td>0x80 </td>
+    <td>0x80 </td>
+    <td>0x48 </td>
+    <td>0x60 </td>
+  </tr>
+</table>
+<p>The plain <span class="struct">GENERAL_LOOKASIDE</span> became larger in version 
+5.1 because of cache alignment. The <span class="struct">GENERAL_LOOKASIDE_POOL</span> 
+was introduced, without cache alignment, for Windows Vista in a reworking of the 
+slightly different lookaside lists that the kernel dedicates to per-processor management 
+of small pool allocations. In Windows Vista and since, each <span class="struct">
+<a href="../../../inc/ntos/kprcb.htm">KPRCB</a></span> for a processor has 
+0x40 or 0x60 of these lookaside lists in two or three arrays named
+<span class="member">PPNPagedLookasideList</span>, <span class="member">PPPagedLookasideList</span> 
+and (in version 6.2 and higher) <span class="member">PPNxPagedLookasideList</span>. 
+Cache alignment of each structure in these arrays would waste a lot of space. Thus 
+did the unaligned layout from version 4.0 become restored but need a new name.
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td rowspan="2">0x00 </td>
+    <td rowspan="2">0x00 </td>
+    <td>
+    <pre class="source">SLIST_HEADER ListHead;</pre>
+    </td>
+    <td>4.0 to 5.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    SLIST_HEADER ListHead;
+    SINGLE_LIST_ENTRY SingleListHead;
+};</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">USHORT Depth;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x0A </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">USHORT Pad;</pre>
+    </td>
+    <td>4.0 only </td>
+  </tr>
+  <tr>
+    <td>0x12 </td>
+    <td>
+    <pre class="source">USHORT MaximumDepth;</pre>
+    </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>0x14 </td>
+    <td>
+    <pre class="source">ULONG TotalAllocates;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x10 </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG AllocateMisses;</pre>
+    </td>
+    <td>4.0 only </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">union {
+    ULONG AllocateMisses;
+    ULONG AllocateHits;
+};</pre>
+    </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>0x1C </td>
+    <td>
+    <pre class="source">ULONG TotalFrees;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x18 </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG FreeMisses;</pre>
+    </td>
+    <td>4.0 only </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">union {
+    ULONG FreeMisses;
+    ULONG FreeHits;
+};</pre>
+    </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td>0x24 </td>
+    <td>
+    <pre class="source">POOL_TYPE Type;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>0x28 </td>
+    <td>
+    <pre class="source">ULONG Tag;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>0x2C </td>
+    <td>
+    <pre class="source">ULONG Size;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x28 </td>
+    <td rowspan="2">0x30 </td>
+    <td>
+    <pre class="source">PALLOCATE_FUNCTION Allocate;</pre>
+    </td>
+    <td>4.0 to 5.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    PALLOCATE_FUNCTION_EX AllocateEx;
+    PALLOCATE_FUNCTION Allocate;
+};</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x2C </td>
+    <td rowspan="2">0x38 </td>
+    <td>
+    <pre class="source">PFREE_FUNCTION Free;</pre>
+    </td>
+    <td>4.0 to 5.2 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">union {
+    PFREE_FUNCTION_EX FreeEx;
+    PFREE_FUNCTION Free;
+};</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x30 </td>
+    <td>0x40 </td>
+    <td>
+    <pre class="source">LIST_ENTRY ListEntry;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x38 </td>
+    <td>0x50 </td>
+    <td>
+    <pre class="source">ULONG LastTotalAllocates;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x3C </td>
+    <td>&nbsp;</td>
+    <td>
+    <pre class="source">ULONG LastAllocateMisses;</pre>
+    </td>
+    <td>4.0 only </td>
+  </tr>
+  <tr>
+    <td>0x54 </td>
+    <td>
+    <pre class="source">union {
+    ULONG LastAllocateMisses;
+    ULONG LastAllocateHits;
+};</pre>
+    </td>
+    <td>5.0 and higher </td>
+  </tr>
+  <tr>
+    <td>0x40 </td>
+    <td>0x58 </td>
+    <td>
+    <pre class="source">ULONG Future [2];</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+</table>
+<p>Though the word at offset 0x0A is defined as <span class="member">Pad</span> 
+for version 4.0, it is in fact used as the <span class="member">MaximumDepth</span> 
+all along. </p>
+<p>The pool lookaside lists that are dedicated to per-processor management of small 
+pool allocations date from version 5.0. Version 4.0 has pool lookaside lists too 
+but not separately for each processor. The control structures are in the kernel’s 
+data and have a slightly different implementation (see below) in which
+<span class="member">AllocateMisses</span>, <span class="member">FreeMisses</span> 
+and <span class="member">LastAllocateMisses</span> are instead
+<span class="member">AllocateHits</span>, <span class="member">FreeHits</span> and
+<span class="member">LastAllocateHits</span>. </p>
+<p>Initialisation of a lookaside list allows the specification of callback functions. 
+In lookaside lists that are initialised by <span class="function">ExInitializeLookasideListEx</span>, 
+these callbacks are slightly different, such that <span class="member">Allocate</span> 
+and <span class="member">Free</span> are instead <span class="member">AllocateEx</span> 
+and <span class="member">FreeEx</span>. </p>
+<h3>The Non-Paged Lookaside List </h3>
+<p>The <span class="struct">NPAGED_LOOKASIDE_LIST</span> is for non-paged memory 
+that can be allocated and freed even at <span class="constant">DISPATCH_LEVEL</span>. 
+It elaborates on the <span class="struct">GENERAL_LOOKASIDE</span> by adding a spin 
+lock that provided early versions with synchronisation for access to the
+<span class="member">ListHead</span>. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">GENERAL_LOOKASIDE L;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x48 (4.0 to 5.0); <br>
+    0x80 </td>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">KSPIN_LOCK Lock;</pre>
+    </td>
+    <td>4.0 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">KSPIN_LOCK Lock__ObsoleteButDoNotDelete;</pre>
+    </td>
+    <td>5.1 and higher </td>
+  </tr>
+</table>
+<p>The spin lock never was defined for 64-bit Windows, which never has needed external 
+synchronisation for operations on an <span class="struct">SLIST_HEADER</span>. The 
+spin lock became unnecessary for 32-bit Windows too, once Windows XP required the
+<span class="instruction">cmpxchg8b</span> instruction. Though the spin lock could 
+not simply be dropped from the definition (lest a new driver with a new
+<span class="struct">NPAGED_LOOKASIDE_LIST</span> find itself running on an older 
+Windows version that would expect to initialise and use the spin lock), its explicit 
+retention for the kernel’s definition of the structure has been nothing but waste 
+since space for the spin lock is covered by the contemporaneous introduction of 
+cache alignment. </p>
+<h3>The Paged Lookaside List </h3>
+<p>Memory that is managed in a paged lookaside list is allocated and freed at no 
+higher than <span class="constant">APC_LEVEL</span>. The <span class="struct">PAGED_LOOKASIDE_LIST</span> 
+is a <span class="struct">GENERAL_LOOKASIDE</span> plus a mutex instead of a spin 
+lock. </p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">GENERAL_LOOKASIDE L;</pre>
+    </td>
+    <td>4.0 and higher </td>
+  </tr>
+  <tr>
+    <td rowspan="2">0x48 (4.0 to 5.0); <br>
+    0x80 </td>
+    <td rowspan="2">&nbsp;</td>
+    <td>
+    <pre class="source">FAST_MUTEX Lock;</pre>
+    </td>
+    <td>4.0 to 5.0 </td>
+  </tr>
+  <tr>
+    <td>
+    <pre class="source">FAST_MUTEX Lock__ObsoleteButDoNotDelete;</pre>
+    </td>
+    <td>5.1 and higher </td>
+  </tr>
+</table>
+<p>Again the mutex never was defined for 64-bit Windows and its explicit retention 
+for 32-bit Windows XP and higher is nothing but waste because of the structure’s 
+expansion for cache alignment. </p>
+<h3>The Extended Lookaside List </h3>
+<p>The <span class="struct">LOOKASIDE_LIST_EX</span>, which to some extent replaces 
+both the <span class="struct">NPAGED_LOOKASIDE_LIST</span> and
+<span class="struct">PAGED_LOOKASIDE_LIST</span>, is accessed only through functions 
+that are new for Windows Vista and therefore can throw away what were anyway the 
+redundant provisions for backwards compatibility with Windows 2000 and earlier.
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="2"><col class="Definition"><col class="Versions">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Offset (x64) </th>
+    <th>Definition </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">GENERAL_LOOKASIDE_POOL L;</pre>
+    </td>
+    <td>6.0 and higher </td>
+  </tr>
+</table>
+<p>Perhaps more importantly for programming practice is that the
+<span class="struct">LOOKASIDE_LIST_EX</span> also throws away the other structures’ 
+cache alignment. Drivers that want a cache-aligned lookaside list for performance 
+must arrange the alignment themselves. </p>
+<h3>The Original Pool Lookaside List </h3>
+<p>If only for completeness, it’s perhaps as well to pick up some history. The lookaside 
+lists that the kernel uses internally to optimise small pool allocations were originally 
+reductions of the public structure. Microsoft’s name for the reduced structure is 
+not known (though <span class="struct">POOL_LOOKASIDE</span>, to contrast with
+<span class="struct">GENERAL_LOOKASIDE</span>, seems plausible as a guess). Names 
+and types of members are inferred by assuming that the <span class="struct">GENERAL_LOOKASIDE</span> 
+for version 5.0 incorporated them straightforwardly. The structure is 0x28 bytes.
+</p>
+<table class="Struct">
+  <colgroup>
+    <col class="Offset" span="1"><col class="Definition">
+  </colgroup>
+  <tr>
+    <th>Offset (x86) </th>
+    <th>Definition </th>
+  </tr>
+  <tr>
+    <td>0x00 </td>
+    <td>
+    <pre class="source">SLIST_HEADER ListHead;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x08 </td>
+    <td>
+    <pre class="source">USHORT Depth;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x0A </td>
+    <td>
+    <pre class="source">USHORT MaximumDepth;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x0C </td>
+    <td>
+    <pre class="source">ULONG TotalAllocates;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x10 </td>
+    <td>
+    <pre class="source">ULONG AllocateHits;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x14 </td>
+    <td>
+    <pre class="source">ULONG TotalFrees;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x18 </td>
+    <td>
+    <pre class="source">ULONG FreeHits;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x1C </td>
+    <td>
+    <pre class="source">ULONG LastTotalAllocates;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x20 </td>
+    <td>
+    <pre class="source">ULONG LastAllocateHits;</pre>
+    </td>
+  </tr>
+  <tr>
+    <td>0x24 </td>
+    <td>
+    <pre class="source">KSPIN_LOCK Lock;</pre>
+    </td>
+  </tr>
+</table>
+<p>The version 4.0 kernel’s <span class="section">.data</span> section has two arrays 
+of these, for nonpaged and paged allocations respectively. The eight structures 
+in each array cache successively larger pool blocks from 0x20 bytes to 0x0100. See 
+that each structure has its own spin lock so that pool blocks can be allocated from 
+and freed to the list only by one processor at a time. Version 5.0 has the arrays 
+in each processor’s <span class="struct">KPRCB</span>. With no need for a spin lock, 
+the pool lookaside list could as well be a general lookaside list. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 19th March 2017 but was not published 
+  until 27th <a href="../../../../../../../new/17/05.htm">May 2017</a>. It was last 
+  modified on 23rd November 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../../_include/c1719.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2017-2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="5157" -->
+</div>
+
+</body>
+
+</html>

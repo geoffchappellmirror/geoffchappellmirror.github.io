@@ -1,0 +1,162 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>CSRSS Server DLLs</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/win32.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/win32.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell, Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="54033" -->
+<h1>CSRSS Server DLLs </h1>
+<p>The CSRSS.EXE process is not the first to run as Windows starts but it is the 
+starting process of (at least) the Win32 subsystem and is thus vital to Windows 
+in all practical use. It may surprise, then, that the CSRSS executable is tiny—not 
+even tens of kilobytes, even now when it seems that every other executable (important 
+or not) is multi-megabyte. The substance is instead supplied by DLLs. One of these, 
+named WINSRV.DLL, is in the early versions responsible for pretty much all the windowing 
+functionality (which was later moved to the kernel-mode WIN32K.SYS) and was in those 
+years the only megabyte-sized DLL in the Windows package. </p>
+<p>One DLL, named CSRSRV.DLL, is loaded because CSRSS imports the CSRSRV function 
+named <span class="function">CsrServerInitialization</span>. This receives the CSRSS 
+command line, parsed into arguments in the style of a C Run-Time (CRT)
+<span class="routine">main</span> function. Among these arguments can be multiple 
+occurrences of one that starts with <span class="switch">ServerDLL</span>. Each 
+names what is here referred to as a server DLL. </p>
+<p>Much as services can be packaged together in one executable file, so may server 
+DLLs be hosted in a shared DLL module. A server DLL, then, is not exactly a DLL 
+but a logical unit within a DLL. Server DLLs that are hosted in the same module 
+are distinguished by their initialiser, this being the function that the hosting 
+module must export by name for CSRSRV to call for initialising the corresponding 
+server DLL. The hosting module, initialiser and a 0-based index (to be described 
+shortly) are all specified in the <span class="switch">ServerDLL</span> command-line 
+argument: </p>
+<pre class="input">ServerDLL=<span class="placeholder">module</span>[:<span class="placeholder">initialiser</span>],<span class="placeholder">index</span>  </pre>
+<p>The <span class="placeholder">module</span> starts immediately after the first 
+equals sign and runs up to but not including either a colon or comma, whichever 
+comes first. If a colon comes first, the <span class="placeholder">initialiser</span> 
+starts immediately after and runs up to but not including a comma. If instead a 
+comma came first, there is no <span class="placeholder">initialiser</span> and
+<span class="function">ServerDllInitialization</span> is used by default. The
+<span class="placeholder">index</span> is a signed decimal. Parsing has the rules 
+of the documented <span class="function">RtlCharToInteger</span> function, with 
+the presumably unintended side-effects that white space is ignored before the
+<span class="placeholder">index</span> and non-digit characters are ignored after.
+</p>
+<p>The index for each server DLL must be unique. CSRSRV has a built-in server DLL 
+which is not specified on the command line, is initialised first and necessarily 
+has the index zero. The index is a 0-based identifier of the server DLL within a 
+maximum allowance that varies with the Windows version: </p>
+<ul>
+  <li>16 before 5.0; </li>
+  <li>4 from 5.1 to 6.0; </li>
+  <li>5 in 6.1; </li>
+  <li>6 in 6.2 and higher. </li>
+</ul>
+<p>CSRSRV loads server DLLs in the order given on the command line. As noted already, 
+each must export the specified or defaulted initialiser by name. The function is 
+given one argument and returns an <span class="type">NTSTATUS</span> to show its 
+success or failure. The argument is the address of a <span class="struct">
+<a href="server_dll.htm">CSR_SERVER_DLL</a></span> structure for both input and 
+output. From what the server DLL changes in this structure, CSRSRV learns about the server DLL’s future 
+interface. Broadly speaking, this comprises notifications and API routines. </p>
+<p>Each API routine is represented 
+by a 32-bit API number. The high word is the 0-based index of the desired server 
+DLL. The low word selects an API routine in the selected server DLL. Although CSRSRV 
+learns the index for each server DLL from the CSRSS command line, such that the 
+index is in some sense configurable, clients who want to call a server DLL’s API 
+routine seem to have no means to learn the index except from knowing it as a well-known 
+constant: </p>
+<table>
+  <tr>
+    <th>Index </th>
+    <th>Module </th>
+    <th>Initialiser </th>
+    <th>Versions </th>
+  </tr>
+  <tr>
+    <td>0 </td>
+    <td><a href="../srvinit/apidispatch.htm">csrsrv</a> </td>
+    <td><span class="function">ServerDllInitialization</span> </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>1 </td>
+    <td><a href="../../../basesrv/api/srvinit/apidispatch.htm">basesrv</a> </td>
+    <td><span class="function">ServerDllInitialization</span> </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td>2 </td>
+    <td><a href="../../../winsrv/api/wincon/srvinit/apidispatch.htm">winsrv</a> </td>
+    <td><span class="function">ConServerDllInitialization</span> </td>
+    <td>3.10 to 6.1 </td>
+  </tr>
+  <tr>
+    <td>3 </td>
+    <td><a href="../../../winsrv/api/user/server/apidispatch.htm">winsrv</a> </td>
+    <td><span class="function">UserServerDllInitialization</span> </td>
+    <td>all </td>
+  </tr>
+  <tr>
+    <td rowspan="2">4 </td>
+    <td>winsrv </td>
+    <td><span class="function">GdiServerDllInitialization</span> </td>
+    <td>3.10 to 3.51 </td>
+  </tr>
+  <tr>
+    <td>sxssrv </td>
+    <td><span class="function">ServerDllInitialization</span> </td>
+    <td>6.1 and higher </td>
+  </tr>
+  <tr>
+    <td>5 </td>
+    <td>mmsndsrv </td>
+    <td><span class="function">ServerDllInitialization</span> </td>
+    <td>3.10 only </td>
+  </tr>
+</table>
+<p>As far as is yet known, each server DLL has kept the one well-known index through 
+all Windows versions for which the server DLL remains in use. This does not mean, 
+however, that clients have the luxury of stable API numbers to use in their calls 
+to the server. The high parts stay the same, but the low parts vary significantly 
+between versions. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 25th
+  <a href="../../../../../../new/19/06.htm">June 2019</a> and was last modified 
+  on 7th July 2019. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c19.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62933" -->
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,164 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>KEVENT_PAIR</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="48540" -->
+<div class="Main">
+  <h1>KEVENT_PAIR </h1>
+  <p>Though obscure now—indeed, for decades—the event pair was once vital to the 
+  efficiency of windowing and other functionality in the Win32 subsystem. The
+  <span class="struct">KEVENT_PAIR</span> structure (formally
+  <span class="struct">_KEVENT_PAIR</span>) is the kernel’s internal packaging of 
+  a pair of events to operate as one object. It is in turn exposed through the Object 
+  Manager as an <span class="struct">EEVENT_PAIR</span> such that event pairs can 
+  be created, opened and otherwise worked with though handles. </p>
+  <p>Two user-mode threads—you might call them client and server—create or open 
+  a pair of synchronisation events as one object by calling the NTDLL functions
+  <span class="function">NtCreateEventPair</span> and <span class="function">NtOpenEventPair</span>. 
+  The two events—call them low and high—each represent one thread’s work. When one 
+  thread completes work for the other, it signals its own of the events and waits 
+  on the other’s. They each do this as one call to the kernel, passing one handle 
+  to the NTDLL functions <span class="function">NtSetLowWaitHighEventPair</span> 
+  and <span class="function">NtSetHighWaitLowEventPair</span>. </p>
+  <p>In version 5.0 and higher, once this operation gets to the kernel and the handles 
+  are resolved to objects, the kernel actually does just call
+  <span class="function">KeSetEvent</span> for one event and
+  <span class="function">KeWaitForSingleObject</span> for the other. Earlier versions, 
+  however, look for efficiency from the certainty that setting the event is just 
+  the first operation in a pair. They even give each thread a built-in event pair 
+  which a client and server can operate through the NTDLL functions
+  <span class="function">NtSetLowWaitHighThread</span> and
+  <span class="function">NtSetHighWaitLowThread</span> without the overhead of interpreting 
+  a handle. The original Windows versions apparently regarded this as so important 
+  that these functions get to the kernel through their own interrupt numbers (0x2B 
+  and 0x2C), thus shaving away even the small overhead of having the kernel look 
+  up its service table. </p>
+  <p>All this special attention to synchronising with event pairs was arguably nothing 
+  but dim prehistory even before Windows 8.1 reduced all the relevant functions 
+  to trivial failure. For one vestige that remains to this day, see NTSTATUS.H where 
+  comments for <span class="constant">STATUS_NO_EVENT_PAIR</span> talk of a “thread 
+  specific client/server event pair object”. </p>
+  <h2>Documentation Status </h2>
+  <p>Neither the <span class="struct">KEVENT_PAIR</span> nor any of the relevant 
+  NTDLL functions were ever documented. No C-language definition is known to have 
+  been published in any header from a Device Driver Kit (DDK) or Windows Driver 
+  Kit (WDK) or any other of Microsoft’s programming kits. For no Windows version 
+  is the structure even known from type information in public symbol files for the 
+  kernel or NTDLL. </p>
+  <p>The first that <span class="struct">KEVENT_PAIR</span> is known as Microsoft’s 
+  name for the structure is from output of the <span class="command">
+  <a href="../../../../debug/kdex2x86/strct.htm">!strct</a></span> command as implemented 
+  by the KDEX2X86 debugging extension which Microsoft supplied with the Device Driver 
+  Kit (DDK) for Windows NT 4.0. This also provides offsets and names (but not types) 
+  of the members. </p>
+  <p>Type information, such as might be found in public symbols, has instead been 
+  published in a statically linked library named CLFSMGMT.LIB which Microsoft supplies 
+  with the Software Development Kit (SDK) for user-mode programming. The x86 build 
+  of this library has type information for versions 6.0 to 6.2 inclusive, the x64 
+  build for version 6.2 only. These libraries for version 6.2 place the definition 
+  in an otherwise unpublished header named <a href="../../../source/inc/ke.htm">
+  ke.h</a> (at line 488) from which it is thought to have been deleted for version 
+  6.3. </p>
+  <h2>Layout </h2>
+  <p>The <span class="struct">KEVENT_PAIR</span> is 0x24 and 0x38 bytes in 32-bit 
+  and 64-bit Windows, respectively, in all versions that have it. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">SHORT Type;</pre>
+        </td>
+        <td>3.10 to 6.2 &nbsp;</td>
+      </tr>
+      <tr>
+        <td>0x02 </td>
+        <td>0x02 </td>
+        <td>
+        <pre class="source">SHORT Size;</pre>
+        </td>
+        <td>3.10 to 6.2 </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">KEVENT EventLow;</pre>
+        </td>
+        <td>3.10 to 6.2 </td>
+      </tr>
+      <tr>
+        <td>0x14 </td>
+        <td>0x20 </td>
+        <td>
+        <pre class="source">KEVENT EventHigh;</pre>
+        </td>
+        <td>3.10 to 6.2 </td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="Footer">
+    <p class="Dates">This page was created on 19th
+    <a href="../../../../../../../new/22/12.htm">December 2022</a> and was last 
+    modified on 18th January 2023. </p>
+    <!--webbot bot="Include" U-Include="../../../../_include/c2223.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2022-2023. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="4493" -->
+  </div>
+</div>
+
+</body>
+
+</html>

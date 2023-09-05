@@ -1,0 +1,169 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Memory Limit for Hibernation Support</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <!--webbot bot="Include" U-Include="../../_include/draft.htm" TAG="BODY" startspan -->
+
+<div class="Header">
+  <p class="alert">DRAFT: Take more than your usual care. </p>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="34080" -->
+  <h1>Memory Limit for Hibernation Support </h1>
+  <p>In most Windows versions, support for hibernation is lost if physical memory 
+  is present above some maximum address. Microsoft documents this in a Knowledge 
+  Base article <a target="_top" href="http://support.microsoft.com/kb/888575">You 
+  cannot put a computer that has more than 4GB of memory into hibernation in Windows 
+  XP, in Windows Server 2003, in Windows Vista, or in Windows Server 2008</a>. </p>
+  <p>As so often, Microsoft’s details are not quite correct. For one thing, the 
+  limit is not to the amount of memory but to the highest physical memory address, 
+  which distinction the article leaves to a Note. More significantly, some of the 
+  cited versions have no limit and others have a significantly raised limit. The 
+  article was perhaps extended to newer versions without getting up-to-date information 
+  from the programmers. This documentation error might pass as unremarkable except 
+  that Microsoft’s details are repeated around the Internet as if verified, and 
+  may become accepted as truth until more people actually do have 4GB of RAM and 
+  start seeing for themselves. </p>
+  <p>A quick summary of the memory limits follows: </p>
+  <table>
+    <tr>
+      <th>Version </th>
+      <th>Maximum Physical Address for Hibernation Support </th>
+    </tr>
+    <tr>
+      <td>Windows XP SP2 and SP3 <br>
+      Windows Server 2003 SP1 and SP2 </td>
+      <td>4GB </td>
+    </tr>
+    <tr>
+      <td>32-bit Windows Vista <br>
+      32-bit Windows 7 </td>
+      <td>none </td>
+    </tr>
+    <tr>
+      <td>64-bit Windows Vista <br>
+      64-bit Windows 7 </td>
+      <td>16TB </td>
+    </tr>
+  </table>
+  <p>The limit in question is coded as a test that the Windows kernel applies near 
+  the end of its internal routine <span class="symbol">PopFilterCapabilities</span>. 
+  If this test fails, then all the kernel’s reports of system power capabilities 
+  will mark the S4 sleep state, i.e., hibernation, as unsupported. The way this 
+  will be seen most readily at user-interface level is that the Power applet in 
+  the Control Panel will not show a tab for Hibernation. (It should perhaps be stressed 
+  that the converse is unsound. If the tab is shown, then the test was passed, but 
+  this can’t mean that hibernation is sure to work.) </p>
+  <p>This notion of disabling hibernation support on a system that fails a capabilities 
+  test is as old as hibernation itself. However, the test was not originally implemented 
+  as a memory limit. Instead, the original Windows 2000 disables hibernation if 
+  the kernel is using the CPU feature known as Physical Address Extension (PAE). 
+  This feature allows a 32-bit processor to map its 32-bit linear address space 
+  into a larger physical address space. For any version of 32-bit Windows to know 
+  of any memory at or above 4GB, you need to have PAE enabled and be running the 
+  PAE kernel. However, the converse is not true. You can enable PAE (wastefully) 
+  even if all your memory is below 4GB, but among the consequences is that you lose 
+  hibernation support. This original behaviour persists not only through all known 
+  Windows 2000 service packs but also in Windows XP up to and including SP1. </p>
+  <p>It is unclear whether the test ought all along to have been for memory outside 
+  a 32-bit physical address space or for the PAE feature that allows the use of 
+  such memory. Microsoft’s early programming of PAE support is sometimes confused 
+  about the distinction, such that it can go wrong if PAE is enabled even while 
+  all memory fits into 4GB. Microsoft will have needed to straighten this out before 
+  Windows could use another CPU feature which happens to be available only if PAE 
+  is enabled, namely page-level protection against executing instructions in memory 
+  that looks intended only for data. This is highly beneficial protection no matter 
+  how much memory is present. Its introduction would mean that enabling PAE would 
+  no longer be wasteful—indeed, would be desirable—even if all memory is below 4GB. 
+  The link between PAE and hibernation had to be rethought. </p>
+  <p>Mutation of the hibernation test into a memory limit begins (chronologically) 
+  with the original Windows Server 2003. This version mostly retains the PAE test, 
+  but with a refinement. Support for hibernation is withdrawn if PAE is enabled, 
+  as before, <span class="emphasis">except</span> if all the following are true: </p>
+  <ul>
+    <li>all physical memory known to Windows is below 4GB; </li>
+    <li>the AMD-specific Execute-Disable feature is available and the
+    <span class="switch">NOEXECUTE</span> option is given in BOOT.INI; </li>
+    <li>there is less than 2GB of physical memory known to Windows. </li>
+  </ul>
+  <p>In practice therefore, if you enable PAE on the original Windows Server 2003, 
+  you still lose hibernation support if you have too much memory. Exactly what Microsoft 
+  intended for AMD processors is unclear—the <span class="switch">NOEXECUTE</span> 
+  option is not documented for the original Windows Server 2003—but there is in 
+  this test the first sign of a memory limit for hibernation. </p>
+  <p>Simplification to testing only for memory begins with Windows XP SP2 and Windows 
+  Server 2003 SP1 (both 32-bit and 64-bit). For these versions, hibernation is disabled 
+  if the kernel knows of any physical memory at or above 4GB. </p>
+  <p>This test is removed altogether from 32-bit Windows Vista, including its service 
+  packs and therefore also the original Windows Server 2008. Let it be stressed: 
+  these 32-bit Windows versions have no memory limit for hibernation. A memory limit 
+  is retained for 64-bit Windows Vista, but the maximum physical address is raised 
+  to 16TB. (This is the most memory that can be spanned by an array of 4KB pages 
+  using a 32-bit index.) </p>
+  <p>Windows 7, and therefore also Windows Server 2008 R2, changes the code so that 
+  hibernation is disabled if any of several system power logging entries are present. 
+  Logging entries were introduced with version 5.2, i.e., Windows Server 2003. Every 
+  logging entry has a formally defined <span class="definition">reason</span>. The 
+  reason for having too high a physical memory address is documented symbolically 
+  as <span class="constant">SPSD_REASON_MEMORYLIMIT</span>. No logging entry for 
+  this reason is ever inserted by the 32-bit kernel for Windows 7, which means that 
+  32-bit Windows 7 also has no memory limit for hibernation. For 64-bit Windows 
+  7, the kernel inserts a memory-limit logging entry if any physical memory is found 
+  at or above 16TB. </p>
+  <p class="draft">Note that logging entries can be inserted from outside the kernel, 
+  via the exported (but undocumented) <span class="function">ZwPowerInformation</span> 
+  function, using the <span class="constant">SystemPowerLoggingEntry</span> value 
+  for the <span class="enum">POWER_INFORMATION_LEVEL</span>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 5th December 2009 and was last modified 
+    on 13th July 2012. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c0912.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009-2012. Geoff Chappell. All rights reserved.
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="62847" -->
+  </div>
+</div>
+
+</body>
+
+</html>

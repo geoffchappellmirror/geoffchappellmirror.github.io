@@ -1,0 +1,166 @@
+﻿<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>SHLoadRegUIString</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/shell.css">
+<script type="text/javascript" src="../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../_scripts/shell.js"></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li class="LinkListItem"><a href="../../../../../../index.htm"><span>Home</span></a> </li>
+      <li class="LinkListItem"><a target="_self" href="../../../toc.htm"><span>Table of Contents</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../about/index.htm"><span>About This Site</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../new/index.htm"><span>What’s New?</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../feedback/index.htm"><span>Feedback</span></a> </li>
+      <li class="LinkListItem"><a href="../../../../../../consult/index.htm"><span>Consult</span></a> </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p>Geoff Chappell - Software Analyst </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" i-checksum="55064" endspan -->
+<h1>SHLoadRegUIString </h1>
+<p>This function loads the string resource that is indicated indirectly by a given 
+registry value. </p>
+<h2>Declaration </h2>
+<pre class="source">HRESULT 
+SHLoadRegUIString (
+    HKEY hKey, 
+    LPCTSTR pszValue, 
+    LPTSTR pszOutBuf, 
+    UINT cchOutBuf);</pre>
+<!--webbot bot="Include" U-Include="../_include/aw.htm" TAG="BODY" startspan -->
+
+<p>The function exists in ANSI and Unicode forms. </p>
+
+<!--webbot bot="Include" i-checksum="40026" endspan -->
+<h3>Parameters </h3>
+<p>The <span class="argument">hKey</span> argument provides a handle to an open 
+key. </p>
+<p>The <span class="argument">pszValue</span> argument provides the address of a 
+null-terminated string that names the value to query within the key, or is NULL 
+to query the key’s default value. </p>
+<p>The <span class="argument">pszOutBuf</span> and <span class="argument">cchOutBuf</span> 
+arguments describe a buffer, by address and capacity (in characters) respectively, 
+which is to receive the loaded string resource. </p>
+<h3>Return Value </h3>
+<!--webbot bot="Include" U-Include="../_include/hresult.htm" TAG="BODY" startspan -->
+
+<p>The function returns zero for success, else an error code. </p>
+
+<!--webbot bot="Include" i-checksum="1551" endspan -->
+<h2>Behaviour </h2>
+<p>If <span class="argument">cchOutBuf</span> is not zero, the function initialises 
+the output buffer with a null character. </p>
+<p>If <span class="argument">hKey</span> is -1 or NULL, or if
+<span class="argument">pszOutBuf</span> is NULL, the function fails (returning
+<span class="constant">E_INVALIDARG</span>). Note that if <span class="argument">
+pszOutBuf</span> is NULL, the function will have already faulted unless
+<span class="argument">cchOutBuf</span> is also zero. </p>
+<p>The function queries the specified registry value (using
+<span class="function"><a href="../reg/queryvalueex.htm">SHQueryValueEx</a></span>, 
+without insisting on any particular type of data) for as much data as fits the output 
+buffer. If this fails for any reason other than there being too much data to fit 
+the buffer, the function fails (returning <span class="constant">E_FAIL</span>). 
+If there is too much data to fit the buffer, the function seeks temporary memory 
+for the data, and queries again. If the function cannot obtain this temporary memory, 
+it fails (returning <span class="constant">E_OUTOFMEMORY</span>). If this second 
+query into supposedly enough memory fails for any reason, so does the function (returning
+<span class="constant">E_FAIL</span>). </p>
+<p>The registry value’s data is anticipated to have the form of an indirect string, 
+in a particular format that specifies a resource library and the ID of a string 
+resource in that library. Interpretation is done by the <span class="function">
+<a href="loadindirectstring.htm">SHLoadIndirectString</a></span> function. If this 
+fails, then so does the function. A quick summary follows. If the data fits the 
+anticipated format, then what is produced in the output buffer is the indirectly 
+indicated string resource, else the function fails. If the data does not conform 
+to the format of an indirect string, the output buffer contains as much of the registry 
+value’s data as fits, and the function succeeds. </p>
+<h3>Earlier Versions </h3>
+<p>Initialisation of the output buffer begins with the build of version 5.00 from 
+Windows 2000. </p>
+<p>An additional parameter check was dropped for version 6.00: the
+<span class="argument">pszValue</span> argument must be not NULL, else the function 
+fails (returning <span class="constant">E_INVALIDARG</span>). </p>
+<p>Versions before 6.00 differ significantly in the interpretation of the registry 
+value’s data, the work being not yet settled into a separately exported function. 
+A significant difference is that the function does not fail if the registry value’s 
+data is an indirect string but the indicated resource string fails to load. Instead, 
+the function proceeds as if the data was not an indirect string, and succeeds.
+</p>
+<p>There are also differences in the anticipated format of an indirect string. In 
+builds of version 5.00 from before Windows 2000, the indirect string is simply what 
+is documented: </p>
+<ul>
+  <li>an @ sign, a pathname to a resources library, a comma, a minus sign and a 
+  resource ID. </li>
+</ul>
+<p>The build from Windows 2000 introduces an elaboration of the anticipated format 
+so that the resource string can be cached in the registry value from which it is 
+indirectly loaded. The full format of an indirect string in these versions is:
+</p>
+<ul>
+  <li>an @ sign, a pathname to a resources library, a comma, a minus sign and a 
+  resource ID; </li>
+  <li>optionally continuing with another @ sign, a language ID, a comma and the 
+  cached resource string. </li>
+</ul>
+<p>Characters between the resource ID and the @ sign are ignored, as are 
+characters between the language ID and the comma. If the continuation is present and the language ID matches 
+the current MUI language (from the <span class="function">
+<a href="../mlui/get.htm">MLGetUILanguage</a></span> function), then the function 
+accepts the cached resource string without having to load the library. In cases 
+where the resource string is loaded, the function constructs the full indirect 
+string and sets it as new <span class="constant">REG_SZ</span> data for the registry value. </p>
+<h3>ANSI and Unicode </h3>
+<p>The function has always been natively Unicode. The ANSI form converts to and 
+from Unicode around a call to the Unicode form. </p>
+<h2>Availability </h2>
+<p>The <span class="function">SHLoadRegUIString</span> function is exported from 
+SHLWAPI.DLL as ordinals 438 and 439 (for ANSI and Unicode forms respectively) in 
+version 5.00 and higher. </p>
+<!--webbot bot="Include" U-Include="../_include/undoc500-2007.htm" TAG="BODY" startspan -->
+
+<p>Though this function dates from as long ago as 1999, it was still not documented 
+by Microsoft as late as the January 2007 edition of the Windows Vista Software Development 
+Kit (SDK). </p>
+
+<!--webbot bot="Include" i-checksum="62277" endspan -->
+<p>Although this function remains undocumented, the notion of indirection for registry 
+strings is taken into Windows itself for Windows Vista and Microsoft seems more 
+than merely pleased to write about it as a new feature, e.g., in
+<a target="_top" href="http://msdn.microsoft.com/library/dd374120.aspx">Using Registry 
+String Redirection</a>. Of course, it is a new feature at that level of Windows. 
+It’s so new that the distribution of documentation among pages seems still to be 
+uncertain, having changed at least twice since the January 2007 edition of the Windows 
+Vista SDK. Yet the work of the new ADVAPI32 function <span class="function">RegLoadMUIString</span> 
+has been available from the shell through the <span class="function">SHLoadRegUIString</span> 
+function for most of a decade, during which time it was used heavily by Internet 
+Explorer. </p>
+<div class="Footer">
+  <p class="Dates">This page was created on 11th July 2009 and was last modified 
+  on 17th July 2009. </p>
+  <!--webbot bot="Include" U-Include="../../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved.
+<a href="../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" i-checksum="50766" endspan -->
+</div>
+
+</body>
+
+</html>

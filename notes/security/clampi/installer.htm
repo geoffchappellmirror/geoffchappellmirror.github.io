@@ -1,0 +1,366 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>The Clampi Installer</title>
+<link rel="stylesheet" type="text/css" href="../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../_styles/notes.css">
+<script type="text/javascript" src="../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../_scripts/notes.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript Header" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="55207" -->
+<div class="Main">
+  <h1>The Clampi Installer </h1>
+  <p>It is not remarked upon in every report on Clampi, but the installer has two 
+  distinct modes of operation. In the more widely known mode, the installer extracts 
+  from itself a program which it runs immediately but which it also sets up to be 
+  run automatically whenever the same user restarts Windows. In the other mode, 
+  the installer tries copying itself to the Startup directories of other users so 
+  that they too will get Clampi installed when they next start Windows. In both 
+  modes, the installer ordinarily deletes itself when done. </p>
+  <p>Running the installer always creates an event, named 12345, to guard against 
+  running multiple instances concurrently: if the event already exists, the installer 
+  terminates immediately (and does not delete itself). Note that creating this event 
+  in advance would provide a security product with a very simple means of inoculating 
+  a computer against Clampi, at least until new versions of the installer test a 
+  differently named event. </p>
+  <p>Given that the installer can continue, the choice of mode depends entirely 
+  on its command line. If it is run with exactly one command-line argument (as parsed 
+  by the <span class="function">CommandLineToArgvW</span> function), then copy mode 
+  applies, else extract mode. </p>
+  <h2>Copy Mode </h2>
+  <p>The copying to multiple locations has a guard against being done redundantly. 
+  The installer tries to create the registry key: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_LOCAL_MACHINE\Software\Microsoft\9593275321</span>
+      </td>
+    </tr>
+  </table>
+  <p>As an aside, the registry key that gets created if running on Windows Vista 
+  may actually be </p>
+  <table class="Registry">
+    <tr>
+      <td>Virtualised Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Classes\VirtualStore\MACHINE\SOFTWARE\Microsoft\9593275321</span>
+      </td>
+    </tr>
+  </table>
+  <p>due to registry virtualisation if the current user does not have sufficient 
+  access rights to the intended key. (You may need to know this if you want to find 
+  the key using the Registry Editor.) Whether virtualised or not, if this key cannot 
+  be created as a new key, as opposed to being opened as an existing key, then the 
+  copying is abandoned. Creating this key in advance would be a simple method of 
+  inoculating a computer against the installer’s copy mode (though it wouldn’t surprise 
+  me to find that some anti-virus products already interpret the key’s existence 
+  as a sign of infection rather than defence). </p>
+  <p>If the installer can read its own file, it attempts to locate the Startup directory 
+  for each user and to copy itself there under the name “uninstall.exe”. Its algorithm 
+  for this is the first sign that the Trojan pre-dates Windows Vista—or, at least, 
+  that it is written without regard for behaviour that’s new for Windows Vista, 
+  meaning specifically the new arrangement of directories in user profiles. The 
+  installer first obtains the default path for the current user’s Startup directory 
+  (meaning the shell folder denoted by <span class="constant">CSIDL_STARTUP</span>). 
+  This will typically be </p>
+  <ul>
+    <li>“C:\Users\<span class="placeholder">username</span>\AppData\Roaming\Microsoft\Windows\Start 
+    Menu\Programs\Startup” in Windows Vista; </li>
+    <li>“C:\Documents and Settings\<span class="placeholder">username</span>\Start 
+    Menu\Programs\Startup” in earlier versions. </li>
+  </ul>
+  <p>The installer then assumes that this path has the <span class="placeholder">
+  username</span> between the fourth last and third last backslashes. If the path 
+  cannot be discovered or does not contain (at least) four backslashes, then copying 
+  is abandoned. Otherwise, the installer identifies all non-hidden directories at 
+  the same level as the presumed <span class="placeholder">username</span>. Each 
+  such directory whose name does not begin with a period or with “All” is substituted 
+  for <span class="placeholder">username</span> in the current user’s Startup path 
+  to produce a location to which the installer tries to copy itself. </p>
+  <h2>Extract Mode </h2>
+  <p>When the installer is run with no command-line argument, or with too many, 
+  its job is to extract the persistent program, set it up in the registry and run 
+  it. </p>
+  <p>Extraction is abandoned if the English name of the country for the user’s default 
+  locale begins with R. Since Rwanda is not known for its high-tech industry, the 
+  country that is intended to be exempt is presumably Russia or perhaps Romania. 
+  Some reports go as far as suggesting eastern Europe as the malware’s origin, but 
+  perhaps they have information from outside the code. </p>
+  <h3>Location, Name and Automatic Startup </h3>
+  <p>The preferred location for the extracted executable is the current path for 
+  the current user’s AppData directory (meaning the shell folder denoted by
+  <span class="constant">CSIDL_APPDATA</span>). This will typically be </p>
+  <ul>
+    <li>“C:\Users\<span class="placeholder">username</span>\AppData\Roaming” in 
+    Windows Vista; </li>
+    <li>“C:\Documents and Settings\<span class="placeholder">username</span>\Application 
+    Data” in earlier versions. </li>
+  </ul>
+  <p>The installer has a default for when this path can’t be determined, e.g., on 
+  very old Windows versions that haven’t had their Windows functionality upgraded 
+  by installing Internet Explorer 4.0 or higher. This fallback location is simply 
+  the directory which Windows recommends for temporary files (as reported by the
+  <span class="function">GetTempPath</span> function). </p>
+  <p>The filename for the extracted executable is chosen randomly from among a dozen 
+  hard-coded possibilities. All are plausible-looking names for Windows components. 
+  The extracted executable is set up in the registry so that it should be run automatically 
+  at startup: </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_SZ</span> </td>
+    </tr>
+  </table>
+  <p>The value is chosen to match the filename: </p>
+  <table class="Registry">
+    <tr>
+      <th>Value </th>
+      <th>Data </th>
+    </tr>
+    <tr>
+      <td><span class="regvalue">svchosts</span> </td>
+      <td><span class="placeholder">path</span>\svchosts.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">Taskmon</span> </td>
+      <td><span class="placeholder">path</span>\taskmon.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">RunDll</span> </td>
+      <td><span class="placeholder">path</span>\rundll.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">System</span> </td>
+      <td><span class="placeholder">path</span>\service.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">Sound</span> </td>
+      <td><span class="placeholder">path</span>\sound.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">UPNP</span> </td>
+      <td><span class="placeholder">path</span>\upnpsvc.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">lsass</span> </td>
+      <td><span class="placeholder">path</span>\lsas.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">Init</span> </td>
+      <td><span class="placeholder">path</span>\logon.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">Windows</span> </td>
+      <td><span class="placeholder">path</span>\helper.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">EventLog</span> </td>
+      <td><span class="placeholder">path</span>\event.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">CrashDump</span> </td>
+      <td><span class="placeholder">path</span>\dumpreport.exe </td>
+    </tr>
+    <tr>
+      <td><span class="regvalue">Setup</span> </td>
+      <td><span class="placeholder">path</span>\msiexeca.exe </td>
+    </tr>
+  </table>
+  <p>To strengthen the extracted executable’s appearance as a Windows utility, its 
+  Date Created and Date Modified times are set to the Date Created of the KERNEL32.DLL 
+  file in the Windows system directory. </p>
+  <h3>Registry Settings </h3>
+  <p>Also extracted are several configurable parameters that the extracted executable 
+  will need. The installer knows nothing of the eventual interpretation. It just 
+  sets each registry value to have the corresponding binary data, however much of 
+  it there is. </p>
+  <p>The first to be set—indeed, it is set before the executable is extracted—is 
+  an identifier. The extracted program will regard this as invalid unless it is 
+  exactly four bytes. </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Settings</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">GID</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_BINARY</span> </td>
+    </tr>
+  </table>
+  <p>In the copy studied for this report, the data is 0x00 0x00 0x02 0x0E. No meaning 
+  is discernible just from the extracted program. Since it is reported to the controller 
+  and no provision exists for changing it, a reasonable inference is that it identifies 
+  the package. However, it may be more specific. The extracted program has its own 
+  version number which the controller can learn. Provided that the means of learning 
+  is the same across all versions (and assuming that the authors avoid redundancy), 
+  the <span class="regvalue">GID</span> would be left as identifying just the installer. 
+  Yet all that persists from the installer, except for the extracted program, are 
+  these few registry settings. Since the two settings that specify an RSA public 
+  key (discussed soon) are used before the <span class="regvalue">GID</span> is 
+  sent to the controller, it may be that the <span class="regvalue">GID</span> is 
+  intended only as a quick identifier of what the installer has provided as the 
+  initial data for the other setting. </p>
+  <p>This other setting is a list of Internet resources, apparently called gates, 
+  which the extracted program is to communicate with. I don’t mean to generalise 
+  from the one sample that I have for inspection, but perhaps the G in
+  <span class="regvalue">GID</span> stands for Gate. </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Settings</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">GatesList</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_BINARY</span> </td>
+    </tr>
+  </table>
+  <p>The extracted program will interpret the binary data from the
+  <span class="regvalue">GatesList</span> value as single-byte characters organised 
+  into pairs of null-terminated strings. The first in each pair names the host. 
+  The second names an object to post to at that host. Together, they make a URL. 
+  The copy studied for this report has two URLs: </p>
+  <ul>
+    <li>pop3.re-factoring.cn/WdUorx7bmO5SqHiK </li>
+    <li>secure.loderunner.in/9XKqLvaFdmjWJtlu </li>
+  </ul>
+  <p>Provision exists for the extracted program to receive a new list from a controller, 
+  and save it as new data for this value. Since the program will by then have received 
+  an identifier to use in subsequent exchanges, the controller can remember what 
+  list it has sent. It is unsurprising then that no provision exists for asking 
+  the program what list it has. However, if a controller wanted to learn what list 
+  the program started with, the <span class="regvalue">GID</span> value is the only 
+  possible means. A catalogue of Clampi variants could help settle this speculation.
+  </p>
+  <p>The remaining registry settings that need to be set up for the extracted program 
+  specify an RSA public key. No provision exists for changing this public key. Its 
+  only use is when the extracted program first contacts a controller. The program 
+  sends the controller a randomly generated Blowfish key that both will use to protect 
+  their communications. To protect the Blowfish key, the program encrypts it with 
+  the RSA public key, which is known to the program from separate registry values 
+  for the modulus and public exponent. </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Settings</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">KeyM</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_BINARY</span> </td>
+    </tr>
+  </table>
+  <p>The <span class="regvalue">KeyM</span> value provides the modulus, i.e., the 
+  product of two large prime numbers. The extracted program does not formally require 
+  a size for this modulus but does assume the modulus is large enough for encrypting 
+  a 0x38-byte message. The copy studied for this report has 0x0100 bytes, i.e., 
+  2048 bits, of binary data for this value. </p>
+  <table class="Registry">
+    <tr>
+      <td>Key: </td>
+      <td><span class="regkey">HKEY_CURRENT_USER\Software\Microsoft\Internet Explorer\Settings</span>
+      </td>
+    </tr>
+    <tr>
+      <td>Value: </td>
+      <td><span class="regvalue">KeyE</span> </td>
+    </tr>
+    <tr>
+      <td>Type: </td>
+      <td><span class="constant">REG_BINARY</span> </td>
+    </tr>
+  </table>
+  <p>The <span class="regvalue">KeyE</span> value provides the public exponent, 
+  i.e., the power to which a plain-text message is raised to produce the cipher 
+  text. In the copy studied for this report, the binary data for
+  <span class="regvalue">KeyE</span> is the well-known prime 0x00010001. </p>
+  <h3>Execution </h3>
+  <p>Successful installation requires that all file and registry operations succeed. 
+  With everything set up, the extracted program is set to run automatically whenever 
+  the same user starts Windows, but it is also run immediately. There is no command 
+  line and the program’s windows are to be hidden by default. </p>
+  <p>Incidentally, this first execution is done by calling
+  <span class="function">WinExec</span> without putting the pathname in quotes. 
+  On many Windows installations therefore, this first attempt at running the extracted 
+  program would be defeated if a harmless program named Documents.exe were placed 
+  in the root directory. Indeed, such a program might usefully be not just harmless 
+  but defensive, since it could use its command line to locate the malware and alert 
+  the user. </p>
+  <h2>Self-Deletion </h2>
+  <p>In both operating modes, the installer has the job of deleting itself, even 
+  if the copying or extraction was unsuccessful. The only exception in ordinary 
+  practice is when the installer terminates immediately for believing that another 
+  instance is already running. </p>
+  <p>Self-deletion is complicated because the system does not ordinarily permit 
+  the deletion of a running executable. The installer’s particular way around this 
+  is to start a hidden Command Prompt and then exit. The Command Prompt does the 
+  deletion after a delay that more or less ensures that the installer is not still 
+  running: </p>
+  <pre class="input">%ComSpec% /c dir /s %SystemRoot%&gt;nul &amp;&amp; del &quot;<span class="placeholder">installer</span>&quot;</pre>
+  <p>On Windows Vista, with its numerous side-by-side assemblies in the WinSxS subdirectory, 
+  the recursive directory listing can easily take 10 seconds even on a high-spec 
+  machine, which has the happy side-effect of prompting the alert user to notice 
+  that something strange has just happened. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 6th November 2009 and was last modified 
+    on 15th November 2009. </p>
+    <!--webbot bot="Include" U-Include="../../_include/c09.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2009. Geoff Chappell. All rights reserved. 
+<a href="../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="41384" -->
+  </div>
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,604 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>MMPFN</title>
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/master.css">
+<link rel="stylesheet" type="text/css" href="../../../../../../../../_styles/document.css">
+<link rel="stylesheet" type="text/css" href="../../../../../_styles/km.css">
+<script type="text/javascript" src="../../../../../../../../_scripts/master.js"></script>
+<script type="text/javascript" src="../../../../../../../../_scripts/document.js"></script>
+<script type="text/javascript" src="../../../../../_scripts/km.js" defer></script>
+</head>
+
+<body>
+
+<!--webbot bot="Include" U-Include="../../../../../_include/noscript.htm" TAG="BODY" startspan -->
+
+<div class="NoScript" id="Banner">
+  <div id="Links">
+    <ul class="LinkList">
+      <li> 
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../index.htm">Home</a> </li><!--
+     --><li class="LinkListItem"><a target="_self" href="../../../../../toc.htm">Table of Contents</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../about/index.htm">About This Site</a> </li>
+      </ul>
+      <ul class="PreferNoWrap">
+        <li class="LinkListItem"><a href="../../../../../../../../new/index.htm">What’s New?</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../feedback/index.htm">Feedback</a> </li><!--
+     --><li class="LinkListItem"><a href="../../../../../../../../consult/index.htm">Consult</a> </li>
+      </ul>
+      </li>
+    </ul>
+  </div>
+  <div id="Logo">
+    <p><span class="PreferNoWrap">Geoff Chappell -</span> <span class="PreferNoWrap">Software Analyst</span> </p>
+  </div>
+</div>
+
+<!--webbot bot="Include" endspan i-checksum="33595" -->
+<div class="Main">
+  <h1>MMPFN </h1>
+  <p>The <span class="struct">MMPFN</span> structure (formally
+  <span class="struct">_MMPFN</span>), its name apparently standing for Memory Manager 
+  Page Frame Number, is the key to pretty much everything that the Memory Manager 
+  knows about a page of physical memory that is in general use. There can be, and 
+  typically is, other physical memory known to Windows but it is treated as device-specific 
+  memory in a so-called I/O space and is never used to support allocations of virtual 
+  memory: pages of memory in the I/O space are not represented by
+  <span class="struct">MMPFN</span> structures. </p>
+  <p>The <span class="struct">MMPFN</span> is arguably the most fundamental of all 
+  Memory Manager structures. An array of <span class="struct">MMPFN</span> structures, 
+  one for each page from physical address zero to the highest possible, is one of 
+  the kernel’s largest single uses of memory, and certainly of memory that isn’t 
+  ever paged out. A little more than 1% of physical memory—a little less on 32-bit 
+  Windows—is lost from general use as overhead just from this
+  <span class="struct">MMPFN</span> array. </p>
+  <p>To inspect either a single <span class="struct">MMPFN</span> or the whole array 
+  of them when debugging, use the <span class="command">
+  <a href="../../../../../debug/kdexts/pfn.htm">!pfn</a></span> command or get the 
+  array’s address from the internal variable named
+  <span class="internal variable">MmPfnDatabase</span>. In 64-bit Windows, starting 
+  with Windows Vista, this variable is pre-set to FFFFFA80`00000000, which is hard-coded 
+  throughout the kernel as the one address of the <span class="struct">MMPFN</span> 
+  array. This stops for the 1607 release of Windows 10. Apparently as a continuing 
+  programme of kernel-mode Address Space Layout Randomization (ASLR), this address 
+  is among the several whose (many) hard-coded references throughout the kernel 
+  get changed at load time through the Dynamic Value Relocation Table in the kernel’s 
+  load configuration. </p>
+  <h2>Variability </h2>
+  <p>With one <span class="struct">MMPFN</span> for every physical page, nobody 
+  wants this structure to grow as Windows evolves. In all known Windows versions, 
+  the <span class="struct">MMPFN</span> is: </p>
+  <ul>
+    <li>0x18 bytes in 32-bit Windows without support for Physical Address Extension 
+    (PAE); </li>
+    <li>0x1C bytes in 32bit Windows with PAE; </li>
+    <li>0x30 bytes in 64-bit Windows. </li>
+  </ul>
+  <p>That the <span class="struct">MMPFN</span> doesn’t change in size certainly 
+  doesn’t mean that it doesn’t change. Though it is only small, the
+  <span class="struct">MMPFN</span> is one of the most complex structures in all 
+  of kernel-mode Windows programming. Its layout has varied greatly as ever more 
+  gets packed in ever more intricately. </p>
+  <p>Inevitably, variation occurs even between builds of the one version. Along 
+  with the year-and-month convention for naming the frequent Windows 10 releases, 
+  this note uses the following shorthands for variations within old versions:
+  </p>
+  <ul>
+    <li>late 5.1 starts with Windows XP SP1; </li>
+    <li>late 5.2 starts with Windows Server 2003 SP1. </li>
+  </ul>
+  <p>Note that although Windows XP SP2 is much the more frequent cut-off for other 
+  kernel-mode changes in version 5.1, the <span class="struct">MMPFN</span> changed 
+  earlier. </p>
+  <h2>Layout </h2>
+  <p>Microsoft’s name for the <span class="struct">MMPFN</span> structure itself 
+  and the names and types of its members are known from type information in public 
+  symbol files, starting with Windows 2000 SP3. What’s shown for earlier versions 
+  is inferred from what use these are (yet) known to make of the
+  <span class="struct">MMPFN</span>. Where known use corresponds closely with that 
+  of a version for which Microsoft’s symbols are available, it seems reasonable 
+  to suppose continuity—but this is more than usually uncertain for this structure, 
+  given its elaborate substructure. Some use anyway has no correspondence, the code 
+  having changed too much. Even where the use hasn’t changed, tracking it down exhaustively 
+  would be difficult, if not impossible, even with source code. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">0x00 </td>
+        <td rowspan="2">0x00 </td>
+        <td>
+        <pre class="source">union {
+    /*  changing members, follow link  */
+} <a href="u1.htm">u1</a>;</pre>
+        </td>
+        <td>3.10 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    LIST_ENTRY ListEntry;
+    RTL_BALANCED_NODE TreeNode;
+    struct {
+        /*  see below: ListEntry Overlay  */
+    };
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 (3.10 to 5.2) </td>
+        <td>0x08 (late 5.2) </td>
+        <td>
+        <pre class="source"><a href="../../../../api/mm/mi/mmpte/index.htm">MMPTE</a> *PteAddress;</pre>
+        </td>
+        <td>3.10 to 5.2 </td>
+      </tr>
+      <tr>
+        <td rowspan="2">0x08 (3.10 to 5.2); <br>
+        0x04 (6.0 to 6.3); <br>
+        0x10 </td>
+        <td rowspan="2">0x10 (late 5.2); <br>
+        0x08 (6.0 to 6.3); <br>
+        0x18 </td>
+        <td>
+        <pre class="source">union {
+    /*  changing members, follow link  */
+} <a href="u2.htm">u2</a>;</pre>
+        </td>
+        <td>3.10 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">MIPFNBLINK u2;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 (6.0 to 6.3) </td>
+        <td>0x10 (6.0 to 6.3) </td>
+        <td>
+        <pre class="source">union {
+    /*  see below: Union with PteAddress  */
+};</pre>
+        </td>
+        <td>6.0 to 6.3 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="struct">MMPFN</span> begins with <span class="member">u1</span> 
+  in all versions. What changes for <span class="member">u1</span> in version 10.0 
+  is only that it used to be the whole first member of the <span class="struct">
+  MMPFN</span> but is now nested in an unnamed structure in an unnamed union.
+  </p>
+  <p>The <span class="member">PteAddress</span> is also ancient. It is originally 
+  the second <span class="struct">MMPFN</span> member. Version 6.0 moved it to third 
+  and wrapped it in a union. Version 10.0 restores moves it back to offsets 0x04 
+  and 0x08 but keeps it in the union—hidden a little, in that it is now in an unnamed 
+  union in an unnamed structure in an unnamed union. </p>
+  <p>An important point to <span class="member">u1</span> and
+  <span class="member">u2</span> is that they provide forward and backward links, 
+  named <span class="member">Flink</span> and <span class="member">Blink</span>, 
+  to other physical pages on any of several lists, e.g., of free pages. Just as 
+  important, considering that the <span class="struct">MMPFN</span> must be kept 
+  small, is that a physical page is not always on any list and so the space for 
+  these links has other use in all versions. The union with the
+  <span class="member">Blink</span> has always been made prominent by the debugger: 
+  even the I386KD for version 3.10 reports the contents of <span class="member">
+  u2</span> as “blink / share count” (without revealing the name
+  <span class="member">u2</span> or, indeed, <span class="struct">MMPFN</span>).
+  </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x0C (3.10 to 6.3); <br>
+        0x14 </td>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">USHORT ReferenceCount;</pre>
+        </td>
+        <td>3.10 to 3.50 </td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td>
+        <pre class="source">ULONG ReferenceCount;</pre>
+        </td>
+        <td>3.51 only </td>
+      </tr>
+      <tr>
+        <td>0x18 (late 5.2 to 6.3); <br>
+        0x20 </td>
+        <td>
+        <pre class="source">union {
+    /*  changing members, follow link  */
+} <a href="u3.htm">u3</a>;</pre>
+        </td>
+        <td>4.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x0E (3.10 to 3.50) </td>
+        <td>&nbsp;</td>
+        <td>unknown 16-bit count </td>
+        <td>3.10 to 3.50 </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>The <span class="struct">MMPFN</span> originally has two 16-bit counters at 
+  offsets 0x0C and 0x0E, respectively. Version 3.51 dropped one and widened the 
+  survivor to 32 bits. Version 4.0 narrowed it and squeezed in bit flags. Certainly 
+  by version 5.0 (for which Microsoft’s definition is known from public symbol files), 
+  the combination is dressed into a third union, inside which there then occur significant 
+  rearrangements, including that the <span class="member">ReferenceCount</span> 
+  within the union is first the high 16 bits of the union but then moves back to 
+  the low 16 bits. </p>
+  <p>The unknown 16-bit count in versions before 3.51 is presented as “valid pte 
+  count” by the I386KD.EXE for version 3.10. A good guess at naming the member might 
+  therefore be <span class="member">ValidPteCount</span>, inferring a pattern from 
+  the other count’s presentation as “reference count” to match the name
+  <span class="member">ReferenceCount</span> that is known for later versions with 
+  the certainty of symbol files. Against this is the usual observation that the 
+  programmer who writes for the debugger need not, and often does not, reproduce 
+  from the definitions that apply to the programming. For instance, the same line 
+  of output from the debugger has merely “color” for the <span class="struct">MMPFNENTRY</span> 
+  bit field that is known to have the later name <span class="member">PageColor</span> 
+  and the next line of this output has “restore pte” for what is later known to 
+  be <span class="member">OriginalPte</span>. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset"><col class="Definition"><col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="3">0x1C (late 5.2 to 6.3); <br>
+        0x24 </td>
+        <td>
+        <pre class="source">ULONG UsedPageTableEntries;</pre>
+        </td>
+        <td>late 5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT UsedPageTableEntries;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">USHORT NodeBlinkLow;</pre>
+        </td>
+        <td>6.2 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x1E (6.0 to 6.3); <br>
+        0x26 </td>
+        <td>
+        <pre class="source">UCHAR VaType;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">struct {
+    UCHAR Unused : 4;
+    UCHAR VaType : 4;
+};</pre>
+        </td>
+        <td>6.2 to 1607 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">struct {
+    UCHAR Unused : 4;
+    UCHAR Unused2 : 4;
+};</pre>
+        </td>
+        <td>1703 and higher </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x1F (6.0 to 6.3); <br>
+        0x27 </td>
+        <td>
+        <pre class="source">UCHAR ViewCount;</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR ViewCount;
+    UCHAR NodeFlinkLow;
+};</pre>
+        </td>
+        <td>6.2 to 1903 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    UCHAR ViewCount;
+    UCHAR NodeFlinkLow;
+    UCHAR ModifiedListBucketIndex : 4;
+};</pre>
+        </td>
+        <td>2004 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>In 64-bit Windows, 8-byte alignment of most of the pre-existing members left 
+  the 32-bit <span class="member">u3</span> to be followed by space for four new 
+  bytes. This does eventually get put to use for something that has no real applicability 
+  to 32-bit Windows. In 64-bit Windows 8 and higher, an <span class="struct">MMPFN</span> 
+  can be on two lists concurrently: the 64-bit <span class="member">u1</span> and
+  <span class="member">u2</span> have not just one <span class="member">Flink</span> 
+  and <span class="member">Blink</span> each but two. The second pair link pages 
+  that belong to the same NUMA node. But space is tight and so some bits of each 
+  link are squeezed into <span class="member">u1</span> and <span class="member">
+  u2</span> (as <span class="member">NodeFlinkHigh</span> and
+  <span class="member">NodeBlinkHigh</span>) and others (as <span class="member">
+  NodeFlinkLow</span> and <span class="member">NodeBlinkLow</span>) end up in these 
+  four bytes that are unique to 64-bit Windows. </p>
+  <p>The <span class="member">VaType</span> which was introduced for 64-bit Windows 
+  Vista records that the physical page is dedicated to a specifc region of system 
+  virtual address space. Its values come from what was then the new
+  <span class="enum"><a href="../mi_system_va_type.htm">MI_SYSTEM_VA_TYPE</a></span> 
+  enumeration. Only in the 1709 release of Windows 10 has this needed more than 
+  four bits, but before then the rethinking for ASLR looks to have made it undesirable 
+  to keep this tight relation of physical page to virtual page. The
+  <span class="member">VaType</span> has gone and no use has since been found for 
+  the space. </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Offset (x86) </th>
+        <th>Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="4">0x10 (3.10 to 6.3) </td>
+        <td rowspan="4">0x20 (late 5.2 to 6.3) </td>
+        <td>
+        <pre class="source">MMPTE OriginalPte;</pre>
+        </td>
+        <td>3.10 to 5.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    MMPTE OriginalPte;
+    LONG AweReferenceCount;
+};</pre>
+        </td>
+        <td>5.2 only </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    MMPTE OriginalPte;
+    LONG volatile AweReferenceCount;
+};</pre>
+        </td>
+        <td>6.0 to 6.1 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">MMPTE OriginalPte;</pre>
+        </td>
+        <td>6.2 to 6.3 </td>
+      </tr>
+      <tr>
+        <td rowspan="3">0x14 (non-PAE); <br>
+        0x18 (PAE) </td>
+        <td rowspan="3">0x28 </td>
+        <td>unknown <span class="struct"><a href="../mmpfnentry.htm">MMPFNENTRY</a></span>
+        </td>
+        <td>3.10 to 3.51 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG PteFrame;</pre>
+        </td>
+        <td>4.0 to 5.0 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">union {
+    /*  changing members, follow link  */
+} <a href="u4.htm">u4</a>;</pre>
+        </td>
+        <td>5.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Though versions 5.1 to 6.2 have the <span class="member">OriginalPte</span> 
+  in union with one other member, it keeps its position within the
+  <span class="struct">MMPFN</span> all the way from version 3.10 to 6.3. It doesn’t 
+  go away in version 10: it just moves forward into the unnamed structure in the 
+  unnamed union that now begins the <span class="struct">MMPFN</span>. </p>
+  <p>All versions have a <span class="member">PteFrame</span> in the last member. 
+  It is the Page Frame Number (PFN) of what the <span class="command">!pfn</span> 
+  command names the “containing page”. Each <span class="struct">MMPFN</span> represents 
+  one page of physical memory. To keep this page’s PFN in the
+  <span class="struct">MMPFN</span> would be wasteful since it is known from the 
+  position of the <span class="struct">MMPFN</span> in the
+  <span class="internal variable">MmPfnDatabase</span>. However, when the page is 
+  addressable its PFN is necessarily in some Page Table Entry (PTE). In a simple 
+  mapping, one PTE that provides access to the page has its address in the page’s
+  <span class="struct">MMPFN</span> as the <span class="member">PteAddress</span> 
+  and its PFN as the <span class="member">PteFrame</span>. Originally, this
+  <span class="member">PteFrame</span> is kept with bit flags in something like 
+  the pattern of a PTE which is here thought to be the original
+  <span class="struct">MMPFNENTRY</span>. Version 4.0 moved the flags to offset 
+  0x0C, leaving the <span class="member">PteFrame</span> unadorned. Pressure for 
+  more flags soon had new flags squeezed back in with <span class="member">PteFrame</span> 
+  in the unnamed union that is <span class="member">u4</span>. </p>
+  <h3>ListEntry Overlay </h3>
+  <p>Windows 10 introduces to the <span class="struct">MMPFN</span> the relatively 
+  large <span class="struct">LIST_ENTRY</span> and <span class="struct">RTL_BALANCED_NODE</span> 
+  structures. The former is two pointers. The latter is three, in effect. Three 
+  old members (that are each pointer-sized or larger) are made into an unnamed structure 
+  that shares the space. Take away the construction and the Windows 10
+  <span class="struct">MMPFN</span> has the following 0x10 or 0x18 bytes at its 
+  start: </p>
+  <table class="Struct">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th><span class="struct">MMPFN</span> Offset (x86) </th>
+        <th><span class="struct">MMPFN</span> Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0x00 </td>
+        <td>0x00 </td>
+        <td>
+        <pre class="source">union {
+    /*  changing members, follow link   */
+} <a href="u1.htm">u1</a>;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x04 </td>
+        <td>0x08 </td>
+        <td>
+        <pre class="source">union {
+    /*  see below: Union with PteAddress  */
+};</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+      <tr>
+        <td>0x08 </td>
+        <td>0x10 </td>
+        <td>
+        <pre class="source">MMPTE OriginalPte;</pre>
+        </td>
+        <td>10.0 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <h3>Union with PteAddress </h3>
+  <p>The <span class="member">PteAddress</span> is originally a direct
+  <span class="struct">MMPFN</span> member. Version 6.0 wraps it in an unnamed union 
+  and shifts it deeper into the structure. Version 10.0 then wraps the whole of 
+  this union into an unnamed structure within a different unnamed union and brings 
+  it back towards the front. Again, disregard the scaffolding and look just at the
+  <span class="member">PteAddress</span> is its unnamed union: </p>
+  <table class="Union">
+    <colgroup>
+      <col class="Offset" span="2"><col class="Definition">
+      <col class="Versions">
+    </colgroup>
+    <thead>
+      <tr>
+        <th><span class="struct">MMPFN</span> Offset (x86) </th>
+        <th><span class="struct">MMPFN</span> Offset (x64) </th>
+        <th>Definition </th>
+        <th>Versions </th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="4">0x08 (6.0 to 6.3); <br>
+        0x04 </td>
+        <td rowspan="4">0x10 (6.0 to 6.3); <br>
+        0x08 </td>
+        <td>
+        <pre class="source">MMPTE *PteAddress;</pre>
+        </td>
+        <td>6.0 and higher </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">PVOID volatile VolatilePteAddress;</pre>
+        </td>
+        <td>6.0 to 1803 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">LONG volatile Lock;</pre>
+        </td>
+        <td>6.1 to 6.3 </td>
+      </tr>
+      <tr>
+        <td>
+        <pre class="source">ULONG_PTR PteLong;</pre>
+        </td>
+        <td>6.1 and higher </td>
+      </tr>
+    </tbody>
+  </table>
+  <p>Though the <span class="member">Lock</span> is formally a whole integer, it 
+  exists just for the low bit. It is operated much like a <span class="type">KSPIN_LOCK</span> 
+  but it is not one. Notably, it does not have the instrumentation of a
+  <span class="type">KSPIN_LOCK</span>. Having it in union with the
+  <span class="member">PteAddress</span> may have seemed natural. It is acquired 
+  while setting the <span class="member">PteAddress</span>, which should never itself 
+  have the low bit set. Natural or not, the thinking didn’t last long: version 10.0 
+  reimplements the <span class="member">Lock</span> as the high bit in
+  <span class="member">u2</span>, overlaying the <span class="member">Blink</span> 
+  and <span class="member">ShareCount</span>. </p>
+  <div class="Footer">
+    <p class="Dates">This page was created on 16th July 2016 but was not published 
+    until 26th <a href="../../../../../../../../new/19/05.htm">May 2019</a>. It 
+    was last modified on 9th <a href="../../../../../../../../new/22/07.htm">August 
+    2022</a>. </p>
+    <!--webbot bot="Include" U-Include="../../../../../_include/c1922.htm" TAG="BODY" startspan -->
+
+<p class="Copyright">Copyright © 2019-2022. Geoff Chappell. All rights reserved. 
+<a href="../../../../../../../../about/terms.htm">Conditions apply</a>. </p>
+
+<!--webbot bot="Include" endspan i-checksum="14634" -->
+  </div>
+</div>
+
+</body>
+
+</html>
